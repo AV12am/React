@@ -13,13 +13,15 @@ export function Mark({ size = 32, className = '', title = 'Reaction' }) {
 }
 
 // Loading indicator: the eight petals light up in turn, clockwise, like a compass sweep.
-export function Loader({ size = 40, label = 'Завантаження' }) {
+// `still` freezes one frame of that sweep — a fading trail — for placeholders that are not loading.
+export function Loader({ size = 40, label = 'Завантаження', still = false }) {
   return (
-    <span className="vx-loader" style={{ width: size, height: size }} role="status" aria-label={label}>
+    <span className={`vx-loader ${still ? 'vx-loader--still' : ''}`} style={{ width: size, height: size }} role={still ? 'img' : 'status'} aria-label={label}>
       <svg viewBox="-100 -100 200 200">
         <g fill="currentColor" fillRule="evenodd">
           {paths.petals.map((d, i) => (
-            <path key={i} className="petal" d={d} style={{ animationDelay: `${(i - 8) * 0.15}s` }} />
+            <path key={i} className="petal" d={d}
+              style={still ? { opacity: 0.18 + (0.82 * (i + 1)) / 8 } : { animationDelay: `${(i - 8) * 0.15}s` }} />
           ))}
           <path className="core" d={paths.core} />
         </g>

@@ -236,6 +236,7 @@
 .vx-loader svg { width: 100%; height: 100%; display: block; }
 .vx-loader .petal { opacity: 0.18; animation: vx-petal 1.2s linear infinite; }
 @keyframes vx-petal { 0% { opacity: 1; } 100% { opacity: 0.18; } }
+.vx-loader--still .petal, .vx-loader--still .core { animation: none; }
 .vx-loader .core { animation: vx-core 1.2s var(--ease) infinite; transform-origin: 0 0; }
 @keyframes vx-core { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.7); } }
 @media (prefers-reduced-motion: reduce) {
@@ -304,7 +305,7 @@
 
 /* ---------- Empty ---------- */
 .vx-empty { display: grid; justify-items: center; gap: var(--space-3); padding: var(--space-7) var(--space-5); text-align: center; color: var(--ink-3); }
-.vx-empty svg { width: 32px; height: 32px; }
+.vx-empty > svg { width: 32px; height: 32px; }
 
 .vx-redacted { background: var(--ink-faint); color: transparent; border-radius: 1px; user-select: none; }
 .vx-sensitive-off .vx-sensitive { filter: blur(6px); transition: filter 0.2s; }

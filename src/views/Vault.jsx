@@ -182,9 +182,12 @@ function FileDrawer({ id, onClose }) {
   const [text, setText] = useState(null);
   const [url, setUrl] = useState(null);
   const [armed, setArmed] = useState(false);
+  const [ready, setReady] = useState(false); // keep the loader on screen long enough to be seen
 
   useEffect(() => {
     dispatch({ type: 'file/open', id });
+    setReady(false);
+    const t = setTimeout(() => setReady(true), 700);
     let u;
     (f.stored ? getBlob(id).catch(() => null) : Promise.resolve(null)).then(async (b) => {
       setBlob(b || null);
@@ -193,7 +196,7 @@ function FileDrawer({ id, onClose }) {
       setUrl(u);
       if (/^text\/|json|csv|markdown/.test(b.type) || /\.(md|txt|csv|json)$/i.test(f.name)) setText((await b.text()).slice(0, 20000));
     });
-    return () => u && URL.revokeObjectURL(u);
+    return () => { clearTimeout(t); if (u) URL.revokeObjectURL(u); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -224,11 +227,14 @@ function FileDrawer({ id, onClose }) {
         <button className="vx-btn vx-btn--primary" onClick={download}><Icon name="download" /> Завантажити</button>
       </>}>
       <div className="preview">
-        {blob === undefined && <Loader size={40} />}
-        {blob && url && /^image\//.test(blob.type) && <img src={url} alt={f.name} />}
-        {text != null && <pre className="vx-mono">{text}</pre>}
-        {blob && !text && !/^image\//.test(blob.type) && <div className="vx-empty"><Icon name="file" /> Попередній перегляд недоступний для цього формату</div>}
-        {blob === null && <div className="vx-empty"><Icon name="file" /><div>Демонстраційний запис</div><div className="vx-hint">Вміст не зберігається. Завантажте власний файл, щоб перевірити перегляд.</div></div>}
+        {(!ready || blob === undefined) ? (
+          <div className="vx-empty"><Loader size={64} label="Розшифрування файлу" /><div className="vx-mono">Розшифрування…</div></div>
+        ) : <>
+          {blob && url && /^image\//.test(blob.type) && <img src={url} alt={f.name} />}
+          {text != null && <pre className="vx-mono">{text}</pre>}
+          {blob && !text && !/^image\//.test(blob.type) && <div className="vx-empty"><Loader still size={56} label={f.name} /><div>Попередній перегляд недоступний для цього формату</div></div>}
+          {blob === null && <div className="vx-empty"><Loader still size={56} label={f.name} /><div>Демонстраційний запис</div><div className="vx-hint">Вміст не зберігається. Завантажте власний файл, щоб перевірити перегляд.</div></div>}
+        </>}
       </div>
       <dl className="meta">
         <dt>Гриф</dt><dd><ClassBadge level={f.clearance} /></dd>
