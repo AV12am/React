@@ -11,7 +11,7 @@ const STATUS = {
 };
 const LEVEL = ['—', 'Перегляд', 'Редагування', 'Керування'];
 
-export function Access({ tab, setTab }) {
+export function Access({ tab, setTab, focus, setFocus }) {
   const { state } = useStore();
   const pending = state.requests.filter((r) => r.status === 'pending').length;
   return (
@@ -27,7 +27,7 @@ export function Access({ tab, setTab }) {
           <button key={id} role="tab" aria-selected={tab === id} className={`vx-tab ${tab === id ? 'is-active' : ''}`} onClick={() => setTab(id)}>{l}</button>
         ))}
       </nav>
-      {tab === 'people' && <People />}
+      {tab === 'people' && <People focus={focus} setFocus={setFocus} />}
       {tab === 'requests' && <Requests />}
       {tab === 'roles' && <Roles />}
       {tab === 'levels' && <Levels />}
@@ -41,12 +41,13 @@ function canManage(me, perms, target) {
   return target ? target.division === me.division && target.id !== me.id : true;
 }
 
-function People() {
+function People({ focus, setFocus }) {
   const { state, me, perms } = useStore();
   const [q, setQ] = useState('');
   const [div, setDiv] = useState('all');
   const [st, setSt] = useState('all');
-  const [edit, setEdit] = useState(null);
+  const edit = focus && state.users.some((u) => u.id === focus) ? focus : null;
+  const setEdit = (id) => setFocus(id);
   const [invite, setInvite] = useState(false);
 
   const rows = state.users.filter((u) =>

@@ -22,17 +22,18 @@ export const MODULES = [
   { id: 'divisions', name: 'Напрями' },
   { id: 'access', name: 'Доступи та люди' },
   { id: 'vault', name: 'Сховище' },
+  { id: 'map', name: 'Карта й відстеження' },
   { id: 'audit', name: 'Журнал аудиту' },
   { id: 'settings', name: 'Налаштування системи' },
 ];
 
 export const PERMISSIONS = {
-  admin: { overview: 3, divisions: 3, access: 3, vault: 3, audit: 3, settings: 3 },
-  lead: { overview: 1, divisions: 2, access: 2, vault: 3, audit: 1, settings: 0 },
-  analyst: { overview: 1, divisions: 1, access: 0, vault: 2, audit: 0, settings: 0 },
-  engineer: { overview: 1, divisions: 1, access: 1, vault: 2, audit: 1, settings: 1 },
-  operator: { overview: 1, divisions: 1, access: 0, vault: 1, audit: 0, settings: 0 },
-  guest: { overview: 0, divisions: 0, access: 0, vault: 1, audit: 0, settings: 0 },
+  admin: { overview: 3, divisions: 3, access: 3, vault: 3, map: 3, audit: 3, settings: 3 },
+  lead: { overview: 1, divisions: 2, access: 2, vault: 3, map: 2, audit: 1, settings: 0 },
+  analyst: { overview: 1, divisions: 1, access: 0, vault: 2, map: 2, audit: 0, settings: 0 },
+  engineer: { overview: 1, divisions: 1, access: 1, vault: 2, map: 1, audit: 1, settings: 1 },
+  operator: { overview: 1, divisions: 1, access: 0, vault: 1, map: 2, audit: 0, settings: 0 },
+  guest: { overview: 0, divisions: 0, access: 0, vault: 1, map: 0, audit: 0, settings: 0 },
 };
 
 export const DIVISIONS = [

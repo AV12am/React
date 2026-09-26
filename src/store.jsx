@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, useCallback, useState } from 'react';
 import { USERS, REQUESTS, FILES, FOLDERS, SEED_AUDIT, PERMISSIONS, CLEARANCE } from './data/seed.js';
+import { SEED_POINTS } from './data/geo.js';
 
 const KEY = 'reaction-core/v1';
 
@@ -8,6 +9,8 @@ const initial = () => ({
   requests: REQUESTS,
   folders: FOLDERS,
   files: FILES,
+  points: SEED_POINTS.map((x) => ({ ...x, at: new Date(Date.now() - 86400000 * 3).toISOString() })),
+  seen: {},
   audit: SEED_AUDIT.map((e, i) => ({ id: `a-seed-${i}`, ...e })),
   settings: { theme: 'matte', sensitive: true, lockMinutes: 5 },
   session: null,
@@ -39,9 +42,10 @@ function reducer(state, a) {
     case 'logout':
       return { ...withAudit(state, me, 'auth', 'Вихід із системи'), session: null };
     case 'lock':
-      return withAudit(state, me, 'auth', 'Сесію заблоковано');
+      if (state.session?.locked) return state;
+      return withAudit({ ...state, session: { ...state.session, locked: true } }, me, 'auth', 'Сесію заблоковано');
     case 'unlock':
-      return withAudit(state, me, 'auth', 'Сесію розблоковано');
+      return withAudit({ ...state, session: { ...state.session, locked: false } }, me, 'auth', 'Сесію розблоковано');
     case 'user/update': {
       const before = state.users.find((u) => u.id === a.id);
       const users = state.users.map((u) => (u.id === a.id ? { ...u, ...a.patch } : u));
@@ -65,10 +69,13 @@ function reducer(state, a) {
     }
     case 'request/resolve': {
       const r = state.requests.find((x) => x.id === a.id);
-      let s = { ...state, requests: state.requests.map((x) => (x.id === a.id ? { ...x, status: a.approve ? 'approved' : 'denied', resolvedBy: me } : x)) };
+      let s = { ...state, requests: state.requests.map((x) => (x.id === a.id ? { ...x, status: a.approve ? 'approved' : 'denied', resolvedBy: me, resolvedAt: new Date().toISOString() } : x)) };
       const u = state.users.find((x) => x.id === r.user);
       if (a.approve && r.kind === 'clearance') {
         s = { ...s, users: s.users.map((x) => (x.id === r.user ? { ...x, clearance: r.to } : x)) };
+      }
+      if (a.approve && r.kind === 'folder') {
+        s = { ...s, users: s.users.map((x) => (x.id === r.user ? { ...x, grants: [...new Set([...(x.grants || []), r.folder])] } : x)) };
       }
       const what = r.kind === 'clearance'
         ? `допуск «${CLEARANCE[r.to].short}»`
@@ -93,6 +100,18 @@ function reducer(state, a) {
       const folder = { id: uid('f'), ...a.folder };
       return withAudit({ ...state, folders: [...state.folders, folder] }, me, 'vault', `Створено папку «${folder.name}»`);
     }
+    case 'point/add': {
+      const point = { id: uid('p'), owner: me, at: new Date().toISOString(), ...a.point };
+      return withAudit({ ...state, points: [...state.points, point] }, me, 'map', `Додано позначку «${point.name}» (${point.lat.toFixed(4)}, ${point.lon.toFixed(4)})`);
+    }
+    case 'point/delete': {
+      const p = state.points.find((x) => x.id === a.id);
+      return withAudit({ ...state, points: state.points.filter((x) => x.id !== a.id) }, me, 'map', `Видалено позначку «${p.name}»`);
+    }
+    case 'map/log':
+      return withAudit(state, me, 'map', a.text);
+    case 'seen':
+      return { ...state, seen: { ...state.seen, [me]: new Date().toISOString() } };
     case 'audit/export':
       return withAudit(state, me, 'system', 'Експортовано журнал аудиту (CSV)');
     case 'settings':
@@ -157,5 +176,7 @@ export function fmtAgo(iso) {
   const days = Math.floor(s / 86400);
   return days === 1 ? 'учора' : `${days} дн. тому`;
 }
+
+export const canSeeFile = (me, f) => f.clearance <= me.clearance || (me.grants || []).includes(f.folder);
 
 export const initials = (name) => name.split(' ').map((p) => p[0]).slice(0, 2).join('');

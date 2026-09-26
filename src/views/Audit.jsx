@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useStore, fmtDate } from '../store.jsx';
 import { Panel, Avatar } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
+import { saveFile, SAVE_MESSAGE } from '../lib/io.js';
 
-const TYPES = { auth: 'Вхід', access: 'Доступ', vault: 'Сховище', security: 'Безпека', system: 'Система' };
+const TYPES = { auth: 'Вхід', access: 'Доступ', vault: 'Сховище', map: 'Карта', security: 'Безпека', system: 'Система' };
 
 // A short, stable fingerprint so each entry can be cited in reports.
 const fp = (e) => {
@@ -19,17 +20,15 @@ export function Audit() {
   const rows = state.audit.filter((e) => (type === 'all' || e.type === type)
     && `${e.text} ${userById(e.actor)?.name ?? ''}`.toLowerCase().includes(q.toLowerCase()));
 
-  const exportCsv = () => {
+  const exportCsv = async () => {
     const esc = (v) => `"${String(v).replace(/"/g, '""')}"`;
     const lines = [['Час', 'Відбиток', 'Користувач', 'Код', 'Тип', 'Подія'].map(esc).join(',')]
       .concat(rows.map((e) => {
         const u = userById(e.actor);
         return [fmtDate(e.at), fp(e), u?.name ?? 'Система', u?.code ?? '', TYPES[e.type], e.text].map(esc).join(',');
       }));
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\n')], { type: 'text/csv' }));
-    a.download = `audit-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
+    const res = await saveFile(`audit-${new Date().toISOString().slice(0, 10)}.csv`, new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv' }));
+    if (res !== 'saved') return toast(SAVE_MESSAGE[res]);
     dispatch({ type: 'audit/export' });
     toast(`Експортовано ${rows.length} записів`);
   };

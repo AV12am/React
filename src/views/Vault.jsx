@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useStore, fmtBytes, fmtDate } from '../store.jsx';
+import { useStore, fmtBytes, fmtDate, canSeeFile } from '../store.jsx';
+import { saveFile, SAVE_MESSAGE } from '../lib/io.js';
 import { Panel, Drawer, ClassBadge, Modal } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { Loader } from '../brand/Mark.jsx';
@@ -8,11 +9,12 @@ import { putBlob, getBlob, deleteBlob } from '../vaultdb.js';
 
 const ext = (name) => (name.split('.').pop() || '').toUpperCase().slice(0, 5);
 
-export function Vault() {
+export function Vault({ focus, setFocus }) {
   const { state, me, perms, dispatch, userById, toast } = useStore();
   const [folder, setFolder] = useState('all');
   const [q, setQ] = useState('');
-  const [open, setOpen] = useState(null);
+  const open = focus && state.files.some((f) => f.id === focus && canSeeFile(me, f)) ? focus : null;
+  const setOpen = (id) => setFocus(id);
   const [pending, setPending] = useState(null); // files chosen, awaiting classification
   const [drag, setDrag] = useState(false);
   const [newFolder, setNewFolder] = useState(false);
@@ -20,12 +22,12 @@ export function Vault() {
 
   const used = state.files.reduce((s, f) => s + f.size, 0);
   const current = state.folders.find((f) => f.id === folder);
-  const canWrite = perms.vault >= 2 && (!current || current.clearance <= me.clearance);
+  const canWrite = perms.vault >= 2 && (!current || current.clearance <= me.clearance || (me.grants || []).includes(current.id));
 
   const files = useMemo(() => state.files
     .filter((f) => (folder === 'all' || f.folder === folder))
-    .filter((f) => (q ? f.clearance <= me.clearance && f.name.toLowerCase().includes(q.toLowerCase()) : true))
-    .sort((a, b) => b.at.localeCompare(a.at)), [state.files, folder, q, me.clearance]);
+    .filter((f) => (q ? canSeeFile(me, f) && f.name.toLowerCase().includes(q.toLowerCase()) : true))
+    .sort((a, b) => b.at.localeCompare(a.at)), [state.files, folder, q, me]);
 
   const choose = (list) => {
     if (!list?.length) return;
@@ -33,7 +35,9 @@ export function Vault() {
     setPending(Array.from(list));
   };
 
+  const requested = (folderId) => state.requests.some((r) => r.user === me.id && r.kind === 'folder' && r.folder === folderId && r.status === 'pending');
   const requestAccess = (f) => {
+    if (requested(f.folder)) return;
     dispatch({ type: 'request/create', request: { kind: 'folder', folder: f.folder, reason: `Доступ до файлу рівня «${CLEARANCE[f.clearance].short}».` } });
     toast('Запит надіслано керівнику напряму');
   };
@@ -60,7 +64,7 @@ export function Vault() {
             <Icon name="vault" /> Усі файли <span className="vault__count">{state.files.length}</span>
           </button>
           {state.folders.map((f) => {
-            const locked = f.clearance > me.clearance;
+            const locked = f.clearance > me.clearance && !(me.grants || []).includes(f.id);
             return (
               <button key={f.id} className={`vx-nav-item ${folder === f.id ? 'is-active' : ''}`} onClick={() => setFolder(f.id)}>
                 <Icon name={locked ? 'lock' : 'folder'} /> <span className="vault__fname">{f.name}</span>
@@ -92,7 +96,7 @@ export function Vault() {
                 <thead><tr><th>Назва</th><th>Гриф</th><th className="ta-r">Розмір</th><th>Власник</th><th>Змінено</th><th /></tr></thead>
                 <tbody>
                   {files.map((f) => {
-                    const locked = f.clearance > me.clearance;
+                    const locked = !canSeeFile(me, f);
                     const owner = userById(f.owner);
                     return (
                       <tr key={f.id} className={locked ? 'is-locked' : 'is-clickable'} onClick={() => !locked && setOpen(f.id)}>
@@ -108,7 +112,9 @@ export function Vault() {
                         <td className="vx-hint">{fmtDate(f.at, false)}</td>
                         <td className="ta-r">
                           {locked
-                            ? <button className="vx-btn vx-btn--sm" onClick={(e) => { e.stopPropagation(); requestAccess(f); }}>Запит доступу</button>
+                            ? (requested(f.folder)
+                              ? <span className="vx-hint">Запит надіслано</span>
+                              : <button className="vx-btn vx-btn--sm" onClick={(e) => { e.stopPropagation(); requestAccess(f); }}>Запит доступу</button>)
                             : <Icon name="chevron" size={16} className="vx-muted" />}
                         </td>
                       </tr>
@@ -203,14 +209,11 @@ function FileDrawer({ id, onClose }) {
   if (!f) return null;
   const canDelete = perms.vault >= 3 || (perms.vault >= 2 && f.owner === me.id);
 
-  const download = () => {
+  const download = async () => {
     const b = blob || new Blob([`Reaction Core — демонстраційний запис\n\n${f.name}\nГриф: ${CLEARANCE[f.clearance].full}\n\nВміст цього файлу не зберігається в демо-версії.`], { type: 'text/plain' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(b);
-    a.download = blob ? f.name : `${f.name}.txt`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    dispatch({ type: 'file/open', id, download: true });
+    const res = await saveFile(blob ? f.name : `${f.name}.txt`, b);
+    if (res === 'saved') dispatch({ type: 'file/open', id, download: true });
+    else toast(SAVE_MESSAGE[res]);
   };
   const remove = async () => {
     if (!armed) { setArmed(true); return; }

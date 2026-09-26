@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { StoreProvider, useStore } from './store.jsx';
-import { Wordmark, Mark } from './brand/Mark.jsx';
+import { Wordmark, Mark, Loader } from './brand/Mark.jsx';
 import { Icon } from './components/Icon.jsx';
 import { Avatar, Toasts, Modal, ClassBadge } from './components/ui.jsx';
 import { Splash, Login, Lock } from './views/Entry.jsx';
@@ -10,13 +10,19 @@ import { Access } from './views/Access.jsx';
 import { Vault } from './views/Vault.jsx';
 import { Audit } from './views/Audit.jsx';
 import { Settings } from './views/Settings.jsx';
-import { ROLES } from './data/seed.js';
+import { ROLES, CLEARANCE } from './data/seed.js';
+import { TRACKS } from './data/geo.js';
+import { canSeeFile, fmtAgo } from './store.jsx';
+
+// The map ships its own geography (~1 MB), so it loads only when opened.
+const MapView = lazy(() => import('./views/Map.jsx').then((m) => ({ default: m.MapView })));
 
 const NAV = [
   { id: 'overview', label: 'Огляд', icon: 'overview' },
   { id: 'divisions', label: 'Напрями', icon: 'divisions' },
   { id: 'access', label: 'Доступи', icon: 'access' },
   { id: 'vault', label: 'Сховище', icon: 'vault' },
+  { id: 'map', label: 'Карта', icon: 'map' },
   { id: 'audit', label: 'Журнал аудиту', icon: 'audit' },
   { id: 'settings', label: 'Налаштування', icon: 'settings', always: true },
 ];
@@ -47,26 +53,28 @@ function Root() {
 }
 
 const readHash = () => {
-  const [view = 'overview', sub = null] = location.hash.replace(/^#\/?/, '').split('/');
-  return { view, sub };
+  const [view = 'overview', sub = null, id = null] = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent);
+  return { view: view || 'overview', sub, id };
 };
 
 function Shell() {
   const { state, me, perms, dispatch } = useStore();
-  const [{ view, sub }, setRoute] = useState(readHash);
+  const [{ view, sub, id }, setRoute] = useState(readHash);
   const [menu, setMenu] = useState(false);
   const [palette, setPalette] = useState(false);
-  const [locked, setLocked] = useState(false);
+  const [bell, setBell] = useState(false);
+  const locked = !!state.session?.locked;
 
   const allowed = NAV.filter((n) => n.always || perms[n.id] > 0);
   const current = allowed.find((n) => n.id === view) ? view : allowed[0].id;
   const pending = state.requests.filter((r) => r.status === 'pending').length;
 
-  const go = useCallback((v, s = null) => {
-    location.hash = `/${v}${s ? `/${s}` : ''}`;
-    setRoute({ view: v, sub: s });
+  const go = useCallback((v, s = null, i = null) => {
+    location.hash = `/${v}${s ? `/${encodeURIComponent(s)}` : ''}${i ? `/${encodeURIComponent(i)}` : ''}`;
+    setRoute({ view: v, sub: s, id: i });
     setMenu(false);
     setPalette(false);
+    setBell(false);
     window.scrollTo(0, 0);
   }, []);
 
@@ -76,7 +84,7 @@ function Shell() {
     return () => window.removeEventListener('hashchange', h);
   }, []);
 
-  const lock = useCallback(() => { dispatch({ type: 'lock' }); setLocked(true); setPalette(false); }, [dispatch]);
+  const lock = useCallback(() => { dispatch({ type: 'lock' }); setPalette(false); setBell(false); }, [dispatch]);
 
   // Keyboard: Ctrl/Cmd+K palette, Ctrl/Cmd+L lock.
   useEffect(() => {
@@ -100,13 +108,14 @@ function Shell() {
     return () => { clearTimeout(t); ev.forEach((e) => window.removeEventListener(e, reset)); };
   }, [locked, lock, state.settings.lockMinutes]);
 
-  if (locked) return <Lock onUnlock={() => setLocked(false)} />;
+  if (locked) return <Lock onUnlock={() => {}} />;
 
   const page = {
     overview: <Dashboard go={go} />,
     divisions: <Divisions focus={sub} setFocus={(id) => go('divisions', id)} go={go} />,
-    access: <Access tab={sub || 'people'} setTab={(t) => go('access', t)} />,
-    vault: <Vault />,
+    access: <Access tab={sub || 'people'} setTab={(t) => go('access', t)} focus={id} setFocus={(u) => go('access', 'people', u)} />,
+    vault: <Vault focus={sub} setFocus={(f) => go('vault', f)} />,
+    map: <MapView key={sub || 'map'} focus={sub} go={go} />,
     audit: <Audit />,
     settings: <Settings />,
   }[current];
@@ -150,13 +159,69 @@ function Shell() {
             <Icon name="search" size={16} /> <span>Пошук і команди</span> <kbd>Ctrl K</kbd>
           </button>
           <span className="grow" />
+          <Bell open={bell} setOpen={setBell} go={go} />
           <Clock />
           <span className="topbar__secure vx-hint"><Icon name="shield" size={14} /> Захищено</span>
         </header>
-        <main className="content" id="main">{page}</main>
+        <main className="content" id="main">
+          <Suspense fallback={<div className="vx-empty page-loading"><Loader size={56} label="Завантаження карти" /><div className="vx-mono">Завантаження карти…</div></div>}>{page}</Suspense>
+        </main>
       </div>
 
       {palette && <Palette onClose={() => setPalette(false)} go={go} allowed={allowed} lock={lock} />}
+    </div>
+  );
+}
+
+// What needs this person's attention: requests they can decide, and decisions on their own requests.
+function useNotices() {
+  const { state, me, perms } = useStore();
+  const seen = state.seen?.[me.id] || '';
+  const toDecide = perms.access >= 2
+    ? state.requests.filter((r) => r.status === 'pending' && r.user !== me.id
+      && (me.role === 'admin' || state.users.find((u) => u.id === r.user)?.division === me.division))
+    : [];
+  const mine = state.requests.filter((r) => r.user === me.id && r.status !== 'pending');
+  const items = [
+    ...toDecide.map((r) => ({ id: r.id, at: r.at, kind: 'decide', r })),
+    ...mine.map((r) => ({ id: r.id, at: r.at, kind: 'mine', r })),
+  ].sort((a, b) => b.at.localeCompare(a.at));
+  const unread = toDecide.length + mine.filter((x) => (x.resolvedAt || x.at) > seen).length;
+  return { items, unread };
+}
+
+function Bell({ open, setOpen, go }) {
+  const { state, dispatch, userById } = useStore();
+  const { items, unread } = useNotices();
+  const toggle = () => { if (!open) dispatch({ type: 'seen' }); setOpen(!open); };
+  return (
+    <div className="bell">
+      <button className="vx-btn vx-btn--ghost vx-btn--icon" onClick={toggle} aria-label={`Сповіщення: ${unread}`} aria-expanded={open}>
+        <Icon name="bell" />{unread > 0 && <span className="bell__dot">{unread}</span>}
+      </button>
+      {open && (
+        <div className="bell__menu vx-panel" role="dialog" aria-label="Сповіщення">
+          <div className="vx-panel__head"><h2 className="vx-panel__title">Сповіщення</h2></div>
+          <div className="list">
+            {items.slice(0, 8).map((n) => {
+              const u = userById(n.r.user);
+              const what = n.r.kind === 'clearance' ? `допуск «${CLEARANCE[n.r.to].short}»` : `доступ до папки «${state.folders.find((f) => f.id === n.r.folder)?.name}»`;
+              return n.kind === 'decide' ? (
+                <button key={n.id} className="list__row list__row--btn list__row--top" onClick={() => go('access', 'requests')}>
+                  <Icon name="key" size={16} />
+                  <span className="list__text"><span>{u?.name} просить {what}</span><span className="vx-hint">Потрібне ваше рішення · {fmtAgo(n.at)}</span></span>
+                </button>
+              ) : (
+                <div key={n.id} className="list__row list__row--top">
+                  <Icon name={n.r.status === 'approved' ? 'ok' : 'danger'} size={16} />
+                  <span className="list__text"><span>Ваш запит на {what} {n.r.status === 'approved' ? 'схвалено' : 'відхилено'}</span><span className="vx-hint">{fmtAgo(n.r.resolvedAt || n.at)}</span></span>
+                </div>
+              );
+            })}
+            {!items.length && <div className="vx-empty">Нових сповіщень немає</div>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -179,15 +244,18 @@ function Palette({ onClose, go, allowed, lock }) {
   const items = useMemo(() => {
     const nav = allowed.map((n) => ({ id: `nav-${n.id}`, icon: n.icon, label: `Перейти: ${n.label}`, run: () => go(n.id) }));
     const people = allowed.some((n) => n.id === 'access')
-      ? state.users.map((u) => ({ id: u.id, icon: 'user', label: u.name, hint: u.code, run: () => go('access', 'people') })) : [];
+      ? state.users.map((u) => ({ id: u.id, icon: 'user', label: u.name, hint: u.code, run: () => go('access', 'people', u.id) })) : [];
     const files = allowed.some((n) => n.id === 'vault')
-      ? state.files.filter((f) => f.clearance <= me.clearance).map((f) => ({ id: f.id, icon: 'file', label: f.name, hint: 'Сховище', run: () => go('vault') })) : [];
+      ? state.files.filter((f) => canSeeFile(me, f)).map((f) => ({ id: f.id, icon: 'file', label: f.name, hint: 'Сховище', run: () => go('vault', f.id) })) : [];
+    const places = allowed.some((n) => n.id === 'map')
+      ? [...state.points.filter((p) => p.clearance <= me.clearance).map((p) => ({ id: p.id, icon: 'map', label: p.name, hint: 'Позначка', run: () => go('map', p.id) })),
+        ...TRACKS.filter((t) => t.clearance <= me.clearance).map((t) => ({ id: t.id, icon: 'target', label: t.name, hint: 'Об\u2019єкт', run: () => go('map', t.id) }))] : [];
     const actions = [
       { id: 'lock', icon: 'lock', label: 'Заблокувати сесію', hint: 'Ctrl L', run: lock },
       { id: 'theme', icon: 'eye', label: state.settings.theme === 'matte' ? 'Тема: Папір' : 'Тема: Матова чорна', run: () => { dispatch({ type: 'settings', patch: { theme: state.settings.theme === 'matte' ? 'paper' : 'matte' } }); onClose(); } },
       { id: 'logout', icon: 'logout', label: 'Вийти', run: () => dispatch({ type: 'logout' }) },
     ];
-    const all = [...nav, ...actions, ...people, ...files];
+    const all = [...nav, ...actions, ...people, ...files, ...places];
     const t = q.trim().toLowerCase();
     return (t ? all.filter((i) => `${i.label} ${i.hint ?? ''}`.toLowerCase().includes(t)) : [...nav, ...actions]).slice(0, 9);
   }, [q, allowed, state, me, go, lock, dispatch, onClose]);

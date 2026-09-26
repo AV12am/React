@@ -20,6 +20,7 @@
   --warn: #d6a54e;
   --danger: #e07a5f;
   --info: #7fa7d9;
+  --conflict: #e5484d;
   --scrim: rgba(0, 0, 0, 0.72);
   --grain-opacity: 0.05;
   color-scheme: dark;
@@ -45,6 +46,7 @@
   --warn: #8a5e12;
   --danger: #a23b24;
   --info: #2d5c94;
+  --conflict: #d13438;
   --scrim: rgba(10, 10, 10, 0.4);
   --grain-opacity: 0.03;
   color-scheme: light;
