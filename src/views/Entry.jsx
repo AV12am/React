@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import paths from '../brand/mark-paths.json';
 import { Mark, Loader } from '../brand/Mark.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { Avatar } from '../components/ui.jsx';
@@ -13,7 +12,7 @@ const BOOT = [
   'Готово',
 ];
 
-// The boot splash builds the mark the way the brand board does: construction ring, petals, core.
+// The boot splash shows the same cornflower loader as the rest of the app, only larger.
 export function Splash({ onDone }) {
   const [step, setStep] = useState(0);
   useEffect(() => {
@@ -22,16 +21,7 @@ export function Splash({ onDone }) {
   }, [onDone]);
   return (
     <div className="splash" onClick={onDone}>
-      <svg className="splash__mark" viewBox="-110 -110 220 220" aria-label="REACTION">
-        <circle className="splash__ring" r="104" />
-        <circle className="splash__ring splash__ring--inner" r="30" />
-        <g fillRule="evenodd">
-          {paths.petals.map((d, i) => (
-            <path key={i} className="splash__petal" d={d} style={{ animationDelay: `${0.25 + i * 0.09}s` }} />
-          ))}
-          <path className="splash__core" d={paths.core} />
-        </g>
-      </svg>
+      <Loader size={180} label="Reaction · завантаження" />
       <div className="splash__word vx-wordmark">Reaction</div>
       <div className="vx-tagline splash__tag">Tradecraft for intelligence</div>
       <div className="splash__status vx-mono">{BOOT[step]}{step < 3 ? '…' : ''}</div>
