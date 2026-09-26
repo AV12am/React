@@ -4,8 +4,8 @@ import { zoom as d3zoom, zoomIdentity } from 'd3-zoom';
 import { select } from 'd3-selection';
 import { feature, mesh } from 'topojson-client';
 import world50 from '../data/world-50m.json';
-import { useStore, fmtDate } from '../store.jsx';
-import { Panel, ClassBadge, Modal } from '../components/ui.jsx';
+import { useStore, fmtDate, fmtAgo } from '../store.jsx';
+import { Panel, ClassBadge, Modal, Status } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { Loader } from '../brand/Mark.jsx';
 import { CLEARANCE } from '../data/seed.js';
@@ -13,6 +13,7 @@ import { CITIES, TRACKS, TRACK_KIND, POINT_KINDS } from '../data/geo.js';
 import { CONFLICTS, CONFLICTS_AS_OF } from '../data/conflicts.js';
 import { fmtDD, fmtDMS, fmtMGRS, parseCoords, distanceKm, bearing, fmtKm, trackState } from '../map/coords.js';
 import { copyText } from '../lib/io.js';
+import { useLiveConflicts, ageHours } from '../map/live.js';
 
 /* ---------- geography ---------- */
 
@@ -52,19 +53,28 @@ function countryAt(lon, lat) {
 
 // [west, south, east, north]
 // Conflict zones as GeoJSON, rings wound the way d3 expects (a ring larger than a hemisphere is reversed).
-const ZONES = CONFLICTS.map((z) => {
+const BUILTIN_ZONES = CONFLICTS.map((z) => {
   if (!z.ring) return { ...z, feature: BASE.fc.features.find((f) => f.id === z.country) };
   let ring = [...z.ring, z.ring[0]];
   let f = { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [ring] } };
   if (geoArea(f) > 2 * Math.PI) { ring = ring.slice().reverse(); f = { ...f, geometry: { type: 'Polygon', coordinates: [ring] } }; }
   return { ...z, feature: f };
 });
-function zoneAt(lon, lat, country) {
+function zoneAt(zones, lon, lat, country) {
   if (!country) return null;
-  return ZONES.find((z) => (z.country
+  return zones.find((z) => (z.country
     ? country.id === z.country
     : (z.clip !== 'ukraine' || country.id === '804') && geoContains(z.feature, [lon, lat]))) || null;
 }
+
+const SOURCE_NAME = { deepstate: 'DeepState', isw: 'ISW', acled: 'ACLED', builtin: 'Вбудовані межі' };
+const EVENT_TYPE = {
+  Battles: 'Бої',
+  'Explosions/Remote violence': 'Вибухи та удари',
+  'Violence against civilians': 'Насильство проти цивільних',
+};
+const STALE_HOURS = 48;
+const eventRadius = (e) => 2.5 + Math.min(6, Math.sqrt(e.fatalities || 0));
 
 const PRESETS = {
   world: [-180, -58, 180, 78],
@@ -74,10 +84,56 @@ const PRESETS = {
 const DETAIL_K = 7; // switch to 1:10m borders past this zoom
 const SIM = [1, 60, 600];
 const LAYERS = [
-  ['conflicts', 'Зони конфліктів'], ['graticule', 'Координатна сітка'], ['labels', 'Назви країн'], ['cities', 'Міста'],
+  ['conflicts', 'Зони конфліктів'], ['events', 'Події ACLED'], ['graticule', 'Координатна сітка'], ['labels', 'Назви країн'], ['cities', 'Міста'],
   ['points', 'Позначки'], ['tracks', 'Об’єкти'], ['trails', 'Сліди руху'],
 ];
 const compass = (deg) => ['Пн', 'ПнСх', 'Сх', 'ПдСх', 'Пд', 'ПдЗх', 'Зх', 'ПнЗх'][Math.round(deg / 45) % 8];
+
+const STATUS_KIND = { ok: 'ok', error: 'danger', not_configured: 'idle', disabled: 'idle' };
+
+// Where the red layer comes from, how fresh each source is, and which one draws the front line.
+function SourcesStatus({ manifest, front, frontSource, setFrontSource, available, events }) {
+  const src = manifest?.sources || {};
+  const line = (id) => {
+    const s = src[id];
+    if (!s) return <Status kind="idle">Ще не оновлювалось</Status>;
+    const age = ageHours(s.sourceDate || s.updatedAt);
+    if (s.status === 'ok') {
+      return <Status kind={age > STALE_HOURS ? 'warn' : 'ok'}>
+        Оновлено {fmtAgo(s.updatedAt)} · дані від {fmtDate(s.sourceDate || s.updatedAt)}{id === 'acled' ? ` · ${events} подій` : ''}
+      </Status>;
+    }
+    if (s.status === 'error') return <Status kind="danger">Помилка оновлення{s.updatedAt ? `, показано дані від ${fmtDate(s.sourceDate || s.updatedAt)}` : ''}</Status>;
+    if (s.status === 'not_configured') return <Status kind="idle">Не налаштовано</Status>;
+    return <Status kind={STATUS_KIND[s.status] || 'idle'}>Вимкнено</Status>;
+  };
+  return (
+    <div className="sources">
+      <div className="vx-eyebrow">Джерела даних</div>
+      {['deepstate', 'isw', 'acled'].map((id) => (
+        <div className="sources__row" key={id}>
+          <span className="sources__name">{SOURCE_NAME[id]}</span>
+          {line(id)}
+          {src[id]?.status === 'error' && <span className="vx-hint sources__err">{src[id].error}</span>}
+        </div>
+      ))}
+      <div className="vx-field">
+        <span className="vx-label">Лінія фронту</span>
+        <div className="segmented" role="group" aria-label="Джерело лінії фронту">
+          {['auto', 'deepstate', 'isw', 'builtin'].map((id) => (
+            <button key={id} className={frontSource === id ? 'is-active' : ''} onClick={() => setFrontSource(id)}
+              disabled={(id === 'deepstate' || id === 'isw') && !available[id]}>
+              {id === 'auto' ? 'Авто' : id === 'builtin' ? 'Вбудовані' : SOURCE_NAME[id]}
+            </button>
+          ))}
+        </div>
+        <div className="vx-hint">
+          Зараз: {SOURCE_NAME[front.pick]}. {front.pick === 'builtin' && `Орієнтовні межі станом на ${CONFLICTS_AS_OF} р. — не для оперативного використання.`}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function MapView({ focus, go }) {
   const { state, me, perms, dispatch, userById, toast } = useStore();
@@ -97,7 +153,7 @@ export function MapView({ focus, go }) {
   const [cursor, setCursor] = useState(null); // {lat, lon, country}
   const [touch, setTouch] = useState(false);
   const [mode, setMode] = useState('view');
-  const [layers, setLayers] = useState({ conflicts: true, graticule: true, labels: true, cities: true, points: true, tracks: true, trails: true });
+  const [layers, setLayers] = useState({ conflicts: true, events: true, graticule: true, labels: true, cities: true, points: true, tracks: true, trails: true });
   const [layersOpen, setLayersOpen] = useState(false);
   const [sel, setSel] = useState(null); // {type:'point'|'track'|'coord', id?, lat?, lon?}
   const [follow, setFollow] = useState(null);
@@ -110,6 +166,20 @@ export function MapView({ focus, go }) {
   const [now, setNow] = useState(Date.now());
   const [zoomK, setZoomK] = useState(1);
   const [armed, setArmed] = useState(false);
+  const [frontSource, setFrontSource] = useState('auto');
+
+  // Live conflict data (see scripts/update-conflicts.mjs); built-in outlines when it is absent.
+  const liveData = useLiveConflicts();
+  const front = useMemo(() => {
+    const want = frontSource === 'auto' ? (liveData.deepstate ? 'deepstate' : liveData.isw ? 'isw' : 'builtin') : frontSource;
+    const fc = want === 'builtin' ? null : liveData[want];
+    return fc ? { pick: want, fc, meta: liveData.manifest?.sources?.[want] } : { pick: 'builtin', fc: null, meta: null };
+  }, [liveData, frontSource]);
+  const zones = useMemo(() => BUILTIN_ZONES.map((z) => (z.id === 'ua-occupied' && front.fc
+    ? { ...z, feature: front.fc, note: `Дані ${SOURCE_NAME[front.pick]} станом на ${fmtDate(front.meta?.sourceDate || front.meta?.updatedAt)}.` }
+    : z)), [front]);
+  const events = useMemo(() => liveData.acled?.events || [], [liveData.acled]);
+  const frontAge = ageHours(front.meta?.sourceDate || front.meta?.updatedAt);
 
   const points = useMemo(() => state.points.filter((p) => p.clearance <= me.clearance), [state.points, me.clearance]);
   const hiddenPoints = state.points.length - points.length;
@@ -144,7 +214,7 @@ export function MapView({ focus, go }) {
 
   const draw = useRef(() => {});
   const snapshot = useRef({});
-  snapshot.current = { points, tracks, live, sel, layers, measure, detail, cursor, follow };
+  snapshot.current = { points, tracks, live, sel, layers, measure, detail, cursor, follow, zones, events };
 
   draw.current = () => {
     const canvas = canvasRef.current;
@@ -184,7 +254,7 @@ export function MapView({ focus, go }) {
       if (hov) { ctx.beginPath(); path(hov); ctx.fillStyle = col.ua; ctx.globalAlpha = 0.55; ctx.fill(); ctx.globalAlpha = 1; }
     }
     if (s.layers.conflicts) {
-      for (const z of ZONES) {
+      for (const z of s.zones) {
         const f = z.country ? geo.fc.features.find((x) => x.id === z.country) : z.feature;
         if (!f) continue;
         ctx.save();
@@ -198,6 +268,16 @@ export function MapView({ focus, go }) {
       }
     }
     ctx.beginPath(); path(geo.borders); ctx.strokeStyle = col.border; ctx.lineWidth = 0.8; ctx.stroke();
+    if (s.layers.events && s.events.length) {
+      for (const e of s.events) {
+        const p = proj([e.lon, e.lat]);
+        if (!p) continue;
+        const active = s.sel?.type === 'event' && s.sel.id === e.id;
+        ctx.beginPath(); ctx.arc(p[0], p[1], eventRadius(e) + (active ? 2 : 0), 0, Math.PI * 2);
+        ctx.fillStyle = active ? col.brass : col.conflict; ctx.globalAlpha = active ? 1 : 0.8; ctx.fill(); ctx.globalAlpha = 1;
+        ctx.lineWidth = 1; ctx.strokeStyle = col.sea; ctx.stroke();
+      }
+    }
     ctx.beginPath(); path(geo.coast); ctx.strokeStyle = col.coast; ctx.lineWidth = 0.8; ctx.stroke();
     ctx.beginPath(); path(geo.ua); ctx.strokeStyle = col.ink3; ctx.lineWidth = 1.2; ctx.stroke();
 
@@ -465,6 +545,11 @@ export function MapView({ focus, go }) {
       const d = p && Math.hypot(p[0] - xy[0], p[1] - xy[1]);
       if (d < bestD) { bestD = d; best = { type: 'point', id: pt.id }; }
     }
+    if (layers.events) for (const e of events) {
+      const p = proj([e.lon, e.lat]);
+      const d = p && Math.hypot(p[0] - xy[0], p[1] - xy[1]);
+      if (d < bestD) { bestD = d; best = { type: 'event', id: e.id }; }
+    }
     return best;
   };
 
@@ -478,7 +563,7 @@ export function MapView({ focus, go }) {
     if (mode === 'mark') { setDraft({ ...at, name: '', kind: 'site', clearance: 0, note: '' }); return; }
     const h = hit(xy);
     setFollow(null);
-    if (h) { setSel(h); setTab(h.type === 'track' ? 'tracks' : 'points'); }
+    if (h) { setSel(h); setTab(h.type === 'track' ? 'tracks' : h.type === 'event' ? 'conflicts' : 'points'); }
     else setSel({ type: 'coord', ...at });
     setArmed(false);
   };
@@ -558,7 +643,8 @@ export function MapView({ focus, go }) {
 
   const selPoint = sel?.type === 'point' && points.find((p) => p.id === sel.id);
   const selTrack = sel?.type === 'track' && tracks.find((t) => t.id === sel.id);
-  const selCoord = sel?.type === 'coord' ? sel : selPoint || (selTrack && live[selTrack.id]) || null;
+  const selEvent = sel?.type === 'event' && events.find((e) => e.id === sel.id);
+  const selCoord = sel?.type === 'coord' ? sel : selPoint || (selTrack && live[selTrack.id]) || selEvent || null;
 
   const coordRows = (lat, lon) => (
     <dl className="coords">
@@ -629,7 +715,10 @@ export function MapView({ focus, go }) {
           </div>
           {layers.conflicts && (
             <button className="map-legend" onClick={() => setTab('conflicts')} title="Показати список зон">
-              <i aria-hidden="true" /> Зони конфліктів · орієнтовно, {CONFLICTS_AS_OF}
+              <i aria-hidden="true" />
+              {front.pick === 'builtin'
+                ? <>Зони конфліктів · орієнтовно, {CONFLICTS_AS_OF}</>
+                : <>Фронт: {SOURCE_NAME[front.pick]} · {fmtDate(front.meta?.sourceDate || front.meta?.updatedAt)}{frontAge > STALE_HOURS && <b className="map-legend__stale"> · застаріло</b>}</>}
             </button>
           )}
           {mode !== 'view' && (
@@ -644,7 +733,7 @@ export function MapView({ focus, go }) {
               <div><span>DMS</span> {fmtDMS(readout.lat, readout.lon)}</div>
               <div><span>MGRS</span> {fmtMGRS(readout.lat, readout.lon)}</div>
               {!touch && <div><span>Країна</span> {readout.country?.properties.uk ?? 'Відкрите море'}</div>}
-              {!touch && layers.conflicts && (() => { const z = zoneAt(readout.lon, readout.lat, readout.country); return z && <div className="map-readout__zone"><span>Зона</span> {z.name}</div>; })()}
+              {!touch && layers.conflicts && (() => { const z = zoneAt(zones, readout.lon, readout.lat, readout.country); return z && <div className="map-readout__zone"><span>Зона</span> {z.name}</div>; })()}
             </> : <div className="vx-hint">Наведіть курсор на карту</div>}
           </div>
           <div className="map-scale vx-mono">
@@ -656,7 +745,7 @@ export function MapView({ focus, go }) {
 
         <aside className="map-side">
           {selCoord && (
-            <Panel className="map-card" title={selPoint ? selPoint.name : selTrack ? selTrack.name : 'Координата'}
+            <Panel className="map-card" title={selPoint ? selPoint.name : selTrack ? selTrack.name : selEvent ? (EVENT_TYPE[selEvent.type] || selEvent.type) : 'Координата'}
               action={<button className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" onClick={() => { setSel(null); setFollow(null); }} aria-label="Закрити"><Icon name="close" /></button>}>
               <div className="stack">
                 {selTrack && (() => {
@@ -692,10 +781,22 @@ export function MapView({ focus, go }) {
                     )}
                   </div>
                 </>}
+                {selEvent && <>
+                  <div className="map-card__meta"><span className="vx-tag">ACLED</span><span className="vx-hint">{selEvent.id}</span></div>
+                  <dl className="meta">
+                    <dt>Дата</dt><dd>{fmtDate(selEvent.date, false)}</dd>
+                    <dt>Місце</dt><dd>{[selEvent.location, selEvent.admin1, selEvent.country].filter(Boolean).join(', ')}</dd>
+                    <dt>Тип</dt><dd>{selEvent.subType}</dd>
+                    <dt>Загиблі</dt><dd className="vx-num">{selEvent.fatalities}</dd>
+                  </dl>
+                  {selEvent.notes && <p className="vx-muted map-card__note">{selEvent.notes}</p>}
+                  {coordRows(selEvent.lat, selEvent.lon)}
+                  <div className="vx-hint">Джерело: ACLED, acleddata.com</div>
+                </>}
                 {sel?.type === 'coord' && <>
                   {(() => {
                     const ctry = countryAt(sel.lon, sel.lat);
-                    const z = zoneAt(sel.lon, sel.lat, ctry);
+                    const z = zoneAt(zones, sel.lon, sel.lat, ctry);
                     return <>
                       <div className="vx-muted">{ctry?.properties.uk ?? 'Відкрите море'}</div>
                       {z && <div className="zone-chip"><i aria-hidden="true" />{z.name}</div>}
@@ -749,8 +850,9 @@ export function MapView({ focus, go }) {
             )}
             {tab === 'conflicts' && (
               <div className="list">
-                <div className="list__row vx-hint">Орієнтовні межі станом на {CONFLICTS_AS_OF} р. Не для оперативного використання: звіряйте з DeepState, ISW, ACLED.</div>
-                {ZONES.map((z) => (
+                <SourcesStatus manifest={liveData.manifest} front={front} frontSource={frontSource} setFrontSource={setFrontSource}
+                  available={{ deepstate: !!liveData.deepstate, isw: !!liveData.isw }} events={events.length} />
+                {zones.map((z) => (
                   <button key={z.id} className="list__row list__row--btn list__row--top"
                     onClick={() => {
                       setLayers((l) => ({ ...l, conflicts: true }));

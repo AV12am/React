@@ -1,0 +1,29 @@
+{
+  "$comment": "Sources for scripts/update-conflicts.mjs. Secrets never go here: ACLED credentials come from environment variables (GitHub Actions secrets).",
+  "deepstate": {
+    "enabled": true,
+    "listUrl": "https://deepstatemap.live/api/history/public",
+    "geojsonUrl": "https://deepstatemap.live/api/history/{id}/geojson",
+    "occupiedNamePatterns": ["окуп", "occupied", "ордло", "ordlo", "крим", "crimea", "росі", "russia"],
+    "occupiedFillColors": ["#a52714", "#880e4f", "#bcaaa4"],
+    "attribution": "DeepStateMap.Live"
+  },
+  "isw": {
+    "enabled": true,
+    "layerUrl": "",
+    "where": "1=1",
+    "attribution": "Institute for the Study of War & AEI Critical Threats Project"
+  },
+  "acled": {
+    "enabled": true,
+    "days": 14,
+    "limit": 5000,
+    "eventTypes": ["Battles", "Explosions/Remote violence", "Violence against civilians"],
+    "tokenUrl": "https://acleddata.com/oauth/token",
+    "readUrl": "https://acleddata.com/api/acled/read",
+    "legacyReadUrl": "https://api.acleddata.com/acled/read",
+    "attribution": "ACLED, acleddata.com"
+  },
+  "ukraineBounds": [22.0, 44.0, 40.3, 52.5],
+  "coordinatePrecision": 4
+}

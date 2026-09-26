@@ -1,0 +1,45 @@
+name: Update conflict data
+
+on:
+  schedule:
+    - cron: '17 */3 * * *'   # every 3 hours
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-conflicts
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:conflicts
+      - name: Fetch DeepState, ISW and ACLED
+        run: node scripts/update-conflicts.mjs
+        env:
+          ACLED_USERNAME: ${{ secrets.ACLED_USERNAME }}
+          ACLED_PASSWORD: ${{ secrets.ACLED_PASSWORD }}
+          ACLED_EMAIL: ${{ secrets.ACLED_EMAIL }}
+          ACLED_KEY: ${{ secrets.ACLED_KEY }}
+      - name: Commit refreshed data
+        run: |
+          git config user.name "reaction-core-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data/conflicts
+          # manifest.json changes on every run (checkedAt); commit only when a data file changed
+          if git diff --cached --quiet -- public/data/conflicts ':!public/data/conflicts/manifest.json'; then
+            echo "No new data"
+          else
+            git commit -m "Update conflict data $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git push
+          fi

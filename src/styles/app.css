@@ -349,3 +349,11 @@ kbd {
 .map-side > .vx-panel { min-width: 0; overflow: hidden; }
 .map-tabs { gap: 14px; }
 .map-tabs .vx-tab { font-size: 11px; letter-spacing: 0.1em; }
+.map-legend__stale { color: var(--warn); font-weight: 600; }
+.sources { display: grid; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.sources__row { display: grid; gap: 2px; }
+.sources__name { font-size: 13px; font-weight: 600; }
+.sources__err { overflow-wrap: anywhere; }
+.sources .segmented button:disabled { opacity: 0.4; cursor: not-allowed; }
+.sources .vx-status { white-space: normal; align-items: flex-start; }
+.sources .vx-status svg { margin-top: 1px; }
