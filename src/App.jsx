@@ -35,11 +35,11 @@ function Root() {
   const done = useCallback(() => setBooted(true), []);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = state.settings.theme;
+    document.body.style.background = state.settings.theme === 'paper' ? '#ffffff' : '#0a0a0a';
   }, [state.settings.theme]);
 
   return (
-    <div className={`vx-root vx-grain app-root ${state.settings.sensitive ? '' : 'vx-sensitive-off'}`}>
+    <div data-theme={state.settings.theme} className={`vx-root vx-grain app-root ${state.settings.sensitive ? '' : 'vx-sensitive-off'}`}>
       {!booted ? <Splash onDone={done} /> : me ? <Shell /> : <Login />}
       <Toasts items={toasts} />
     </div>

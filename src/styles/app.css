@@ -83,7 +83,7 @@ kbd {
 
 .main { min-width: 0; display: flex; flex-direction: column; }
 .topbar {
-  position: sticky; top: 0; z-index: 20; height: 60px; display: flex; align-items: center; gap: 12px;
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; height: 60px; display: flex; align-items: center; gap: 12px;
   padding: 0 32px; border-bottom: 1px solid var(--line); background: var(--bg);
 }
 .topbar__menu, .topbar__mark { display: none; }

@@ -12,6 +12,7 @@ export function Settings() {
   const s = state.settings;
   const set = (patch) => dispatch({ type: 'settings', patch });
   const [reason, setReason] = useState('');
+  const [armed, setArmed] = useState(false);
   const hasPending = state.requests.some((r) => r.user === me.id && r.status === 'pending' && r.kind === 'clearance');
 
   const ask = (e) => {
@@ -100,12 +101,13 @@ export function Settings() {
           {me.role === 'admin' && (
             <Panel title="Демо-дані">
               <p className="vx-hint">Повертає людей, запити, файли та журнал до початкового стану. Завантажені файли буде видалено з пристрою.</p>
-              <button className="vx-btn vx-btn--danger" onClick={async () => {
-                if (!confirm('Скинути всі демо-дані?')) return;
+              <button className="vx-btn vx-btn--danger" onBlur={() => setArmed(false)} onClick={async () => {
+                if (!armed) return setArmed(true);
+                setArmed(false);
                 await clearBlobs().catch(() => {});
                 dispatch({ type: 'reset' });
                 toast('Демо-дані скинуто');
-              }}><Icon name="refresh" /> Скинути</button>
+              }}><Icon name="refresh" /> {armed ? 'Точно скинути?' : 'Скинути'}</button>
             </Panel>
           )}
         </div>

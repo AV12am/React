@@ -181,6 +181,7 @@ function FileDrawer({ id, onClose }) {
   const [blob, setBlob] = useState(undefined);
   const [text, setText] = useState(null);
   const [url, setUrl] = useState(null);
+  const [armed, setArmed] = useState(false);
 
   useEffect(() => {
     dispatch({ type: 'file/open', id });
@@ -209,7 +210,7 @@ function FileDrawer({ id, onClose }) {
     dispatch({ type: 'file/open', id, download: true });
   };
   const remove = async () => {
-    if (!confirm(`Видалити «${f.name}»? Дію буде записано в журнал.`)) return;
+    if (!armed) { setArmed(true); return; }
     if (f.stored) await deleteBlob(id).catch(() => {});
     dispatch({ type: 'file/delete', id });
     toast('Файл видалено');
@@ -219,7 +220,7 @@ function FileDrawer({ id, onClose }) {
   return (
     <Drawer title={f.name} onClose={onClose}
       footer={<>
-        {canDelete && <button className="vx-btn vx-btn--danger" onClick={remove}><Icon name="trash" /> Видалити</button>}
+        {canDelete && <button className="vx-btn vx-btn--danger" onClick={remove} onBlur={() => setArmed(false)}><Icon name="trash" /> {armed ? 'Точно видалити?' : 'Видалити'}</button>}
         <button className="vx-btn vx-btn--primary" onClick={download}><Icon name="download" /> Завантажити</button>
       </>}>
       <div className="preview">
