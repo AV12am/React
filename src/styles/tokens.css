@@ -1,0 +1,73 @@
+/* VOLOSHYNSKY — design tokens. Matte (dark) is the primary theme; Paper mirrors the white brand board. */
+:root,
+[data-theme="matte"] {
+  --bg: #0a0a0a;
+  --surface: #111111;
+  --surface-2: #181818;
+  --surface-3: #202020;
+  --line: #242424;
+  --line-strong: #333333;
+  --line-control: #666666;
+  --ink: #e5e5e5;
+  --ink-2: #a3a3a3;
+  --ink-3: #8c8c8c;
+  --ink-faint: #5a5a5a;
+  --mark: #e5e5e5;
+  --brass: #b8975e;
+  --brass-dim: #3a3020;
+  --on-brass: #0a0a0a;
+  --ok: #8fb89a;
+  --warn: #d6a54e;
+  --danger: #e07a5f;
+  --info: #7fa7d9;
+  --scrim: rgba(0, 0, 0, 0.72);
+  --grain-opacity: 0.05;
+  color-scheme: dark;
+}
+
+[data-theme="paper"] {
+  --bg: #ffffff;
+  --surface: #f5f5f5;
+  --surface-2: #ebebeb;
+  --surface-3: #e5e5e5;
+  --line: #e0e0e0;
+  --line-strong: #c7c7c7;
+  --line-control: #8c8c8c;
+  --ink: #0a0a0a;
+  --ink-2: #3a3a3a;
+  --ink-3: #5a5a5a;
+  --ink-faint: #a3a3a3;
+  --mark: #0a0a0a;
+  --brass: #7a5f30;
+  --brass-dim: #eadfc9;
+  --on-brass: #ffffff;
+  --ok: #2f6b3f;
+  --warn: #8a5e12;
+  --danger: #a23b24;
+  --info: #2d5c94;
+  --scrim: rgba(10, 10, 10, 0.4);
+  --grain-opacity: 0.03;
+  color-scheme: light;
+}
+
+:root {
+  --font-display: "Cormorant SC", "Cormorant Garamond", Georgia, serif;
+  --font-wordmark: "Cinzel", "Cormorant SC", Georgia, serif;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+
+  --tracking-caps: 0.18em;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}

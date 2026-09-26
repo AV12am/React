@@ -1,0 +1,293 @@
+import { useState } from 'react';
+import { useStore, fmtAgo, fmtDate } from '../store.jsx';
+import { Panel, Status, Avatar, Drawer, ClassBadge, Switch } from '../components/ui.jsx';
+import { Icon } from '../components/Icon.jsx';
+import { DIVISIONS, ROLES, CLEARANCE, MODULES, PERMISSIONS } from '../data/seed.js';
+
+const STATUS = {
+  active: ['ok', 'Активний'],
+  suspended: ['danger', 'Призупинено'],
+  invited: ['info', 'Запрошено'],
+};
+const LEVEL = ['—', 'Перегляд', 'Редагування', 'Керування'];
+
+export function Access({ tab, setTab }) {
+  const { state } = useStore();
+  const pending = state.requests.filter((r) => r.status === 'pending').length;
+  return (
+    <div className="page">
+      <header className="page__head">
+        <div>
+          <div className="vx-eyebrow">Ідентичності та права</div>
+          <h1 className="vx-h1">Доступи</h1>
+        </div>
+      </header>
+      <nav className="vx-tabs" role="tablist">
+        {[['people', 'Люди'], ['requests', `Запити${pending ? ` · ${pending}` : ''}`], ['roles', 'Ролі та права'], ['levels', 'Рівні допуску']].map(([id, l]) => (
+          <button key={id} role="tab" aria-selected={tab === id} className={`vx-tab ${tab === id ? 'is-active' : ''}`} onClick={() => setTab(id)}>{l}</button>
+        ))}
+      </nav>
+      {tab === 'people' && <People />}
+      {tab === 'requests' && <Requests />}
+      {tab === 'roles' && <Roles />}
+      {tab === 'levels' && <Levels />}
+    </div>
+  );
+}
+
+function canManage(me, perms, target) {
+  if (perms.access < 2) return false;
+  if (me.role === 'admin') return true;
+  return target ? target.division === me.division && target.id !== me.id : true;
+}
+
+function People() {
+  const { state, me, perms } = useStore();
+  const [q, setQ] = useState('');
+  const [div, setDiv] = useState('all');
+  const [st, setSt] = useState('all');
+  const [edit, setEdit] = useState(null);
+  const [invite, setInvite] = useState(false);
+
+  const rows = state.users.filter((u) =>
+    (div === 'all' || u.division === div) &&
+    (st === 'all' || u.status === st) &&
+    (`${u.name} ${u.code} ${u.title}`.toLowerCase().includes(q.toLowerCase())));
+
+  return (
+    <>
+      <div className="toolbar">
+        <div className="vx-search toolbar__grow">
+          <Icon name="search" />
+          <input className="vx-input" placeholder="Пошук за ім'ям, кодом, посадою" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Пошук людей" />
+        </div>
+        <select className="vx-select toolbar__sel" value={div} onChange={(e) => setDiv(e.target.value)} aria-label="Напрям">
+          <option value="all">Усі напрями</option>
+          {DIVISIONS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
+        <select className="vx-select toolbar__sel" value={st} onChange={(e) => setSt(e.target.value)} aria-label="Статус">
+          <option value="all">Будь-який статус</option>
+          {Object.entries(STATUS).map(([k, [, l]]) => <option key={k} value={k}>{l}</option>)}
+        </select>
+        {me.role === 'admin' && <button className="vx-btn vx-btn--primary" onClick={() => setInvite(true)}><Icon name="plus" /> Запросити</button>}
+      </div>
+
+      <Panel bodyClass="vx-table-wrap">
+        <table className="vx-table">
+          <thead>
+            <tr><th>Співробітник</th><th>Напрям</th><th>Роль</th><th>Допуск</th><th>MFA</th><th>Статус</th><th>Активність</th></tr>
+          </thead>
+          <tbody>
+            {rows.map((u) => (
+              <tr key={u.id} className="is-clickable" onClick={() => setEdit(u.id)}>
+                <td>
+                  <div className="cell-person">
+                    <Avatar name={u.name} />
+                    <div><div>{u.name}</div><div className="vx-hint"><span className="vx-mono">{u.code}</span> · {u.title}</div></div>
+                  </div>
+                </td>
+                <td>{DIVISIONS.find((d) => d.id === u.division)?.name}</td>
+                <td>{ROLES.find((r) => r.id === u.role).name}</td>
+                <td><ClassBadge level={u.clearance} /></td>
+                <td>{u.mfa ? <Status kind="ok">Так</Status> : <Status kind="warn">Ні</Status>}</td>
+                <td><Status kind={STATUS[u.status][0]}>{STATUS[u.status][1]}</Status></td>
+                <td className="vx-hint">{fmtAgo(u.lastSeen)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!rows.length && <div className="vx-empty"><Icon name="users" /> Нікого не знайдено</div>}
+      </Panel>
+
+      {edit && <EditUser id={edit} onClose={() => setEdit(null)} readOnly={!canManage(me, perms, state.users.find((u) => u.id === edit))} />}
+      {invite && <Invite onClose={() => setInvite(false)} />}
+    </>
+  );
+}
+
+function EditUser({ id, onClose, readOnly }) {
+  const { state, me, dispatch, toast } = useStore();
+  const u = state.users.find((x) => x.id === id);
+  const [draft, setDraft] = useState({ role: u.role, division: u.division, clearance: u.clearance, status: u.status, mfa: u.mfa });
+  const set = (k) => (v) => setDraft((d) => ({ ...d, [k]: v }));
+  const save = () => {
+    dispatch({ type: 'user/update', id, patch: draft });
+    toast(`Зміни для ${u.name} збережено й записано в журнал`);
+    onClose();
+  };
+  const history = state.audit.filter((e) => e.text.includes(u.code) || e.actor === u.id).slice(0, 5);
+
+  return (
+    <Drawer title={u.name} onClose={onClose}
+      footer={readOnly ? <span className="vx-hint">Лише перегляд — недостатньо прав для змін.</span> : <>
+        <button className="vx-btn vx-btn--ghost" onClick={onClose}>Скасувати</button>
+        <button className="vx-btn vx-btn--primary" onClick={save}>Зберегти</button>
+      </>}>
+      <div className="cell-person">
+        <Avatar name={u.name} lg />
+        <div><div className="vx-mono">{u.code}</div><div className="vx-muted">{u.title}</div></div>
+      </div>
+      <div className="form-grid">
+        <div className="vx-field">
+          <label className="vx-label" htmlFor="role">Роль</label>
+          <select id="role" className="vx-select" value={draft.role} disabled={readOnly || me.role !== 'admin'} onChange={(e) => set('role')(e.target.value)}>
+            {ROLES.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </select>
+        </div>
+        <div className="vx-field">
+          <label className="vx-label" htmlFor="division">Напрям</label>
+          <select id="division" className="vx-select" value={draft.division} disabled={readOnly || me.role !== 'admin'} onChange={(e) => set('division')(e.target.value)}>
+            {DIVISIONS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+        </div>
+        <div className="vx-field">
+          <label className="vx-label" htmlFor="clearance">Рівень допуску</label>
+          <select id="clearance" className="vx-select" value={draft.clearance} disabled={readOnly} onChange={(e) => set('clearance')(+e.target.value)}>
+            {CLEARANCE.filter((c) => c.id <= me.clearance).map((c) => <option key={c.id} value={c.id}>{c.full}</option>)}
+          </select>
+          {!readOnly && <div className="vx-hint">Можна надати допуск не вищий за власний.</div>}
+        </div>
+        <div className="vx-field">
+          <label className="vx-label" htmlFor="status">Статус</label>
+          <select id="status" className="vx-select" value={draft.status} disabled={readOnly || u.id === me.id} onChange={(e) => set('status')(e.target.value)}>
+            <option value="active">Активний</option>
+            <option value="suspended">Призупинено</option>
+            {u.status === 'invited' && <option value="invited">Запрошено</option>}
+          </select>
+        </div>
+      </div>
+      {!readOnly && <Switch checked={draft.mfa} onChange={set('mfa')} label="Двофакторна автентифікація обов'язкова" />}
+      <div>
+        <div className="vx-eyebrow">Остання активність у журналі</div>
+        <div className="list">
+          {history.length ? history.map((e) => (
+            <div className="list__row list__row--top" key={e.id}>
+              <div className="list__text"><div>{e.text}</div><div className="vx-hint">{fmtDate(e.at)}</div></div>
+            </div>
+          )) : <div className="vx-hint">Записів немає.</div>}
+        </div>
+      </div>
+    </Drawer>
+  );
+}
+
+function Invite({ onClose }) {
+  const { me, dispatch, toast } = useStore();
+  const [f, setF] = useState({ name: '', title: '', role: 'analyst', division: 'int', clearance: 0 });
+  const set = (k) => (e) => setF({ ...f, [k]: k === 'clearance' ? +e.target.value : e.target.value });
+  const ok = f.name.trim().split(/\s+/).length >= 2;
+  const send = () => {
+    dispatch({ type: 'user/invite', user: { ...f, name: f.name.trim() } });
+    toast(`Запрошення для ${f.name.trim()} створено`);
+    onClose();
+  };
+  return (
+    <Drawer title="Новий співробітник" onClose={onClose}
+      footer={<><button className="vx-btn vx-btn--ghost" onClick={onClose}>Скасувати</button><button className="vx-btn vx-btn--primary" disabled={!ok} onClick={send}>Надіслати запрошення</button></>}>
+      <div className="vx-field"><label className="vx-label" htmlFor="n">Ім'я та прізвище</label><input id="n" className="vx-input" value={f.name} onChange={set('name')} autoFocus /></div>
+      <div className="vx-field"><label className="vx-label" htmlFor="t">Посада</label><input id="t" className="vx-input" value={f.title} onChange={set('title')} /></div>
+      <div className="form-grid">
+        <div className="vx-field"><label className="vx-label" htmlFor="r">Роль</label>
+          <select id="r" className="vx-select" value={f.role} onChange={set('role')}>{ROLES.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
+        <div className="vx-field"><label className="vx-label" htmlFor="d">Напрям</label>
+          <select id="d" className="vx-select" value={f.division} onChange={set('division')}>{DIVISIONS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
+        <div className="vx-field"><label className="vx-label" htmlFor="c">Допуск</label>
+          <select id="c" className="vx-select" value={f.clearance} onChange={set('clearance')}>{CLEARANCE.filter((c) => c.id <= me.clearance).map((c) => <option key={c.id} value={c.id}>{c.full}</option>)}</select></div>
+      </div>
+      <p className="vx-hint">Запрошений отримає одноразове посилання. Обліковий запис стане активним після налаштування MFA.</p>
+    </Drawer>
+  );
+}
+
+function Requests() {
+  const { state, me, perms, dispatch, userById, toast } = useStore();
+  const [show, setShow] = useState('pending');
+  const rows = state.requests.filter((r) => (show === 'pending' ? r.status === 'pending' : r.status !== 'pending'));
+  const decide = (r, approve) => {
+    dispatch({ type: 'request/resolve', id: r.id, approve });
+    toast(approve ? 'Запит схвалено' : 'Запит відхилено');
+  };
+  return (
+    <>
+      <div className="toolbar">
+        <div className="segmented" role="group" aria-label="Фільтр запитів">
+          <button className={show === 'pending' ? 'is-active' : ''} onClick={() => setShow('pending')}>Очікують</button>
+          <button className={show === 'done' ? 'is-active' : ''} onClick={() => setShow('done')}>Розглянуті</button>
+        </div>
+      </div>
+      <div className="stack">
+        {rows.map((r) => {
+          const u = userById(r.user);
+          const canDecide = perms.access >= 2 && (me.role === 'admin' || u.division === me.division) && u.id !== me.id
+            && (r.kind !== 'clearance' || r.to <= me.clearance);
+          const folder = state.folders.find((f) => f.id === r.folder);
+          return (
+            <div className="vx-panel request" key={r.id}>
+              <div className="cell-person">
+                <Avatar name={u.name} />
+                <div>
+                  <div>{u.name} <span className="vx-mono vx-muted">{u.code}</span></div>
+                  <div className="vx-hint">{DIVISIONS.find((d) => d.id === u.division)?.name} · {fmtAgo(r.at)}</div>
+                </div>
+              </div>
+              <div className="request__what">
+                <div className="request__line">
+                  {r.kind === 'clearance'
+                    ? <>Підвищення допуску <ClassBadge level={r.from} /> <Icon name="chevron" size={14} /> <ClassBadge level={r.to} /></>
+                    : <>Доступ до папки <b>{folder?.name}</b> <ClassBadge level={folder?.clearance ?? 0} /></>}
+                </div>
+                <div className="vx-muted">«{r.reason}»</div>
+              </div>
+              <div className="request__actions">
+                {r.status === 'pending' ? (canDecide ? <>
+                  <button className="vx-btn vx-btn--sm" onClick={() => decide(r, false)}><Icon name="close" /> Відхилити</button>
+                  <button className="vx-btn vx-btn--sm vx-btn--brass" onClick={() => decide(r, true)}><Icon name="check" /> Схвалити</button>
+                </> : <span className="vx-hint">Потрібне рішення уповноваженої особи</span>)
+                  : <Status kind={r.status === 'approved' ? 'ok' : 'danger'}>{r.status === 'approved' ? 'Схвалено' : 'Відхилено'}</Status>}
+              </div>
+            </div>
+          );
+        })}
+        {!rows.length && <Panel><div className="vx-empty"><Icon name="check" /> Немає запитів у цьому списку</div></Panel>}
+      </div>
+    </>
+  );
+}
+
+function Roles() {
+  return (
+    <Panel bodyClass="vx-table-wrap">
+      <table className="vx-table matrix">
+        <thead>
+          <tr><th>Модуль</th>{ROLES.map((r) => <th key={r.id}>{r.name}</th>)}</tr>
+        </thead>
+        <tbody>
+          {MODULES.map((m) => (
+            <tr key={m.id}>
+              <td>{m.name}</td>
+              {ROLES.map((r) => {
+                const v = PERMISSIONS[r.id][m.id];
+                return <td key={r.id}><span className={`perm perm--${v}`}><i aria-hidden="true" />{LEVEL[v]}</span></td>;
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Panel>
+  );
+}
+
+function Levels() {
+  const { state } = useStore();
+  return (
+    <div className="grid grid--4">
+      {CLEARANCE.map((c) => (
+        <div className="vx-panel vx-stat" key={c.id}>
+          <ClassBadge level={c.id} />
+          <div className="vx-stat__value">{state.users.filter((u) => u.clearance === c.id).length}<small>осіб</small></div>
+          <div className="vx-hint">{c.full}. Папок: {state.folders.filter((f) => f.clearance === c.id).length}, файлів: {state.files.filter((f) => f.clearance === c.id).length}.</div>
+        </div>
+      ))}
+    </div>
+  );
+}
