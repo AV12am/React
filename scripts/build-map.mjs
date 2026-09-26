@@ -56,5 +56,6 @@ function build(res) {
   fs.writeFileSync(`src/data/world-${res}.json`, JSON.stringify(topo));
   console.log(`${res}: moved ${crimea.length} Crimean polygon(s) to Ukraine, reversed ${reversed} ring(s), ${fc.features.length} countries; Kyiv/Crimea → ${who([30.52, 50.45])}/${check[0]}`);
 }
+build('110m');
 build('50m');
 build('10m');

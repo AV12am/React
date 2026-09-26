@@ -4,6 +4,7 @@ import { zoom as d3zoom, zoomIdentity } from 'd3-zoom';
 import { select } from 'd3-selection';
 import { feature, mesh } from 'topojson-client';
 import world50 from '../data/world-50m.json';
+import world110 from '../data/world-110m.json';
 import { useStore, fmtDate, fmtAgo } from '../store.jsx';
 import { Panel, ClassBadge, Modal, Status } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
@@ -40,6 +41,7 @@ function prepare(topo) {
   };
 }
 const BASE = prepare(world50);
+const LOW = prepare(world110);
 
 function countryAt(lon, lat) {
   for (const f of BASE.fc.features) {
@@ -58,7 +60,7 @@ const BUILTIN_ZONES = CONFLICTS.map((z) => {
   let ring = [...z.ring, z.ring[0]];
   let f = { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [ring] } };
   if (geoArea(f) > 2 * Math.PI) { ring = ring.slice().reverse(); f = { ...f, geometry: { type: 'Polygon', coordinates: [ring] } }; }
-  return { ...z, feature: f };
+  return { ...z, feature: f, bbox: geoBounds(f) };
 });
 function zoneAt(zones, lon, lat, country) {
   if (!country) return null;
@@ -75,6 +77,16 @@ const EVENT_TYPE = {
 };
 const STALE_HOURS = 48;
 const eventRadius = (e) => 2.5 + Math.min(6, Math.sqrt(e.fatalities || 0));
+
+// Phones report 3× pixel density; 2× is indistinguishable on a map and draws 2.25× fewer pixels.
+const pixelRatio = () => Math.min(2, window.devicePixelRatio || 1);
+function inView(proj, bbox, w, h) {
+  if (!bbox) return true;
+  const [[x0, y0], [x1, y1]] = bbox;
+  const a = proj([x0, y1]), b = proj([x1, y0]);
+  if (!a || !b) return true;
+  return !(Math.max(a[0], b[0]) < 0 || Math.min(a[0], b[0]) > w || Math.max(a[1], b[1]) < 0 || Math.min(a[1], b[1]) > h);
+}
 
 const PRESETS = {
   world: [-180, -58, 180, 78],
@@ -145,6 +157,8 @@ export function MapView({ focus, go }) {
   const transform = useRef(zoomIdentity);
   const zoomRef = useRef(null);
   const interacting = useRef(false);
+  const lastK = useRef(1);
+  const drawn = useRef({ t: zoomIdentity, at: 0 }); // the view the canvas pixels currently show
   const frame = useRef(0);
   const simStart = useRef({ real: Date.now(), sim: Date.now(), mult: 60 });
 
@@ -176,7 +190,7 @@ export function MapView({ focus, go }) {
     return fc ? { pick: want, fc, meta: liveData.manifest?.sources?.[want] } : { pick: 'builtin', fc: null, meta: null };
   }, [liveData, frontSource]);
   const zones = useMemo(() => BUILTIN_ZONES.map((z) => (z.id === 'ua-occupied' && front.fc
-    ? { ...z, feature: front.fc, note: `Дані ${SOURCE_NAME[front.pick]} станом на ${fmtDate(front.meta?.sourceDate || front.meta?.updatedAt)}.` }
+    ? { ...z, feature: front.fc, bbox: geoBounds(front.fc), note: `Дані ${SOURCE_NAME[front.pick]} станом на ${fmtDate(front.meta?.sourceDate || front.meta?.updatedAt)}.` }
     : z)), [front]);
   const events = useMemo(() => liveData.acled?.events || [], [liveData.acled]);
   const frontAge = ageHours(front.meta?.sourceDate || front.meta?.updatedAt);
@@ -216,13 +230,18 @@ export function MapView({ focus, go }) {
   const snapshot = useRef({});
   snapshot.current = { points, tracks, live, sel, layers, measure, detail, cursor, follow, zones, events };
 
+  // The static map (sea, land, borders, conflict zones, events) is rendered into an offscreen canvas and
+  // reused until the view, theme, layers or data change; the one-second track ticks only redraw overlays.
+  const base = useRef({ canvas: null, key: '', zones: null, events: null, t: null, at: 0 });
+
   draw.current = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    canvas.style.transform = '';
+    drawn.current = { t: transform.current, at: performance.now() };
     const { w, h } = size.current;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = pixelRatio();
     const ctx = canvas.getContext('2d');
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const css = getComputedStyle(canvas);
     const c = (n) => css.getPropertyValue(`--${n}`).trim();
     const col = {
@@ -230,56 +249,86 @@ export function MapView({ focus, go }) {
       grid: c('line'), conflict: c('conflict'), ink: c('ink'), ink2: c('ink-2'), ink3: c('ink-3'), brass: c('brass'), bg: c('bg'),
     };
     const s = snapshot.current;
-    const k = transform.current.k;
+    const t = transform.current;
+    const k = t.k;
+    const moving = interacting.current;
     const proj = projection();
-    const path = geoPath(proj, ctx);
-    const geo = s.detail && k >= DETAIL_K && !interacting.current ? s.detail : BASE;
+    // Level of detail: coarse borders and lower resolution while the map moves, full detail at rest.
+    const geo = moving ? (k < 4 ? LOW : BASE) : (s.detail && k >= DETAIL_K ? s.detail : k < 1.6 ? LOW : BASE);
+    const baseRes = moving ? Math.min(dpr, 1) : dpr;
 
-    ctx.fillStyle = col.sea;
-    ctx.fillRect(0, 0, w, h);
-
-    if (s.layers.graticule) {
-      const step = k >= 40 ? 1 : k >= 12 ? 2 : k >= 4 ? 5 : 15;
-      ctx.beginPath();
-      path(geoGraticule().step([step, step]).extentMinor([[-180, -85], [180, 85]])());
-      ctx.strokeStyle = col.grid;
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    }
-
-    ctx.beginPath(); path(geo.others); ctx.fillStyle = col.land; ctx.fill();
-    ctx.beginPath(); path(geo.ua); ctx.fillStyle = col.ua; ctx.fill();
-    if (s.cursor?.country && s.cursor.country.id !== '804') {
-      const hov = geo.fc.features.find((f) => f.id === s.cursor.country.id && f.properties.name === s.cursor.country.properties.name);
-      if (hov) { ctx.beginPath(); path(hov); ctx.fillStyle = col.ua; ctx.globalAlpha = 0.55; ctx.fill(); ctx.globalAlpha = 1; }
-    }
-    if (s.layers.conflicts) {
-      for (const z of s.zones) {
-        const f = z.country ? geo.fc.features.find((x) => x.id === z.country) : z.feature;
-        if (!f) continue;
-        ctx.save();
-        if (z.clip) { // fill only over land: Ukraine for the occupied territories, any land elsewhere
-          ctx.beginPath(); path(geo.ua); if (z.clip === 'land') path(geo.others); ctx.clip();
+    const b = base.current;
+    if (!b.canvas) b.canvas = document.createElement('canvas');
+    const key = [t.k, t.x, t.y, w, h, baseRes, geo === LOW ? 'l' : geo === BASE ? 'm' : 'h', col.sea, col.land, col.conflict,
+      s.layers.graticule, s.layers.conflicts, s.layers.events, s.sel?.type === 'event' ? s.sel.id : ''].join('|');
+    const stale = key !== b.key || b.zones !== s.zones || b.events !== s.events;
+    // During a gesture, keep moving the last bitmap and re-render it at most ~4 times a second.
+    const ratio = b.t ? t.k / b.t.k : 1;
+    const reuse = moving && b.t && performance.now() - b.at < 250 && ratio > 0.5 && ratio < 2;
+    if (stale && !reuse) {
+      b.key = key; b.zones = s.zones; b.events = s.events; b.t = t; b.at = performance.now();
+      const bc = b.canvas;
+      if (bc.width !== Math.round(w * baseRes) || bc.height !== Math.round(h * baseRes)) { bc.width = Math.round(w * baseRes); bc.height = Math.round(h * baseRes); }
+      const g = bc.getContext('2d');
+      g.setTransform(baseRes, 0, 0, baseRes, 0, 0);
+      const bpath = geoPath(proj, g);
+      g.fillStyle = col.sea;
+      g.fillRect(0, 0, w, h);
+      if (s.layers.graticule) {
+        const step = k >= 40 ? 1 : k >= 12 ? 2 : k >= 4 ? 5 : 15;
+        g.beginPath();
+        bpath(geoGraticule().step([step, step]).extentMinor([[-180, -85], [180, 85]])());
+        g.strokeStyle = col.grid; g.lineWidth = 1; g.stroke();
+      }
+      g.beginPath(); bpath(geo.others); g.fillStyle = col.land; g.fill();
+      g.beginPath(); bpath(geo.ua); g.fillStyle = col.ua; g.fill();
+      if (s.layers.conflicts) {
+        const paint = (f) => {
+          g.beginPath(); bpath(f);
+          g.fillStyle = col.conflict; g.globalAlpha = 0.34; g.fill();
+          g.globalAlpha = 0.9; g.lineWidth = 1.2; g.strokeStyle = col.conflict; g.stroke();
+          g.globalAlpha = 1;
+        };
+        // Country-wide zones need no clipping; the rest share one clip per kind instead of one per zone.
+        for (const z of s.zones) if (z.country) { const f = geo.fc.features.find((x) => x.id === z.country); if (f) paint(f); }
+        for (const kind of ['ukraine', 'land']) {
+          const list = s.zones.filter((z) => z.clip === kind && inView(proj, z.bbox, w, h));
+          if (!list.length) continue;
+          g.save();
+          g.beginPath(); bpath(geo.ua); if (kind === 'land') bpath(geo.others); g.clip();
+          list.forEach((z) => paint(z.feature));
+          g.restore();
         }
-        ctx.beginPath(); path(f);
-        ctx.fillStyle = col.conflict; ctx.globalAlpha = 0.34; ctx.fill();
-        ctx.globalAlpha = 0.9; ctx.lineWidth = 1.2; ctx.strokeStyle = col.conflict; ctx.stroke();
-        ctx.restore();
       }
-    }
-    ctx.beginPath(); path(geo.borders); ctx.strokeStyle = col.border; ctx.lineWidth = 0.8; ctx.stroke();
-    if (s.layers.events && s.events.length) {
-      for (const e of s.events) {
-        const p = proj([e.lon, e.lat]);
-        if (!p) continue;
-        const active = s.sel?.type === 'event' && s.sel.id === e.id;
-        ctx.beginPath(); ctx.arc(p[0], p[1], eventRadius(e) + (active ? 2 : 0), 0, Math.PI * 2);
-        ctx.fillStyle = active ? col.brass : col.conflict; ctx.globalAlpha = active ? 1 : 0.8; ctx.fill(); ctx.globalAlpha = 1;
-        ctx.lineWidth = 1; ctx.strokeStyle = col.sea; ctx.stroke();
+      g.beginPath(); bpath(geo.borders); g.strokeStyle = col.border; g.lineWidth = 0.8; g.stroke();
+      if (s.layers.events && s.events.length) {
+        for (const e of s.events) {
+          const p = proj([e.lon, e.lat]);
+          if (!p || p[0] < -10 || p[1] < -10 || p[0] > w + 10 || p[1] > h + 10) continue;
+          const active = s.sel?.type === 'event' && s.sel.id === e.id;
+          g.beginPath(); g.arc(p[0], p[1], eventRadius(e) + (active ? 2 : 0), 0, Math.PI * 2);
+          g.fillStyle = active ? col.brass : col.conflict; g.globalAlpha = active ? 1 : 0.8; g.fill(); g.globalAlpha = 1;
+          g.lineWidth = 1; g.strokeStyle = col.sea; g.stroke();
+        }
       }
+      g.beginPath(); bpath(geo.coast); g.strokeStyle = col.coast; g.lineWidth = 0.8; g.stroke();
+      g.beginPath(); bpath(geo.ua); g.strokeStyle = col.ink3; g.lineWidth = 1.2; g.stroke();
     }
-    ctx.beginPath(); path(geo.coast); ctx.strokeStyle = col.coast; ctx.lineWidth = 0.8; ctx.stroke();
-    ctx.beginPath(); path(geo.ua); ctx.strokeStyle = col.ink3; ctx.lineWidth = 1.2; ctx.stroke();
+
+    // Place the bitmap where its view now sits: screen' = r·screen + (t − r·t₀).
+    const r = t.k / b.t.k;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (r !== 1 || t.x !== b.t.x || t.y !== b.t.y) { ctx.fillStyle = col.sea; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+    ctx.setTransform(dpr * r, 0, 0, dpr * r, dpr * (t.x - r * b.t.x), dpr * (t.y - r * b.t.y));
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(b.canvas, 0, 0, w, h);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const path = geoPath(proj, ctx);
+
+    if (!moving && s.cursor?.country && s.cursor.country.id !== '804') {
+      const hov = geo.fc.features.find((f) => f.id === s.cursor.country.id && f.properties.name === s.cursor.country.properties.name);
+      if (hov) { ctx.beginPath(); path(hov); ctx.fillStyle = col.ink; ctx.globalAlpha = 0.06; ctx.fill(); ctx.globalAlpha = 1; }
+    }
 
     const taken = [];
     const free = (x, y, wd, ht) => {
@@ -378,7 +427,7 @@ export function MapView({ focus, go }) {
         label(city.name, p[0] + 6, p[1] + 4, col.ink2);
       }
     }
-    if (s.layers.labels) {
+    if (s.layers.labels && !moving) { // skipped while panning: 250 label placements per frame add up on phones
       ctx.textAlign = 'left';
       for (const f of geo.fc.features) {
         const p = proj(f.properties.label);
@@ -395,7 +444,9 @@ export function MapView({ focus, go }) {
     }
   };
 
-  const requestDraw = useCallback(() => {
+  // Data ticks wait while a finger is on the map (the gesture end repaints); `force` is for the gesture itself.
+  const requestDraw = useCallback((force) => {
+    if (interacting.current && force !== true) return;
     cancelAnimationFrame(frame.current);
     frame.current = requestAnimationFrame(() => draw.current());
   }, []);
@@ -456,20 +507,32 @@ export function MapView({ focus, go }) {
       .on('start', () => { interacting.current = true; })
       .on('zoom', (e) => {
         transform.current = e.transform;
-        setZoomK(e.transform.k);
-        requestDraw();
+        // Re-rendering the page on every pinch frame is what phones feel; update the readout in 5% steps.
+        if (Math.abs(Math.log(e.transform.k / lastK.current)) > 0.05) { lastK.current = e.transform.k; setZoomK(e.transform.k); }
+        if (!e.sourceEvent) { requestDraw(true); return; }
+        // Finger or mouse gesture: move the drawn pixels on the GPU and repaint only a few times a second.
+        const d = drawn.current.t, t = e.transform, r = t.k / d.k;
+        canvas.style.transformOrigin = '0 0';
+        canvas.style.transform = `translate(${t.x - r * d.x}px, ${t.y - r * d.y}px) scale(${r})`;
+        // Repaint mid-gesture only when blank edges would start to show.
+        const { w, h } = size.current;
+        const tx = t.x - r * d.x, ty = t.y - r * d.y;
+        const exposed = r < 0.75 || r > 1.8 || Math.abs(tx + (r - 1) * w / 2) > w * 0.35 || Math.abs(ty + (r - 1) * h / 2) > h * 0.35;
+        if (exposed && performance.now() - drawn.current.at > 300) requestDraw(true);
       })
-      .on('end', () => {
+      .on('end', (e) => {
+        lastK.current = e.transform.k;
+        setZoomK(e.transform.k);
         interacting.current = false;
         clearTimeout(idle);
-        idle = setTimeout(requestDraw, 60);
+        idle = setTimeout(() => requestDraw(), 60);
       });
     zoomRef.current = zb;
 
     const resize = () => {
       const r = wrap.getBoundingClientRect();
       const w = Math.max(200, Math.round(r.width)), h = Math.max(200, Math.round(r.height));
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = pixelRatio();
       canvas.width = w * dpr; canvas.height = h * dpr;
       canvas.style.width = `${w}px`; canvas.style.height = `${h}px`;
       size.current = { w, h };
