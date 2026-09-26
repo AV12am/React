@@ -200,7 +200,7 @@ function FileDrawer({ id, onClose }) {
   const canDelete = perms.vault >= 3 || (perms.vault >= 2 && f.owner === me.id);
 
   const download = () => {
-    const b = blob || new Blob([`VOLOSHYNSKY Core — демонстраційний запис\n\n${f.name}\nГриф: ${CLEARANCE[f.clearance].full}\n\nВміст цього файлу не зберігається в демо-версії.`], { type: 'text/plain' });
+    const b = blob || new Blob([`Reaction Core — демонстраційний запис\n\n${f.name}\nГриф: ${CLEARANCE[f.clearance].full}\n\nВміст цього файлу не зберігається в демо-версії.`], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(b);
     a.download = blob ? f.name : `${f.name}.txt`;

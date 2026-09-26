@@ -1,4 +1,4 @@
-// Demo data for VOLOSHYNSKY Core. All people, projects and figures are fictional.
+// Demo data for Reaction Core. All people, projects and figures are fictional.
 
 export const CLEARANCE = [
   { id: 0, short: 'Відкрито', full: 'Відкрита інформація' },
@@ -103,7 +103,7 @@ export const FOLDERS = [
 
 const MB = 1024 * 1024;
 export const FILES = [
-  { id: 'x01', folder: 'f-shared', name: 'Брендбук VOLOSHYNSKY.pdf', size: 18.4 * MB, type: 'application/pdf', clearance: 0, owner: 'u12', at: d(12) },
+  { id: 'x01', folder: 'f-shared', name: 'Брендбук Reaction.pdf', size: 18.4 * MB, type: 'application/pdf', clearance: 0, owner: 'u12', at: d(12) },
   { id: 'x02', folder: 'f-shared', name: 'Шаблон звіту v4.docx', size: 0.3 * MB, type: 'application/msword', clearance: 0, owner: 'u04', at: d(30) },
   { id: 'x03', folder: 'f-shared', name: 'Правила інформаційної безпеки.pdf', size: 2.1 * MB, type: 'application/pdf', clearance: 1, owner: 'u08', at: d(45) },
   { id: 'x04', folder: 'f-int-rep', name: 'Щотижневий звіт 38.pdf', size: 4.7 * MB, type: 'application/pdf', clearance: 2, owner: 'u02', at: d(1) },

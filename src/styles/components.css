@@ -1,4 +1,4 @@
-/* VOLOSHYNSKY components — shared by the Core app and the design system previews. */
+/* REACTION components — shared by the Core app and the design system previews. */
 *, *::before, *::after { box-sizing: border-box; }
 
 .vx-root {
@@ -188,7 +188,7 @@
 
 /* ---------- Table ---------- */
 .vx-table-wrap { overflow-x: auto; }
-.vx-table { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 18px; }
+.vx-table { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 18px; color: var(--ink); }
 .vx-table th {
   text-align: left; padding: 10px var(--space-4);
   font: 600 10px/14px var(--font-sans); letter-spacing: 0.14em; text-transform: uppercase;

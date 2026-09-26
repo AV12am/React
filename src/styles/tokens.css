@@ -1,4 +1,4 @@
-/* VOLOSHYNSKY — design tokens. Matte (dark) is the primary theme; Paper mirrors the white brand board. */
+/* REACTION — design tokens. Matte (dark) is the primary theme; Paper mirrors the white brand board. */
 :root,
 [data-theme="matte"] {
   --bg: #0a0a0a;

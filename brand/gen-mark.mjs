@@ -1,4 +1,4 @@
-// Generates the VOLOSHYNSKY cornflower mark (8 nib petals + centre diamond) as SVG.
+// Generates the REACTION cornflower mark (8 nib petals + centre diamond) as SVG.
 const R = 96;
 const petal = [[0,-1],[0.14,-0.6],[0.025,-0.24],[0,-0.28],[-0.025,-0.24],[-0.14,-0.6]];
 const slit = [[0,-0.9],[0.008,-0.68],[0.032,-0.58],[0.008,-0.48],[0,-0.34],[-0.008,-0.48],[-0.032,-0.58],[-0.008,-0.68]];

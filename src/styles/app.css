@@ -1,4 +1,4 @@
-/* VOLOSHYNSKY Core — layout and screens. Components live in components.css. */
+/* Reaction Core — layout and screens. Components live in components.css. */
 html, body { margin: 0; background: var(--bg); }
 body { min-height: 100vh; }
 button { font: inherit; color: inherit; }

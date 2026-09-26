@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, useCallback, useState } from 'react';
 import { USERS, REQUESTS, FILES, FOLDERS, SEED_AUDIT, PERMISSIONS, CLEARANCE } from './data/seed.js';
 
-const KEY = 'voloshynsky-core/v1';
+const KEY = 'reaction-core/v1';
 
 const initial = () => ({
   users: USERS,

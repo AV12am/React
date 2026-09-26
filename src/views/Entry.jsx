@@ -22,7 +22,7 @@ export function Splash({ onDone }) {
   }, [onDone]);
   return (
     <div className="splash" onClick={onDone}>
-      <svg className="splash__mark" viewBox="-110 -110 220 220" aria-label="VOLOSHYNSKY">
+      <svg className="splash__mark" viewBox="-110 -110 220 220" aria-label="REACTION">
         <circle className="splash__ring" r="104" />
         <circle className="splash__ring splash__ring--inner" r="30" />
         <g fillRule="evenodd">
@@ -32,7 +32,7 @@ export function Splash({ onDone }) {
           <path className="splash__core" d={paths.core} />
         </g>
       </svg>
-      <div className="splash__word vx-wordmark">Voloshynsky</div>
+      <div className="splash__word vx-wordmark">Reaction</div>
       <div className="vx-tagline splash__tag">Tradecraft for intelligence</div>
       <div className="splash__status vx-mono">{BOOT[step]}{step < 3 ? '…' : ''}</div>
     </div>
@@ -74,14 +74,14 @@ export function Login() {
         <Mark className="login__ghost" size={720} />
         <div className="login__lockup">
           <Mark size={64} />
-          <div className="vx-wordmark login__word">Voloshynsky</div>
+          <div className="vx-wordmark login__word">Reaction</div>
           <div className="vx-tagline">Tradecraft for intelligence</div>
         </div>
         <p className="login__motto">Багато джерел. Один центр. Єдине рішення.</p>
       </div>
 
       <div className="login__panel">
-        <div className="login__mobile-brand"><Mark size={40} /><div className="vx-wordmark">Voloshynsky</div></div>
+        <div className="login__mobile-brand"><Mark size={40} /><div className="vx-wordmark">Reaction</div></div>
         <div className="vx-eyebrow">Core · внутрішня платформа</div>
         <h1 className="vx-h1">{stage === 'id' ? 'Вхід' : 'Підтвердження'}</h1>
 

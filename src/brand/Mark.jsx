@@ -1,7 +1,7 @@
 import paths from './mark-paths.json';
 
 // Petal order in mark-paths.json runs clockwise from 12 o'clock.
-export function Mark({ size = 32, className = '', title = 'VOLOSHYNSKY' }) {
+export function Mark({ size = 32, className = '', title = 'Reaction' }) {
   return (
     <svg className={className} width={size} height={size} viewBox="-100 -100 200 200" role="img" aria-label={title}>
       <g fill="currentColor" fillRule="evenodd">
@@ -33,7 +33,7 @@ export function Wordmark({ tagline = true }) {
     <div className="brand-lockup">
       <Mark size={28} />
       <div>
-        <div className="vx-wordmark">Voloshynsky</div>
+        <div className="vx-wordmark">Reaction</div>
         {tagline && <div className="vx-tagline">Tradecraft for intelligence</div>}
       </div>
     </div>

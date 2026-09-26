@@ -1,5 +1,5 @@
 // File bodies for the vault live in IndexedDB on this device; metadata lives in the app store.
-const DB = 'voloshynsky-vault';
+const DB = 'reaction-vault';
 const STORE = 'blobs';
 
 function open() {
