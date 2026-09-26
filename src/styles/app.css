@@ -374,3 +374,22 @@ kbd {
   .topbar__search-short { display: inline; }
   .vault__folders .vx-nav-item { white-space: nowrap; }
 }
+
+/* ---------- Map engine (MapLibre) ---------- */
+/* More specific than MapLibre's own `.maplibregl-map { position: relative }`, which loads after this sheet. */
+.map-frame .map-gl, .map-frame .map-overlay { position: absolute; inset: 0; }
+.map-overlay { width: 100%; height: 100%; pointer-events: none; }
+.map-gl .maplibregl-canvas { cursor: grab; outline: none; }
+.map-gl .maplibregl-canvas:active { cursor: grabbing; }
+.mode-mark .map-gl .maplibregl-canvas, .mode-measure .map-gl .maplibregl-canvas { cursor: crosshair; }
+.map-loading { position: absolute; inset: 0; display: grid; place-items: center; background: var(--surface); }
+.map-layers__note { max-width: 260px; padding-top: 8px; border-top: 1px solid var(--line); }
+.map-frame .maplibregl-ctrl-bottom-right { bottom: 56px; }
+.map-frame .maplibregl-ctrl-attrib {
+  background: var(--surface) !important; color: var(--ink-3); font: 12px/18px var(--font-text);
+  border: 1px solid var(--line-strong); border-radius: var(--radius-md);
+}
+.map-frame .maplibregl-ctrl-attrib a { color: var(--ink-2); }
+.map-frame .maplibregl-ctrl-attrib-button { filter: invert(0.8); }
+[data-theme="paper"] .map-frame .maplibregl-ctrl-attrib-button { filter: none; }
+@media (max-width: 900px) { .map-frame .maplibregl-ctrl-bottom-right { bottom: 96px; } }

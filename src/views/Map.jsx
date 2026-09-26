@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { geoMercator, geoPath, geoGraticule, geoCentroid, geoArea, geoContains, geoBounds } from 'd3-geo';
-import { zoom as d3zoom, zoomIdentity } from 'd3-zoom';
-import { select } from 'd3-selection';
+import { Map as MapLibreMap, addProtocol, setWorkerUrl } from 'maplibre-gl';
+// MapLibre 6 runs tile parsing in a module worker; Vite bundles it (with its imports) into one file.
+import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { Protocol } from 'pmtiles';
+import { geoCentroid, geoArea, geoContains, geoBounds, geoInterpolate } from 'd3-geo';
 import { feature, mesh } from 'topojson-client';
 import world50 from '../data/world-50m.json';
-import world110 from '../data/world-110m.json';
 import { useStore, fmtDate, fmtAgo } from '../store.jsx';
 import { Panel, ClassBadge, Modal, Status } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
@@ -15,6 +17,8 @@ import { CONFLICTS, CONFLICTS_AS_OF } from '../data/conflicts.js';
 import { fmtDD, fmtDMS, fmtMGRS, parseCoords, distanceKm, bearing, fmtKm, trackState } from '../map/coords.js';
 import { copyText } from '../lib/io.js';
 import { useLiveConflicts, ageHours } from '../map/live.js';
+import { buildStyle, palette, zonesGeoJSON, eventsGeoJSON, graticule } from '../map/style.js';
+import { useInstalledTiles, elevationAt } from '../map/tiles.js';
 
 /* ---------- geography ---------- */
 
@@ -35,13 +39,11 @@ function prepare(topo) {
   return {
     fc,
     ua: fc.features.find((f) => f.id === '804'),
-    others: { type: 'FeatureCollection', features: fc.features.filter((f) => f.id !== '804') },
     borders: mesh(topo, topo.objects.countries, (a, b) => a !== b),
     coast: mesh(topo, topo.objects.countries, (a, b) => a === b),
   };
 }
 const BASE = prepare(world50);
-const LOW = prepare(world110);
 
 function countryAt(lon, lat) {
   for (const f of BASE.fc.features) {
@@ -53,7 +55,6 @@ function countryAt(lon, lat) {
   return null;
 }
 
-// [west, south, east, north]
 // Conflict zones as GeoJSON, rings wound the way d3 expects (a ring larger than a hemisphere is reversed).
 const BUILTIN_ZONES = CONFLICTS.map((z) => {
   if (!z.ring) return { ...z, feature: BASE.fc.features.find((f) => f.id === z.country) };
@@ -76,31 +77,37 @@ const EVENT_TYPE = {
   'Violence against civilians': 'Насильство проти цивільних',
 };
 const STALE_HOURS = 48;
-const eventRadius = (e) => 2.5 + Math.min(6, Math.sqrt(e.fatalities || 0));
 
-// Phones report 3× pixel density; 2× is indistinguishable on a map and draws 2.25× fewer pixels.
 const SERIF = '"Source Serif 4 Variable", Georgia, serif';
 const pixelRatio = () => Math.min(2, window.devicePixelRatio || 1);
-function inView(proj, bbox, w, h) {
-  if (!bbox) return true;
-  const [[x0, y0], [x1, y1]] = bbox;
-  const a = proj([x0, y1]), b = proj([x1, y0]);
-  if (!a || !b) return true;
-  return !(Math.max(a[0], b[0]) < 0 || Math.min(a[0], b[0]) > w || Math.max(a[1], b[1]) < 0 || Math.min(a[1], b[1]) > h);
-}
 
+// [west, south, east, north]
 const PRESETS = {
   world: [-180, -58, 180, 78],
   europe: [-11, 35, 42, 66],
   ukraine: [22.1, 44.3, 40.3, 52.4],
 };
-const DETAIL_K = 7; // switch to 1:10m borders past this zoom
 const SIM = [1, 60, 600];
-const LAYERS = [
-  ['conflicts', 'Зони конфліктів'], ['events', 'Події ACLED'], ['graticule', 'Координатна сітка'], ['labels', 'Назви країн'], ['cities', 'Міста'],
-  ['points', 'Позначки'], ['tracks', 'Об’єкти'], ['trails', 'Сліди руху'],
-];
 const compass = (deg) => ['Пн', 'ПнСх', 'Сх', 'ПдСх', 'Пд', 'ПдЗх', 'Зх', 'ПнЗх'][Math.round(deg / 45) % 8];
+
+// Great-circle segments drawn as curves: split each leg into short pieces before projecting.
+function densify(pts, per = 24) {
+  const out = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const f = geoInterpolate([pts[i].lon, pts[i].lat], [pts[i + 1].lon, pts[i + 1].lat]);
+    for (let k = 0; k < per; k++) out.push(f(k / per));
+  }
+  if (pts.length) out.push([pts[pts.length - 1].lon, pts[pts.length - 1].lat]);
+  return out;
+}
+
+let pmtilesReady = false;
+function registerPmtiles() {
+  if (pmtilesReady) return;
+  setWorkerUrl(mapWorkerUrl);
+  addProtocol('pmtiles', new Protocol().tile);
+  pmtilesReady = true;
+}
 
 const STATUS_KIND = { ok: 'ok', error: 'danger', not_configured: 'idle', disabled: 'idle' };
 
@@ -151,27 +158,29 @@ function SourcesStatus({ manifest, front, frontSource, setFrontSource, available
 export function MapView({ focus }) {
   const { state, me, perms, dispatch, userById, toast } = useStore();
   const canWrite = perms.map >= 2;
+  const theme = state.settings.theme;
 
   const wrapRef = useRef(null);
-  const canvasRef = useRef(null);
-  const size = useRef({ w: 800, h: 500 });
-  const transform = useRef(zoomIdentity);
-  const zoomRef = useRef(null);
-  const interacting = useRef(false);
-  const lastK = useRef(1);
-  const drawn = useRef({ t: zoomIdentity, at: 0 }); // the view the canvas pixels currently show
+  const mapDivRef = useRef(null);
+  const overlayRef = useRef(null);
+  const mapRef = useRef(null);
   const frame = useRef(0);
   const simStart = useRef({ real: Date.now(), sim: Date.now(), mult: 60 });
 
+  const tiles = useInstalledTiles();
+  const detailed = !!tiles.basemap;
+  const [ready, setReady] = useState(false);
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [cursor, setCursor] = useState(null); // {lat, lon, country}
+  const [elevation, setElevation] = useState(null);
   // Touch screens have no hover: show the centre of the map under a crosshair instead of the cursor.
   const [touch, setTouch] = useState(() => window.matchMedia?.('(pointer: coarse)').matches ?? false);
+  const [centre, setCentre] = useState(null);
   const [mode, setMode] = useState('view');
-  const [layers, setLayers] = useState({ conflicts: true, events: true, graticule: true, labels: true, cities: true, points: true, tracks: true, trails: true });
+  const [layers, setLayers] = useState({ relief: true, conflicts: true, events: true, graticule: false, labels: true, cities: true, points: true, tracks: true, trails: true });
   const [layersOpen, setLayersOpen] = useState(false);
-  const [sel, setSel] = useState(null); // {type:'point'|'track'|'coord', id?, lat?, lon?}
+  const [sel, setSel] = useState(null); // {type:'point'|'track'|'event'|'coord', id?, lat?, lon?}
   const [follow, setFollow] = useState(null);
   const [measure, setMeasure] = useState([]);
   const [query, setQuery] = useState('');
@@ -180,7 +189,7 @@ export function MapView({ focus }) {
   const [tab, setTab] = useState('tracks');
   const [sim, setSim] = useState(60);
   const [now, setNow] = useState(Date.now());
-  const [zoomK, setZoomK] = useState(1);
+  const [zoom, setZoom] = useState(5);
   const [armed, setArmed] = useState(false);
   const [frontSource, setFrontSource] = useState('auto');
 
@@ -192,7 +201,7 @@ export function MapView({ focus }) {
     return fc ? { pick: want, fc, meta: liveData.manifest?.sources?.[want] } : { pick: 'builtin', fc: null, meta: null };
   }, [liveData, frontSource]);
   const zones = useMemo(() => BUILTIN_ZONES.map((z) => (z.id === 'ua-occupied' && front.fc
-    ? { ...z, feature: front.fc, bbox: geoBounds(front.fc), note: `Дані ${SOURCE_NAME[front.pick]} станом на ${fmtDate(front.meta?.sourceDate || front.meta?.updatedAt)}.` }
+    ? { ...z, live: true, feature: front.fc, bbox: geoBounds(front.fc), note: `Дані ${SOURCE_NAME[front.pick]} станом на ${fmtDate(front.meta?.sourceDate || front.meta?.updatedAt)}.` }
     : z)), [front]);
   const events = useMemo(() => liveData.acled?.events || [], [liveData.acled]);
   const frontAge = ageHours(front.meta?.sourceDate || front.meta?.updatedAt);
@@ -217,340 +226,252 @@ export function MapView({ focus }) {
     return () => clearInterval(t);
   }, [simNow]);
 
-  /* ---------- projection & drawing ---------- */
+  /* ---------- map data for MapLibre ---------- */
 
-  const projection = useCallback(() => {
-    const { w, h } = size.current;
-    const t = transform.current;
-    return geoMercator()
-      .scale((w / (2 * Math.PI)) * t.k)
-      .translate([t.x + (t.k * w) / 2, t.y + (t.k * h) / 2])
-      .clipExtent([[-2, -2], [w + 2, h + 2]]);
+  const geo = detail || BASE;
+  const zonesData = useMemo(() => zonesGeoJSON(zones, BASE.fc), [zones]);
+  const eventsData = useMemo(() => eventsGeoJSON(events), [events]);
+  const gratStep = graticule(zoom).properties.step;
+  const gratData = useMemo(() => graticule(zoom), [gratStep]); // eslint-disable-line react-hooks/exhaustive-deps
+  const selectedEvent = sel?.type === 'event' ? sel.id : '';
+
+  const styleFor = useRef(null);
+  styleFor.current = () => buildStyle({
+    col: palette(wrapRef.current), theme, tiles, layers,
+    data: { countries: geo.fc, borders: geo.borders, coast: geo.coast, ua: geo.ua, zones: zonesData, events: eventsData, graticule: gratData, selectedEvent },
+  });
+
+  const project = useCallback(([lon, lat]) => {
+    const p = mapRef.current?.project([lon, lat]);
+    return p ? [p.x, p.y] : null;
   }, []);
 
-  const draw = useRef(() => {});
+  /* ---------- overlay: tracks, points, measurement, labels (drawn on a canvas above the map) ---------- */
+
   const snapshot = useRef({});
-  snapshot.current = { points, tracks, live, sel, layers, measure, detail, cursor, follow, zones, events };
-
-  // The static map (sea, land, borders, conflict zones, events) is rendered into an offscreen canvas and
-  // reused until the view, theme, layers or data change; the one-second track ticks only redraw overlays.
-  const base = useRef({ canvas: null, key: '', zones: null, events: null, t: null, at: 0 });
-
+  snapshot.current = { points, tracks, live, sel, layers, measure, geo, detailed, zoom };
+  const draw = useRef(() => {});
   draw.current = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    canvas.style.transform = '';
-    drawn.current = { t: transform.current, at: performance.now() };
-    const { w, h } = size.current;
+    const canvas = overlayRef.current, map = mapRef.current;
+    if (!canvas || !map) return;
+    const w = canvas.clientWidth, h = canvas.clientHeight;
     const dpr = pixelRatio();
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
     const ctx = canvas.getContext('2d');
-    const css = getComputedStyle(canvas);
-    const c = (n) => css.getPropertyValue(`--${n}`).trim();
-    const col = {
-      sea: c('surface'), land: c('surface-3'), ua: c('line-strong'), border: c('line-strong'), coast: c('ink-faint'),
-      grid: c('line'), conflict: c('conflict'), ink: c('ink'), ink2: c('ink-2'), ink3: c('ink-3'), brass: c('brass'), bg: c('bg'),
-    };
-    const s = snapshot.current;
-    const t = transform.current;
-    const k = t.k;
-    const moving = interacting.current;
-    const proj = projection();
-    // Level of detail: coarse borders and lower resolution while the map moves, full detail at rest.
-    const geo = moving ? (k < 4 ? LOW : BASE) : (s.detail && k >= DETAIL_K ? s.detail : k < 1.6 ? LOW : BASE);
-    const baseRes = moving ? Math.min(dpr, 1) : dpr;
-
-    const b = base.current;
-    if (!b.canvas) b.canvas = document.createElement('canvas');
-    const key = [t.k, t.x, t.y, w, h, baseRes, geo === LOW ? 'l' : geo === BASE ? 'm' : 'h', col.sea, col.land, col.conflict,
-      s.layers.graticule, s.layers.conflicts, s.layers.events, s.sel?.type === 'event' ? s.sel.id : ''].join('|');
-    const stale = key !== b.key || b.zones !== s.zones || b.events !== s.events;
-    // During a gesture, keep moving the last bitmap and re-render it at most ~4 times a second.
-    const ratio = b.t ? t.k / b.t.k : 1;
-    const reuse = moving && b.t && performance.now() - b.at < 250 && ratio > 0.5 && ratio < 2;
-    if (stale && !reuse) {
-      b.key = key; b.zones = s.zones; b.events = s.events; b.t = t; b.at = performance.now();
-      const bc = b.canvas;
-      if (bc.width !== Math.round(w * baseRes) || bc.height !== Math.round(h * baseRes)) { bc.width = Math.round(w * baseRes); bc.height = Math.round(h * baseRes); }
-      const g = bc.getContext('2d');
-      g.setTransform(baseRes, 0, 0, baseRes, 0, 0);
-      const bpath = geoPath(proj, g);
-      g.fillStyle = col.sea;
-      g.fillRect(0, 0, w, h);
-      if (s.layers.graticule) {
-        const step = k >= 40 ? 1 : k >= 12 ? 2 : k >= 4 ? 5 : 15;
-        g.beginPath();
-        bpath(geoGraticule().step([step, step]).extentMinor([[-180, -85], [180, 85]])());
-        g.strokeStyle = col.grid; g.lineWidth = 1; g.stroke();
-      }
-      g.beginPath(); bpath(geo.others); g.fillStyle = col.land; g.fill();
-      g.beginPath(); bpath(geo.ua); g.fillStyle = col.ua; g.fill();
-      if (s.layers.conflicts) {
-        const paint = (f) => {
-          g.beginPath(); bpath(f);
-          g.fillStyle = col.conflict; g.globalAlpha = 0.34; g.fill();
-          g.globalAlpha = 0.9; g.lineWidth = 1.2; g.strokeStyle = col.conflict; g.stroke();
-          g.globalAlpha = 1;
-        };
-        // Country-wide zones need no clipping; the rest share one clip per kind instead of one per zone.
-        for (const z of s.zones) if (z.country) { const f = geo.fc.features.find((x) => x.id === z.country); if (f) paint(f); }
-        for (const kind of ['ukraine', 'land']) {
-          const list = s.zones.filter((z) => z.clip === kind && inView(proj, z.bbox, w, h));
-          if (!list.length) continue;
-          g.save();
-          g.beginPath(); bpath(geo.ua); if (kind === 'land') bpath(geo.others); g.clip();
-          list.forEach((z) => paint(z.feature));
-          g.restore();
-        }
-      }
-      g.beginPath(); bpath(geo.borders); g.strokeStyle = col.border; g.lineWidth = 0.8; g.stroke();
-      if (s.layers.events && s.events.length) {
-        for (const e of s.events) {
-          const p = proj([e.lon, e.lat]);
-          if (!p || p[0] < -10 || p[1] < -10 || p[0] > w + 10 || p[1] > h + 10) continue;
-          const active = s.sel?.type === 'event' && s.sel.id === e.id;
-          g.beginPath(); g.arc(p[0], p[1], eventRadius(e) + (active ? 2 : 0), 0, Math.PI * 2);
-          g.fillStyle = active ? col.brass : col.conflict; g.globalAlpha = active ? 1 : 0.8; g.fill(); g.globalAlpha = 1;
-          g.lineWidth = 1; g.strokeStyle = col.sea; g.stroke();
-        }
-      }
-      g.beginPath(); bpath(geo.coast); g.strokeStyle = col.coast; g.lineWidth = 0.8; g.stroke();
-      g.beginPath(); bpath(geo.ua); g.strokeStyle = col.ink3; g.lineWidth = 1.2; g.stroke();
-    }
-
-    // Place the bitmap where its view now sits: screen' = r·screen + (t − r·t₀).
-    const r = t.k / b.t.k;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    if (r !== 1 || t.x !== b.t.x || t.y !== b.t.y) { ctx.fillStyle = col.sea; ctx.fillRect(0, 0, canvas.width, canvas.height); }
-    ctx.setTransform(dpr * r, 0, 0, dpr * r, dpr * (t.x - r * b.t.x), dpr * (t.y - r * b.t.y));
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(b.canvas, 0, 0, w, h);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const path = geoPath(proj, ctx);
-
-    if (!moving && s.cursor?.country && s.cursor.country.id !== '804') {
-      const hov = geo.fc.features.find((f) => f.id === s.cursor.country.id && f.properties.name === s.cursor.country.properties.name);
-      if (hov) { ctx.beginPath(); path(hov); ctx.fillStyle = col.ink; ctx.globalAlpha = 0.06; ctx.fill(); ctx.globalAlpha = 1; }
-    }
+    const col = palette(canvas);
+    const s = snapshot.current;
+    const z = map.getZoom();
+    const proj = ([lon, lat]) => { const p = map.project([lon, lat]); return [p.x, p.y]; };
+    const line = (coords) => { ctx.beginPath(); coords.forEach((c, i) => { const p = proj(c); if (i) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]); }); };
 
     if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
     const taken = [];
     const free = (x, y, wd, ht) => {
       const r = [x - 2, y - 2, x + wd + 2, y + ht + 2];
-      if (r[0] < 0 || r[1] < 0 || r[2] > w || r[3] > h) return false;
+      if (r[2] < 0 || r[3] < 0 || r[0] > w || r[1] > h) return false;
       if (taken.some((t) => r[0] < t[2] && r[2] > t[0] && r[1] < t[3] && r[3] > t[1])) return false;
       taken.push(r);
       return true;
     };
-    const label = (text, x, y, color, font = '500 11px "Source Serif 4 Variable", Georgia, serif') => {
+    const label = (text, x, y, color, font = `500 12px ${SERIF}`) => {
       ctx.font = font;
       const tw = ctx.measureText(text).width;
-      if (!free(x, y - 9, tw, 12)) return;
+      if (!free(x, y - 10, tw, 13)) return;
       ctx.lineWidth = 3; ctx.strokeStyle = col.sea; ctx.lineJoin = 'round';
       ctx.strokeText(text, x, y);
       ctx.fillStyle = color; ctx.fillText(text, x, y);
     };
 
-    // Selected / tracked things first so their labels win collisions.
     const markers = [];
     if (s.layers.tracks) {
       for (const t of s.tracks) {
         const st = s.live[t.id];
         const p = proj([st.lon, st.lat]);
-        if (!p) continue;
         const active = s.sel?.type === 'track' && s.sel.id === t.id;
         if (s.layers.trails && st.trail.length > 1) {
-          ctx.beginPath();
-          path({ type: 'LineString', coordinates: st.trail.map((q) => [q.lon, q.lat]) });
-          ctx.strokeStyle = active ? col.brass : col.ink3;
-          ctx.globalAlpha = 0.7; ctx.lineWidth = 1.5; ctx.setLineDash([]); ctx.stroke(); ctx.globalAlpha = 1;
+          line(st.trail.map((q) => [q.lon, q.lat]));
+          ctx.strokeStyle = active ? col.brass : col.ink3; ctx.globalAlpha = 0.75; ctx.lineWidth = 1.6; ctx.setLineDash([]); ctx.stroke(); ctx.globalAlpha = 1;
         }
         if (active) {
-          ctx.beginPath();
-          path({ type: 'LineString', coordinates: t.route.map(([la, lo]) => [lo, la]) });
+          line(densify(t.route.map(([la, lo]) => ({ lat: la, lon: lo })), 8));
           ctx.strokeStyle = col.ink3; ctx.lineWidth = 1; ctx.setLineDash([3, 4]); ctx.stroke(); ctx.setLineDash([]);
         }
         const back = st.trail[1] ? proj([st.trail[1].lon, st.trail[1].lat]) : null;
         const ang = back && (back[0] !== p[0] || back[1] !== p[1]) ? Math.atan2(p[1] - back[1], p[0] - back[0]) : ((st.heading - 90) * Math.PI) / 180;
         ctx.save(); ctx.translate(p[0], p[1]); ctx.rotate(ang);
-        ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(-6, -6); ctx.lineTo(-3, 0); ctx.lineTo(-6, 6); ctx.closePath();
+        ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(-6, -7); ctx.lineTo(-3, 0); ctx.lineTo(-6, 7); ctx.closePath();
         ctx.fillStyle = active ? col.brass : col.ink; ctx.fill();
         ctx.lineWidth = 1.5; ctx.strokeStyle = col.sea; ctx.stroke();
         ctx.restore();
-        markers.push({ text: t.name, x: p[0] + 11, y: p[1] + 4, color: active ? col.brass : col.ink, font: '600 11px "Source Serif 4 Variable", Georgia, serif', always: active || k >= 3.5 });
+        markers.push({ text: t.name, x: p[0] + 12, y: p[1] + 4, color: active ? col.brass : col.ink, font: `600 12.5px ${SERIF}`, always: active || z >= 4.5 });
       }
     }
     if (s.layers.points) {
       for (const pt of s.points) {
         const p = proj([pt.lon, pt.lat]);
-        if (!p) continue;
         const active = s.sel?.type === 'point' && s.sel.id === pt.id;
-        const r = pt.kind === 'wp' ? 4 : 6;
+        const r = pt.kind === 'wp' ? 4.5 : 6.5;
         ctx.beginPath(); ctx.moveTo(p[0], p[1] - r); ctx.lineTo(p[0] + r, p[1]); ctx.lineTo(p[0], p[1] + r); ctx.lineTo(p[0] - r, p[1]); ctx.closePath();
         if (pt.kind === 'obs') { ctx.fillStyle = col.sea; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = active ? col.brass : col.ink; ctx.stroke(); }
         else { ctx.fillStyle = active ? col.brass : col.ink; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = col.sea; ctx.stroke(); }
-        markers.push({ text: pt.name, x: p[0] + 9, y: p[1] + 4, color: active ? col.brass : col.ink2, always: active || k >= 5 });
+        markers.push({ text: pt.name, x: p[0] + 10, y: p[1] + 4, color: active ? col.brass : col.ink2, always: active || z >= 6 });
       }
     }
-    // Measurement line
     if (s.measure.length) {
-      ctx.beginPath();
-      path({ type: 'LineString', coordinates: s.measure.map((q) => [q.lon, q.lat]) });
+      line(densify(s.measure));
       ctx.strokeStyle = col.brass; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
       s.measure.forEach((q, i) => {
         const p = proj([q.lon, q.lat]);
-        if (!p) return;
         ctx.beginPath(); ctx.arc(p[0], p[1], 4, 0, Math.PI * 2);
         ctx.fillStyle = col.sea; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = col.brass; ctx.stroke();
         if (i === s.measure.length - 1 && i > 0) {
           const total = s.measure.slice(1).reduce((a, b, j) => a + distanceKm(s.measure[j], b), 0);
-          markers.unshift({ text: fmtKm(total), x: p[0] + 9, y: p[1] - 8, color: col.brass, font: '600 12px "Source Serif 4 Variable", Georgia, serif', always: true });
+          markers.unshift({ text: fmtKm(total), x: p[0] + 10, y: p[1] - 8, color: col.brass, font: `600 13px ${SERIF}`, always: true });
         }
       });
     }
-    // Inspected coordinate
     if (s.sel?.type === 'coord') {
       const p = proj([s.sel.lon, s.sel.lat]);
-      if (p) {
-        ctx.strokeStyle = col.brass; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.arc(p[0], p[1], 9, 0, Math.PI * 2); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(p[0] - 15, p[1]); ctx.lineTo(p[0] - 5, p[1]); ctx.moveTo(p[0] + 5, p[1]); ctx.lineTo(p[0] + 15, p[1]);
-        ctx.moveTo(p[0], p[1] - 15); ctx.lineTo(p[0], p[1] - 5); ctx.moveTo(p[0], p[1] + 5); ctx.lineTo(p[0], p[1] + 15); ctx.stroke();
-      }
+      ctx.strokeStyle = col.brass; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(p[0], p[1], 9, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p[0] - 15, p[1]); ctx.lineTo(p[0] - 5, p[1]); ctx.moveTo(p[0] + 5, p[1]); ctx.lineTo(p[0] + 15, p[1]);
+      ctx.moveTo(p[0], p[1] - 15); ctx.lineTo(p[0], p[1] - 5); ctx.moveTo(p[0], p[1] + 5); ctx.lineTo(p[0], p[1] + 15); ctx.stroke();
     }
     for (const m of markers) if (m.always) label(m.text, m.x, m.y, m.color, m.font);
 
-    if (s.layers.cities) {
+    // The detailed basemap brings its own place and country names; the fallback map needs ours.
+    if (!s.detailed && s.layers.cities) {
       for (const city of CITIES) {
-        if (city.tier === 2 && k < 7) continue;
-        if (city.tier === 1 && k < 2.2 && city.name !== 'Київ') continue;
+        if (city.tier === 2 && z < 5.5) continue;
+        if (city.tier === 1 && z < 3 && city.name !== 'Київ') continue;
         const p = proj([city.lon, city.lat]);
-        if (!p) continue;
+        if (p[0] < -20 || p[1] < -20 || p[0] > w + 20 || p[1] > h + 20) continue;
         ctx.beginPath(); ctx.arc(p[0], p[1], city.name === 'Київ' ? 3.5 : 2.5, 0, Math.PI * 2);
         ctx.fillStyle = col.ink2; ctx.fill();
         label(city.name, p[0] + 6, p[1] + 4, col.ink2);
       }
     }
-    if (s.layers.labels && !moving) { // skipped while panning: 250 label placements per frame add up on phones
-      ctx.textAlign = 'left';
-      for (const f of geo.fc.features) {
-        const p = proj(f.properties.label);
-        if (!p) continue;
+    if (!s.detailed && s.layers.labels) {
+      for (const f of s.geo.fc.features) {
         const [[x0, y0], [x1, y1]] = f.properties.bbox;
+        if (x1 < x0) continue;
         const a = proj([x0, y1]), b = proj([x1, y0]);
-        const span = a && b ? Math.abs(b[0] - a[0]) : 0;
+        const span = Math.abs(b[0] - a[0]);
         if (span < 70 && !(f.id === '804' && span > 30)) continue;
+        const p = proj(f.properties.label);
         const text = f.properties.uk.toUpperCase();
-        ctx.font = `600 10.5px ${SERIF}`;
+        ctx.font = `600 11px ${SERIF}`;
         if ('letterSpacing' in ctx) ctx.letterSpacing = '1.5px';
         const tw = ctx.measureText(text).width;
-        label(text, p[0] - tw / 2, p[1] + 4, f.id === '804' ? col.ink2 : col.ink3, `600 10.5px ${SERIF}`);
+        label(text, p[0] - tw / 2, p[1] + 4, f.id === '804' ? col.ink2 : col.ink3, `600 11px ${SERIF}`);
+        if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
       }
     }
   };
-
-  // Data ticks wait while a finger is on the map (the gesture end repaints); `force` is for the gesture itself.
-  const requestDraw = useCallback((force) => {
-    if (interacting.current && force !== true) return;
+  const requestDraw = useCallback(() => {
     cancelAnimationFrame(frame.current);
     frame.current = requestAnimationFrame(() => draw.current());
   }, []);
 
-  /* ---------- setup: canvas size + zoom behaviour ---------- */
+  /* ---------- the map ---------- */
 
-  const setTransform = useCallback((target, duration = 0) => {
-    const zb = zoomRef.current;
-    const sel = select(canvasRef.current);
-    // zoom.transform() skips the pan/zoom limits, so clamp the target to the world first.
-    const { w: vw, h: vh } = size.current;
-    const [k0, k1] = zb.scaleExtent();
-    const clampedK = zoomIdentity.translate(target.x, target.y).scale(Math.min(k1, Math.max(k0, target.k)));
-    const t = zb.constrain()(clampedK, [[0, 0], [vw, vh]], zb.translateExtent());
-    if (!duration) { zb.transform(sel, t); return; }
-    const from = transform.current;
-    const t0 = performance.now();
-    const step = (ts) => {
-      const e = Math.min(1, (ts - t0) / duration);
-      const q = e < 0.5 ? 4 * e * e * e : 1 - Math.pow(-2 * e + 2, 3) / 2;
-      const k = Math.exp(Math.log(from.k) + (Math.log(t.k) - Math.log(from.k)) * q);
-      // interpolate the map centre, not the raw translation, so the flight stays on target
-      const { w, h } = size.current;
-      const cx0 = (w / 2 - from.x) / from.k, cy0 = (h / 2 - from.y) / from.k;
-      const cx1 = (w / 2 - t.x) / t.k, cy1 = (h / 2 - t.y) / t.k;
-      const cx = cx0 + (cx1 - cx0) * q, cy = cy0 + (cy1 - cy0) * q;
-      zb.transform(sel, zoomIdentity.translate(w / 2 - cx * k, h / 2 - cy * k).scale(k));
-      if (e < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
+  const pending = useRef(null); // a view requested before the map existed
+  const flyTo = useCallback((lat, lon, z, duration = 900) => {
+    const map = mapRef.current;
+    if (!map) { pending.current = { center: [lon, lat], zoom: z ?? 9 }; return; }
+    map.flyTo({ center: [lon, lat], zoom: z ?? map.getZoom(), duration, essential: true });
+  }, []);
+  const fitBounds = useCallback(([w, s, e, n], duration = 900) => {
+    const map = mapRef.current;
+    if (!map) { pending.current = { bounds: [[w, s], [e, n]] }; return; }
+    map.fitBounds([[w, s], [e, n]], { padding: 24, duration, essential: true });
   }, []);
 
-  const flyTo = useCallback((lat, lon, k = transform.current.k, duration = 700) => {
-    const { w, h } = size.current;
-    const base = geoMercator().scale(w / (2 * Math.PI)).translate([w / 2, h / 2]);
-    const [bx, by] = base([lon, lat]);
-    setTransform(zoomIdentity.translate(w / 2 - k * bx, h / 2 - k * by).scale(k), duration);
-  }, [setTransform]);
-
-  // Frame a lon/lat box in the current view, whatever the screen size.
-  const fitBounds = useCallback(([w0, s0, e0, n0], duration = 700) => {
-    const { w, h } = size.current;
-    const base = geoMercator().scale(w / (2 * Math.PI)).translate([w / 2, h / 2]);
-    const east = e0 < w0 ? e0 + 360 : e0;
-    const [x0, y0] = base([w0, n0]);
-    const [x1, y1] = base([east, s0]);
-    const k = Math.min(1200, Math.max(1, 0.9 * Math.min(w / (x1 - x0), h / (y1 - y0))));
-    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-    setTransform(zoomIdentity.translate(w / 2 - k * cx, h / 2 - k * cy).scale(k), duration);
-  }, [setTransform]);
-
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const wrap = wrapRef.current;
-    let idle;
-    const zb = d3zoom()
-      .scaleExtent([1, 1200])
-      .on('start', () => { interacting.current = true; })
-      .on('zoom', (e) => {
-        transform.current = e.transform;
-        // Re-rendering the page on every pinch frame is what phones feel; update the readout in 5% steps.
-        if (Math.abs(Math.log(e.transform.k / lastK.current)) > 0.05) { lastK.current = e.transform.k; setZoomK(e.transform.k); }
-        if (!e.sourceEvent) { requestDraw(true); return; }
-        // Finger or mouse gesture: move the drawn pixels on the GPU and repaint only a few times a second.
-        const d = drawn.current.t, t = e.transform, r = t.k / d.k;
-        canvas.style.transformOrigin = '0 0';
-        canvas.style.transform = `translate(${t.x - r * d.x}px, ${t.y - r * d.y}px) scale(${r})`;
-        // Repaint mid-gesture only when blank edges would start to show.
-        const { w, h } = size.current;
-        const tx = t.x - r * d.x, ty = t.y - r * d.y;
-        const exposed = r < 0.75 || r > 1.8 || Math.abs(tx + (r - 1) * w / 2) > w * 0.35 || Math.abs(ty + (r - 1) * h / 2) > h * 0.35;
-        if (exposed && performance.now() - drawn.current.at > 300) requestDraw(true);
-      })
-      .on('end', (e) => {
-        lastK.current = e.transform.k;
-        setZoomK(e.transform.k);
-        interacting.current = false;
-        clearTimeout(idle);
-        idle = setTimeout(() => requestDraw(), 60);
-      });
-    zoomRef.current = zb;
-
-    const resize = () => {
-      const r = wrap.getBoundingClientRect();
-      const w = Math.max(200, Math.round(r.width)), h = Math.max(200, Math.round(r.height));
-      const dpr = pixelRatio();
-      canvas.width = w * dpr; canvas.height = h * dpr;
-      canvas.style.width = `${w}px`; canvas.style.height = `${h}px`;
-      size.current = { w, h };
-      // The Mercator world is a w × w square centred vertically; keep it covering the view.
-      zb.scaleExtent([Math.max(1, h / w), 1200]).translateExtent([[0, h / 2 - w / 2], [w, h / 2 + w / 2]]).extent([[0, 0], [w, h]]);
-      zb.transform(select(canvas), transform.current);
+    if (!tiles.loaded) return undefined;
+    registerPmtiles();
+    const view = pending.current;
+    const map = new MapLibreMap({
+      container: mapDivRef.current,
+      style: styleFor.current(),
+      bounds: view?.bounds || [[PRESETS.ukraine[0], PRESETS.ukraine[1]], [PRESETS.ukraine[2], PRESETS.ukraine[3]]],
+      fitBoundsOptions: { padding: 24 },
+      center: view?.center, zoom: view?.zoom,
+      minZoom: 1, maxZoom: tiles.basemap ? 18 : 11,
+      dragRotate: false, pitchWithRotate: false, touchPitch: false,
+      attributionControl: { compact: true },
+      fadeDuration: 150,
+    });
+    map.touchZoomRotate.disableRotation();
+    map.keyboard.disableRotation();
+    mapRef.current = map;
+    let raf = 0;
+    const onMove = () => {
       requestDraw();
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        setZoom((z) => (Math.abs(z - map.getZoom()) > 0.05 ? map.getZoom() : z));
+        const c = map.getCenter();
+        setCentre({ lat: c.lat, lon: c.lng });
+      });
     };
-    const ro = new ResizeObserver(resize);
-    ro.observe(wrap);
-    select(canvas).call(zb).on('dblclick.zoom', null);
-    resize();
-    return () => { ro.disconnect(); select(canvas).on('.zoom', null); clearTimeout(idle); };
-  }, [requestDraw]);
+    map.on('load', () => {
+      // Keep the data credits folded behind the (i) button so they do not cover the map on small screens.
+      map.getContainer().querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
+      setReady(true);
+      onMove();
+    });
+    map.on('move', onMove);
+    map.on('moveend', () => setZoom(map.getZoom()));
+    map.on('dragstart', () => setFollow(null));
+    const ro = new ResizeObserver(() => { map.resize(); requestDraw(); });
+    ro.observe(wrapRef.current);
+    return () => { ro.disconnect(); cancelAnimationFrame(raf); map.remove(); mapRef.current = null; setReady(false); };
+  }, [tiles.loaded, requestDraw]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Theme change: rebuild the style with the new palette.
+  const themeRef = useRef(theme);
+  useEffect(() => {
+    if (!ready || themeRef.current === theme) return;
+    themeRef.current = theme;
+    mapRef.current.setStyle(styleFor.current());
+  }, [theme, ready]);
+
+  // Data and visibility updates go straight to the sources and layers.
+  const setData = (id, data) => { try { mapRef.current?.getSource(id)?.setData(data); } catch { /* style reloading */ } };
+  useEffect(() => { if (ready) setData('zones', zonesData); }, [ready, zonesData]);
+  useEffect(() => { if (ready) setData('events', eventsData); }, [ready, eventsData]);
+  useEffect(() => { if (ready) setData('graticule', gratData); }, [ready, gratData]);
+  useEffect(() => {
+    if (!ready) return;
+    setData('borders', geo.borders); setData('ua', geo.ua); setData('countries', geo.fc); setData('coast', geo.coast);
+  }, [ready, geo]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    const vis = (id, on) => { if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none'); };
+    vis('hillshade', layers.relief); vis('graticule', layers.graticule);
+    vis('zones-fill', layers.conflicts); vis('zones-line', layers.conflicts); vis('events', layers.events);
+  }, [ready, layers]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map?.getLayer('events')) return;
+    const col = palette(wrapRef.current);
+    map.setPaintProperty('events', 'circle-color', ['case', ['==', ['get', 'id'], selectedEvent], col.brass, col.conflict]);
+  }, [ready, selectedEvent, theme]);
+
+  // Sharper country borders (1:10m) once the map is zoomed in, or straight away over the detailed basemap.
+  useEffect(() => {
+    if ((!detailed && zoom < 4) || detail || detailLoading) return;
+    setDetailLoading(true);
+    import('../data/world-10m.json')
+      .then((m) => setDetail(prepare(m.default)))
+      .catch(() => toast('Не вдалося завантажити детальні кордони'))
+      .finally(() => setDetailLoading(false));
+  }, [zoom, detailed, detail, detailLoading, toast]);
 
   // First view: Ukraine, or the linked object.
   const started = useRef(false);
@@ -559,79 +480,64 @@ export function MapView({ focus }) {
     started.current = true;
     const t = focus && TRACKS.find((x) => x.id === focus);
     const p = focus && state.points.find((x) => x.id === focus);
-    if (t && t.clearance <= me.clearance) { const st = trackState(t, simNow()); setSel({ type: 'track', id: t.id }); flyTo(st.lat, st.lon, 14, 0); }
-    else if (p && p.clearance <= me.clearance) { setSel({ type: 'point', id: p.id }); setTab('points'); flyTo(p.lat, p.lon, 16, 0); }
-    else fitBounds(PRESETS.ukraine, 0);
+    if (t && t.clearance <= me.clearance) { const st = trackState(t, simNow()); setSel({ type: 'track', id: t.id }); flyTo(st.lat, st.lon, 8, 0); }
+    else if (p && p.clearance <= me.clearance) { setSel({ type: 'point', id: p.id }); setTab('points'); flyTo(p.lat, p.lon, 12, 0); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load the 1:10m borders the first time the map is zoomed in.
-  useEffect(() => {
-    if (zoomK < DETAIL_K || detail || detailLoading) return;
-    setDetailLoading(true);
-    import('../data/world-10m.json')
-      .then((m) => setDetail(prepare(m.default)))
-      .catch(() => toast('Не вдалося завантажити детальні кордони'))
-      .finally(() => setDetailLoading(false));
-  }, [zoomK, detail, detailLoading, toast]);
-
   // Follow a moving object.
   useEffect(() => {
-    if (!follow) return;
+    if (!follow || !mapRef.current) return;
     const st = live[follow];
-    if (st) flyTo(st.lat, st.lon, transform.current.k, 0);
-  }, [follow, live, flyTo]);
+    if (st) mapRef.current.easeTo({ center: [st.lon, st.lat], duration: 900 });
+  }, [follow, live]);
 
-  useEffect(() => { requestDraw(); }, [points, tracks, live, sel, layers, measure, detail, cursor, requestDraw, state.settings.theme]);
+  useEffect(() => { requestDraw(); }, [points, tracks, live, sel, layers, measure, geo, ready, requestDraw, theme]);
   useEffect(() => { document.fonts?.ready.then(() => requestDraw()); }, [requestDraw]);
 
   /* ---------- pointer ---------- */
 
-  // Pointer position in map pixels, measured from the frame: the canvas itself may be CSS-shifted mid-gesture.
-  const pointerXY = (e) => {
-    const wrap = wrapRef.current;
-    const r = wrap.getBoundingClientRect();
-    return [e.clientX - r.left - wrap.clientLeft, e.clientY - r.top - wrap.clientTop];
-  };
-
   const hover = useRef(0);
-  const onMove = (e) => {
+  const cursorRef = useRef(null);
+  const onPointerMove = (e) => {
     if (e.pointerType === 'touch') { setTouch(true); return; }
-    const xy = pointerXY(e);
+    const map = mapRef.current;
+    if (!map) return;
+    const r = mapDivRef.current.getBoundingClientRect();
+    const ll = map.unproject([e.clientX - r.left, e.clientY - r.top]);
     cancelAnimationFrame(hover.current);
     hover.current = requestAnimationFrame(() => {
-      const ll = projection().invert(xy);
-      if (!ll || Math.abs(ll[1]) > 85.05) { setCursor(null); return; }
-      setCursor({ lon: ll[0], lat: ll[1], country: countryAt(ll[0], ll[1]) });
+      if (Math.abs(ll.lat) > 85.05) { setCursor(null); return; }
+      const c = { lon: ll.lng, lat: ll.lat, country: countryAt(ll.lng, ll.lat) };
+      cursorRef.current = c;
+      setCursor(c);
+      elevationAt(tiles.terrain, c.lat, c.lon).then((m) => { if (cursorRef.current === c) setElevation(m); });
     });
   };
+  useEffect(() => {
+    if (!touch || !centre) return;
+    let alive = true;
+    elevationAt(tiles.terrain, centre.lat, centre.lon).then((m) => { if (alive) setElevation(m); });
+    return () => { alive = false; };
+  }, [touch, centre, tiles.terrain]);
 
   const hit = (xy) => {
-    const proj = projection();
     let best = null, bestD = 14;
-    if (layers.tracks) for (const t of tracks) {
-      const p = proj([live[t.id].lon, live[t.id].lat]);
-      const d = p && Math.hypot(p[0] - xy[0], p[1] - xy[1]);
-      if (d < bestD) { bestD = d; best = { type: 'track', id: t.id }; }
-    }
-    if (layers.points) for (const pt of points) {
-      const p = proj([pt.lon, pt.lat]);
-      const d = p && Math.hypot(p[0] - xy[0], p[1] - xy[1]);
-      if (d < bestD) { bestD = d; best = { type: 'point', id: pt.id }; }
-    }
-    if (layers.events) for (const e of events) {
-      const p = proj([e.lon, e.lat]);
-      const d = p && Math.hypot(p[0] - xy[0], p[1] - xy[1]);
-      if (d < bestD) { bestD = d; best = { type: 'event', id: e.id }; }
-    }
+    const near = (lon, lat) => { const p = project([lon, lat]); return p ? Math.hypot(p[0] - xy[0], p[1] - xy[1]) : Infinity; };
+    if (layers.tracks) for (const t of tracks) { const d = near(live[t.id].lon, live[t.id].lat); if (d < bestD) { bestD = d; best = { type: 'track', id: t.id }; } }
+    if (layers.points) for (const pt of points) { const d = near(pt.lon, pt.lat); if (d < bestD) { bestD = d; best = { type: 'point', id: pt.id }; } }
+    if (layers.events) for (const e of events) { const d = near(e.lon, e.lat); if (d < bestD) { bestD = d; best = { type: 'event', id: e.id }; } }
     return best;
   };
 
   const onClick = (e) => {
-    const xy = pointerXY(e);
-    const ll = projection().invert(xy);
-    if (!ll || Math.abs(ll[1]) > 85.05) return;
-    const at = { lat: ll[1], lon: ((ll[0] + 540) % 360) - 180 };
+    const map = mapRef.current;
+    if (!map) return;
+    const r = mapDivRef.current.getBoundingClientRect();
+    const xy = [e.clientX - r.left, e.clientY - r.top];
+    const ll = map.unproject(xy);
+    if (Math.abs(ll.lat) > 85.05) return;
+    const at = { lat: ll.lat, lon: ((ll.lng + 540) % 360) - 180 };
     if (mode === 'measure') { setMeasure((m) => [...m, at]); setTab('measure'); return; }
     if (mode === 'mark') { setDraft({ ...at, name: '', kind: 'site', clearance: 0, note: '' }); return; }
     const h = hit(xy);
@@ -639,6 +545,14 @@ export function MapView({ focus }) {
     if (h) { setSel(h); setTab(h.type === 'track' ? 'tracks' : h.type === 'event' ? 'conflicts' : 'points'); }
     else setSel({ type: 'coord', ...at });
     setArmed(false);
+  };
+  // MapLibre swallows click events after a drag; plain pointer taps on the map pass through here.
+  const down = useRef(null);
+  const onPointerDown = (e) => { if (e.pointerType === 'touch') setTouch(true); down.current = [e.clientX, e.clientY]; };
+  const onPointerUp = (e) => {
+    const d = down.current;
+    down.current = null;
+    if (d && Math.hypot(e.clientX - d[0], e.clientY - d[1]) < 6 && !e.target.closest?.('.maplibregl-ctrl')) onClick(e);
   };
 
   /* ---------- actions ---------- */
@@ -650,18 +564,19 @@ export function MapView({ focus }) {
     setQueryErr('');
     const q = query.trim();
     if (!q) return;
+    const cur = mapRef.current?.getZoom() ?? 5;
     const c = parseCoords(q);
     if (c) {
       setSel({ type: 'coord', ...c });
-      flyTo(c.lat, c.lon, Math.max(transform.current.k, 24));
+      flyTo(c.lat, c.lon, Math.max(cur, detailed ? 14 : 9));
       dispatch({ type: 'map/log', text: `Пошук координат ${fmtDD(c.lat, c.lon)}` });
       return;
     }
     const low = q.toLowerCase();
     const city = CITIES.find((x) => x.name.toLowerCase().startsWith(low));
-    if (city) { setSel({ type: 'coord', lat: city.lat, lon: city.lon }); flyTo(city.lat, city.lon, Math.max(transform.current.k, 30)); return; }
+    if (city) { setSel({ type: 'coord', lat: city.lat, lon: city.lon }); flyTo(city.lat, city.lon, Math.max(cur, detailed ? 11 : 8)); return; }
     const pt = points.find((x) => x.name.toLowerCase().includes(low));
-    if (pt) { setSel({ type: 'point', id: pt.id }); setTab('points'); flyTo(pt.lat, pt.lon, Math.max(transform.current.k, 20)); return; }
+    if (pt) { setSel({ type: 'point', id: pt.id }); setTab('points'); flyTo(pt.lat, pt.lon, Math.max(cur, detailed ? 14 : 9)); return; }
     const country = BASE.fc.features.find((f) => f.properties.uk.toLowerCase().startsWith(low) || f.properties.name.toLowerCase().startsWith(low));
     if (country) {
       const [[x0, y0], [x1, y1]] = country.properties.bbox;
@@ -691,26 +606,28 @@ export function MapView({ focus }) {
     toast('Позначку видалено');
   };
 
-  const zoomBy = (f) => setTransform(transform.current.scale(f), 250);
+  const zoomBy = (f) => (f > 1 ? mapRef.current?.zoomIn() : mapRef.current?.zoomOut());
   const preset = (p) => { setFollow(null); fitBounds(PRESETS[p]); };
 
   const measureTotal = measure.slice(1).reduce((a, b, i) => a + distanceKm(measure[i], b), 0);
 
-  // Scale bar: km per pixel at the map centre.
+  // Scale bar from MapLibre's 512-px world at the current zoom and centre latitude.
   const scale = useMemo(() => {
-    const { w, h } = size.current;
-    const ll = projection().invert([w / 2, h / 2]);
-    if (!ll) return null;
-    const kmPerPx = (2 * Math.PI * 6371 * Math.cos((ll[1] * Math.PI) / 180)) / ((w / (2 * Math.PI)) * zoomK * 2 * Math.PI);
+    const lat = centre?.lat ?? 48;
+    const kmPerPx = (40075.016686 * Math.cos((lat * Math.PI) / 180)) / (512 * 2 ** zoom);
     const target = kmPerPx * 100;
     const pow = Math.pow(10, Math.floor(Math.log10(target)));
     const nice = [1, 2, 5, 10].map((m) => m * pow).filter((v) => v <= target).pop() || pow;
     return { km: nice, px: nice / kmPerPx };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zoomK, now, cursor]);
+  }, [zoom, centre]);
 
-  const centre = touch ? (() => { const { w, h } = size.current; const ll = projection().invert([w / 2, h / 2]); return ll ? { lon: ll[0], lat: ll[1] } : null; })() : null;
   const readout = touch ? centre : cursor;
+  const LAYERS = [
+    ...(tiles.terrain ? [['relief', 'Рельєф']] : []),
+    ['conflicts', 'Зони конфліктів'], ['events', 'Події ACLED'], ['graticule', 'Координатна сітка'],
+    ...(detailed ? [] : [['labels', 'Назви країн'], ['cities', 'Міста']]),
+    ['points', 'Позначки'], ['tracks', 'Об’єкти'], ['trails', 'Сліди руху'],
+  ];
 
   /* ---------- selected item card ---------- */
 
@@ -734,7 +651,7 @@ export function MapView({ focus }) {
     <div className="page page--map">
       <header className="page__head">
         <div>
-          <div className="vx-eyebrow">WGS 84 · Меркатор · Natural Earth</div>
+          <div className="vx-eyebrow">WGS 84 · {detailed ? 'OpenStreetMap' : 'Natural Earth'}{tiles.terrain ? ' · Copernicus DEM' : ''}</div>
           <h1 className="vx-h1">Карта</h1>
         </div>
         <form className="map-search" onSubmit={search}>
@@ -766,6 +683,12 @@ export function MapView({ focus }) {
               {LAYERS.map(([id, name]) => (
                 <label key={id} className="check"><input type="checkbox" checked={layers[id]} onChange={(e) => setLayers({ ...layers, [id]: e.target.checked })} /> {name}</label>
               ))}
+              <div className="vx-hint map-layers__note">
+                {detailed
+                  ? `Детальна карта: OpenStreetMap, збірка ${tiles.basemap.build}.`
+                  : 'Детальна карта не встановлена на цьому сервері. Показано кордони Natural Earth.'}
+                {tiles.terrain ? ` Рельєф: ${tiles.terrain.dataset}.` : ''}
+              </div>
             </div>
           )}
         </div>
@@ -779,8 +702,10 @@ export function MapView({ focus }) {
 
       <div className="map-layout">
         <div className={`map-frame vx-panel mode-${mode}`} ref={wrapRef}>
-          <canvas ref={canvasRef} className="map-canvas" onPointerMove={onMove} onPointerDown={(e) => e.pointerType === 'touch' && setTouch(true)} onClick={onClick}
-            onPointerLeave={() => !touch && setCursor(null)} aria-label="Карта світу" role="img" />
+          <div ref={mapDivRef} className="map-gl" onPointerMove={onPointerMove} onPointerDown={onPointerDown} onPointerUp={onPointerUp}
+            onPointerLeave={() => !touch && setCursor(null)} role="application" aria-label="Карта" />
+          <canvas ref={overlayRef} className="map-overlay" aria-hidden="true" />
+          {!ready && <div className="map-loading"><Loader size={48} label="Завантаження карти" /></div>}
           {touch && <div className="map-crosshair" aria-hidden="true" />}
           <div className="map-zoom">
             <button className="vx-btn vx-btn--icon vx-btn--sm" onClick={() => zoomBy(2)} aria-label="Наблизити"><Icon name="plus" /></button>
@@ -805,13 +730,14 @@ export function MapView({ focus }) {
               <div><span>{touch ? 'Центр' : 'Курсор'}</span> {fmtDD(readout.lat, readout.lon)}</div>
               <div><span>DMS</span> {fmtDMS(readout.lat, readout.lon)}</div>
               <div><span>MGRS</span> {fmtMGRS(readout.lat, readout.lon)}</div>
+              {tiles.terrain && <div><span>Висота</span> {elevation == null ? '—' : `${elevation.toLocaleString('uk-UA')} м`}</div>}
               {!touch && <div><span>Країна</span> {readout.country?.properties.uk ?? 'Відкрите море'}</div>}
               {!touch && layers.conflicts && (() => { const z = zoneAt(zones, readout.lon, readout.lat, readout.country); return z && <div className="map-readout__zone"><span>Зона</span> {z.name}</div>; })()}
             </> : <div className="vx-hint">Наведіть курсор на карту</div>}
           </div>
           <div className="map-scale vx-mono">
             {scale && <><i style={{ width: scale.px }} /> {fmtKm(scale.km)}</>}
-            <span className="vx-hint">×{zoomK < 10 ? zoomK.toFixed(1) : Math.round(zoomK)}</span>
+            <span className="vx-hint">z {zoom.toFixed(1)}</span>
             {detailLoading && <Loader size={14} label="Детальні кордони" />}
           </div>
         </div>
@@ -837,7 +763,7 @@ export function MapView({ focus }) {
                       <button className={`vx-btn vx-btn--sm ${follow === selTrack.id ? 'vx-btn--brass' : ''}`} onClick={() => setFollow(follow === selTrack.id ? null : selTrack.id)}>
                         <Icon name="target" /> {follow === selTrack.id ? 'Стежу' : 'Стежити'}
                       </button>
-                      <button className="vx-btn vx-btn--sm" onClick={() => flyTo(st.lat, st.lon, Math.max(zoomK, 14))}>Центрувати</button>
+                      <button className="vx-btn vx-btn--sm" onClick={() => flyTo(st.lat, st.lon, Math.max(zoom, 9))}>Центрувати</button>
                     </div>
                   </>;
                 })()}
@@ -847,7 +773,7 @@ export function MapView({ focus }) {
                   {coordRows(selPoint.lat, selPoint.lon)}
                   <div className="vx-hint">{userById(selPoint.owner)?.name ?? '—'} · {fmtDate(selPoint.at)}</div>
                   <div className="row-btns">
-                    <button className="vx-btn vx-btn--sm" onClick={() => flyTo(selPoint.lat, selPoint.lon, Math.max(zoomK, 16))}>Центрувати</button>
+                    <button className="vx-btn vx-btn--sm" onClick={() => flyTo(selPoint.lat, selPoint.lon, Math.max(zoom, detailed ? 14 : 9))}>Центрувати</button>
                     <button className="vx-btn vx-btn--sm" onClick={() => { setMeasure([{ lat: selPoint.lat, lon: selPoint.lon }]); setMode('measure'); setTab('measure'); }}>Виміряти звідси</button>
                     {(perms.map >= 3 || selPoint.owner === me.id) && (
                       <button className="vx-btn vx-btn--sm vx-btn--danger" onClick={() => removePoint(selPoint.id)} onBlur={() => setArmed(false)}>{armed ? 'Точно видалити?' : 'Видалити'}</button>
@@ -897,7 +823,7 @@ export function MapView({ focus }) {
                   const st = live[t.id];
                   return (
                     <button key={t.id} className={`list__row list__row--btn ${sel?.id === t.id ? 'is-sel' : ''}`}
-                      onClick={() => { setSel({ type: 'track', id: t.id }); flyTo(st.lat, st.lon, Math.max(zoomK, 12)); }}>
+                      onClick={() => { setSel({ type: 'track', id: t.id }); flyTo(st.lat, st.lon, Math.max(zoom, 7)); }}>
                       <span className="list__text"><span>{t.name} {follow === t.id && <span className="vx-tag">стежу</span>}</span>
                         <span className="vx-hint vx-num">{TRACK_KIND[t.kind]} · {t.speed} км/год · {Math.round(st.heading)}° {compass(st.heading)}</span></span>
                       <ClassBadge level={t.clearance} />
@@ -911,7 +837,7 @@ export function MapView({ focus }) {
               <div className="list">
                 {points.map((p) => (
                   <button key={p.id} className={`list__row list__row--btn ${sel?.id === p.id ? 'is-sel' : ''}`}
-                    onClick={() => { setSel({ type: 'point', id: p.id }); flyTo(p.lat, p.lon, Math.max(zoomK, 16)); }}>
+                    onClick={() => { setSel({ type: 'point', id: p.id }); flyTo(p.lat, p.lon, Math.max(zoom, detailed ? 14 : 9)); }}>
                     <span className="list__text"><span>{p.name}</span><span className="vx-hint vx-mono">{fmtDD(p.lat, p.lon)}</span></span>
                     <ClassBadge level={p.clearance} />
                   </button>

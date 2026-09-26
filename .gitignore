@@ -1,3 +1,7 @@
 node_modules
 dist
 .DS_Store
+.cache
+# Map data is downloaded on the server by scripts/maps (gigabytes); only the empty manifest is versioned.
+public/tiles/*
+!public/tiles/manifest.json

@@ -31,6 +31,30 @@ npm run build    # збірка в dist/
 Це фронтенд-прототип: дані демонстраційні й зберігаються в браузері (localStorage + IndexedDB), автентифікація імітована.
 Для реального використання потрібні сервер, справжня автентифікація (SSO/MFA), перевірка прав на бекенді та шифроване сховище.
 
+## Детальна карта на власному сервері
+
+Карта працює на MapLibre GL. Без додаткових даних показує кордони Natural Earth, що вбудовані в застосунок.
+Детальну карту (дороги, населені пункти, будинки, підписи українською) і рельєф завантажують прямо на сервер:
+
+```bash
+# 1. Векторна карта OpenStreetMap (Protomaps), Україна з сусідами до рівня будинків, ≈ 2–3 ГБ.
+#    Сам завантажує утиліту pmtiles і найсвіжішу збірку планети, вирізає регіон, додає шрифти й значки.
+node scripts/maps/fetch-basemap.mjs --out /srv/reaction/tiles --bbox 19.5,43.2,41.5,53.8 --maxzoom 15
+
+# 2. Рельєф Copernicus DEM (≈ 1 ГБ завантаження, кілька тисяч тайлів), висота під курсором.
+node scripts/maps/build-terrain.mjs --out /srv/reaction/tiles/terrain --maxzoom 10
+
+# 3. Оновлювати карту щомісяця (cron):
+# 17 3 1 * *  cd /srv/reaction/src && node scripts/maps/fetch-basemap.mjs --out /srv/reaction/tiles
+```
+
+Обидва скрипти записують `tiles/manifest.json`; застосунок сам бачить встановлені дані й перемикається на детальну карту.
+Приклад налаштування nginx — `deploy/nginx.conf` (статичні файли, запити за діапазоном для PMTiles, без окремого тайл-сервера).
+Інший регіон — інший `--bbox`; уся Європа ≈ 25–30 ГБ, планета ≈ 120 ГБ.
+
+Державні кордони завжди малюються з наших даних Natural Earth (Крим — Україна), а не з підкладки OSM.
+Атрибуція: © OpenStreetMap contributors (ODbL), Protomaps; Copernicus DEM © DLR e.V., © Airbus Defence and Space GmbH, ESA.
+
 ## Дані карти
 
 `node scripts/build-map.mjs` перебудовує `src/data/world-50m.json` і `world-10m.json` з пакета `world-atlas`:
