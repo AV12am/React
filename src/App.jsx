@@ -156,7 +156,7 @@ function Shell() {
           <button className="vx-btn vx-btn--ghost vx-btn--icon topbar__menu" onClick={() => setMenu(true)} aria-label="Меню"><Icon name="menu" /></button>
           <span className="topbar__mark"><Mark size={22} /></span>
           <button className="topbar__search" onClick={() => setPalette(true)}>
-            <Icon name="search" size={16} /> <span>Пошук і команди</span> <kbd>Ctrl K</kbd>
+            <Icon name="search" size={16} /> <span className="topbar__search-long">Пошук і команди</span><span className="topbar__search-short">Пошук</span> <kbd>Ctrl K</kbd>
           </button>
           <span className="grow" />
           <Bell open={bell} setOpen={setBell} go={go} />

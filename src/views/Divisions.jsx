@@ -1,5 +1,5 @@
 import { useStore, fmtAgo } from '../store.jsx';
-import { Panel, Status, Avatar, Drawer, ClassBadge } from '../components/ui.jsx';
+import { Status, Avatar, Drawer, ClassBadge } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { DIVISIONS, ROLES } from '../data/seed.js';
 

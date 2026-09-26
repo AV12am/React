@@ -79,6 +79,7 @@ const STALE_HOURS = 48;
 const eventRadius = (e) => 2.5 + Math.min(6, Math.sqrt(e.fatalities || 0));
 
 // Phones report 3× pixel density; 2× is indistinguishable on a map and draws 2.25× fewer pixels.
+const SERIF = '"Source Serif 4 Variable", Georgia, serif';
 const pixelRatio = () => Math.min(2, window.devicePixelRatio || 1);
 function inView(proj, bbox, w, h) {
   if (!bbox) return true;
@@ -147,7 +148,7 @@ function SourcesStatus({ manifest, front, frontSource, setFrontSource, available
   );
 }
 
-export function MapView({ focus, go }) {
+export function MapView({ focus }) {
   const { state, me, perms, dispatch, userById, toast } = useStore();
   const canWrite = perms.map >= 2;
 
@@ -165,7 +166,8 @@ export function MapView({ focus, go }) {
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [cursor, setCursor] = useState(null); // {lat, lon, country}
-  const [touch, setTouch] = useState(false);
+  // Touch screens have no hover: show the centre of the map under a crosshair instead of the cursor.
+  const [touch, setTouch] = useState(() => window.matchMedia?.('(pointer: coarse)').matches ?? false);
   const [mode, setMode] = useState('view');
   const [layers, setLayers] = useState({ conflicts: true, events: true, graticule: true, labels: true, cities: true, points: true, tracks: true, trails: true });
   const [layersOpen, setLayersOpen] = useState(false);
@@ -330,6 +332,7 @@ export function MapView({ focus, go }) {
       if (hov) { ctx.beginPath(); path(hov); ctx.fillStyle = col.ink; ctx.globalAlpha = 0.06; ctx.fill(); ctx.globalAlpha = 1; }
     }
 
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
     const taken = [];
     const free = (x, y, wd, ht) => {
       const r = [x - 2, y - 2, x + wd + 2, y + ht + 2];
@@ -338,7 +341,7 @@ export function MapView({ focus, go }) {
       taken.push(r);
       return true;
     };
-    const label = (text, x, y, color, font = '500 11px Inter, system-ui, sans-serif') => {
+    const label = (text, x, y, color, font = '500 11px "Source Serif 4 Variable", Georgia, serif') => {
       ctx.font = font;
       const tw = ctx.measureText(text).width;
       if (!free(x, y - 9, tw, 12)) return;
@@ -373,7 +376,7 @@ export function MapView({ focus, go }) {
         ctx.fillStyle = active ? col.brass : col.ink; ctx.fill();
         ctx.lineWidth = 1.5; ctx.strokeStyle = col.sea; ctx.stroke();
         ctx.restore();
-        markers.push({ text: t.name, x: p[0] + 11, y: p[1] + 4, color: active ? col.brass : col.ink, font: '600 11px Inter, system-ui, sans-serif', always: active || k >= 3.5 });
+        markers.push({ text: t.name, x: p[0] + 11, y: p[1] + 4, color: active ? col.brass : col.ink, font: '600 11px "Source Serif 4 Variable", Georgia, serif', always: active || k >= 3.5 });
       }
     }
     if (s.layers.points) {
@@ -400,7 +403,7 @@ export function MapView({ focus, go }) {
         ctx.fillStyle = col.sea; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = col.brass; ctx.stroke();
         if (i === s.measure.length - 1 && i > 0) {
           const total = s.measure.slice(1).reduce((a, b, j) => a + distanceKm(s.measure[j], b), 0);
-          markers.unshift({ text: fmtKm(total), x: p[0] + 9, y: p[1] - 8, color: col.brass, font: '600 12px Inter, system-ui, sans-serif', always: true });
+          markers.unshift({ text: fmtKm(total), x: p[0] + 9, y: p[1] - 8, color: col.brass, font: '600 12px "Source Serif 4 Variable", Georgia, serif', always: true });
         }
       });
     }
@@ -437,9 +440,10 @@ export function MapView({ focus, go }) {
         const span = a && b ? Math.abs(b[0] - a[0]) : 0;
         if (span < 70 && !(f.id === '804' && span > 30)) continue;
         const text = f.properties.uk.toUpperCase();
-        ctx.font = '600 10px Inter, system-ui, sans-serif';
+        ctx.font = `600 10.5px ${SERIF}`;
+        if ('letterSpacing' in ctx) ctx.letterSpacing = '1.5px';
         const tw = ctx.measureText(text).width;
-        label(text, p[0] - tw / 2, p[1] + 4, f.id === '804' ? col.ink2 : col.ink3, '600 10px Inter, system-ui, sans-serif');
+        label(text, p[0] - tw / 2, p[1] + 4, f.id === '804' ? col.ink2 : col.ink3, `600 10.5px ${SERIF}`);
       }
     }
   };
@@ -579,14 +583,21 @@ export function MapView({ focus, go }) {
   }, [follow, live, flyTo]);
 
   useEffect(() => { requestDraw(); }, [points, tracks, live, sel, layers, measure, detail, cursor, requestDraw, state.settings.theme]);
+  useEffect(() => { document.fonts?.ready.then(() => requestDraw()); }, [requestDraw]);
 
   /* ---------- pointer ---------- */
+
+  // Pointer position in map pixels, measured from the frame: the canvas itself may be CSS-shifted mid-gesture.
+  const pointerXY = (e) => {
+    const wrap = wrapRef.current;
+    const r = wrap.getBoundingClientRect();
+    return [e.clientX - r.left - wrap.clientLeft, e.clientY - r.top - wrap.clientTop];
+  };
 
   const hover = useRef(0);
   const onMove = (e) => {
     if (e.pointerType === 'touch') { setTouch(true); return; }
-    const r = canvasRef.current.getBoundingClientRect();
-    const xy = [e.clientX - r.left, e.clientY - r.top];
+    const xy = pointerXY(e);
     cancelAnimationFrame(hover.current);
     hover.current = requestAnimationFrame(() => {
       const ll = projection().invert(xy);
@@ -617,8 +628,7 @@ export function MapView({ focus, go }) {
   };
 
   const onClick = (e) => {
-    const r = canvasRef.current.getBoundingClientRect();
-    const xy = [e.clientX - r.left, e.clientY - r.top];
+    const xy = pointerXY(e);
     const ll = projection().invert(xy);
     if (!ll || Math.abs(ll[1]) > 85.05) return;
     const at = { lat: ll[1], lon: ((ll[0] + 540) % 360) - 180 };

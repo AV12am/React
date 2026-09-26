@@ -13,15 +13,13 @@ export function Dashboard({ go }) {
   const used = state.files.reduce((s, f) => s + f.size, 0);
   const weeks = WEEKLY.map((_, i) => `Т-${WEEKLY.length - 1 - i}`).map((l, i, a) => (i === a.length - 1 ? 'Цей' : l));
   const total = SOURCES.reduce((s, x) => s + x.value, 0);
-  const hour = new Date().getHours();
-  const greet = hour < 6 ? 'Доброї ночі' : hour < 12 ? 'Доброго ранку' : hour < 18 ? 'Добрий день' : 'Добрий вечір';
 
   return (
     <div className="page">
       <header className="page__head">
         <div>
-          <div className="vx-eyebrow">{new Date().toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
-          <h1 className="vx-h1">{greet}, {me.name.split(' ')[0]}</h1>
+          <div className="vx-eyebrow">Зведення на {new Date().toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+          <h1 className="vx-h1">Оперативна обстановка</h1>
         </div>
         <Status kind={SYSTEMS.some((s) => s.status !== 'ok') ? 'warn' : 'ok'}>
           {SYSTEMS.filter((s) => s.status === 'ok').length} з {SYSTEMS.length} систем у нормі
@@ -47,7 +45,7 @@ export function Dashboard({ go }) {
       <div className="grid grid--2">
         <Panel title="Звіти за класами джерел" action={<span className="vx-hint">цей тиждень</span>}>
           <BarList data={SOURCES} unit="звітів" highlight="OSINT" />
-          <p className="vx-hint chart-note">Латунню позначено найбільше джерело. 8 класів — 8 пелюсток знака.</p>
+          <p className="vx-hint chart-note">Найбільше звітів — {SOURCES[0].id}: {SOURCES[0].value} з {total.toLocaleString('uk-UA')}.</p>
         </Panel>
         <Panel title="Завершені оцінки" action={<span className="vx-hint">12 тижнів</span>}>
           <Trend data={WEEKLY} labels={weeks} unit="оцінок" />
