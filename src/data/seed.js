@@ -1,10 +1,12 @@
 // Demo data for Reaction Core. All people, projects and figures are fictional.
 
+// Рівні таємності — за тим, скільки світла дістає інформацію. Образ, за яким стоїть звичайна шкала:
+// відкрите / для службового користування / таємно / цілком таємно.
 export const CLEARANCE = [
-  { id: 0, short: 'Відкрито', full: 'Відкрита інформація' },
-  { id: 1, short: 'ДСК', full: 'Для службового користування' },
-  { id: 2, short: 'Таємно', full: 'Таємно' },
-  { id: 3, short: 'Цілком таємно', full: 'Цілком таємно' },
+  { id: 0, short: 'Світло', full: 'Світло · відкрита інформація', note: 'Те, що компанія показує світу. Ділиться вільно, зокрема назовні.' },
+  { id: 1, short: 'Сутінки', full: 'Сутінки · для службового користування', note: 'Живе лише в стінах компанії. Назовні — ні слова.' },
+  { id: 2, short: 'Тінь', full: 'Тінь · таємно', note: 'Бачить той, кому це потрібно для роботи. Не ширше.' },
+  { id: 3, short: 'Морок', full: 'Морок · цілком таємно', note: 'Поіменний доступ. Поза колом посвячених не існує.' },
 ];
 
 export const ROLES = [
@@ -55,6 +57,9 @@ export const DIVISIONS = [
   { id: 'acad', code: 'АК', name: 'Академія', icon: 'book', lead: 'u12', status: 'ok',
     about: 'Tradecraft for intelligence: навчання персоналу та партнерів, методички, атестація.',
     projects: ['Курс «Основи OSINT»', 'Атестація аналітиків', 'Бібліотека кейсів'] },
+  { id: 'res', code: 'ДСЛ', name: 'Дослідження', icon: 'atom', lead: 'u16', status: 'ok',
+    about: 'Пошуковий напрям: нові методи верифікації, робота з відкритими даними, інструменти OSINT і моделі довіри до джерел. Те, що завтра стане робочим для інших напрямів.',
+    projects: ['Модель довіри до джерел', 'Верифікація зображень за метаданими', 'Граф зв’язків — прототип', 'Бібліотека методик'] },
 ];
 
 const d = (daysAgo, h = 10, m = 0) => {
@@ -81,6 +86,9 @@ export const USERS = [
   { id: 'u13', code: 'V-078', name: 'Павло Іваненко', role: 'analyst', division: 'int', clearance: 1, status: 'suspended', mfa: true, lastSeen: d(21, 11, 0), title: 'Молодший аналітик' },
   { id: 'u14', code: 'C-003', name: 'Остап Руденко', role: 'guest', division: 'acad', clearance: 0, status: 'active', mfa: false, lastSeen: d(3, 15, 40), title: 'Зовнішній викладач' },
   { id: 'u15', code: 'V-083', name: 'Марія Олійник', role: 'engineer', division: 'it', clearance: 1, status: 'invited', mfa: false, lastSeen: null, title: 'Frontend-розробниця' },
+  { id: 'u16', code: 'V-088', name: 'Ярослав Гончар', role: 'lead', division: 'res', clearance: 3, status: 'active', mfa: true, lastSeen: d(0, 10, 40), title: 'Керівник досліджень' },
+  { id: 'u17', code: 'V-091', name: 'Оксана Дорош', role: 'analyst', division: 'res', clearance: 2, status: 'active', mfa: true, lastSeen: d(0, 12, 5), title: 'Дослідниця OSINT' },
+  { id: 'u18', code: 'V-095', name: 'Владислав Кушнір', role: 'engineer', division: 'res', clearance: 2, status: 'active', mfa: true, lastSeen: d(1, 15, 25), title: 'Інженер-дослідник' },
 ];
 
 export const REQUESTS = [
@@ -100,6 +108,7 @@ export const FOLDERS = [
   { id: 'f-sec-inc', name: 'Кібербезпека · Інциденти', division: 'sec', clearance: 2 },
   { id: 'f-ops', name: 'Операції · Логістика', division: 'ops', clearance: 1 },
   { id: 'f-acad', name: 'Академія · Курси', division: 'acad', clearance: 0 },
+  { id: 'f-res', name: 'Дослідження · Методики', division: 'res', clearance: 1 },
 ];
 
 const MB = 1024 * 1024;
@@ -121,6 +130,9 @@ export const FILES = [
   { id: 'x15', folder: 'f-ops', name: 'Інвентар — склад №3.csv', size: 0.2 * MB, type: 'text/csv', clearance: 1, owner: 'u10', at: d(7) },
   { id: 'x16', folder: 'f-acad', name: 'Основи OSINT — модуль 1.pdf', size: 9.6 * MB, type: 'application/pdf', clearance: 0, owner: 'u12', at: d(20) },
   { id: 'x17', folder: 'f-acad', name: 'Кейс: верифікація фото.mp4', size: 148 * MB, type: 'video/mp4', clearance: 0, owner: 'u14', at: d(11) },
+  { id: 'x18', folder: 'f-res', name: 'Модель довіри до джерел — чернетка.pdf', size: 3.9 * MB, type: 'application/pdf', clearance: 2, owner: 'u16', at: d(2) },
+  { id: 'x19', folder: 'f-res', name: 'Граф зв’язків — прототип.ipynb', size: 2.7 * MB, type: 'application/json', clearance: 2, owner: 'u18', at: d(5) },
+  { id: 'x20', folder: 'f-res', name: 'Огляд OSINT-інструментів Q3.md', size: 0.06 * MB, type: 'text/markdown', clearance: 1, owner: 'u17', at: d(1) },
 ];
 
 export const STORAGE_QUOTA = 2 * 1024 * MB; // 2 ГБ для демо

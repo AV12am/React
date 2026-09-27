@@ -393,3 +393,6 @@ kbd {
 .map-frame .maplibregl-ctrl-attrib-button { filter: invert(0.8); }
 [data-theme="paper"] .map-frame .maplibregl-ctrl-attrib-button { filter: none; }
 @media (max-width: 900px) { .map-frame .maplibregl-ctrl-bottom-right { bottom: 96px; } }
+
+/* Levels: the meaning behind each secrecy tier */
+.level-note { font-size: 14px; line-height: 20px; font-style: italic; color: var(--ink-2); }

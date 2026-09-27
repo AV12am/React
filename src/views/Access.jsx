@@ -286,7 +286,8 @@ function Levels() {
         <div className="vx-panel vx-stat" key={c.id}>
           <ClassBadge level={c.id} />
           <div className="vx-stat__value">{state.users.filter((u) => u.clearance === c.id).length}<small>осіб</small></div>
-          <div className="vx-hint">{c.full}. Папок: {state.folders.filter((f) => f.clearance === c.id).length}, файлів: {state.files.filter((f) => f.clearance === c.id).length}.</div>
+          {c.note && <div className="level-note">{c.note}</div>}
+          <div className="vx-hint">Папок: {state.folders.filter((f) => f.clearance === c.id).length}, файлів: {state.files.filter((f) => f.clearance === c.id).length}.</div>
         </div>
       ))}
     </div>

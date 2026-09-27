@@ -45,6 +45,7 @@ export const SEED_POINTS = [
   { id: 'p03', name: 'Склад №3', kind: 'site', lat: 50.2649, lon: 28.6767, clearance: 1, owner: 'u10', note: 'Обладнання зв’язку, ротація щопонеділка.' },
   { id: 'p04', name: 'Точка збору Схід-2', kind: 'wp', lat: 49.9808, lon: 36.2527, clearance: 2, owner: 'u10', note: 'Контрольна точка маршруту конвою.' },
   { id: 'p05', name: 'Спостереження «Меридіан»', kind: 'obs', lat: 46.6354, lon: 32.6169, clearance: 3, owner: 'u03', note: 'Матеріали — у папці «Розвідка · Джерела».' },
+  { id: 'p06', name: 'Лабораторія досліджень', kind: 'site', lat: 49.9935, lon: 36.2304, clearance: 1, owner: 'u16', note: 'OSINT-інструменти, верифікація, R&D для інших напрямів.' },
 ];
 
 // Tracked assets move along their routes in simulated real time (ping-pong).
