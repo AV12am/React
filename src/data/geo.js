@@ -38,26 +38,7 @@ export const POINT_KINDS = [
   { id: 'wp', name: 'Маршрутна точка' },
 ];
 
-// Starting points of interest (fictional).
-export const SEED_POINTS = [
-  { id: 'p01', name: 'Головний офіс', kind: 'site', lat: 50.4485, lon: 30.5176, clearance: 0, owner: 'u01', note: 'Центр управління платформою Core.' },
-  { id: 'p02', name: 'Навчальний центр Академії', kind: 'site', lat: 49.8419, lon: 24.0315, clearance: 0, owner: 'u12', note: 'Аудиторії, полігон OSINT.' },
-  { id: 'p03', name: 'Склад №3', kind: 'site', lat: 50.2649, lon: 28.6767, clearance: 1, owner: 'u10', note: 'Обладнання зв’язку, ротація щопонеділка.' },
-  { id: 'p04', name: 'Точка збору Схід-2', kind: 'wp', lat: 49.9808, lon: 36.2527, clearance: 2, owner: 'u10', note: 'Контрольна точка маршруту конвою.' },
-  { id: 'p05', name: 'Спостереження «Меридіан»', kind: 'obs', lat: 46.6354, lon: 32.6169, clearance: 3, owner: 'u03', note: 'Матеріали — у папці «Розвідка · Джерела».' },
-  { id: 'p06', name: 'Лабораторія досліджень', kind: 'site', lat: 49.9935, lon: 36.2304, clearance: 1, owner: 'u16', note: 'OSINT-інструменти, верифікація, R&D для інших напрямів.' },
-];
-
-// Tracked assets move along their routes in simulated real time (ping-pong).
-export const TRACKS = [
-  { id: 't1', name: 'Конвой Схід-2', kind: 'ground', speed: 62, clearance: 1, owner: 'u10',
-    route: [[50.4501, 30.5234], [50.07, 31.45], [49.83, 32.63], [49.59, 34.55], [49.93, 35.55], [49.9935, 36.2304]] },
-  { id: 't2', name: 'Борт R-12', kind: 'air', speed: 640, clearance: 2, owner: 'u10',
-    route: [[50.11, 22.02], [52.2297, 21.0122], [54.6872, 25.2797], [56.9496, 24.1052], [59.437, 24.7536]] },
-  { id: 't3', name: 'Кур’єр К-7', kind: 'ground', speed: 70, clearance: 0, owner: 'u11',
-    route: [[49.8397, 24.0297], [49.5535, 25.5948], [49.423, 26.9871], [49.2331, 28.4682]] },
-  { id: 't4', name: 'Судно «Лелека»', kind: 'sea', speed: 26, clearance: 1, owner: 'u10',
-    route: [[46.47, 30.77], [45.9, 30.6], [45.0, 30.2], [43.6, 29.6], [42.2, 29.2], [41.23, 29.12]] },
-];
+// Tracked assets are added by the team; none ship with the platform.
+export const TRACKS = [];
 
 export const TRACK_KIND = { ground: 'Наземний', air: 'Повітряний', sea: 'Морський' };

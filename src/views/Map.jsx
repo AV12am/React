@@ -830,6 +830,7 @@ export function MapView({ focus }) {
                     </button>
                   );
                 })}
+                {!TRACKS.length && <div className="list__row vx-hint">Відстежуваних об’єктів поки немає.</div>}
                 {TRACKS.length > tracks.length && <div className="list__row vx-hint">Ще {TRACKS.length - tracks.length} об’єкт(и) — вище вашого допуску</div>}
               </div>
             )}

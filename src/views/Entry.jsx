@@ -3,7 +3,7 @@ import { Mark, Loader } from '../brand/Mark.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { Avatar } from '../components/ui.jsx';
 import { useStore } from '../store.jsx';
-import { ROLES, CLEARANCE } from '../data/seed.js';
+import { ROLES } from '../data/seed.js';
 
 const BOOT = [
   'Встановлення захищеного з’єднання',
@@ -28,8 +28,6 @@ export function Splash({ onDone }) {
     </div>
   );
 }
-
-const DEMO = ['u01', 'u03', 'u14'];
 
 export function Login() {
   const { state, dispatch } = useStore();
@@ -113,23 +111,12 @@ export function Login() {
           </form>
         )}
 
-        <div className="login__demo">
-          <div className="vx-eyebrow">Демо-профілі</div>
-          <div className="vx-hint">Пароль — будь-який від 6 символів, код — будь-які 6 цифр. Кожен профіль бачить лише те, що дозволяє його роль і допуск.</div>
-          <div className="login__demo-list">
-            {DEMO.map((id) => {
-              const u = state.users.find((x) => x.id === id);
-              return (
-                <button key={id} type="button" className={`login__demo-item ${code === u.code ? 'is-active' : ''}`}
-                  onClick={() => { setCode(u.code); setStage('id'); setErr(''); }}>
-                  <span className="vx-mono">{u.code}</span>
-                  <span>{ROLES.find((r) => r.id === u.role).name}</span>
-                  <span className="vx-hint">{CLEARANCE[u.clearance].short}</span>
-                </button>
-              );
-            })}
+        {state.users.length === 1 && (
+          <div className="login__demo">
+            <div className="vx-eyebrow">Перший вхід</div>
+            <div className="vx-hint">Ідентифікатор <span className="vx-mono">{state.users[0].code}</span>. Після входу змініть ім’я в «Доступ» і запросіть команду.</div>
           </div>
-        </div>
+        )}
         <div className="login__foot vx-hint">Доступ лише для персоналу. Усі дії фіксуються в журналі аудиту.</div>
       </div>
     </div>

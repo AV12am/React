@@ -1,17 +1,18 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, useCallback, useState } from 'react';
 import { USERS, REQUESTS, FILES, FOLDERS, SEED_AUDIT, PERMISSIONS, CLEARANCE } from './data/seed.js';
-import { SEED_POINTS } from './data/geo.js';
+import { storage } from './lib/storage.js';
 
-const KEY = 'reaction-core/v1';
+// v2: clean first-run state (no demo records). Older cached demo data is ignored.
+const KEY = 'reaction-core/v2';
 
 const initial = () => ({
   users: USERS,
   requests: REQUESTS,
   folders: FOLDERS,
   files: FILES,
-  points: SEED_POINTS.map((x) => ({ ...x, at: new Date(Date.now() - 86400000 * 3).toISOString() })),
+  points: [],
   seen: {},
-  audit: SEED_AUDIT.map((e, i) => ({ id: `a-seed-${i}`, ...e })),
+  audit: SEED_AUDIT,
   settings: { theme: 'matte', sensitive: true, lockMinutes: 5 },
   session: null,
 });
@@ -87,18 +88,28 @@ function reducer(state, a) {
       return withAudit({ ...state, requests: [req, ...state.requests] }, me, 'access', 'Створено запит на доступ');
     }
     case 'file/add':
-      return withAudit({ ...state, files: [a.file, ...state.files] }, me, 'vault', `Завантажено «${a.file.name}»`);
+      return withAudit({ ...state, files: [a.file, ...state.files.filter((x) => x.id !== a.file.id)] }, me, 'vault', `Завантажено «${a.file.name}»`);
     case 'file/delete': {
       const f = state.files.find((x) => x.id === a.id);
-      return withAudit({ ...state, files: state.files.filter((x) => x.id !== a.id) }, me, 'vault', `Видалено «${f.name}»`);
+      return withAudit({ ...state, files: state.files.filter((x) => x.id !== a.id) }, me, 'vault', `Видалено «${f?.name ?? a.id}»`);
     }
     case 'file/open': {
       const f = state.files.find((x) => x.id === a.id);
-      return withAudit(state, me, 'vault', `${a.download ? 'Завантажено на пристрій' : 'Переглянуто'} «${f.name}»`);
+      return withAudit(state, me, 'vault', `${a.download ? 'Завантажено на пристрій' : 'Переглянуто'} «${f?.name ?? a.id}»`);
     }
     case 'folder/add': {
       const folder = { id: uid('f'), ...a.folder };
-      return withAudit({ ...state, folders: [...state.folders, folder] }, me, 'vault', `Створено папку «${folder.name}»`);
+      return withAudit({ ...state, folders: [...state.folders.filter((x) => x.id !== folder.id), folder] }, me, 'vault', `Створено папку «${folder.name}»`);
+    }
+    case 'vault/sync': {
+      // The shared index is authoritative for files; folders merge by id with the built-in ones.
+      if (a.files) return { ...state, files: [...a.files].sort((x, y) => (y.at || '').localeCompare(x.at || '')) };
+      if (a.folders) {
+        const known = new Set(state.folders.map((f) => f.id));
+        const add = a.folders.filter((f) => f && !known.has(f.id));
+        return add.length ? { ...state, folders: [...state.folders, ...add] } : state;
+      }
+      return state;
     }
     case 'point/add': {
       const point = { id: uid('p'), owner: me, at: new Date().toISOString(), ...a.point };
@@ -128,6 +139,23 @@ const Ctx = createContext(null);
 export function StoreProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, undefined, load);
   const [toasts, setToasts] = useState([]);
+  const [backend, setBackend] = useState(null);
+
+  useEffect(() => {
+    let off;
+    let live = true;
+    storage().then((b) => {
+      if (!live) return;
+      setBackend(b);
+      if (b.index) {
+        off = b.index.watch(
+          (files) => dispatch({ type: 'vault/sync', files }),
+          (folders) => dispatch({ type: 'vault/sync', folders }),
+        );
+      }
+    });
+    return () => { live = false; off?.(); };
+  }, []);
 
   useEffect(() => {
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* quota or private mode */ }
@@ -143,8 +171,8 @@ export function StoreProvider({ children }) {
     const me = state.users.find((u) => u.id === state.session?.userId) || null;
     const perms = me ? PERMISSIONS[me.role] : {};
     const userById = (id) => state.users.find((u) => u.id === id);
-    return { state, dispatch, me, perms, userById, toast, toasts };
-  }, [state, toast, toasts]);
+    return { state, dispatch, me, perms, userById, toast, toasts, backend };
+  }, [state, toast, toasts, backend]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

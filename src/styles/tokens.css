@@ -13,12 +13,12 @@
   --ink-3: #8c8c8c;
   --ink-faint: #5a5a5a;
   --mark: #e5e5e5;
-  --brass: #b8975e;
-  --brass-dim: #3a3020;
+  --brass: #c05a69; /* burgundy accent (token name kept for compatibility) */
+  --brass-dim: #3a1a20;
   --on-brass: #0a0a0a;
   --ok: #8fb89a;
-  --warn: #d6a54e;
-  --danger: #e07a5f;
+  --warn: #d9c36a;
+  --danger: #e5606b;
   --info: #7fa7d9;
   --conflict: #e5484d;
   --scrim: rgba(0, 0, 0, 0.72);
@@ -39,12 +39,12 @@
   --ink-3: #5a5a5a;
   --ink-faint: #a3a3a3;
   --mark: #0a0a0a;
-  --brass: #7a5f30;
-  --brass-dim: #eadfc9;
+  --brass: #7a1f2e;
+  --brass-dim: #f0d9dd;
   --on-brass: #ffffff;
   --ok: #2f6b3f;
-  --warn: #8a5e12;
-  --danger: #a23b24;
+  --warn: #6e5c0c;
+  --danger: #b42331;
   --info: #2d5c94;
   --conflict: #d13438;
   --scrim: rgba(10, 10, 10, 0.4);

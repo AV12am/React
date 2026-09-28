@@ -1,18 +1,42 @@
 import { useStore, fmtBytes, fmtAgo } from '../store.jsx';
 import { Panel, StatTile, Status, BarList, Trend, Avatar } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
-import { SOURCES, WEEKLY, SYSTEMS, STORAGE_QUOTA, DIVISIONS } from '../data/seed.js';
+import { STORAGE_QUOTA, DIVISIONS } from '../data/seed.js';
 
 const TYPE_LABEL = { auth: 'Вхід', access: 'Доступ', vault: 'Сховище', map: 'Карта', security: 'Безпека', system: 'Система' };
 
+const WEEK = 7 * 86400000;
+
+// Everything on this page is derived from the platform's own records — nothing is invented.
 export function Dashboard({ go }) {
-  const { state, me, userById } = useStore();
+  const { state, me, userById, backend } = useStore();
+  const now = Date.now();
   const pending = state.requests.filter((r) => r.status === 'pending').length;
   const active = state.users.filter((u) => u.status === 'active');
-  const mfa = Math.round((active.filter((u) => u.mfa).length / active.length) * 100);
+  const mfa = active.length ? Math.round((active.filter((u) => u.mfa).length / active.length) * 100) : 0;
   const used = state.files.reduce((s, f) => s + f.size, 0);
-  const weeks = WEEKLY.map((_, i) => `Т-${WEEKLY.length - 1 - i}`).map((l, i, a) => (i === a.length - 1 ? 'Цей' : l));
-  const total = SOURCES.reduce((s, x) => s + x.value, 0);
+  const quota = backend?.quota || STORAGE_QUOTA;
+  const since = (iso, weeks = 1) => iso && now - new Date(iso).getTime() < weeks * WEEK;
+  const newFiles = state.files.filter((f) => since(f.at)).length;
+  const events = state.audit.filter((e) => since(e.at)).length;
+
+  // Activity per week from the audit log, 12 weeks, oldest first.
+  const weekly = Array.from({ length: 12 }, (_, i) => {
+    const hi = now - (11 - i) * WEEK;
+    return state.audit.filter((e) => { const t = new Date(e.at).getTime(); return t <= hi && t > hi - WEEK; }).length;
+  });
+  const weeks = weekly.map((_, i) => (i === 11 ? 'Цей' : `Т-${11 - i}`));
+  const byDivision = DIVISIONS.map((d) => ({
+    id: d.code,
+    value: state.files.filter((f) => state.folders.find((x) => x.id === f.folder)?.division === d.id).length,
+  })).sort((x, y) => y.value - x.value);
+  const shared = state.files.filter((f) => !state.folders.find((x) => x.id === f.folder)?.division).length;
+
+  const checks = [
+    { name: 'Сховище файлів', status: backend ? 'ok' : 'idle', note: backend ? `${backend.label}${backend.shared ? '' : ' · лише цей пристрій'}` : 'Підключення…' },
+    { name: 'З’єднання', status: location.protocol === 'https:' ? 'ok' : 'warn', note: location.protocol === 'https:' ? 'HTTPS' : 'Без шифрування — увімкніть HTTPS' },
+    { name: 'Мережа', status: navigator.onLine ? 'ok' : 'warn', note: navigator.onLine ? 'Онлайн' : 'Офлайн' },
+  ];
 
   return (
     <div className="page">
@@ -21,41 +45,41 @@ export function Dashboard({ go }) {
           <div className="vx-eyebrow">Зведення на {new Date().toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
           <h1 className="vx-h1">Оперативна обстановка</h1>
         </div>
-        <Status kind={SYSTEMS.some((s) => s.status !== 'ok') ? 'warn' : 'ok'}>
-          {SYSTEMS.filter((s) => s.status === 'ok').length} з {SYSTEMS.length} систем у нормі
+        <Status kind={checks.every((c) => c.status === 'ok') ? 'ok' : 'warn'}>
+          {checks.filter((c) => c.status === 'ok').length} з {checks.length} перевірок у нормі
         </Status>
       </header>
 
       <div className="grid grid--stats">
-        <StatTile label="Звіти з джерел · тиждень" value={total.toLocaleString('uk-UA')}
-          delta={<><Icon name="arrowUp" size={14} /><b>+12%</b> до минулого тижня</>} />
-        <StatTile label="Оцінки завершено" value={WEEKLY[WEEKLY.length - 1]}
-          delta={<><Icon name="arrowUp" size={14} /><b>+7</b> за тиждень</>} />
+        <StatTile label="Нові файли · тиждень" value={newFiles} delta={`усього ${state.files.length}`} />
+        <StatTile label="Дії в журналі · тиждень" value={events} delta={`усього записів ${state.audit.length}`} sensitive={false} />
         <button className="tile-link" onClick={() => go('access')} disabled={!me || !['admin', 'lead', 'engineer'].includes(me.role)}>
           <StatTile label="Запити на доступ" value={pending} sensitive={false}
             delta={pending ? <><b>Очікують рішення</b> · відкрити</> : 'Черга порожня'} />
         </button>
-        <StatTile label="Сховище" value={fmtBytes(used)} unit={`/ ${fmtBytes(STORAGE_QUOTA)}`}
-          meter={(used / STORAGE_QUOTA) * 100} delta={`${state.files.length} файлів у ${state.folders.length} папках`} />
+        <StatTile label="Сховище" value={fmtBytes(used)} unit={`/ ${fmtBytes(quota)}`}
+          meter={(used / quota) * 100} delta={`${state.files.length} файлів у ${state.folders.length} папках`} />
         <StatTile label="Покриття MFA" value={mfa} unit="%" meter={mfa} meterBrass={mfa < 100}
           delta={`${active.filter((u) => !u.mfa).length} активних без MFA`} sensitive={false} />
-        <StatTile label="Доступність · 30 днів" value="99,98" unit="%" delta="1 планове вікно обслуговування" sensitive={false} />
+        <StatTile label="Активні користувачі" value={active.length} delta={`${state.users.filter((u) => u.status === 'invited').length} запрошено`} sensitive={false} />
       </div>
 
       <div className="grid grid--2">
-        <Panel title="Звіти за класами джерел" action={<span className="vx-hint">цей тиждень</span>}>
-          <BarList data={SOURCES} unit="звітів" highlight="OSINT" />
-          <p className="vx-hint chart-note">Найбільше звітів — {SOURCES[0].id}: {SOURCES[0].value} з {total.toLocaleString('uk-UA')}.</p>
+        <Panel title="Файли за напрямами" action={<span className="vx-hint">усього</span>}>
+          {state.files.length ? <>
+            <BarList data={byDivision} unit="файлів" highlight={byDivision[0].value ? byDivision[0].id : null} />
+            <p className="vx-hint chart-note">Ще {shared} у спільних папках.</p>
+          </> : <div className="vx-empty"><Icon name="vault" /><div>Файлів ще немає</div><div className="vx-hint">Завантажте перші документи в «Сховище».</div></div>}
         </Panel>
-        <Panel title="Завершені оцінки" action={<span className="vx-hint">12 тижнів</span>}>
-          <Trend data={WEEKLY} labels={weeks} unit="оцінок" />
-          <p className="vx-hint chart-note">Середнє за квартал — {Math.round(WEEKLY.slice(-12).reduce((a, b) => a + b) / 12)} на тиждень.</p>
+        <Panel title="Активність платформи" action={<span className="vx-hint">12 тижнів</span>}>
+          <Trend data={weekly} labels={weeks} unit="дій" />
+          <p className="vx-hint chart-note">За журналом аудиту: {weekly[11]} дій цього тижня.</p>
         </Panel>
       </div>
 
       <div className="grid grid--3">
-        <Panel title="Стан систем" bodyClass="list">
-          {SYSTEMS.map((s) => (
+        <Panel title="Стан платформи" bodyClass="list">
+          {checks.map((s) => (
             <div className="list__row" key={s.name}>
               <Status kind={s.status}>{s.name}</Status>
               <span className="vx-hint">{s.note}</span>
@@ -70,7 +94,7 @@ export function Dashboard({ go }) {
             return (
               <button className="list__row list__row--btn" key={d.id} onClick={() => go('divisions', d.id)}>
                 <span className="list__lead"><Icon name={d.icon} size={16} /> {d.name}</span>
-                <span className="vx-hint vx-num">{people} осіб · {d.projects.length} проєкти · {files} файлів</span>
+                <span className="vx-hint vx-num">{people} осіб · {files} файлів</span>
               </button>
             );
           })}
@@ -79,6 +103,7 @@ export function Dashboard({ go }) {
         <Panel title="Остання активність" action={me.role === 'admin' || me.role === 'lead' || me.role === 'engineer'
           ? <button className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => go('audit')}>Журнал <Icon name="chevron" /></button> : null}
           bodyClass="list">
+          {!state.audit.length && <div className="list__row vx-hint">Подій ще немає.</div>}
           {state.audit.slice(0, 6).map((e) => {
             const u = userById(e.actor);
             return (

@@ -107,7 +107,7 @@ export function Toasts({ items }) {
   );
 }
 
-/* ---------- Charts (single series, monochrome; brass marks the one value to notice) ---------- */
+/* ---------- Charts (single series, monochrome; the burgundy accent marks the one value to notice) ---------- */
 
 function useWidth() {
   const ref = useRef(null);
@@ -126,7 +126,7 @@ export function BarList({ data, unit = '', highlight }) {
   const [ref, w] = useWidth();
   const [hover, setHover] = useState(null);
   const row = 30, labelW = 84, valueW = 44;
-  const max = Math.max(...data.map((d) => d.value));
+  const max = Math.max(1, ...data.map((d) => d.value));
   const plotW = Math.max(40, w - labelW - valueW);
   const h = data.length * row;
   return (
@@ -162,7 +162,7 @@ export function Trend({ data, labels, unit = '', height = 200 }) {
   const [ref, w] = useWidth();
   const [hover, setHover] = useState(null);
   const pad = { l: 32, r: 12, t: 12, b: 26 };
-  const max = Math.ceil(Math.max(...data) / 20) * 20;
+  const max = Math.max(10, Math.ceil(Math.max(...data) / 10) * 10);
   const x = (i) => pad.l + (i / (data.length - 1)) * (w - pad.l - pad.r);
   const y = (v) => pad.t + (1 - v / max) * (height - pad.t - pad.b);
   const line = data.map((v, i) => `${i ? 'L' : 'M'}${x(i)},${y(v)}`).join('');

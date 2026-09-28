@@ -179,6 +179,7 @@ kbd {
 
 /* ---------- Vault ---------- */
 .quota { width: 260px; display: grid; gap: 6px; }
+.quota__where { display: flex; align-items: center; gap: 6px; }
 .vault { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 16px; align-items: start; }
 .vault__folders { padding: 12px 12px 12px 20px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; position: sticky; top: 76px; }
 .vault__folders .vx-nav-item { min-width: 0; }

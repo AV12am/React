@@ -29,7 +29,7 @@ export function Divisions({ focus, setFocus, go }) {
               <h2 className="vx-h2">{d.name}</h2>
               <p className="vx-muted division__about">{d.about}</p>
               <div className="division__meta">
-                <span>{lead?.name}</span>
+                <span>{lead?.name ?? <span className="vx-hint">Керівника не призначено</span>}</span>
                 <span className="vx-hint vx-num">{members.length} осіб · {d.projects.length} проєкти</span>
               </div>
               <Status kind={d.status}>{d.status === 'ok' ? 'Працює штатно' : 'Є ризики за строками'}</Status>
@@ -44,7 +44,7 @@ export function Divisions({ focus, setFocus, go }) {
           <p className="vx-muted">{open.about}</p>
           <div>
             <div className="vx-eyebrow">Проєкти</div>
-            <ul className="plain-list">{open.projects.map((p) => <li key={p}>{p}</li>)}</ul>
+            {open.projects.length ? <ul className="plain-list">{open.projects.map((p) => <li key={p}>{p}</li>)}</ul> : <p className="vx-hint">Проєктів ще немає.</p>}
           </div>
           <div>
             <div className="vx-eyebrow">Папки</div>

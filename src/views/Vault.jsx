@@ -5,13 +5,17 @@ import { Panel, Drawer, ClassBadge, Modal } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { Loader } from '../brand/Mark.jsx';
 import { STORAGE_QUOTA, CLEARANCE } from '../data/seed.js';
-import { putBlob, getBlob, deleteBlob } from '../vaultdb.js';
+import { storageError } from '../lib/storage.js';
+
+const STORE_LABEL = { local: 'Цей пристрій (IndexedDB)', artifact: 'Сховище Reaction (claude.ai)', supabase: 'Supabase Storage' };
 
 const ext = (name) => (name.split('.').pop() || '').toUpperCase().slice(0, 5);
 
 export function Vault({ focus, setFocus }) {
-  const { state, me, perms, dispatch, userById, toast } = useStore();
+  const { state, me, perms, dispatch, userById, toast, backend } = useStore();
   const [folder, setFolder] = useState('all');
+  const [usage, setUsage] = useState(null);
+  useEffect(() => { backend?.usage?.().then(setUsage).catch(() => {}); }, [backend, state.files.length]);
   const [q, setQ] = useState('');
   const open = focus && state.files.some((f) => f.id === focus && canSeeFile(me, f)) ? focus : null;
   const setOpen = (id) => setFocus(id);
@@ -20,9 +24,10 @@ export function Vault({ focus, setFocus }) {
   const [newFolder, setNewFolder] = useState(false);
   const input = useRef(null);
 
-  const used = state.files.reduce((s, f) => s + f.size, 0);
+  const used = usage?.bytes ?? state.files.reduce((s, f) => s + f.size, 0);
+  const quota = usage?.maxBytes || backend?.quota || STORAGE_QUOTA;
   const current = state.folders.find((f) => f.id === folder);
-  const canWrite = perms.vault >= 2 && (!current || current.clearance <= me.clearance || (me.grants || []).includes(current.id));
+  const canWrite = backend?.writable !== false && perms.vault >= 2 && (!current || current.clearance <= me.clearance || (me.grants || []).includes(current.id));
 
   const files = useMemo(() => state.files
     .filter((f) => (folder === 'all' || f.folder === folder))
@@ -53,8 +58,9 @@ export function Vault({ focus, setFocus }) {
           <h1 className="vx-h1">Сховище</h1>
         </div>
         <div className="quota">
-          <div className="vx-hint vx-num">{fmtBytes(used)} з {fmtBytes(STORAGE_QUOTA)}</div>
-          <div className="vx-meter"><span style={{ width: `${(used / STORAGE_QUOTA) * 100}%` }} /></div>
+          <div className="vx-hint vx-num">{fmtBytes(used)} з {fmtBytes(quota)}</div>
+          <div className="vx-meter"><span style={{ width: `${Math.min(100, (used / quota) * 100)}%` }} /></div>
+          <div className="vx-hint quota__where"><Icon name="vault" size={12} /> {backend ? backend.label : 'Підключення…'}{backend && !backend.shared ? ' · лише цей пристрій' : ''}</div>
         </div>
       </header>
 
@@ -108,7 +114,7 @@ export function Vault({ focus, setFocus }) {
                         </td>
                         <td><ClassBadge level={f.clearance} /></td>
                         <td className="ta-r vx-num vx-hint">{fmtBytes(f.size)}</td>
-                        <td className="vx-hint">{owner?.name ?? '—'}</td>
+                        <td className="vx-hint">{owner?.name ?? f.ownerName ?? '—'}</td>
                         <td className="vx-hint">{fmtDate(f.at, false)}</td>
                         <td className="ta-r">
                           {locked
@@ -143,17 +149,27 @@ export function Vault({ focus, setFocus }) {
 }
 
 function UploadModal({ files, folder, onClose }) {
-  const { me, dispatch, toast } = useStore();
+  const { me, dispatch, toast, backend } = useStore();
   const [level, setLevel] = useState(folder.clearance);
   const [busy, setBusy] = useState(false);
   const upload = async () => {
+    if (!backend) return;
     setBusy(true);
+    let done = 0;
     for (const file of files) {
+      if (file.size > backend.maxFile) { toast(`«${file.name}» більший за ${fmtBytes(backend.maxFile)} — ліміт сховища`); continue; }
       const id = `x-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-      try { await putBlob(id, file); } catch { toast(`Не вдалося зберегти «${file.name}» на пристрої`); continue; }
-      dispatch({ type: 'file/add', file: { id, folder: folder.id, name: file.name, size: file.size, type: file.type, clearance: level, owner: me.id, at: new Date().toISOString(), stored: true } });
+      let put;
+      try { put = await backend.put(id, file); } catch (e) { toast(`«${file.name}»: ${storageError(e)}`); continue; }
+      const meta = { id, folder: folder.id, name: file.name, size: file.size, type: file.type || 'application/octet-stream', clearance: level,
+        owner: me.id, ownerName: me.name, at: new Date().toISOString(), stored: true, backend: backend.kind, ...put };
+      if (backend.index) {
+        try { await backend.index.addFile(meta); } catch { toast(`«${file.name}»: не вдалося записати індекс`); await backend.remove(meta).catch(() => {}); continue; }
+      }
+      dispatch({ type: 'file/add', file: meta });
+      done++;
     }
-    toast(`Завантажено: ${files.length} ${files.length === 1 ? 'файл' : 'файли'}`);
+    if (done) toast(`Завантажено: ${done} ${done === 1 ? 'файл' : 'файли'}`);
     onClose();
   };
   return (
@@ -182,7 +198,7 @@ function UploadModal({ files, folder, onClose }) {
 }
 
 function FileDrawer({ id, onClose }) {
-  const { state, me, perms, dispatch, userById, toast } = useStore();
+  const { state, me, perms, dispatch, userById, toast, backend } = useStore();
   const f = state.files.find((x) => x.id === id);
   const [blob, setBlob] = useState(undefined);
   const [text, setText] = useState(null);
@@ -195,7 +211,7 @@ function FileDrawer({ id, onClose }) {
     setReady(false);
     const t = setTimeout(() => setReady(true), 700);
     let u;
-    (f.stored ? getBlob(id).catch(() => null) : Promise.resolve(null)).then(async (b) => {
+    (backend ? backend.get(f).catch(() => null) : Promise.resolve(null)).then(async (b) => {
       setBlob(b || null);
       if (!b) return;
       u = URL.createObjectURL(b);
@@ -204,20 +220,23 @@ function FileDrawer({ id, onClose }) {
     });
     return () => { clearTimeout(t); if (u) URL.revokeObjectURL(u); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, backend]);
 
   if (!f) return null;
   const canDelete = perms.vault >= 3 || (perms.vault >= 2 && f.owner === me.id);
 
   const download = async () => {
-    const b = blob || new Blob([`Reaction Core — демонстраційний запис\n\n${f.name}\nГриф: ${CLEARANCE[f.clearance].full}\n\nВміст цього файлу не зберігається в демо-версії.`], { type: 'text/plain' });
-    const res = await saveFile(blob ? f.name : `${f.name}.txt`, b);
+    if (!blob) return toast('Вміст файлу недоступний');
+    const res = await saveFile(f.name, blob);
     if (res === 'saved') dispatch({ type: 'file/open', id, download: true });
     else toast(SAVE_MESSAGE[res]);
   };
   const remove = async () => {
     if (!armed) { setArmed(true); return; }
-    if (f.stored) await deleteBlob(id).catch(() => {});
+    try {
+      if (backend.index) await backend.index.removeFile(id);
+      await backend.remove(f).catch(() => {});
+    } catch { toast('Не вдалося видалити файл'); return; }
     dispatch({ type: 'file/delete', id });
     toast('Файл видалено');
     onClose();
@@ -226,8 +245,8 @@ function FileDrawer({ id, onClose }) {
   return (
     <Drawer title={f.name} onClose={onClose}
       footer={<>
-        {canDelete && <button className="vx-btn vx-btn--danger" onClick={remove} onBlur={() => setArmed(false)}><Icon name="trash" /> {armed ? 'Точно видалити?' : 'Видалити'}</button>}
-        <button className="vx-btn vx-btn--primary" onClick={download}><Icon name="download" /> Завантажити</button>
+        {canDelete && backend?.writable && <button className="vx-btn vx-btn--danger" onClick={remove} onBlur={() => setArmed(false)}><Icon name="trash" /> {armed ? 'Точно видалити?' : 'Видалити'}</button>}
+        <button className="vx-btn vx-btn--primary" onClick={download} disabled={!blob}><Icon name="download" /> Завантажити</button>
       </>}>
       <div className="preview">
         {(!ready || blob === undefined) ? (
@@ -236,16 +255,16 @@ function FileDrawer({ id, onClose }) {
           {blob && url && /^image\//.test(blob.type) && <img src={url} alt={f.name} />}
           {text != null && <pre className="vx-mono">{text}</pre>}
           {blob && !text && !/^image\//.test(blob.type) && <div className="vx-empty"><Loader still size={56} label={f.name} /><div>Попередній перегляд недоступний для цього формату</div></div>}
-          {blob === null && <div className="vx-empty"><Loader still size={56} label={f.name} /><div>Демонстраційний запис</div><div className="vx-hint">Вміст не зберігається. Завантажте власний файл, щоб перевірити перегляд.</div></div>}
+          {blob === null && <div className="vx-empty"><Loader still size={56} label={f.name} /><div>Вміст недоступний</div><div className="vx-hint">Файл не знайдено в сховищі «{backend?.label}». Можливо, його видалили або він зберігався на іншому пристрої.</div></div>}
         </>}
       </div>
       <dl className="meta">
         <dt>Гриф</dt><dd><ClassBadge level={f.clearance} /></dd>
         <dt>Папка</dt><dd>{state.folders.find((x) => x.id === f.folder)?.name}</dd>
         <dt>Розмір</dt><dd className="vx-num">{fmtBytes(f.size)}</dd>
-        <dt>Власник</dt><dd>{userById(f.owner)?.name}</dd>
+        <dt>Власник</dt><dd>{userById(f.owner)?.name ?? f.ownerName ?? '—'}</dd>
         <dt>Змінено</dt><dd>{fmtDate(f.at)}</dd>
-        <dt>Зберігання</dt><dd>{f.stored ? 'Цей пристрій (IndexedDB)' : 'Демо-метадані'}</dd>
+        <dt>Зберігання</dt><dd>{STORE_LABEL[f.backend || 'local']}</dd>
         <dt>ID</dt><dd className="vx-mono">{f.id}</dd>
       </dl>
     </Drawer>
@@ -253,10 +272,18 @@ function FileDrawer({ id, onClose }) {
 }
 
 function NewFolder({ onClose }) {
-  const { me, dispatch, toast } = useStore();
+  const { me, dispatch, toast, backend } = useStore();
   const [name, setName] = useState('');
   const [level, setLevel] = useState(0);
-  const save = () => { dispatch({ type: 'folder/add', folder: { name: name.trim(), clearance: level, division: me.division } }); toast('Папку створено'); onClose(); };
+  const save = async () => {
+    const folder = { id: `f-${Date.now().toString(36)}`, name: name.trim(), clearance: level, division: me.division };
+    if (backend?.index) {
+      try { await backend.index.addFolder(folder); } catch { toast('Не вдалося створити папку в сховищі'); return; }
+    }
+    dispatch({ type: 'folder/add', folder });
+    toast('Папку створено');
+    onClose();
+  };
   return (
     <Modal onClose={onClose} label="Нова папка">
       <div className="vx-drawer__head"><h2 className="vx-h2">Нова папка</h2></div>
