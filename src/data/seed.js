@@ -1,13 +1,7 @@
-// Demo data for Reaction Core. All people, projects and figures are fictional.
+// Reference data for Reaction Core: roles, modules, divisions and the first-run state.
 
-// Рівні таємності — за тим, скільки світла дістає інформацію. Образ, за яким стоїть звичайна шкала:
-// відкрите / для службового користування / таємно / цілком таємно.
-export const CLEARANCE = [
-  { id: 0, short: 'Світло', full: 'Світло · відкрита інформація', note: 'Те, що компанія показує світу. Ділиться вільно, зокрема назовні.' },
-  { id: 1, short: 'Сутінки', full: 'Сутінки · для службового користування', note: 'Живе лише в стінах компанії. Назовні — ні слова.' },
-  { id: 2, short: 'Тінь', full: 'Тінь · таємно', note: 'Бачить той, кому це потрібно для роботи. Не ширше.' },
-  { id: 3, short: 'Морок', full: 'Морок · цілком таємно', note: 'Поіменний доступ. Поза колом посвячених не існує.' },
-];
+// Classification levels live in clearance.js (LUMEN · UMBRA · NOX + NON OCULIS HOMINUM).
+export { CLEARANCE } from './clearance.js';
 
 export const ROLES = [
   { id: 'admin', name: 'Адміністратор', note: 'Повне керування платформою та доступами' },
@@ -64,7 +58,7 @@ export const DIVISIONS = [
 
 // First-run account. Change the name and code in «Доступ», then invite the team.
 export const USERS = [
-  { id: 'u01', code: 'V-001', name: 'Адміністратор', role: 'admin', division: 'it', clearance: 3, status: 'active', mfa: true, lastSeen: null, title: 'Адміністратор платформи' },
+  { id: 'u01', code: 'V-001', name: 'Адміністратор', role: 'admin', division: 'it', clearance: 2, status: 'active', mfa: true, lastSeen: null, title: 'Адміністратор платформи' },
 ];
 
 export const REQUESTS = [];

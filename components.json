@@ -1,0 +1,21 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "rsc": false,
+  "tsx": false,
+  "tailwind": {
+    "config": "",
+    "css": "src/styles/v0-bridge.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "iconLibrary": "lucide",
+  "aliases": {
+    "components": "@/v0",
+    "ui": "@/v0/ui",
+    "lib": "@/lib",
+    "utils": "@/lib/utils",
+    "hooks": "@/v0/hooks"
+  }
+}

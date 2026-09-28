@@ -10,12 +10,14 @@ import { Access } from './views/Access.jsx';
 import { Vault } from './views/Vault.jsx';
 import { Audit } from './views/Audit.jsx';
 import { Settings } from './views/Settings.jsx';
-import { ROLES, CLEARANCE } from './data/seed.js';
+import { ROLES } from './data/seed.js';
 import { TRACKS } from './data/geo.js';
-import { canSeeFile, fmtAgo } from './store.jsx';
+import { canSeeFile, fmtAgo, requestLabel } from './store.jsx';
 
 // The map ships its own geography (~1 MB), so it loads only when opened.
 const MapView = lazy(() => import('./views/Map.jsx').then((m) => ({ default: m.MapView })));
+// v0 sandbox — dev server only; dropped from production builds.
+const V0Sandbox = import.meta.env.DEV ? lazy(() => import('./v0/Sandbox.jsx')) : null;
 
 const NAV = [
   { id: 'overview', label: 'Огляд', icon: 'overview' },
@@ -66,7 +68,7 @@ function Shell() {
   const locked = !!state.session?.locked;
 
   const allowed = NAV.filter((n) => n.always || perms[n.id] > 0);
-  const current = allowed.find((n) => n.id === view) ? view : allowed[0].id;
+  const current = V0Sandbox && view === 'v0' ? 'v0' : allowed.find((n) => n.id === view) ? view : allowed[0].id;
   const pending = state.requests.filter((r) => r.status === 'pending').length;
 
   const go = useCallback((v, s = null, i = null) => {
@@ -118,6 +120,7 @@ function Shell() {
     map: <MapView key={sub || 'map'} focus={sub} go={go} />,
     audit: <Audit />,
     settings: <Settings />,
+    v0: V0Sandbox && <Suspense fallback={null}><V0Sandbox /></Suspense>,
   }[current];
 
   return (
@@ -205,7 +208,7 @@ function Bell({ open, setOpen, go }) {
           <div className="list">
             {items.slice(0, 8).map((n) => {
               const u = userById(n.r.user);
-              const what = n.r.kind === 'clearance' ? `допуск «${CLEARANCE[n.r.to].short}»` : `доступ до папки «${state.folders.find((f) => f.id === n.r.folder)?.name}»`;
+              const what = requestLabel(state, n.r);
               return n.kind === 'decide' ? (
                 <button key={n.id} className="list__row list__row--btn list__row--top" onClick={() => go('access', 'requests')}>
                   <Icon name="key" size={16} />

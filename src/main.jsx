@@ -15,6 +15,7 @@ import '@fontsource/jetbrains-mono/latin-500.css';
 import './styles/tokens.css';
 import './styles/components.css';
 import './styles/app.css';
+import './styles/v0-bridge.css';
 
 // Matte grain: one small noise tile, repeated. A full-screen SVG turbulence filter looked the same
 // but was re-rasterised on every scroll, which phones felt.

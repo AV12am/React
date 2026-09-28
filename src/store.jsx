@@ -1,9 +1,11 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, useCallback, useState } from 'react';
 import { USERS, REQUESTS, FILES, FOLDERS, SEED_AUDIT, PERMISSIONS, CLEARANCE } from './data/seed.js';
+import { canSeeLevel, levelOf, remark, MAX_LEVEL, SEAL } from './data/clearance.js';
 import { storage } from './lib/storage.js';
 
-// v2: clean first-run state (no demo records). Older cached demo data is ignored.
-const KEY = 'reaction-core/v2';
+// v3: LUMEN · UMBRA · NOX scale. v2 state (old four-step scale) is migrated on load.
+const KEY = 'reaction-core/v3';
+const PREV = 'reaction-core/v2';
 
 const initial = () => ({
   users: USERS,
@@ -17,10 +19,27 @@ const initial = () => ({
   session: null,
 });
 
+// Old scale: 0 open · 1 service use · 2 secret · 3 top secret → LUMEN · UMBRA · UMBRA · NOX.
+const OLD_TO_NEW = [0, 1, 1, 2];
+const mapLevel = (n) => OLD_TO_NEW[n] ?? MAX_LEVEL;
+function migrate(old) {
+  const lv = (x) => (x && typeof x.clearance === 'number' ? { ...x, clearance: mapLevel(x.clearance) } : x);
+  return {
+    ...old,
+    users: (old.users || []).map(lv),
+    files: (old.files || []).map(lv),
+    folders: (old.folders || []).map(lv),
+    points: (old.points || []).map(lv),
+    requests: (old.requests || []).map((r) => (r.kind === 'clearance' ? { ...r, from: mapLevel(r.from), to: mapLevel(r.to) } : r)),
+  };
+}
+
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) return { ...initial(), ...JSON.parse(raw) };
+    const prev = localStorage.getItem(PREV);
+    if (prev) return { ...initial(), ...migrate(JSON.parse(prev)) };
   } catch { /* storage unavailable: start fresh */ }
   return initial();
 }
@@ -78,9 +97,10 @@ function reducer(state, a) {
       if (a.approve && r.kind === 'folder') {
         s = { ...s, users: s.users.map((x) => (x.id === r.user ? { ...x, grants: [...new Set([...(x.grants || []), r.folder])] } : x)) };
       }
-      const what = r.kind === 'clearance'
-        ? `допуск «${CLEARANCE[r.to].short}»`
-        : `папка «${state.folders.find((f) => f.id === r.folder)?.name}»`;
+      if (a.approve && r.kind === 'basis') {
+        s = { ...s, users: s.users.map((x) => (x.id === r.user ? { ...x, basis: [...new Set([...(x.basis || []), r.file])] } : x)) };
+      }
+      const what = requestLabel(state, r);
       return withAudit(s, me, 'access', `${a.approve ? 'Схвалено' : 'Відхилено'} запит ${u.code} ${u.name}: ${what}`);
     }
     case 'request/create': {
@@ -95,7 +115,25 @@ function reducer(state, a) {
     }
     case 'file/open': {
       const f = state.files.find((x) => x.id === a.id);
-      return withAudit(state, me, 'vault', `${a.download ? 'Завантажено на пристрій' : 'Переглянуто'} «${f?.name ?? a.id}»`);
+      const tag = f?.number ? ` ${f.number}` : '';
+      return withAudit(state, me, 'vault', `${a.download ? 'Винесено з системи' : 'Переглянуто'}${tag} «${f?.name ?? a.id}»`);
+    }
+    case 'file/act': {
+      // NOX: opening is a separate, deliberate act with a stated purpose.
+      const f = state.files.find((x) => x.id === a.id);
+      return withAudit(state, me, 'security', `${a.sealed ? `${SEAL.short} · відкрито за підставою` : 'NOX · окрема дія'}: ${f?.number ?? ''} «${f?.name ?? a.id}» — мета: ${a.purpose}`);
+    }
+    case 'file/update': {
+      const f = state.files.find((x) => x.id === a.file.id);
+      if (!f) return state;
+      return withAudit({ ...state, files: state.files.map((x) => (x.id === f.id ? a.file : x)) }, me, 'vault', `${a.note} «${f.name}»`);
+    }
+    case 'file/level': {
+      // One step down the scale, by a person, following the rule set at filing (see lowerFile).
+      const f = state.files.find((x) => x.id === a.file.id);
+      if (!f) return state;
+      return withAudit({ ...state, files: state.files.map((x) => (x.id === f.id ? a.file : x)) }, me, 'vault',
+        `Знижено гриф «${f.name}»: ${f.number ?? ''} ${levelOf(f.clearance).name} → ${a.file.number ?? ''} ${levelOf(a.file.clearance).name} (${a.why})`);
     }
     case 'folder/add': {
       const folder = { id: uid('f'), ...a.folder };
@@ -103,7 +141,7 @@ function reducer(state, a) {
     }
     case 'vault/sync': {
       // The shared index is authoritative for files; folders merge by id with the built-in ones.
-      if (a.files) return { ...state, files: [...a.files].sort((x, y) => (y.at || '').localeCompare(x.at || '')) };
+      if (a.files) return { ...state, files: a.files.map((f) => (f.clearance > MAX_LEVEL ? { ...f, clearance: MAX_LEVEL } : f)).sort((x, y) => (y.at || '').localeCompare(x.at || '')) };
       if (a.folders) {
         const known = new Set(state.folders.map((f) => f.id));
         const add = a.folders.filter((f) => f && !known.has(f.id));
@@ -205,6 +243,26 @@ export function fmtAgo(iso) {
   return days === 1 ? 'учора' : `${days} дн. тому`;
 }
 
-export const canSeeFile = (me, f) => f.clearance <= me.clearance || (me.grants || []).includes(f.folder);
+export const canSeeFile = canSeeLevel;
+
+/** The document after one lowering step; written to the shared index and then dispatched. */
+export function lowerFile(f, to, by, why) {
+  return {
+    ...f,
+    clearance: to,
+    number: remark(f.number, { level: to, sealed: f.sealed }),
+    downgrade: null, // a new rule is set, if needed, at the new level
+    lowered: [...(f.lowered || []), { from: f.clearance, to, at: new Date().toISOString(), by, why }],
+  };
+}
+
+export function requestLabel(state, r) {
+  if (r.kind === 'clearance') return `допуск «${CLEARANCE[r.to]?.short}»`;
+  if (r.kind === 'basis') {
+    const f = state.files.find((x) => x.id === r.file);
+    return `підставу ${SEAL.short} для ${f?.number ?? 'документа'} «${f?.name ?? '—'}»`;
+  }
+  return `папка «${state.folders.find((f) => f.id === r.folder)?.name}»`;
+}
 
 export const initials = (name) => name.split(' ').map((p) => p[0]).slice(0, 2).join('');

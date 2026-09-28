@@ -142,12 +142,20 @@
   font-variant-caps: all-small-caps; letter-spacing: 0.07em; white-space: nowrap;
   border: 1px solid var(--line-strong); color: var(--ink-2);
 }
-.vx-class::before { content: ""; width: 6px; height: 6px; transform: rotate(45deg); background: currentColor; flex: none; }
-.vx-class--0 { color: var(--ink-3); }
-.vx-class--0::before { background: transparent; border: 1px solid currentColor; }
-.vx-class--1 { color: var(--ink-2); border-color: var(--line-control); }
-.vx-class--2 { color: var(--ink); border-color: var(--ink-2); }
-.vx-class--3 { color: var(--brass); border-color: var(--brass); }
+.vx-class::before { content: ""; width: 6px; height: 6px; transform: rotate(45deg); background: currentColor; border: 1px solid currentColor; flex: none; box-sizing: border-box; }
+.vx-class-set { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; width: fit-content; justify-self: start; }
+.vx-class { width: fit-content; justify-self: start; }
+/* LUMEN — open diamond: full light */
+.vx-class--0 { color: var(--ink-2); }
+.vx-class--0::before { background: transparent; }
+/* UMBRA — half-lit diamond */
+.vx-class--1 { color: var(--ink); border-color: var(--line-control); }
+.vx-class--1::before { background: linear-gradient(135deg, currentColor 50%, transparent 50%); }
+/* NOX — the diamond goes dark */
+.vx-class--2 { color: var(--brass); border-color: var(--brass); }
+/* NON OCULIS HOMINUM — a different category, set apart by an inverted field */
+.vx-class--seal { color: var(--on-brass); background: var(--brass); border-color: var(--brass); }
+.vx-class--seal::before { background: transparent; border-color: currentColor; transform: none; border-radius: 50%; width: 7px; height: 7px; box-shadow: inset 0 0 0 1.5px var(--brass), inset 0 0 0 3px currentColor; }
 
 /* ---------- Status ---------- */
 .vx-status { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; line-height: 20px; color: var(--ink-2); white-space: nowrap; }

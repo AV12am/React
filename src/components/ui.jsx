@@ -1,10 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon.jsx';
-import { CLEARANCE } from '../data/seed.js';
+import { levelOf, SEAL } from '../data/clearance.js';
 import { initials } from '../store.jsx';
 
-export function ClassBadge({ level }) {
-  return <span className={`vx-class vx-class--${level}`} title={CLEARANCE[level].full}>{CLEARANCE[level].short}</span>;
+// LUMEN ◇ · UMBRA half-lit · NOX ◆ — the diamond fills as the light goes out.
+export function ClassBadge({ level, sealed = false }) {
+  const l = levelOf(level);
+  return (
+    <span className="vx-class-set">
+      <span className={`vx-class vx-class--${l.id}`} title={`${l.name} · ${l.gloss} — ${l.rule}`}>{l.name}</span>
+      {sealed && <SealBadge />}
+    </span>
+  );
+}
+
+export function SealBadge() {
+  return <span className="vx-class vx-class--seal" title={`${SEAL.name} · ${SEAL.gloss} — ${SEAL.rule}`}>{SEAL.short}</span>;
 }
 
 const STATUS_ICON = { ok: 'ok', warn: 'warn', danger: 'danger', info: 'info', idle: 'idle' };

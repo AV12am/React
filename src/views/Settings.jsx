@@ -3,6 +3,7 @@ import { useStore, fmtDate } from '../store.jsx';
 import { Panel, Avatar, ClassBadge, Switch, Status } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { ROLES, DIVISIONS, CLEARANCE, MODULES } from '../data/seed.js';
+import { MAX_LEVEL } from '../data/clearance.js';
 import { clearBlobs } from '../vaultdb.js';
 
 const LEVEL = ['Немає', 'Перегляд', 'Редагування', 'Керування'];
@@ -48,7 +49,7 @@ export function Settings() {
             <dt>MFA</dt><dd>{me.mfa ? <Status kind="ok">Увімкнено</Status> : <Status kind="warn">Не налаштовано</Status>}</dd>
             <dt>Сесія з</dt><dd>{fmtDate(state.session.since)}</dd>
           </dl>
-          {me.clearance < 3 && (
+          {me.clearance < MAX_LEVEL && (
             <form className="ask" onSubmit={ask}>
               <div className="vx-eyebrow">Підвищення допуску до «{CLEARANCE[me.clearance + 1].short}»</div>
               {hasPending ? <div className="vx-hint">Ваш запит уже розглядається.</div> : <>

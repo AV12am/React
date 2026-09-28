@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useStore, fmtAgo, fmtDate } from '../store.jsx';
-import { Panel, Status, Avatar, Drawer, ClassBadge, Switch } from '../components/ui.jsx';
+import { SealBadge, Panel, Status, Avatar, Drawer, ClassBadge, Switch } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { DIVISIONS, ROLES, CLEARANCE, MODULES, PERMISSIONS } from '../data/seed.js';
+import { LEVELS, SEAL } from '../data/clearance.js';
 
 const STATUS = {
   active: ['ok', 'Активний'],
@@ -219,8 +220,10 @@ function Requests() {
       <div className="stack">
         {rows.map((r) => {
           const u = userById(r.user);
+          const basisFile = r.kind === 'basis' ? state.files.find((f) => f.id === r.file) : null;
           const canDecide = perms.access >= 2 && (me.role === 'admin' || u.division === me.division) && u.id !== me.id
-            && (r.kind !== 'clearance' || r.to <= me.clearance);
+            && (r.kind !== 'clearance' || r.to <= me.clearance)
+            && (r.kind !== 'basis' || (basisFile && basisFile.clearance <= me.clearance));
           const folder = state.folders.find((f) => f.id === r.folder);
           return (
             <div className="vx-panel request" key={r.id}>
@@ -235,7 +238,9 @@ function Requests() {
                 <div className="request__line">
                   {r.kind === 'clearance'
                     ? <>Підвищення допуску <ClassBadge level={r.from} /> <Icon name="chevron" size={14} /> <ClassBadge level={r.to} /></>
-                    : <>Доступ до папки <b>{folder?.name}</b> <ClassBadge level={folder?.clearance ?? 0} /></>}
+                    : r.kind === 'basis'
+                      ? <>Підстава на документ <span className="vx-mono">{basisFile?.number}</span> <b>{basisFile?.name ?? '—'}</b> <ClassBadge level={basisFile?.clearance ?? 0} sealed /></>
+                      : <>Доступ до папки <b>{folder?.name}</b> <ClassBadge level={folder?.clearance ?? 0} /></>}
                 </div>
                 <div className="vx-muted">«{r.reason}»</div>
               </div>
@@ -280,16 +285,60 @@ function Roles() {
 
 function Levels() {
   const { state } = useStore();
+  const count = (id) => ({
+    people: state.users.filter((u) => u.clearance === id).length,
+    files: state.files.filter((f) => f.clearance === id).length,
+  });
+  const sealed = state.files.filter((f) => f.sealed).length;
+  const year = new Date().getFullYear();
   return (
-    <div className="grid grid--4">
-      {CLEARANCE.map((c) => (
-        <div className="vx-panel vx-stat" key={c.id}>
-          <ClassBadge level={c.id} />
-          <div className="vx-stat__value">{state.users.filter((u) => u.clearance === c.id).length}<small>осіб</small></div>
-          {c.note && <div className="level-note">{c.note}</div>}
-          <div className="vx-hint">Папок: {state.folders.filter((f) => f.clearance === c.id).length}, файлів: {state.files.filter((f) => f.clearance === c.id).length}.</div>
-        </div>
-      ))}
+    <div className="stack">
+      <div className="grid grid--3l">
+        {LEVELS.map((l) => {
+          const n = count(l.id);
+          return (
+            <div className="vx-panel vx-stat level-card" key={l.id}>
+              <div className="level-card__tier">{l.tier}</div>
+              <div className="level-card__name">{l.name}<small>{l.gloss}</small></div>
+              <ClassBadge level={l.id} />
+              <div className="level-card__rule">{l.rule}</div>
+              <p>{l.about}</p>
+              <div className="vx-hint">Мають допуск: {n.people} · файлів: {n.files} · номер <span className="vx-mono">RC-{l.code}-…</span></div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="vx-panel vx-stat level-card level-card--seal">
+        <div className="level-card__tier">{SEAL.tier}</div>
+        <div className="level-card__name">{SEAL.name}<small>{SEAL.gloss}</small></div>
+        <SealBadge />
+        <div className="level-card__rule">{SEAL.rule}</div>
+        <p>{SEAL.about}</p>
+        <div className="vx-hint">Ставиться поверх будь-якого рівня. Підставу видає уповноважена особа на конкретний документ; кожне відкриття записується в журнал безпеки. Документів: {sealed} · номер <span className="vx-mono">RC-{SEAL.code}-…</span></div>
+      </div>
+
+      <div className="grid grid--2">
+        <Panel title="Що робить систему цілісною">
+          <div className="stack">
+            <div className="scale" aria-hidden="true"><i /><i /><i /></div>
+            <p className="vx-muted">Перші три — шкала одного виміру: скільки світла падає на документ. NON OCULIS лежить поза шкалою. Латинь тут не прикраса, а спосіб не плутати ці рівні з державними грифами, які мають юридичне значення.</p>
+            <table className="vx-table">
+              <tbody>
+                {LEVELS.map((l) => <tr key={l.id}><td><ClassBadge level={l.id} /></td><td>{l.rule}</td></tr>)}
+                <tr><td><SealBadge /></td><td>{SEAL.rule}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+        <Panel title="Номер і зниження грифа">
+          <div className="stack">
+            <div className="doc-num">RC-<b>UMB</b>-{year}-0007</div>
+            <p className="vx-muted">Позначка рівня — частина номера документа, тож вона не губиться при пересиланні. З системи файл виходить з номером у назві. Порядковий номер незмінний; при зниженні грифа змінюється лише позначка: <span className="vx-mono">RC-UMB-…-0007 → RC-LUM-…-0007</span>.</p>
+            <p className="vx-muted">Зниження — на один крок (NOX → UMBRA → LUMEN) за правилом, заданим при реєстрації: після дати або після настання події, з якою відомості втрачають чутливість. Коли умова настала, документ позначається «до зниження», а знижує власник, керівник напряму чи адміністратор — із записом у журналі. NON OCULIS не знижується автоматично.</p>
+          </div>
+        </Panel>
+      </div>
     </div>
   );
 }

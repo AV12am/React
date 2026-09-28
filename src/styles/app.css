@@ -196,6 +196,17 @@ kbd {
 .dropzone__hint svg { width: 20px; height: 20px; color: var(--brass); }
 .preview { min-height: 160px; display: grid; place-items: center; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; }
 .preview img { max-width: 100%; max-height: 360px; display: block; }
+.preview--closed, .preview--closed * { -webkit-user-select: none; user-select: none; }
+.gate { display: grid; gap: 10px; justify-items: start; padding: 20px; width: 100%; max-width: 460px; }
+.gate__title { font: 500 22px/1.2 var(--font-display); color: var(--ink); }
+.gate p { margin: 0; }
+.gate__form { display: flex; gap: 8px; width: 100%; flex-wrap: wrap; }
+.gate__form .vx-input { flex: 1 1 220px; }
+.lowering { display: grid; gap: 8px; padding-top: 16px; border-top: 1px solid var(--line); justify-items: start; }
+.lowering__row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.vx-check { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.vx-check input { margin-top: 5px; accent-color: var(--brass); }
+.cell-file__name { display: grid; gap: 2px; }
 .preview pre { margin: 0; padding: 16px; width: 100%; max-height: 360px; overflow: auto; white-space: pre-wrap; color: var(--ink-2); line-height: 18px; }
 .meta { display: grid; grid-template-columns: 130px 1fr; gap: 10px 16px; margin: 0; font-size: 15px; align-items: baseline; }
 .meta dt { color: var(--ink-3); font-size: 14px; font-weight: 600; font-variant-caps: small-caps; letter-spacing: 0.03em; }
@@ -397,3 +408,16 @@ kbd {
 
 /* Levels: the meaning behind each secrecy tier */
 .level-note { font-size: 14px; line-height: 20px; font-style: italic; color: var(--ink-2); }
+.grid--3l { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.level-card { display: grid; gap: 12px; align-content: start; }
+.level-card__name { font: 500 30px/1 var(--font-display); letter-spacing: 0.04em; color: var(--ink); }
+.level-card__name small { font: italic 400 18px/1 var(--font-display); color: var(--ink-3); letter-spacing: 0; margin-left: 8px; }
+.level-card__tier { font-variant-caps: all-small-caps; letter-spacing: 0.08em; color: var(--ink-3); }
+.level-card__rule { border-left: 2px solid var(--brass); padding-left: 10px; color: var(--ink); }
+.level-card p { margin: 0; color: var(--ink-2); line-height: 1.55; }
+.level-card--seal { border-color: var(--brass); }
+.scale { display: grid; grid-template-columns: repeat(3, 1fr); height: 6px; border-radius: 1px; overflow: hidden; margin: 4px 0 2px; }
+.scale i:nth-child(1) { background: var(--ink-2); } .scale i:nth-child(2) { background: var(--ink-faint); } .scale i:nth-child(3) { background: var(--surface-3); outline: 1px solid var(--brass); outline-offset: -1px; }
+.doc-num { font: 500 18px/1.4 var(--font-mono); color: var(--ink); }
+.doc-num b { color: var(--brass); font-weight: 500; }
+@media (max-width: 900px) { .grid--3l { grid-template-columns: 1fr; } }

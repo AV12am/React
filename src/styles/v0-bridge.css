@@ -1,0 +1,85 @@
+/* v0 / shadcn bridge.
+ *
+ * v0 generates React + Tailwind + shadcn/ui code that speaks in shadcn token names
+ * (bg-background, text-muted-foreground, border-border, ring-ring…). This file maps
+ * those names onto Reaction's tokens so generated components land in the matte
+ * corporate style without edits — and switch with the Matte / Paper theme.
+ *
+ * Tailwind is scoped: no preflight (it would reset the app), utilities are generated
+ * only from src/v0, and they sit in a cascade layer so they never override the app's
+ * own unlayered styles.
+ */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@source "../v0";
+
+/* shadcn uses `dark:`; in Reaction the dark theme is Matte. */
+@custom-variant dark (&:where([data-theme="matte"], [data-theme="matte"] *));
+
+/* shadcn names → Reaction tokens. Declared on every themed element so they
+   re-resolve under data-theme="paper" as well. */
+:root,
+[data-theme] {
+  --background: var(--bg);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface-2);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: var(--bg);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--ink-3);
+  --accent: var(--surface-3); /* shadcn uses accent for hover fills — keep it quiet */
+  --accent-foreground: var(--ink);
+  --destructive: var(--danger);
+  --border: var(--line);
+  --input: var(--line-control);
+  --ring: var(--brass);
+  --radius: 2px;
+  /* Reaction-specific names, for generated code that needs them */
+  --brand: var(--brass);
+  --brand-foreground: var(--on-brass);
+  --chart-1: var(--brass);
+  --chart-2: var(--ink-2);
+  --chart-3: var(--ink-3);
+  --chart-4: var(--ink-faint);
+  --chart-5: var(--info);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-info: var(--info);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-xl: 4px; /* sm/md/lg come from tokens.css */
+  --font-sans: var(--font-text);
+  --font-serif: var(--font-display);
+}
