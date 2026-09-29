@@ -37,7 +37,12 @@ async function db(path, { method = 'GET', body, prefer } = {}) {
   if (SERVICE.startsWith('eyJ')) headers.Authorization = `Bearer ${SERVICE}`; // legacy JWT keys; sb_secret_… keys go in apikey only
   if (prefer) headers.Prefer = prefer;
   const res = await fetch(`${SB_URL}/rest/v1/${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
-  if (!res.ok) throw new Fail(502, 'db', `${res.status} ${await res.text().catch(() => '')}`);
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    // A table from deploy/supabase.sql is missing: the schema in Supabase is older than the app.
+    if (/PGRST205|42P01/.test(text)) throw new Fail(503, 'schema', 'Схема бази застаріла: запустіть оновлений deploy/supabase.sql у Supabase → SQL Editor і повторіть вхід.');
+    throw new Fail(502, 'db', `${res.status} ${text}`);
+  }
   return res.status === 204 ? null : res.json().catch(() => null);
 }
 const q = encodeURIComponent;
