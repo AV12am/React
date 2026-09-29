@@ -2,8 +2,8 @@
 //
 //   supabase — self-hosted or supabase.com free tier (1 ГБ). Set VITE_SUPABASE_URL,
 //              VITE_SUPABASE_ANON_KEY and optionally VITE_SUPABASE_BUCKET at build time.
-//              File bodies go to Storage, the shared index to the `vault_files` and
-//              `vault_folders` tables (schema in deploy/supabase.sql).
+//              Real sign-in; file bodies in Storage, the shared index and the team's
+//              records in Postgres, all behind row-level security (deploy/supabase.sql).
 //   artifact — when the app runs as a claude.ai artifact: bodies in the artifact's
 //              asset store, the shared index in its document store. Free, shared by
 //              everyone the artifact is shared with.
@@ -12,11 +12,7 @@
 // Every backend exposes the same calls; Vault never knows which one it is talking to.
 
 import { putBlob, getBlob, deleteBlob } from '../vaultdb.js';
-
-const env = import.meta.env || {};
-const SB_URL = (env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
-const SB_KEY = env.VITE_SUPABASE_ANON_KEY || '';
-const SB_BUCKET = env.VITE_SUPABASE_BUCKET || 'vault';
+import { SB_URL, SB_BUCKET, supabaseOn, authHeaders, rest, signedIn, onSession } from './supabase.js';
 
 const MiB = 1024 * 1024;
 
@@ -92,48 +88,84 @@ function artifactBackend(assets, db) {
 }
 
 // ---------- Supabase (Storage + PostgREST, plain fetch — no SDK) ----------
+// Every call carries the signed-in person's token: the database's row-level security
+// (deploy/supabase.sql) decides what comes back. Nothing is read before sign-in.
 function supabaseBackend() {
-  const h = (extra = {}) => ({ apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, ...extra });
   const obj = (ref) => `${SB_URL}/storage/v1/object/${SB_BUCKET}/${ref.split('/').map(encodeURIComponent).join('/')}`;
-  const rest = (table, q = '') => `${SB_URL}/rest/v1/${table}${q}`;
   const ok = async (res) => { if (!res.ok) throw new Error(`${res.status} ${await res.text().catch(() => '')}`); return res; };
   const poll = (fn, ms) => { fn(); const t = setInterval(fn, ms); return () => clearInterval(t); };
+  const upsert = (table, row) => rest(`${table}?on_conflict=${table === 'core_docs' ? 'kind,id' : 'id'}`, { method: 'POST', body: row, prefer: 'resolution=merge-duplicates,return=minimal' });
   return {
     kind: 'supabase',
     label: 'Supabase Storage',
     shared: true,
     writable: true,
+    needsSignIn: true,
     maxFile: 50 * MiB, // free-tier per-file limit
     quota: 1024 * MiB, // free-tier storage
     async put(id, file) {
       const ref = `${id}/${file.name.replace(/[^\w.-]+/g, '_')}`;
-      await ok(await fetch(obj(ref), { method: 'POST', headers: h({ 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'false' }), body: file }));
+      await ok(await fetch(obj(ref), { method: 'POST', headers: await authHeaders({ 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'false' }), body: file }));
       return { ref };
     },
     async get(f) {
-      const res = await fetch(`${SB_URL}/storage/v1/object/authenticated/${SB_BUCKET}/${f.ref.split('/').map(encodeURIComponent).join('/')}`, { headers: h() });
+      const res = await fetch(`${SB_URL}/storage/v1/object/authenticated/${SB_BUCKET}/${f.ref.split('/').map(encodeURIComponent).join('/')}`, { headers: await authHeaders() });
       return res.ok ? res.blob() : null;
     },
     async remove(f) {
-      await ok(await fetch(`${SB_URL}/storage/v1/object/${SB_BUCKET}`, { method: 'DELETE', headers: h({ 'Content-Type': 'application/json' }), body: JSON.stringify({ prefixes: [f.ref] }) }));
+      await ok(await fetch(`${SB_URL}/storage/v1/object/${SB_BUCKET}`, { method: 'DELETE', headers: await authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ prefixes: [f.ref] }) }));
     },
     index: {
       watch(onFiles, onFolders) {
         const load = async () => {
+          if (!signedIn()) return;
           try {
-            const [a, b] = await Promise.all([
-              fetch(rest('vault_files', '?select=doc'), { headers: h() }).then(ok).then((r) => r.json()),
-              fetch(rest('vault_folders', '?select=doc'), { headers: h() }).then(ok).then((r) => r.json()),
-            ]);
+            const [a, b] = await Promise.all([rest('vault_files?select=doc'), rest('vault_folders?select=doc')]);
             onFiles(a.map((r) => r.doc));
             onFolders(b.map((r) => r.doc));
-          } catch { /* offline: keep last known index */ }
+          } catch { /* offline or signed out: keep last known index */ }
         };
-        return poll(load, 20000);
+        const stop = poll(load, 20000);
+        const off = onSession(() => load());
+        return () => { stop(); off(); };
       },
-      addFile: (f) => fetch(rest('vault_files'), { method: 'POST', headers: h({ 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' }), body: JSON.stringify({ id: f.id, doc: f }) }).then(ok),
-      removeFile: (id) => fetch(rest('vault_files', `?id=eq.${encodeURIComponent(id)}`), { method: 'DELETE', headers: h() }).then(ok),
-      addFolder: (f) => fetch(rest('vault_folders'), { method: 'POST', headers: h({ 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' }), body: JSON.stringify({ id: f.id, doc: f }) }).then(ok),
+      addFile: (f) => upsert('vault_files', { id: f.id, doc: f }),
+      removeFile: (id) => rest(`vault_files?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' }),
+      addFolder: (f) => upsert('vault_folders', { id: f.id, doc: f }),
+    },
+    // Shared app state for the whole team (see src/lib/sync.js): people, records, requests, audit.
+    docs: {
+      watch(onKind) {
+        const load = async () => {
+          if (!signedIn()) return;
+          try {
+            const [members, docs, audit] = await Promise.all([
+              rest('core_members?select=doc,id'),
+              rest('core_docs?select=kind,doc&kind=in.(records,requests)'),
+              rest('core_docs?select=doc&kind=eq.audit&order=updated_at.desc&limit=300'),
+            ]);
+            onKind('users', members.map((r) => ({ ...r.doc, id: r.id })));
+            onKind('records', docs.filter((r) => r.kind === 'records').map((r) => r.doc));
+            onKind('requests', docs.filter((r) => r.kind === 'requests').map((r) => r.doc));
+            onKind('audit', audit.map((r) => r.doc));
+          } catch { /* offline: keep what we have */ }
+        };
+        const stop = poll(load, 10000);
+        const off = onSession(() => load());
+        return () => { stop(); off(); };
+      },
+      // People are updated in place (PATCH) and inserted only when new: an upsert would be checked
+      // as an insert, which only administrators and leads may do.
+      async put(kind, doc) {
+        if (kind === 'audit') return rest('core_docs?on_conflict=kind,id', { method: 'POST', body: { kind, id: doc.id, doc }, prefer: 'resolution=ignore-duplicates,return=minimal' });
+        if (kind !== 'users') return upsert('core_docs', { kind, id: doc.id, doc });
+        const changed = await rest(`core_members?id=eq.${encodeURIComponent(doc.id)}`, { method: 'PATCH', body: { doc }, prefer: 'return=representation' });
+        if (!changed?.length) await rest('core_members', { method: 'POST', body: { id: doc.id, email: doc.email || null, doc }, prefer: 'return=minimal' });
+        return null;
+      },
+      remove: (kind, id) => (kind === 'users'
+        ? rest(`core_members?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' })
+        : rest(`core_docs?kind=eq.${kind}&id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' })),
     },
   };
 }
@@ -141,7 +173,7 @@ function supabaseBackend() {
 // ---------- selection ----------
 let chosen;
 async function resolve() {
-  if (SB_URL && SB_KEY) return supabaseBackend();
+  if (supabaseOn) return supabaseBackend();
   const use = typeof window !== 'undefined' && window.claude?.use;
   if (use) {
     try {

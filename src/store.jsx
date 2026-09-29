@@ -1,7 +1,9 @@
-import { createContext, useContext, useEffect, useMemo, useReducer, useCallback, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useReducer, useCallback, useRef, useState } from 'react';
 import { USERS, REQUESTS, FILES, FOLDERS, SEED_AUDIT, PERMISSIONS, CLEARANCE } from './data/seed.js';
 import { canSeeLevel, levelOf, remark, MAX_LEVEL, SEAL } from './data/clearance.js';
 import { storage } from './lib/storage.js';
+import { createSync } from './lib/sync.js';
+import { supabaseOn, signedIn, onSession, signOut } from './lib/supabase.js';
 
 // v3: LUMEN · UMBRA · NOX scale. v2 state (old four-step scale) is migrated on load.
 const KEY = 'reaction-core/v3';
@@ -48,8 +50,11 @@ function load() {
 let seq = 0;
 const uid = (p) => `${p}-${Date.now().toString(36)}${(seq++).toString(36)}`;
 
-function withAudit(state, actor, type, text) {
+// `level`: the clearance of what the entry names. The entry is classified with it, so the
+// audit log never shows a NOX title to someone without NOX (the server filters by it too).
+function withAudit(state, actor, type, text, level = 0) {
   const entry = { id: uid('a'), at: new Date().toISOString(), actor, type, text };
+  if (level > 0) entry.clearance = level;
   return { ...state, audit: [entry, ...state.audit].slice(0, 500) };
 }
 
@@ -58,7 +63,7 @@ function reducer(state, a) {
   switch (a.type) {
     case 'login': {
       const s = { ...state, session: { userId: a.userId, since: new Date().toISOString() } };
-      return withAudit(s, a.userId, 'auth', 'Вхід у систему · MFA підтверджено');
+      return withAudit(s, a.userId, 'auth', a.via === 'supabase' ? 'Вхід у систему · пароль перевірено сервером' : 'Вхід у систему · MFA підтверджено');
     }
     case 'logout':
       return { ...withAudit(state, me, 'auth', 'Вихід із системи'), session: null };
@@ -86,6 +91,7 @@ function reducer(state, a) {
     case 'user/invite': {
       const n = state.users.filter((u) => u.code.startsWith('V-')).length + 80;
       const user = { id: uid('u'), code: `V-${String(n).padStart(3, '0')}`, status: 'invited', mfa: false, lastSeen: null, ...a.user };
+      if (user.email) user.email = user.email.trim().toLowerCase();
       return withAudit({ ...state, users: [...state.users, user] }, me, 'access', `Надіслано запрошення: ${user.name} (${user.code})`);
     }
     case 'request/resolve': {
@@ -102,54 +108,59 @@ function reducer(state, a) {
         s = { ...s, users: s.users.map((x) => (x.id === r.user ? { ...x, basis: [...new Set([...(x.basis || []), r.file])] } : x)) };
       }
       const what = requestLabel(state, r);
-      return withAudit(s, me, 'access', `${a.approve ? 'Схвалено' : 'Відхилено'} запит ${u.code} ${u.name}: ${what}`);
+      const lvl = r.kind === 'basis' ? state.files.find((f) => f.id === r.file)?.clearance ?? 0 : r.kind === 'folder' ? state.folders.find((f) => f.id === r.folder)?.clearance ?? 0 : 0;
+      return withAudit(s, me, 'access', `${a.approve ? 'Схвалено' : 'Відхилено'} запит ${u.code} ${u.name}: ${what}`, lvl);
     }
     case 'request/create': {
       const req = { id: uid('r'), at: new Date().toISOString(), status: 'pending', user: me, ...a.request };
       return withAudit({ ...state, requests: [req, ...state.requests] }, me, 'access', 'Створено запит на доступ');
     }
     case 'file/add':
-      return withAudit({ ...state, files: [a.file, ...state.files.filter((x) => x.id !== a.file.id)] }, me, 'vault', `Завантажено «${a.file.name}»`);
+      return withAudit({ ...state, files: [a.file, ...state.files.filter((x) => x.id !== a.file.id)] }, me, 'vault', `Завантажено «${a.file.name}»`, a.file.clearance);
     case 'file/delete': {
       const f = state.files.find((x) => x.id === a.id);
-      return withAudit({ ...state, files: state.files.filter((x) => x.id !== a.id) }, me, 'vault', `Видалено «${f?.name ?? a.id}»`);
+      return withAudit({ ...state, files: state.files.filter((x) => x.id !== a.id) }, me, 'vault', `Видалено «${f?.name ?? a.id}»`, f?.clearance);
     }
     case 'file/open': {
       const f = state.files.find((x) => x.id === a.id);
       const tag = f?.number ? ` ${f.number}` : '';
-      return withAudit(state, me, 'vault', `${a.download ? 'Винесено з системи' : 'Переглянуто'}${tag} «${f?.name ?? a.id}»`);
+      return withAudit(state, me, 'vault', `${a.download ? 'Винесено з системи' : 'Переглянуто'}${tag} «${f?.name ?? a.id}»`, f?.clearance);
     }
     case 'file/act': {
       // NOX: opening is a separate, deliberate act with a stated purpose.
       const f = state.files.find((x) => x.id === a.id);
-      return withAudit(state, me, 'security', `${a.sealed ? `${SEAL.short} · відкрито за підставою` : 'NOX · окрема дія'}: ${f?.number ?? ''} «${f?.name ?? a.id}» — мета: ${a.purpose}`);
+      return withAudit(state, me, 'security', `${a.sealed ? `${SEAL.short} · відкрито за підставою` : 'NOX · окрема дія'}: ${f?.number ?? ''} «${f?.name ?? a.id}» — мета: ${a.purpose}`, f?.clearance);
     }
     case 'record/add': {
       const r = { id: uid('w'), at: new Date().toISOString(), owner: me, ...a.record };
       r.updated = r.at;
-      return withAudit({ ...state, records: [r, ...(state.records || [])] }, me, 'work', `${a.where}: додано «${a.label}»`);
+      return withAudit({ ...state, records: [r, ...(state.records || [])] }, me, 'work', `${a.where}: додано «${a.label}»`, r.clearance);
     }
     case 'record/update': {
+      const old = (state.records || []).find((r) => r.id === a.id);
       const records = (state.records || []).map((r) => (r.id === a.id ? { ...r, ...a.patch, updated: new Date().toISOString() } : r));
-      return withAudit({ ...state, records }, me, 'work', `${a.where}: ${a.note || 'змінено'} «${a.label}»`);
+      const lvl = Math.max(old?.clearance ?? 0, a.patch.clearance ?? 0);
+      return withAudit({ ...state, records }, me, 'work', `${a.where}: ${a.note || 'змінено'} «${a.label}»`, lvl);
     }
-    case 'record/delete':
-      return withAudit({ ...state, records: (state.records || []).filter((r) => r.id !== a.id) }, me, 'work', `${a.where}: видалено «${a.label}»`);
+    case 'record/delete': {
+      const old = (state.records || []).find((r) => r.id === a.id);
+      return withAudit({ ...state, records: (state.records || []).filter((r) => r.id !== a.id) }, me, 'work', `${a.where}: видалено «${a.label}»`, old?.clearance);
+    }
     case 'file/update': {
       const f = state.files.find((x) => x.id === a.file.id);
       if (!f) return state;
-      return withAudit({ ...state, files: state.files.map((x) => (x.id === f.id ? a.file : x)) }, me, 'vault', `${a.note} «${f.name}»`);
+      return withAudit({ ...state, files: state.files.map((x) => (x.id === f.id ? a.file : x)) }, me, 'vault', `${a.note} «${f.name}»`, f.clearance);
     }
     case 'file/level': {
       // One step down the scale, by a person, following the rule set at filing (see lowerFile).
       const f = state.files.find((x) => x.id === a.file.id);
       if (!f) return state;
       return withAudit({ ...state, files: state.files.map((x) => (x.id === f.id ? a.file : x)) }, me, 'vault',
-        `Знижено гриф «${f.name}»: ${f.number ?? ''} ${levelOf(f.clearance).name} → ${a.file.number ?? ''} ${levelOf(a.file.clearance).name} (${a.why})`);
+        `Знижено гриф «${f.name}»: ${f.number ?? ''} ${levelOf(f.clearance).name} → ${a.file.number ?? ''} ${levelOf(a.file.clearance).name} (${a.why})`, f.clearance);
     }
     case 'folder/add': {
       const folder = { id: uid('f'), ...a.folder };
-      return withAudit({ ...state, folders: [...state.folders.filter((x) => x.id !== folder.id), folder] }, me, 'vault', `Створено папку «${folder.name}»`);
+      return withAudit({ ...state, folders: [...state.folders.filter((x) => x.id !== folder.id), folder] }, me, 'vault', `Створено папку «${folder.name}»`, folder.clearance);
     }
     case 'vault/sync': {
       // The shared index is authoritative for files; folders merge by id with the built-in ones.
@@ -163,11 +174,11 @@ function reducer(state, a) {
     }
     case 'point/add': {
       const point = { id: uid('p'), owner: me, at: new Date().toISOString(), ...a.point };
-      return withAudit({ ...state, points: [...state.points, point] }, me, 'map', `Додано позначку «${point.name}» (${point.lat.toFixed(4)}, ${point.lon.toFixed(4)})`);
+      return withAudit({ ...state, points: [...state.points, point] }, me, 'map', `Додано позначку «${point.name}» (${point.lat.toFixed(4)}, ${point.lon.toFixed(4)})`, point.clearance);
     }
     case 'point/delete': {
       const p = state.points.find((x) => x.id === a.id);
-      return withAudit({ ...state, points: state.points.filter((x) => x.id !== a.id) }, me, 'map', `Видалено позначку «${p.name}»`);
+      return withAudit({ ...state, points: state.points.filter((x) => x.id !== a.id) }, me, 'map', `Видалено позначку «${p.name}»`, p.clearance);
     }
     case 'map/log':
       return withAudit(state, me, 'map', a.text);
@@ -177,6 +188,15 @@ function reducer(state, a) {
       return withAudit(state, me, 'system', 'Експортовано журнал аудиту (CSV)');
     case 'settings':
       return { ...state, settings: { ...state.settings, ...a.patch } };
+    case 'shared/sync': {
+      // The team's copy from the server (src/lib/sync.js). Newest first where it matters.
+      const by = (k) => (x, y) => String(y[k] || '').localeCompare(String(x[k] || ''));
+      const items = a.kind === 'records' ? [...a.items].sort(by('updated'))
+        : a.kind === 'requests' ? [...a.items].sort(by('at'))
+          : a.kind === 'audit' ? [...a.items].sort(by('at')).slice(0, 500)
+            : a.items;
+      return { ...state, [a.kind]: items };
+    }
     case 'reset':
       return { ...initial(), session: state.session, settings: state.settings };
     default:
@@ -211,11 +231,38 @@ export function StoreProvider({ children }) {
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* quota or private mode */ }
   }, [state]);
 
+  // Team sync: only where the backend offers shared documents (Supabase) and someone is signed in.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const [sbSession, setSbSession] = useState(signedIn());
+  useEffect(() => onSession((s) => {
+    setSbSession(!!s);
+    if (!s && stateRef.current.session) dispatch({ type: 'logout' }); // the server ended the session
+  }), []);
+  // Leaving the app ends the server session too.
+  useEffect(() => { if (supabaseOn && !state.session && signedIn()) signOut(); }, [state.session]);
+  const syncRef = useRef(null);
+  const loggedIn = !!state.session?.userId;
+  useEffect(() => {
+    if (!backend?.docs || !loggedIn || (backend.needsSignIn && !sbSession)) return undefined;
+    const engine = createSync({
+      docs: backend.docs,
+      getState: () => stateRef.current,
+      dispatch,
+      onError: (e) => toastRef.current?.(`Сервер відхилив зміну: ${e.message}`),
+    });
+    syncRef.current = engine;
+    return () => { engine.stop(); syncRef.current = null; };
+  }, [backend, loggedIn, sbSession]);
+  useEffect(() => { syncRef.current?.changed(); }, [state.users, state.records, state.requests, state.audit]);
+
+  const toastRef = useRef(null);
   const toast = useCallback((text) => {
     const id = uid('t');
     setToasts((t) => [...t, { id, text }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3600);
   }, []);
+  toastRef.current = toast;
 
   const value = useMemo(() => {
     const me = state.users.find((u) => u.id === state.session?.userId) || null;

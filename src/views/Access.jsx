@@ -4,6 +4,7 @@ import { SealBadge, Panel, Status, Avatar, Drawer, ClassBadge, Switch } from '..
 import { Icon } from '../components/Icon.jsx';
 import { DIVISIONS, ROLES, CLEARANCE, MODULES, PERMISSIONS } from '../data/seed.js';
 import { LEVELS, SEAL } from '../data/clearance.js';
+import { supabaseOn } from '../lib/supabase.js';
 
 const STATUS = {
   active: ['ok', 'Активний'],
@@ -175,9 +176,12 @@ function EditUser({ id, onClose, readOnly }) {
 
 function Invite({ onClose }) {
   const { me, dispatch, toast } = useStore();
-  const [f, setF] = useState({ name: '', title: '', role: 'analyst', division: 'int', clearance: 0 });
+  const { state } = useStore();
+  const [f, setF] = useState({ name: '', email: '', title: '', role: 'analyst', division: 'int', clearance: 0 });
   const set = (k) => (e) => setF({ ...f, [k]: k === 'clearance' ? +e.target.value : e.target.value });
-  const ok = f.name.trim().split(/\s+/).length >= 2;
+  const email = f.email.trim().toLowerCase();
+  const taken = email && state.users.some((u) => u.email === email);
+  const ok = f.name.trim().split(/\s+/).length >= 2 && (!supabaseOn || (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) && !taken));
   const send = () => {
     dispatch({ type: 'user/invite', user: { ...f, name: f.name.trim() } });
     toast(`Запрошення для ${f.name.trim()} створено`);
@@ -187,6 +191,10 @@ function Invite({ onClose }) {
     <Drawer title="Новий співробітник" onClose={onClose}
       footer={<><button className="vx-btn vx-btn--ghost" onClick={onClose}>Скасувати</button><button className="vx-btn vx-btn--primary" disabled={!ok} onClick={send}>Надіслати запрошення</button></>}>
       <div className="vx-field"><label className="vx-label" htmlFor="n">Ім'я та прізвище</label><input id="n" className="vx-input" value={f.name} onChange={set('name')} autoFocus /></div>
+      <div className="vx-field"><label className="vx-label" htmlFor="e">Робоча пошта{supabaseOn && ' *'}</label>
+        <input id="e" type="email" className="vx-input" value={f.email} onChange={set('email')} />
+        {taken && <div className="vx-error">Ця пошта вже є в команді.</div>}
+      </div>
       <div className="vx-field"><label className="vx-label" htmlFor="t">Посада</label><input id="t" className="vx-input" value={f.title} onChange={set('title')} /></div>
       <div className="form-grid">
         <div className="vx-field"><label className="vx-label" htmlFor="r">Роль</label>
@@ -196,7 +204,9 @@ function Invite({ onClose }) {
         <div className="vx-field"><label className="vx-label" htmlFor="c">Допуск</label>
           <select id="c" className="vx-select" value={f.clearance} onChange={set('clearance')}>{CLEARANCE.filter((c) => c.id <= me.clearance).map((c) => <option key={c.id} value={c.id}>{c.full}</option>)}</select></div>
       </div>
-      <p className="vx-hint">Запрошений отримає одноразове посилання. Обліковий запис стане активним після налаштування MFA.</p>
+      {supabaseOn
+        ? <p className="vx-hint">Створіть цій пошті вхід у Supabase: Authentication → Users → Add user (пароль) або Invite user (лист). Людина увійде саме з цією поштою; права й допуск задаються тут.</p>
+        : <p className="vx-hint">Запрошений отримає одноразове посилання. Обліковий запис стане активним після налаштування MFA.</p>}
     </Drawer>
   );
 }

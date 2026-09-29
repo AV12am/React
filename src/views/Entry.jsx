@@ -4,6 +4,76 @@ import { Icon } from '../components/Icon.jsx';
 import { Avatar } from '../components/ui.jsx';
 import { useStore } from '../store.jsx';
 import { ROLES } from '../data/seed.js';
+import { supabaseOn, signIn, signOut, rest, rpc, currentEmail } from '../lib/supabase.js';
+
+const AUTH_MESSAGES = {
+  invalid_credentials: 'Невірна пошта або пароль.',
+  email_not_confirmed: 'Пошту ще не підтверджено. Перевірте лист від Supabase.',
+  over_request_rate_limit: 'Забагато спроб. Зачекайте хвилину.',
+};
+
+// Sign-in through Supabase Auth. The team's people come from the server; the first person to sign in
+// on a new installation becomes the administrator (core_claim_first_admin in deploy/supabase.sql).
+function SupabaseLogin() {
+  const { dispatch } = useStore();
+  const [email, setEmail] = useState('');
+  const [pass, setPass] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErr('');
+    setBusy(true);
+    try {
+      await signIn(email, pass);
+      const addr = currentEmail();
+      let rows = await rest('core_members?select=id,doc');
+      if (!rows.length && !(await rpc('core_initialised', {}))) {
+        const id = `u-${Date.now().toString(36)}`;
+        await rpc('core_claim_first_admin', { p_id: id, p_doc: { name: addr.split('@')[0], code: 'V-001', title: 'Адміністратор платформи', division: 'it', mfa: false, lastSeen: null } });
+        rows = await rest('core_members?select=id,doc');
+      }
+      const people = rows.map((r) => ({ ...r.doc, id: r.id }));
+      const me = people.find((u) => u.email === addr);
+      if (!me) {
+        await signOut();
+        setErr(`Вас ще не додано до команди. Попросіть адміністратора додати ${addr} у «Доступи».`);
+        return;
+      }
+      if (me.status === 'invited') {
+        // First sign-in accepts the invitation (the only status change a person may make themselves).
+        me.status = 'active';
+        await rest(`core_members?id=eq.${encodeURIComponent(me.id)}`, { method: 'PATCH', body: { doc: { ...me } } });
+      }
+      dispatch({ type: 'shared/sync', kind: 'users', items: people });
+      dispatch({ type: 'login', userId: me.id, via: 'supabase' });
+    } catch (x) {
+      setErr(AUTH_MESSAGES[x.code] || (x.status === 400 ? AUTH_MESSAGES.invalid_credentials : `Не вдалося увійти: ${x.message}`));
+      if (currentEmail()) await signOut();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form className="login__form" onSubmit={submit}>
+      <div className="vx-field">
+        <label className="vx-label" htmlFor="email">Робоча пошта</label>
+        <input id="email" type="email" className="vx-input" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" autoFocus required />
+      </div>
+      <div className="vx-field">
+        <label className="vx-label" htmlFor="pass">Пароль</label>
+        <input id="pass" type="password" className="vx-input" value={pass} onChange={(e) => setPass(e.target.value)} autoComplete="current-password" required />
+      </div>
+      {err && <div className="vx-error" role="alert">{err}</div>}
+      <button className="vx-btn vx-btn--primary login__submit" disabled={busy}>
+        {busy ? <Loader size={18} label="Вхід" /> : <>Увійти <Icon name="lock" /></>}
+      </button>
+      <div className="vx-hint">Облікові записи створює адміністратор. Вхід захищено сервером: без нього дані не видаються.</div>
+    </form>
+  );
+}
 
 const BOOT = [
   'Встановлення захищеного з’єднання',
@@ -71,9 +141,9 @@ export function Login() {
       <div className="login__panel">
         <div className="login__mobile-brand"><Mark size={40} /><div className="vx-wordmark">Reaction</div></div>
         <div className="vx-eyebrow">Core · внутрішня платформа</div>
-        <h1 className="vx-h1">{stage === 'id' ? 'Вхід' : 'Підтвердження'}</h1>
+        <h1 className="vx-h1">{supabaseOn || stage === 'id' ? 'Вхід' : 'Підтвердження'}</h1>
 
-        {stage === 'id' ? (
+        {supabaseOn ? <SupabaseLogin /> : stage === 'id' ? (
           <form className="login__form" onSubmit={submitId}>
             <div className="vx-field">
               <label className="vx-label" htmlFor="code">Ідентифікатор</label>
@@ -111,7 +181,7 @@ export function Login() {
           </form>
         )}
 
-        {state.users.length === 1 && (
+        {!supabaseOn && state.users.length === 1 && (
           <div className="login__demo">
             <div className="vx-eyebrow">Перший вхід</div>
             <div className="vx-hint">Ідентифікатор <span className="vx-mono">{state.users[0].code}</span>. Після входу змініть ім’я в «Доступ» і запросіть команду.</div>
@@ -127,9 +197,12 @@ export function Lock({ onUnlock }) {
   const { me, dispatch } = useStore();
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     if (pass.length < 6) return setErr('Пароль має містити щонайменше 6 символів.');
+    if (supabaseOn) {
+      try { await signIn(me.email || currentEmail(), pass); } catch { return setErr('Невірний пароль.'); }
+    }
     dispatch({ type: 'unlock' });
     onUnlock();
   };
