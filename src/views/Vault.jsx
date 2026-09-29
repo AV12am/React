@@ -61,7 +61,7 @@ export function Vault({ focus, setFocus }) {
         <div className="quota">
           <div className="vx-hint vx-num">{fmtBytes(used)} з {fmtBytes(quota)}</div>
           <div className="vx-meter"><span style={{ width: `${Math.min(100, (used / quota) * 100)}%` }} /></div>
-          <div className="vx-hint quota__where"><Icon name="vault" size={12} /> {backend ? backend.label : 'Підключення…'}{backend && !backend.shared ? ' · лише цей пристрій' : ''}</div>
+          <div className="vx-hint quota__where"><Icon name="vault" size={12} /> {backend ? backend.label : 'Підключення…'}</div>
         </div>
       </header>
 

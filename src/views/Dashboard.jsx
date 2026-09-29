@@ -33,7 +33,7 @@ export function Dashboard({ go }) {
   const shared = state.files.filter((f) => !state.folders.find((x) => x.id === f.folder)?.division).length;
 
   const checks = [
-    { name: 'Сховище файлів', status: backend ? 'ok' : 'idle', note: backend ? `${backend.label}${backend.shared ? '' : ' · лише цей пристрій'}` : 'Підключення…' },
+    { name: 'Сховище файлів', status: backend ? 'ok' : 'idle', note: backend ? backend.label : 'Підключення…' },
     { name: 'З’єднання', status: location.protocol === 'https:' ? 'ok' : 'warn', note: location.protocol === 'https:' ? 'HTTPS' : 'Без шифрування — увімкніть HTTPS' },
     { name: 'Мережа', status: navigator.onLine ? 'ok' : 'warn', note: navigator.onLine ? 'Онлайн' : 'Офлайн' },
   ];
@@ -58,7 +58,7 @@ export function Dashboard({ go }) {
             delta={pending ? <><b>Очікують рішення</b> · відкрити</> : 'Черга порожня'} />
         </button>
         <StatTile label="Сховище" value={fmtBytes(used)} unit={`/ ${fmtBytes(quota)}`}
-          meter={(used / quota) * 100} delta={`${state.files.length} файлів у ${state.folders.length} папках`} />
+          meter={(used / quota) * 100} delta={`${backend ? backend.label : '…'} · ${state.files.length} файлів у ${state.folders.length} папках`} />
         <StatTile label="Покриття MFA" value={mfa} unit="%" meter={mfa} meterBrass={mfa < 100}
           delta={`${active.filter((u) => !u.mfa).length} активних без MFA`} sensitive={false} />
         <StatTile label="Активні користувачі" value={active.length} delta={`${state.users.filter((u) => u.status === 'invited').length} запрошено`} sensitive={false} />

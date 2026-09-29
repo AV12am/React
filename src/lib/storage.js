@@ -19,7 +19,7 @@ const MiB = 1024 * 1024;
 // ---------- local (IndexedDB) ----------
 const local = {
   kind: 'local',
-  label: 'Цей пристрій (IndexedDB)',
+  label: 'лише цей браузер',
   shared: false,
   writable: true,
   maxFile: 500 * MiB,
@@ -97,12 +97,13 @@ function supabaseBackend() {
   const upsert = (table, row) => rest(`${table}?on_conflict=${table === 'core_docs' ? 'kind,id' : 'id'}`, { method: 'POST', body: row, prefer: 'resolution=merge-duplicates,return=minimal' });
   return {
     kind: 'supabase',
-    label: 'Supabase Storage',
+    label: 'Supabase',
     shared: true,
     writable: true,
     needsSignIn: true,
     maxFile: 50 * MiB, // free-tier per-file limit
-    quota: 1024 * MiB, // free-tier storage
+    // Free plan: 1 GB of files. On a paid plan set VITE_STORAGE_QUOTA_GB (or NEXT_PUBLIC_STORAGE_QUOTA_GB), e.g. 100.
+    quota: (Number(import.meta.env?.VITE_STORAGE_QUOTA_GB || import.meta.env?.NEXT_PUBLIC_STORAGE_QUOTA_GB) || 1) * 1024 * MiB,
     async put(id, file) {
       const ref = `${id}/${file.name.replace(/[^\w.-]+/g, '_')}`;
       await ok(await fetch(obj(ref), { method: 'POST', headers: await authHeaders({ 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'false' }), body: file }));
