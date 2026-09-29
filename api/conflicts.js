@@ -5,8 +5,11 @@
 // The CDN keeps a response for 3 hours and serves the previous one while it refreshes,
 // so the sources are asked at most a few times a day. ACLED is used only when its
 // credentials are set in the project's environment variables.
-import config from '../scripts/conflict-sources.json' with { type: 'json' };
+import { readFileSync } from 'node:fs';
 import { fetchDeepState, fetchIsw, fetchAcled, NotConfigured } from '../scripts/update-conflicts.mjs';
+
+// Read at start-up (a plain file read is traced into the function bundle; JSON import attributes are not everywhere).
+const config = JSON.parse(readFileSync(new URL('../scripts/conflict-sources.json', import.meta.url), 'utf8'));
 
 const ADAPTERS = { deepstate: fetchDeepState, isw: fetchIsw, acled: fetchAcled };
 

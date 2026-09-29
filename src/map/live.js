@@ -19,13 +19,19 @@ export function useLiveConflicts() {
   useEffect(() => {
     let alive = true;
     const load = async () => {
+      let api = null;
       try {
         const res = await fetch(new URL('api/conflicts', document.baseURI), { cache: 'no-cache' });
-        const api = res.ok && /json/.test(res.headers.get('content-type') || '') ? await res.json() : null;
+        api = res.ok && /json/.test(res.headers.get('content-type') || '') ? await res.json() : null;
         if (api?.manifest && (api.deepstate || api.isw || api.acled)) { if (alive) setData(api); return; }
       } catch { /* no function on this host */ }
       let manifest;
-      try { manifest = await getJson('manifest.json'); } catch { return; }
+      try { manifest = await getJson('manifest.json'); } catch { manifest = null; }
+      // No files either: still show what the function reported, so a failing source explains itself.
+      if (!manifest || !Object.keys(manifest.sources || {}).length) {
+        if (api?.manifest && alive) setData({ manifest: api.manifest, deepstate: null, isw: null, acled: null });
+        return;
+      }
       const next = { manifest, deepstate: null, isw: null, acled: null };
       await Promise.all(['deepstate', 'isw', 'acled'].map(async (id) => {
         const s = manifest.sources?.[id];

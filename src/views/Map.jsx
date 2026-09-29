@@ -808,7 +808,7 @@ export function MapView({ focus }) {
             <button className="map-legend" onClick={() => setTab('conflicts')} title="Показати список зон">
               <i aria-hidden="true" />
               {front.pick === 'builtin'
-                ? <>Зони конфліктів · орієнтовно, {CONFLICTS_AS_OF}</>
+                ? <>Зони конфліктів · орієнтовно, {CONFLICTS_AS_OF}{liveData.manifest?.sources?.deepstate?.status === 'error' && <b className="map-legend__stale"> · DeepState недоступний</b>}</>
                 : <>Фронт: {SOURCE_NAME[front.pick]} · {fmtDate(front.meta?.sourceDate || front.meta?.updatedAt)}{frontAge > STALE_HOURS && <b className="map-legend__stale"> · застаріло</b>}</>}
             </button>
           )}
