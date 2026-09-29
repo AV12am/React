@@ -4,8 +4,8 @@
 // security (deploy/supabase.sql) decides what they may read and change.
 
 const env = import.meta.env || {};
-export const SB_URL = (env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
-export const SB_KEY = env.VITE_SUPABASE_ANON_KEY || '';
+export const SB_URL = (env.VITE_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+export const SB_KEY = env.VITE_SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 export const SB_BUCKET = env.VITE_SUPABASE_BUCKET || 'vault';
 export const supabaseOn = !!(SB_URL && SB_KEY);
 
