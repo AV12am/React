@@ -37,4 +37,14 @@ export function withinBounds(features, [w, s, e, n]) {
   });
 }
 
+/** Keeps only the polygons (parts of each MultiPolygon) whose bounding box lies inside the box; drops empty features. */
+export function clipToBounds(features, box) {
+  const out = [];
+  for (const f of features) {
+    const parts = f.geometry.coordinates.filter((rings) => withinBounds([{ type: 'Feature', geometry: { type: 'Polygon', coordinates: rings } }], box));
+    if (parts.length) out.push({ ...f, geometry: { type: 'MultiPolygon', coordinates: parts } });
+  }
+  return out;
+}
+
 export const totalArea = (features) => features.reduce((a, f) => a + geoArea(f), 0);

@@ -11,7 +11,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { normalizePolygons, withinBounds, totalArea } from './lib/geo.mjs';
+import { normalizePolygons, withinBounds, clipToBounds, totalArea } from './lib/geo.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const UA = 'ReactionCore-conflict-updater/1.0';
@@ -66,7 +66,9 @@ export async function fetchDeepState({ fetchImpl, cfg, config }) {
     const fill = String(p.fill ?? p['fill-color'] ?? '').toLowerCase();
     return names.some((x) => label.includes(x)) || fills.includes(fill);
   });
-  const features = normalizePolygons(occupied, config.coordinatePrecision)
+  // DeepState's map also carries polygons beyond Ukraine (e.g. Russia itself); keep only what lies in Ukraine.
+  const [w, s, e, n] = config.ukraineBounds;
+  const features = clipToBounds(normalizePolygons(occupied, config.coordinatePrecision), [w - 3, s - 1, e + 3, n + 1])
     .map((f) => ({ ...f, properties: { name: f.properties.name ?? null } }));
   const areaKm2 = checkUkraineTerritory(features, config);
   return {

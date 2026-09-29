@@ -136,3 +136,12 @@ test('ACLED error responses surface their message', async () => {
   assert.equal(m.sources.acled.status, 'error');
   assert.match(m.sources.acled.error, /HTTP 403/);
 });
+
+test('DeepState polygons beyond Ukraine (e.g. Russia itself) are dropped, not fatal', async () => {
+  const outDir = await tmp();
+  const withRussia = [...goodDeepState, poly({ name: 'Росія', fill: '#bcaaa4' }, box(30.0, 41.0, 180.0, 78.0))];
+  const m = await run({ fetchImpl: mockFetch(deepstateRoutes(withRussia)), outDir, config, env: {}, now: NOW, only: ['deepstate'], log: quiet });
+  assert.equal(m.sources.deepstate.status, 'ok', m.sources.deepstate.error);
+  const fc = JSON.parse(await fs.readFile(path.join(outDir, 'deepstate.geojson'), 'utf8'));
+  assert.equal(fc.features.length, 2);
+});
