@@ -4,7 +4,6 @@
 //   Fallback mode: Natural Earth countries bundled with the app, so the map always works.
 // Country borders always come from our Natural Earth build (Crimea returned to Ukraine), never from the basemap.
 import { layers as protomapsLayers, namedFlavor } from '@protomaps/basemaps';
-import { geoGraticule } from 'd3-geo';
 import polygonClipping from 'polygon-clipping';
 
 // Plain concatenation: URL() would percent-encode the {z}/{x}/{y} placeholders of tile templates.
@@ -78,11 +77,6 @@ function flavor(col, theme) {
   return f;
 }
 
-export function graticule(zoom) {
-  const step = zoom >= 8 ? 0.5 : zoom >= 6 ? 1 : zoom >= 4 ? 5 : 15;
-  return { type: 'Feature', properties: { step }, geometry: geoGraticule().step([step, step]).extentMinor([[-180, -85], [180, 85]])() };
-}
-
 const toPolys = (g) => (g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : []);
 
 /**
@@ -130,7 +124,7 @@ export function eventsGeoJSON(events) {
  * @param col     palette()
  * @param theme   'matte' | 'paper'
  * @param tiles   installed map data: { basemap?, terrain? } (manifests), or {}
- * @param data    { countries, borders, coast, ua, zones, events, graticule, selectedEvent }
+ * @param data    { countries, borders, coast, ua, zones, events, selectedEvent }
  * @param layers  visibility toggles from the UI
  */
 export function buildStyle({ col, theme, tiles, data, layers, baseOk = false }) {
@@ -141,7 +135,6 @@ export function buildStyle({ col, theme, tiles, data, layers, baseOk = false }) 
     ua: { type: 'geojson', data: data.ua },
     zones: { type: 'geojson', data: data.zones },
     events: { type: 'geojson', data: data.events },
-    graticule: { type: 'geojson', data: data.graticule },
   };
   const style = { version: 8, sources, layers: [] };
   let baseLayers = [];
@@ -208,7 +201,6 @@ export function buildStyle({ col, theme, tiles, data, layers, baseOk = false }) 
 
   style.layers = [
     ...baseLayers,
-    { id: 'graticule', type: 'line', source: 'graticule', layout: { visibility: vis(layers.graticule) }, paint: { 'line-color': col.grid, 'line-width': 1 } },
     { id: 'zones-fill', type: 'fill', source: 'zones', layout: { visibility: vis(layers.conflicts) }, paint: { 'fill-color': col.conflict, 'fill-opacity': 0.34 } },
     { id: 'zones-line', type: 'line', source: 'zones', layout: { visibility: vis(layers.conflicts) }, paint: { 'line-color': col.conflict, 'line-width': 1.2, 'line-opacity': 0.9 } },
     { id: 'borders', type: 'line', source: 'borders', paint: { 'line-color': detailed ? col.ink3 : col.border, 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 0.7, 10, 1.6] } },

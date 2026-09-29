@@ -396,6 +396,7 @@ kbd {
 .mode-mark .map-gl .maplibregl-canvas, .mode-measure .map-gl .maplibregl-canvas { cursor: crosshair; }
 .map-loading { position: absolute; inset: 0; display: grid; place-items: center; background: var(--surface); }
 .map-layers__note { max-width: 260px; padding-top: 8px; border-top: 1px solid var(--line); }
+.map-layers__grid { display: grid; gap: 6px; padding-bottom: 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
 .map-frame .maplibregl-ctrl-bottom-right { bottom: 56px; }
 .map-frame .maplibregl-ctrl-attrib {
   background: var(--surface) !important; color: var(--ink-3); font: 12px/18px var(--font-text);

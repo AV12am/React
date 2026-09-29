@@ -20,7 +20,7 @@ const EARTH_KM2 = 6371.0088 ** 2;
 // this range means the source changed its format or we classified features wrongly.
 const UA_AREA_KM2 = [40_000, 250_000];
 
-class NotConfigured extends Error {}
+export class NotConfigured extends Error {}
 
 async function getJson(fetchImpl, url, init = {}) {
   const res = await fetchImpl(url, {

@@ -17,7 +17,8 @@ import { CONFLICTS, CONFLICTS_AS_OF } from '../data/conflicts.js';
 import { fmtDD, fmtDMS, fmtMGRS, parseCoords, distanceKm, bearing, fmtKm, trackState } from '../map/coords.js';
 import { copyText } from '../lib/io.js';
 import { useLiveConflicts, ageHours } from '../map/live.js';
-import { buildStyle, palette, zonesGeoJSON, eventsGeoJSON, graticule } from '../map/style.js';
+import { buildStyle, palette, zonesGeoJSON, eventsGeoJSON } from '../map/style.js';
+import { degreeGrid, mgrsGrid } from '../map/grid.js';
 import { useInstalledTiles, elevationAt } from '../map/tiles.js';
 
 /* ---------- geography ---------- */
@@ -79,6 +80,7 @@ const EVENT_TYPE = {
 const STALE_HOURS = 48;
 
 const SERIF = '"Source Serif 4 Variable", Georgia, serif';
+const MONO = '"JetBrains Mono", ui-monospace, monospace';
 const pixelRatio = () => Math.min(2, window.devicePixelRatio || 1);
 
 // [west, south, east, north]
@@ -180,7 +182,7 @@ export function MapView({ focus }) {
   const [touch, setTouch] = useState(() => window.matchMedia?.('(pointer: coarse)').matches ?? false);
   const [centre, setCentre] = useState(null);
   const [mode, setMode] = useState('view');
-  const [layers, setLayers] = useState({ relief: true, conflicts: true, events: true, graticule: false, labels: true, cities: true, points: true, tracks: true, trails: true });
+  const [layers, setLayers] = useState({ relief: true, conflicts: true, events: true, grid: 'off', labels: true, cities: true, points: true, tracks: true, trails: true });
   const [layersOpen, setLayersOpen] = useState(false);
   const [sel, setSel] = useState(null); // {type:'point'|'track'|'event'|'coord', id?, lat?, lon?}
   const [follow, setFollow] = useState(null);
@@ -233,14 +235,12 @@ export function MapView({ focus }) {
   const geo = detail || BASE;
   const zonesData = useMemo(() => zonesGeoJSON(zones, BASE.fc), [zones]);
   const eventsData = useMemo(() => eventsGeoJSON(events), [events]);
-  const gratStep = graticule(zoom).properties.step;
-  const gratData = useMemo(() => graticule(zoom), [gratStep]); // eslint-disable-line react-hooks/exhaustive-deps
   const selectedEvent = sel?.type === 'event' ? sel.id : '';
 
   const styleFor = useRef(null);
   styleFor.current = () => buildStyle({
     col: palette(wrapRef.current), theme, tiles, layers, baseOk,
-    data: { countries: geo.fc, borders: geo.borders, coast: geo.coast, ua: geo.ua, zones: zonesData, events: eventsData, graticule: gratData, selectedEvent },
+    data: { countries: geo.fc, borders: geo.borders, coast: geo.coast, ua: geo.ua, zones: zonesData, events: eventsData, selectedEvent },
   });
 
   const project = useCallback(([lon, lat]) => {
@@ -286,6 +286,75 @@ export function MapView({ focus }) {
       ctx.strokeText(text, x, y);
       ctx.fillStyle = color; ctx.fillText(text, x, y);
     };
+
+    // Coordinate grid: lines first, edge labels reserve their place before any other label.
+    if (s.layers.grid !== 'off') {
+      const b = map.getBounds();
+      const view = { w: b.getWest(), s: b.getSouth(), e: b.getEast(), n: b.getNorth() };
+      // Keep edge labels clear of the controls drawn over the map.
+      const box = canvas.getBoundingClientRect();
+      for (const el of wrapRef.current.querySelectorAll('.map-zoom, .map-legend, .map-readout, .map-scale, .maplibregl-ctrl-attrib, .map-mode')) {
+        const r = el.getBoundingClientRect();
+        taken.push([r.left - box.left - 4, r.top - box.top - 4, r.right - box.left + 4, r.bottom - box.top + 4]);
+      }
+      // A label chip at the first free spot among `at` ([x, y] baselines; x may be a function of text width).
+      const chip = (text, at, color, font) => {
+        ctx.font = font;
+        const tw = ctx.measureText(text).width;
+        for (const [ax, y] of at) {
+          const x = typeof ax === 'function' ? ax(tw) : ax;
+          if (!free(x - 3, y - 11, tw + 6, 15)) continue;
+          ctx.fillStyle = col.bg; ctx.globalAlpha = 0.82; ctx.fillRect(x - 3, y - 11, tw + 6, 15); ctx.globalAlpha = 1;
+          ctx.fillStyle = color; ctx.fillText(text, x, y);
+          return;
+        }
+      };
+      const stroke = (coords, alpha, width) => { line(coords); ctx.globalAlpha = alpha; ctx.lineWidth = width; ctx.strokeStyle = col.ink3; ctx.setLineDash([]); ctx.stroke(); ctx.globalAlpha = 1; };
+      const edge = `500 10.5px ${MONO}`;
+      if (s.layers.grid === 'deg') {
+        const g = degreeGrid(view);
+        for (const l of g.lines) stroke(l.coords, 0.5, 1);
+        for (const l of g.lines) {
+          // Meridians labelled at the top edge, or the bottom one where controls cover it; parallels at left or right.
+          if (l.axis === 'lon') { const x = proj([l.value, view.n])[0]; chip(l.label, [[x + 4, 16], [x + 4, h - 6]], col.ink2, edge); }
+          else { const y = proj([view.w, l.value])[1]; chip(l.label, [[6, y - 3], [(tw) => w - tw - 6, y - 3]], col.ink2, edge); }
+        }
+      } else {
+        const g = mgrsGrid(view, z);
+        for (const c of g.zones) stroke(c, 0.9, 1.6);
+        for (const l of g.lines) stroke(l.coords, l.major ? 0.7 : 0.4, l.major ? 1.2 : 0.9);
+        for (const l of g.lines) {
+          if (!l.label) continue;
+          const pts = l.coords.map(proj).filter(([x, y]) => x >= 0 && x <= w && y >= 0 && y <= h);
+          if (!pts.length) continue;
+          if (l.axis === 'e') {
+            const top = pts.reduce((a, q) => (q[1] < a[1] ? q : a)), bot = pts.reduce((a, q) => (q[1] > a[1] ? q : a));
+            // Where the line crosses a given screen height (the polyline is sampled, so interpolate).
+            const all = l.coords.map(proj);
+            const atY = (yy) => {
+              for (let i = 1; i < all.length; i++) {
+                const [x0, y0] = all[i - 1], [x1, y1] = all[i];
+                if ((y0 - yy) * (y1 - yy) <= 0 && y0 !== y1) return [x0 + ((yy - y0) / (y1 - y0)) * (x1 - x0), yy];
+              }
+              return null;
+            };
+            const spots = [[top[0] + 3, Math.max(16, top[1] + 14)], [bot[0] + 3, Math.min(h - 6, bot[1] - 4)]];
+            for (const yy of [76, h - 70, h / 2]) { const q = atY(yy); if (q && q[0] > 0 && q[0] < w) spots.push([q[0] + 3, q[1]]); }
+            chip(l.label, spots, col.ink2, edge);
+          } else {
+            const left = pts.reduce((a, q) => (q[0] < a[0] ? q : a)), right = pts.reduce((a, q) => (q[0] > a[0] ? q : a));
+            chip(l.label, [[Math.max(6, left[0] + 4), left[1] - 3], [(tw) => Math.min(w - 6, right[0]) - tw - 4, right[1] - 3]], col.ink2, edge);
+          }
+        }
+        for (const lb of g.labels) {
+          const [x, y] = proj([lb.lon, lb.lat]);
+          if (x < 0 || y < 0 || x > w || y > h) continue;
+          const font = lb.kind === 'zone' ? `600 15px ${MONO}` : `600 12.5px ${MONO}`;
+          ctx.font = font;
+          chip(lb.text, [[(tw) => x - tw / 2, y + 5]], lb.kind === 'zone' ? col.ink : col.ink2, font);
+        }
+      }
+    }
 
     const markers = [];
     if (s.layers.tracks) {
@@ -458,7 +527,6 @@ export function MapView({ focus }) {
   const setData = (id, data) => { try { mapRef.current?.getSource(id)?.setData(data); } catch { /* style reloading */ } };
   useEffect(() => { if (ready) setData('zones', zonesData); }, [ready, zonesData]);
   useEffect(() => { if (ready) setData('events', eventsData); }, [ready, eventsData]);
-  useEffect(() => { if (ready) setData('graticule', gratData); }, [ready, gratData]);
   useEffect(() => {
     if (!ready) return;
     setData('borders', geo.borders); setData('ua', geo.ua); setData('countries', geo.fc); setData('coast', geo.coast);
@@ -467,7 +535,7 @@ export function MapView({ focus }) {
     const map = mapRef.current;
     if (!ready || !map) return;
     const vis = (id, on) => { if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none'); };
-    vis('hillshade', layers.relief); vis('graticule', layers.graticule);
+    vis('hillshade', layers.relief);
     vis('zones-fill', layers.conflicts); vis('zones-line', layers.conflicts); vis('events', layers.events);
   }, [ready, layers]);
   useEffect(() => {
@@ -638,7 +706,7 @@ export function MapView({ focus }) {
   const readout = touch ? centre : cursor;
   const LAYERS = [
     ...(tiles.terrain ? [['relief', 'Рельєф']] : []),
-    ['conflicts', 'Зони конфліктів'], ['events', 'Події ACLED'], ['graticule', 'Координатна сітка'],
+    ['conflicts', 'Зони конфліктів'], ['events', 'Події ACLED'],
     ...(detailed && baseOk ? [] : [['labels', 'Назви країн'], ['cities', 'Міста']]),
     ['points', 'Позначки'], ['tracks', 'Об’єкти'], ['trails', 'Сліди руху'],
   ];
@@ -694,6 +762,14 @@ export function MapView({ focus }) {
           <button className="vx-btn" onClick={() => setLayersOpen((o) => !o)} aria-expanded={layersOpen}><Icon name="layers" /> Шари</button>
           {layersOpen && (
             <div className="map-layers__menu vx-panel">
+              <div className="map-layers__grid">
+                <span className="vx-hint">Координатна сітка</span>
+                <div className="segmented" role="group" aria-label="Координатна сітка">
+                  {[['off', 'Вимк.'], ['deg', 'Градуси'], ['mgrs', 'MGRS']].map(([id, name]) => (
+                    <button key={id} className={layers.grid === id ? 'is-active' : ''} onClick={() => setLayers({ ...layers, grid: id })}>{name}</button>
+                  ))}
+                </div>
+              </div>
               {LAYERS.map(([id, name]) => (
                 <label key={id} className="check"><input type="checkbox" checked={layers[id]} onChange={(e) => setLayers({ ...layers, [id]: e.target.checked })} /> {name}</label>
               ))}
