@@ -11,18 +11,6 @@
   text-rendering: optimizeLegibility;
 }
 
-/* Matte grain: a fixed noise layer that keeps flat black from reading as glossy. */
-.vx-grain::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  opacity: var(--grain-opacity);
-  background-image: var(--grain-image, none); /* a 128px noise tile made once at start-up (src/main.jsx) */
-  transform: translateZ(0);
-}
-
 /* ---------- Type ---------- */
 .vx-wordmark {
   font: 500 15px/1 var(--font-wordmark);

@@ -47,7 +47,7 @@ function Root() {
   }, [state.settings.theme]);
 
   return (
-    <div data-theme={state.settings.theme} className={`vx-root vx-grain app-root ${state.settings.sensitive ? '' : 'vx-sensitive-off'}`}>
+    <div data-theme={state.settings.theme} className={`vx-root app-root ${state.settings.sensitive ? '' : 'vx-sensitive-off'}`}>
       {!booted ? <Splash onDone={done} /> : me ? <Shell /> : <Login />}
       <Toasts items={toasts} />
     </div>
