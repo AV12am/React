@@ -1,5 +1,6 @@
 // Builds the MapLibre style for the Map module from the app theme and whatever map data is installed.
-//   Detailed mode: OpenStreetMap vector tiles (tiles/basemap.pmtiles) + optional terrain (tiles/terrain/…).
+//   Detailed mode: OpenStreetMap vector tiles (tiles/basemap.pmtiles), or OpenFreeMap when nothing is installed,
+//   + terrain (tiles/terrain/…, or Terrain Tiles on AWS).
 //   Fallback mode: Natural Earth countries bundled with the app, so the map always works.
 // Country borders always come from our Natural Earth build (Crimea returned to Ukraine), never from the basemap.
 import { layers as protomapsLayers, namedFlavor } from '@protomaps/basemaps';
@@ -17,6 +18,50 @@ export function palette(el) {
     sea: c('surface'), land: c('surface-3'), ua: c('line-strong'), border: c('line-control'), coast: c('ink-faint'),
     grid: c('line'), conflict: c('conflict'), ink: c('ink'), ink2: c('ink-2'), ink3: c('ink-3'), brass: c('brass'), bg: c('bg'),
   };
+}
+
+// OpenMapTiles schema (OpenFreeMap), drawn in the matte palette. Place names in Ukrainian where
+// OpenStreetMap has them. Country boundaries are left out — ours are drawn on top (see header).
+const UK_NAME = ['coalesce', ['get', 'name:uk'], ['get', 'name:latin'], ['get', 'name']];
+function omtLayers(col, theme) {
+  const src = 'omt';
+  const paper = theme === 'paper';
+  const road = { major: paper ? col.ink3 : col.border, minor: col.ua };
+  const w = (a, b) => ['interpolate', ['exponential', 1.6], ['zoom'], 5, a, 16, b];
+  const cls = (...c) => ['match', ['get', 'class'], c, true, false];
+  const halo = { 'text-halo-color': col.sea, 'text-halo-width': 1.4, 'text-halo-blur': 0.3 };
+  return [
+    { id: 'landcover-wood', type: 'fill', source: src, 'source-layer': 'landcover', filter: cls('wood', 'forest'), paint: { 'fill-color': col.grid, 'fill-opacity': 0.55 } },
+    { id: 'landuse-urban', type: 'fill', source: src, 'source-layer': 'landuse', minzoom: 8, filter: cls('residential', 'suburb', 'neighbourhood', 'commercial', 'industrial', 'retail'), paint: { 'fill-color': col.ua, 'fill-opacity': 0.35 } },
+    { id: 'park', type: 'fill', source: src, 'source-layer': 'park', paint: { 'fill-color': col.grid, 'fill-opacity': 0.5 } },
+    { id: 'water', type: 'fill', source: src, 'source-layer': 'water', filter: ['!=', ['get', 'brunnel'], 'tunnel'], paint: { 'fill-color': col.sea } },
+    { id: 'waterway', type: 'line', source: src, 'source-layer': 'waterway', minzoom: 6, filter: ['!=', ['get', 'brunnel'], 'tunnel'], paint: { 'line-color': col.sea, 'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.6, 14, 2.5] } },
+    { id: 'building', type: 'fill', source: src, 'source-layer': 'building', minzoom: 13, paint: { 'fill-color': col.ua, 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0, 15, 0.8] } },
+    { id: 'road-minor', type: 'line', source: src, 'source-layer': 'transportation', minzoom: 11, filter: cls('minor', 'service', 'track'), layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': road.minor, 'line-width': w(0.3, 5) } },
+    { id: 'road-mid', type: 'line', source: src, 'source-layer': 'transportation', minzoom: 7, filter: cls('secondary', 'tertiary'), layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': road.minor, 'line-width': w(0.4, 8) } },
+    { id: 'road-major', type: 'line', source: src, 'source-layer': 'transportation', minzoom: 5, filter: cls('primary', 'trunk', 'motorway'), layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': road.major, 'line-opacity': 0.8, 'line-width': w(0.5, 11) } },
+    { id: 'rail', type: 'line', source: src, 'source-layer': 'transportation', minzoom: 9, filter: cls('rail'), paint: { 'line-color': road.major, 'line-opacity': 0.6, 'line-width': 0.8, 'line-dasharray': [3, 3] } },
+    { id: 'boundary-region', type: 'line', source: src, 'source-layer': 'boundary', minzoom: 4, filter: ['all', ['==', ['get', 'admin_level'], 4], ['!=', ['get', 'maritime'], 1]], paint: { 'line-color': col.border, 'line-opacity': 0.6, 'line-width': 0.7, 'line-dasharray': [3, 2] } },
+    // labels
+    { id: 'water-name', type: 'symbol', source: src, 'source-layer': 'water_name', layout: { 'text-field': UK_NAME, 'text-font': ['Noto Sans Italic'], 'text-size': 12, 'text-max-width': 6 }, paint: { 'text-color': col.ink3, ...halo } },
+    { id: 'road-name', type: 'symbol', source: src, 'source-layer': 'transportation_name', minzoom: 13, layout: { 'symbol-placement': 'line', 'text-field': UK_NAME, 'text-font': ['Noto Sans Regular'], 'text-size': 11 }, paint: { 'text-color': col.ink3, ...halo } },
+    { id: 'place-minor', type: 'symbol', source: src, 'source-layer': 'place', minzoom: 11, filter: cls('suburb', 'quarter', 'neighbourhood', 'hamlet', 'isolated_dwelling'), layout: { 'text-field': UK_NAME, 'text-font': ['Noto Sans Regular'], 'text-size': 11, 'text-max-width': 7 }, paint: { 'text-color': col.ink3, ...halo } },
+    { id: 'place-village', type: 'symbol', source: src, 'source-layer': 'place', minzoom: 9, filter: cls('village'), layout: { 'text-field': UK_NAME, 'text-font': ['Noto Sans Regular'], 'text-size': ['interpolate', ['linear'], ['zoom'], 9, 10, 14, 13], 'text-max-width': 7 }, paint: { 'text-color': col.ink2, ...halo } },
+    { id: 'place-town', type: 'symbol', source: src, 'source-layer': 'place', minzoom: 7, filter: cls('town'), layout: { 'text-field': UK_NAME, 'text-font': ['Noto Sans Regular'], 'text-size': ['interpolate', ['linear'], ['zoom'], 7, 11, 14, 15], 'text-max-width': 8 }, paint: { 'text-color': col.ink2, ...halo } },
+    { id: 'place-city', type: 'symbol', source: src, 'source-layer': 'place', minzoom: 3, filter: cls('city'), layout: { 'text-field': UK_NAME, 'text-font': ['Noto Sans Bold'], 'text-size': ['interpolate', ['linear'], ['zoom'], 3, 11, 12, 18], 'text-max-width': 8, 'symbol-sort-key': ['coalesce', ['get', 'rank'], 99] }, paint: { 'text-color': col.ink, ...halo } },
+    { id: 'place-state', type: 'symbol', source: src, 'source-layer': 'place', minzoom: 5, maxzoom: 9, filter: cls('state', 'province'), layout: { 'text-field': UK_NAME, 'text-font': ['Noto Sans Regular'], 'text-size': 11, 'text-transform': 'uppercase', 'text-letter-spacing': 0.1, 'text-max-width': 8 }, paint: { 'text-color': col.ink3, ...halo } },
+    { id: 'place-country', type: 'symbol', source: src, 'source-layer': 'place', maxzoom: 7, filter: cls('country'), layout: { 'text-field': UK_NAME, 'text-font': ['Noto Sans Bold'], 'text-size': ['interpolate', ['linear'], ['zoom'], 2, 10, 6, 14], 'text-transform': 'uppercase', 'text-letter-spacing': 0.12, 'text-max-width': 7 }, paint: { 'text-color': col.ink2, ...halo } },
+  ];
+}
+
+/** Background and Natural Earth land under the OpenFreeMap layers; see buildStyle. */
+export function omtBase(col, baseOk) {
+  const hide = { visibility: baseOk ? 'none' : 'visible' };
+  return [
+    { id: 'background', type: 'background', paint: { 'background-color': baseOk ? col.land : col.sea } },
+    { id: 'land', type: 'fill', source: 'countries', layout: hide, paint: { 'fill-color': col.land } },
+    { id: 'coast', type: 'line', source: 'coast', layout: hide, paint: { 'line-color': col.coast, 'line-width': 0.8 } },
+  ];
 }
 
 // Protomaps' dark/light flavours, recoloured to the matte palette: land and water from our surfaces,
@@ -88,7 +133,7 @@ export function eventsGeoJSON(events) {
  * @param data    { countries, borders, coast, ua, zones, events, graticule, selectedEvent }
  * @param layers  visibility toggles from the UI
  */
-export function buildStyle({ col, theme, tiles, data, layers }) {
+export function buildStyle({ col, theme, tiles, data, layers, baseOk = false }) {
   const vis = (on) => (on ? 'visible' : 'none');
   const detailed = !!tiles.basemap;
   const sources = {
@@ -102,7 +147,23 @@ export function buildStyle({ col, theme, tiles, data, layers }) {
   let baseLayers = [];
   let labelLayers = [];
 
-  if (detailed) {
+  if (detailed && tiles.basemap.kind === 'openfreemap') {
+    sources.omt = {
+      type: 'vector', url: tiles.basemap.url,
+      attribution: '© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>, <a href="https://openfreemap.org">OpenFreeMap</a>, OpenMapTiles',
+    };
+    style.glyphs = tiles.basemap.glyphs;
+    sources.countries = { type: 'geojson', data: data.countries };
+    sources.coast = { type: 'geojson', data: data.coast };
+    const all = omtLayers(col, theme);
+    // Our Natural Earth land sits underneath so the map still reads if OpenFreeMap is unreachable;
+    // once its tiles arrive (baseOk) the background turns to land and OSM water draws the coasts.
+    baseLayers = [
+      ...omtBase(col, baseOk),
+      ...all.filter((l) => l.type !== 'symbol'),
+    ];
+    labelLayers = all.filter((l) => l.type === 'symbol');
+  } else if (detailed) {
     sources.protomaps = {
       type: 'vector', url: `pmtiles://${tilesUrl(tiles.basemap.file)}`,
       attribution: '© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>, Protomaps',
@@ -127,9 +188,9 @@ export function buildStyle({ col, theme, tiles, data, layers }) {
   if (tiles.terrain) {
     const t = tiles.terrain;
     sources.dem = {
-      type: 'raster-dem', tiles: [tilesUrl('terrain/{z}/{x}/{y}.webp')], tileSize: t.tileSize || 256, encoding: 'terrarium',
+      type: 'raster-dem', tiles: [t.tiles || tilesUrl('terrain/{z}/{x}/{y}.webp')], tileSize: t.tileSize || 256, encoding: 'terrarium',
       minzoom: t.minzoom, maxzoom: t.maxzoom, bounds: t.bounds,
-      attribution: 'Copernicus DEM © DLR, Airbus DS, ESA',
+      attribution: t.attribution || 'Copernicus DEM © DLR, Airbus DS, ESA',
     };
     const hill = {
       id: 'hillshade', type: 'hillshade', source: 'dem', layout: { visibility: vis(layers.relief) },

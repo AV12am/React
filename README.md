@@ -54,6 +54,20 @@ npm run build    # збірка в dist/
 - Якщо деплой зібрався як Preview: Deployments → ⋯ → **Promote to Production**.
 - Зміна Production Branch діє лише на наступні push, уже зібрані деплої вона не переносить.
 
+## Карта без власних тайлів
+
+Якщо на сервері немає `tiles/basemap.pmtiles` і `tiles/terrain/` (наприклад, на Vercel), карта бере:
+- детальну підкладку OpenStreetMap з **OpenFreeMap** (безкоштовно, без ключа, українські назви);
+- рельєф і висоту з **Terrain Tiles on AWS** (відкриті дані).
+
+Кордони завжди власні (Natural Earth, Крим у складі України). Якщо OpenFreeMap недоступний, карта сама повертається до контурів Natural Earth.
+
+Зовнішні сервіси бачать, які ділянки карти переглядають. На внутрішньому сервері їх вимикають у `public/tiles/manifest.json`:
+
+```json
+{ "basemap": null, "terrain": null, "online": false }
+```
+
 ## Інтеграція з v0
 
 Tailwind + shadcn-токени, прив'язані до стилю Reaction, `components.json`, аліас `@/`, пісочниця `#/v0`

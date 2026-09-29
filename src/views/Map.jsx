@@ -169,6 +169,8 @@ export function MapView({ focus }) {
 
   const tiles = useInstalledTiles();
   const detailed = !!tiles.basemap;
+  // Our own city and country names stay on until the basemap has actually delivered its labels.
+  const [baseOk, setBaseOk] = useState(false);
   const [ready, setReady] = useState(false);
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -237,7 +239,7 @@ export function MapView({ focus }) {
 
   const styleFor = useRef(null);
   styleFor.current = () => buildStyle({
-    col: palette(wrapRef.current), theme, tiles, layers,
+    col: palette(wrapRef.current), theme, tiles, layers, baseOk,
     data: { countries: geo.fc, borders: geo.borders, coast: geo.coast, ua: geo.ua, zones: zonesData, events: eventsData, graticule: gratData, selectedEvent },
   });
 
@@ -249,7 +251,7 @@ export function MapView({ focus }) {
   /* ---------- overlay: tracks, points, measurement, labels (drawn on a canvas above the map) ---------- */
 
   const snapshot = useRef({});
-  snapshot.current = { points, tracks, live, sel, layers, measure, geo, detailed, zoom };
+  snapshot.current = { points, tracks, live, sel, layers, measure, geo, detailed: detailed && baseOk, zoom };
   const draw = useRef(() => {});
   draw.current = () => {
     const canvas = overlayRef.current, map = mapRef.current;
@@ -410,7 +412,6 @@ export function MapView({ focus }) {
     mapRef.current = map;
     let raf = 0;
     const onMove = () => {
-      requestDraw();
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         setZoom((z) => (Math.abs(z - map.getZoom()) > 0.05 ? map.getZoom() : z));
@@ -418,19 +419,32 @@ export function MapView({ focus }) {
         setCentre({ lat: c.lat, lon: c.lng });
       });
     };
-    map.on('load', () => {
+    // Ready as soon as the style is in: tiles (basemap, relief) keep streaming in behind it.
+    map.once('styledata', () => {
       // Keep the data credits folded behind the (i) button so they do not cover the map on small screens.
       map.getContainer().querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
       setReady(true);
       onMove();
     });
     map.on('move', onMove);
+    // Draw the overlay in the same frame MapLibre paints, so labels and markers never lag behind a zoom.
+    map.on('render', () => draw.current());
+    map.on('sourcedata', (e) => { if ((e.sourceId === 'omt' || e.sourceId === 'protomaps') && e.isSourceLoaded) setBaseOk(true); });
     map.on('moveend', () => setZoom(map.getZoom()));
     map.on('dragstart', () => setFollow(null));
     const ro = new ResizeObserver(() => { map.resize(); requestDraw(); });
     ro.observe(wrapRef.current);
-    return () => { ro.disconnect(); cancelAnimationFrame(raf); map.remove(); mapRef.current = null; setReady(false); };
+    return () => { ro.disconnect(); cancelAnimationFrame(raf); map.remove(); mapRef.current = null; setReady(false); setBaseOk(false); };
   }, [tiles.loaded, requestDraw]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // OpenFreeMap delivered: switch from Natural Earth land to OSM coasts (see omtBase).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map?.getLayer('land') || tiles.basemap?.kind !== 'openfreemap') return;
+    const col = palette(wrapRef.current);
+    map.setPaintProperty('background', 'background-color', baseOk ? col.land : col.sea);
+    for (const id of ['land', 'coast']) map.setLayoutProperty(id, 'visibility', baseOk ? 'none' : 'visible');
+  }, [ready, baseOk, tiles.basemap, theme]);
 
   // Theme change: rebuild the style with the new palette.
   const themeRef = useRef(theme);
@@ -492,7 +506,7 @@ export function MapView({ focus }) {
     if (st) mapRef.current.easeTo({ center: [st.lon, st.lat], duration: 900 });
   }, [follow, live]);
 
-  useEffect(() => { requestDraw(); }, [points, tracks, live, sel, layers, measure, geo, ready, requestDraw, theme]);
+  useEffect(() => { requestDraw(); }, [points, tracks, live, sel, layers, measure, geo, ready, requestDraw, theme, baseOk]);
   useEffect(() => { document.fonts?.ready.then(() => requestDraw()); }, [requestDraw]);
 
   /* ---------- pointer ---------- */
@@ -625,7 +639,7 @@ export function MapView({ focus }) {
   const LAYERS = [
     ...(tiles.terrain ? [['relief', 'Рельєф']] : []),
     ['conflicts', 'Зони конфліктів'], ['events', 'Події ACLED'], ['graticule', 'Координатна сітка'],
-    ...(detailed ? [] : [['labels', 'Назви країн'], ['cities', 'Міста']]),
+    ...(detailed && baseOk ? [] : [['labels', 'Назви країн'], ['cities', 'Міста']]),
     ['points', 'Позначки'], ['tracks', 'Об’єкти'], ['trails', 'Сліди руху'],
   ];
 
@@ -651,7 +665,7 @@ export function MapView({ focus }) {
     <div className="page page--map">
       <header className="page__head">
         <div>
-          <div className="vx-eyebrow">WGS 84 · {detailed ? 'OpenStreetMap' : 'Natural Earth'}{tiles.terrain ? ' · Copernicus DEM' : ''}</div>
+          <div className="vx-eyebrow">WGS 84 · {detailed && baseOk ? 'OpenStreetMap' : 'Natural Earth'}{tiles.terrain ? ` · ${tiles.terrain.kind === 'aws' ? 'рельєф AWS' : 'Copernicus DEM'}` : ''}</div>
           <h1 className="vx-h1">Карта</h1>
         </div>
         <form className="map-search" onSubmit={search}>
@@ -684,9 +698,12 @@ export function MapView({ focus }) {
                 <label key={id} className="check"><input type="checkbox" checked={layers[id]} onChange={(e) => setLayers({ ...layers, [id]: e.target.checked })} /> {name}</label>
               ))}
               <div className="vx-hint map-layers__note">
-                {detailed
-                  ? `Детальна карта: OpenStreetMap, збірка ${tiles.basemap.build}.`
-                  : 'Детальна карта не встановлена на цьому сервері. Показано кордони Natural Earth.'}
+                {detailed && !baseOk && 'Детальна карта зараз недоступна (немає зв’язку з джерелом). Показано кордони Natural Earth.'}
+                {detailed && baseOk
+                  ? (tiles.basemap.kind === 'openfreemap'
+                    ? 'Детальна карта: OpenStreetMap через OpenFreeMap (онлайн). Кордони — власні, Крим у складі України.'
+                    : `Детальна карта: OpenStreetMap, збірка ${tiles.basemap.build}.`)
+                  : !detailed && 'Детальна карта не встановлена на цьому сервері. Показано кордони Natural Earth.'}
                 {tiles.terrain ? ` Рельєф: ${tiles.terrain.dataset}.` : ''}
               </div>
             </div>
