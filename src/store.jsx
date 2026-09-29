@@ -3,7 +3,7 @@ import { USERS, REQUESTS, FILES, FOLDERS, SEED_AUDIT, PERMISSIONS, CLEARANCE } f
 import { canSeeLevel, levelOf, remark, MAX_LEVEL, SEAL } from './data/clearance.js';
 import { storage } from './lib/storage.js';
 import { createSync } from './lib/sync.js';
-import { supabaseOn, signedIn, onSession, signOut } from './lib/supabase.js';
+import { supabaseOn, signedIn, onSession, signOut, currentEmail } from './lib/supabase.js';
 
 // v3: LUMEN · UMBRA · NOX scale. v2 state (old four-step scale) is migrated on load.
 const KEY = 'reaction-core/v3';
@@ -37,7 +37,7 @@ function migrate(old) {
   };
 }
 
-function load() {
+function restore() {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) return { ...initial(), ...JSON.parse(raw) };
@@ -45,6 +45,22 @@ function load() {
     if (prev) return { ...initial(), ...migrate(JSON.parse(prev)) };
   } catch { /* storage unavailable: start fresh */ }
   return initial();
+}
+
+function load() {
+  const st = restore();
+  // With Supabase a remembered session counts only if the server session belongs to the same person;
+  // otherwise (e.g. one left over from the simulated sign-in) sign in again.
+  if (supabaseOn && st.session) {
+    const me = st.users.find((u) => u.id === st.session.userId);
+    if (!signedIn() || !me?.email || me.email !== currentEmail()) {
+      st.session = null;
+      st.users = []; // the team's people come from the server after sign-in
+      st.records = [];
+      st.requests = [];
+    }
+  }
+  return st;
 }
 
 let seq = 0;
