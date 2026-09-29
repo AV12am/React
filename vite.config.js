@@ -9,4 +9,7 @@ export default defineConfig({
   worker: { format: 'es' },
   // v0 / shadcn import paths: `@/components/…`, `@/lib/utils`
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+  // Dev server only: let v0 / Vercel sandboxes open the preview (hosts like sb-….vercel.run).
+  server: { allowedHosts: ['.vercel.run', '.vusercontent.net', '.v0.app', '.v0.dev'] },
+  preview: { allowedHosts: ['.vercel.run', '.vusercontent.net', '.v0.app', '.v0.dev'] },
 });
