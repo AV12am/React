@@ -564,6 +564,11 @@ export function MapView({ focus }) {
     const p = focus && state.points.find((x) => x.id === focus);
     if (t && t.clearance <= me.clearance) { const st = trackState(t, simNow()); setSel({ type: 'track', id: t.id }); flyTo(st.lat, st.lon, 8, 0); }
     else if (p && p.clearance <= me.clearance) { setSel({ type: 'point', id: p.id }); setTab('points'); flyTo(p.lat, p.lon, 12, 0); }
+    else if (focus?.startsWith('@')) {
+      // A coordinate linked from elsewhere (e.g. a workspace record): "@lat,lon".
+      const [lat, lon] = focus.slice(1).split(',').map(Number);
+      if (Number.isFinite(lat) && Number.isFinite(lon)) { setSel({ type: 'coord', lat, lon }); flyTo(lat, lon, 11, 0); }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -1,11 +1,14 @@
-import { useStore, fmtAgo } from '../store.jsx';
-import { Status, Avatar, Drawer, ClassBadge } from '../components/ui.jsx';
+import { useStore } from '../store.jsx';
+import { Status } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
-import { DIVISIONS, ROLES } from '../data/seed.js';
+import { DIVISIONS } from '../data/seed.js';
+import { WORKSPACES, registersOf } from '../data/workspaces.js';
+import { Workspace } from './Workspace.jsx';
 
-export function Divisions({ focus, setFocus, go }) {
-  const { state, userById } = useStore();
-  const open = DIVISIONS.find((d) => d.id === focus);
+// The company's divisions; each card opens that division's own workspace.
+export function Divisions({ focus, tab, go }) {
+  const { state, me, userById } = useStore();
+  if (focus && DIVISIONS.some((d) => d.id === focus)) return <Workspace divId={focus} tab={tab} go={go} />;
 
   return (
     <div className="page">
@@ -20,59 +23,25 @@ export function Divisions({ focus, setFocus, go }) {
         {DIVISIONS.map((d) => {
           const members = state.users.filter((u) => u.division === d.id);
           const lead = userById(d.lead);
+          const records = (state.records || []).filter((r) => r.div === d.id).length;
           return (
-            <button key={d.id} className="vx-panel division" onClick={() => setFocus(d.id)}>
+            <button key={d.id} className={`vx-panel division ${me.division === d.id ? 'is-mine' : ''}`} onClick={() => go('divisions', d.id)}>
               <div className="division__top">
                 <span className="division__icon"><Icon name={d.icon} /></span>
-                <span className="vx-tag">{d.code}</span>
+                <span className="vx-tag">{me.division === d.id ? 'Ваш напрям' : d.code}</span>
               </div>
               <h2 className="vx-h2">{d.name}</h2>
-              <p className="vx-muted division__about">{d.about}</p>
+              <p className="vx-muted division__about">{WORKSPACES[d.id]?.tagline || d.about}</p>
+              <div className="division__regs vx-hint">{registersOf(d.id).map((r) => r.name).join(' · ')}</div>
               <div className="division__meta">
                 <span>{lead?.name ?? <span className="vx-hint">Керівника не призначено</span>}</span>
-                <span className="vx-hint vx-num">{members.length} осіб · {d.projects.length} проєкти</span>
+                <span className="vx-hint vx-num">{members.length} осіб · {records} записів</span>
               </div>
               <Status kind={d.status}>{d.status === 'ok' ? 'Працює штатно' : 'Є ризики за строками'}</Status>
             </button>
           );
         })}
       </div>
-
-      {open && (
-        <Drawer title={open.name} onClose={() => setFocus(null)}
-          footer={<button className="vx-btn" onClick={() => go('vault')}><Icon name="vault" /> Сховище напряму</button>}>
-          <p className="vx-muted">{open.about}</p>
-          <div>
-            <div className="vx-eyebrow">Проєкти</div>
-            {open.projects.length ? <ul className="plain-list">{open.projects.map((p) => <li key={p}>{p}</li>)}</ul> : <p className="vx-hint">Проєктів ще немає.</p>}
-          </div>
-          <div>
-            <div className="vx-eyebrow">Папки</div>
-            <div className="list">
-              {state.folders.filter((f) => f.division === open.id).map((f) => (
-                <div className="list__row" key={f.id}>
-                  <span className="list__lead"><Icon name="folder" size={16} /> {f.name}</span>
-                  <ClassBadge level={f.clearance} />
-                </div>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="vx-eyebrow">Люди</div>
-            <div className="list">
-              {state.users.filter((u) => u.division === open.id).map((u) => (
-                <div className="list__row list__row--top" key={u.id}>
-                  <Avatar name={u.name} />
-                  <div className="list__text">
-                    <div>{u.name} {u.id === open.lead && <span className="vx-tag">керівник</span>}</div>
-                    <div className="vx-hint">{u.title} · {ROLES.find((r) => r.id === u.role).name} · {fmtAgo(u.lastSeen)}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Drawer>
-      )}
     </div>
   );
 }

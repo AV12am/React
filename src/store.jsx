@@ -13,6 +13,7 @@ const initial = () => ({
   folders: FOLDERS,
   files: FILES,
   points: [],
+  records: [], // division workspaces (src/data/workspaces.js)
   seen: {},
   audit: SEED_AUDIT,
   settings: { theme: 'matte', sensitive: true, lockMinutes: 5 },
@@ -123,6 +124,17 @@ function reducer(state, a) {
       const f = state.files.find((x) => x.id === a.id);
       return withAudit(state, me, 'security', `${a.sealed ? `${SEAL.short} · відкрито за підставою` : 'NOX · окрема дія'}: ${f?.number ?? ''} «${f?.name ?? a.id}» — мета: ${a.purpose}`);
     }
+    case 'record/add': {
+      const r = { id: uid('w'), at: new Date().toISOString(), owner: me, ...a.record };
+      r.updated = r.at;
+      return withAudit({ ...state, records: [r, ...(state.records || [])] }, me, 'work', `${a.where}: додано «${a.label}»`);
+    }
+    case 'record/update': {
+      const records = (state.records || []).map((r) => (r.id === a.id ? { ...r, ...a.patch, updated: new Date().toISOString() } : r));
+      return withAudit({ ...state, records }, me, 'work', `${a.where}: ${a.note || 'змінено'} «${a.label}»`);
+    }
+    case 'record/delete':
+      return withAudit({ ...state, records: (state.records || []).filter((r) => r.id !== a.id) }, me, 'work', `${a.where}: видалено «${a.label}»`);
     case 'file/update': {
       const f = state.files.find((x) => x.id === a.file.id);
       if (!f) return state;

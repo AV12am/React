@@ -3,7 +3,7 @@ import { Panel, StatTile, Status, BarList, Trend, Avatar } from '../components/u
 import { Icon } from '../components/Icon.jsx';
 import { STORAGE_QUOTA, DIVISIONS } from '../data/seed.js';
 
-const TYPE_LABEL = { auth: 'Вхід', access: 'Доступ', vault: 'Сховище', map: 'Карта', security: 'Безпека', system: 'Система' };
+const TYPE_LABEL = { auth: 'Вхід', access: 'Доступ', vault: 'Сховище', map: 'Карта', work: 'Напрями', security: 'Безпека', system: 'Система' };
 
 const WEEK = 7 * 86400000;
 

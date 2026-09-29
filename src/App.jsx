@@ -114,7 +114,7 @@ function Shell() {
 
   const page = {
     overview: <Dashboard go={go} />,
-    divisions: <Divisions focus={sub} setFocus={(id) => go('divisions', id)} go={go} />,
+    divisions: <Divisions key={sub || 'all'} focus={sub} tab={id} go={go} />,
     access: <Access tab={sub || 'people'} setTab={(t) => go('access', t)} focus={id} setFocus={(u) => go('access', 'people', u)} />,
     vault: <Vault focus={sub} setFocus={(f) => go('vault', f)} />,
     map: <MapView key={sub || 'map'} focus={sub} go={go} />,
