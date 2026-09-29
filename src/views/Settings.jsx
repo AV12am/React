@@ -1,12 +1,50 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore, fmtDate } from '../store.jsx';
 import { Panel, Avatar, ClassBadge, Switch, Status } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { ROLES, DIVISIONS, CLEARANCE, MODULES } from '../data/seed.js';
-import { MAX_LEVEL } from '../data/clearance.js';
+import { MAX_LEVEL, CUSTOS } from '../data/clearance.js';
+import { supabaseOn } from '../lib/supabase.js';
+import { listKeys, enroll, removeKey, passkeyError } from '../lib/passkey.js';
 import { clearBlobs } from '../vaultdb.js';
 
 const LEVEL = ['Немає', 'Перегляд', 'Редагування', 'Керування'];
+
+// This person's passkeys: add another device, remove one (never the last).
+function Keys() {
+  const { me, toast } = useStore();
+  const [keys, setKeys] = useState(null);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const load = () => listKeys().then((r) => setKeys(r.keys)).catch((e) => setErr(e.message));
+  useEffect(() => { load(); }, []);
+  const add = async () => {
+    setBusy(true); setErr('');
+    try { await enroll(); toast('Ключ цього пристрою додано'); await load(); } catch (e) { setErr(passkeyError(e)); } finally { setBusy(false); }
+  };
+  const drop = async (id) => {
+    try { await removeKey(id); toast('Ключ видалено'); await load(); } catch (e) { setErr(e.message); }
+  };
+  return (
+    <Panel title="Ключі доступу" action={me.custos ? <span className="vx-class vx-class--custos" title={CUSTOS.rule}>{CUSTOS.name}</span> : null}>
+      <div className="stack">
+        <div className="vx-hint">Вхід підтверджується Face ID, Touch ID, Windows Hello або ключем безпеки. Додайте другий пристрій, щоб не втратити доступ.</div>
+        {keys ? <div className="list">
+          {keys.map((k) => (
+            <div className="list__row" key={k.id}>
+              <span className="list__lead pk-key"><Icon name="key" size={16} /> {k.device || 'Пристрій'}</span>
+              <span className="vx-hint">додано {fmtDate(k.created_at, false)}{k.last_used_at ? ` · вхід ${fmtDate(k.last_used_at)}` : ''}</span>
+              {keys.length > 1 && <button className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => drop(k.id)}>Видалити</button>}
+            </div>
+          ))}
+        </div> : !err && <div className="vx-hint">Завантаження…</div>}
+        <button className="vx-btn" disabled={busy} onClick={add}><Icon name="plus" /> Додати цей пристрій</button>
+        {me.custos && <div className="vx-hint">Ви — {CUSTOS.name}, {CUSTOS.gloss}. Якщо втратите всі пристрої, допоможуть лише резервні коди, які ви зберегли при першому ключі.</div>}
+        {err && <div className="vx-error">{err}</div>}
+      </div>
+    </Panel>
+  );
+}
 
 export function Settings() {
   const { state, me, perms, dispatch, toast } = useStore();
@@ -61,6 +99,7 @@ export function Settings() {
         </Panel>
 
         <div className="stack">
+          {supabaseOn && <Keys />}
           <Panel title="Інтерфейс">
             <div className="stack">
               <div className="vx-field">

@@ -4,6 +4,9 @@ import { Wordmark, Mark, Loader } from './brand/Mark.jsx';
 import { Icon } from './components/Icon.jsx';
 import { Avatar, Toasts, Modal, ClassBadge } from './components/ui.jsx';
 import { Splash, Login, Lock } from './views/Entry.jsx';
+import { PasskeyStep } from './views/Passkey.jsx';
+import { status as passkeyStatus } from './lib/passkey.js';
+import { supabaseOn, signOut } from './lib/supabase.js';
 import { Dashboard } from './views/Dashboard.jsx';
 import { Divisions } from './views/Divisions.jsx';
 import { Access } from './views/Access.jsx';
@@ -37,8 +40,29 @@ export default function App() {
   );
 }
 
+// Supabase: a signed-in session must also be confirmed with a passkey. After a reload the confirmation
+// may have expired (12 h) — ask the server, and show the passkey step again when needed.
+function PasskeyGate() {
+  const { dispatch } = useStore();
+  const [st, setSt] = useState(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    passkeyStatus().then((x) => { if (x.verified) dispatch({ type: 'session/verified', value: true }); else setSt(x); })
+      .catch((e) => setErr(e.message));
+  }, [dispatch]);
+  const leave = async () => { await signOut(); dispatch({ type: 'logout' }); };
+  return (
+    <div className="lock">
+      <Loader size={72} still={!!st} label="Підтвердження входу" />
+      <div className="vx-eyebrow">Підтвердження входу</div>
+      {st ? <div className="lock__form lock__form--wide"><PasskeyStep st={st} onDone={() => dispatch({ type: 'session/verified', value: true })} onCancel={leave} /></div>
+        : err ? <><div className="vx-error">{err}</div><button className="vx-btn vx-btn--ghost" onClick={leave}>Вийти</button></> : null}
+    </div>
+  );
+}
+
 function Root() {
-  const { state, me, toasts } = useStore();
+  const { state, me, toasts, dispatch } = useStore();
   const [booted, setBooted] = useState(false);
   const done = useCallback(() => setBooted(true), []);
 
@@ -46,9 +70,17 @@ function Root() {
     document.body.style.background = state.settings.theme === 'paper' ? '#ffffff' : '#0a0a0a';
   }, [state.settings.theme]);
 
+  // A remembered confirmation is re-checked with the server once per load.
+  const remembered = supabaseOn && !!state.session?.verified;
+  useEffect(() => {
+    if (!remembered) return;
+    passkeyStatus().then((x) => { if (!x.verified) dispatch({ type: 'session/verified', value: false }); }).catch(() => {});
+  }, [remembered]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const gate = supabaseOn && me && !state.session?.verified;
   return (
     <div data-theme={state.settings.theme} className={`vx-root app-root ${state.settings.sensitive ? '' : 'vx-sensitive-off'}`}>
-      {!booted ? <Splash onDone={done} /> : me ? <Shell /> : <Login />}
+      {!booted ? <Splash onDone={done} /> : gate ? <PasskeyGate /> : me ? <Shell /> : <Login />}
       <Toasts items={toasts} />
     </div>
   );

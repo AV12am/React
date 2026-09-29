@@ -5,6 +5,8 @@ import { Avatar } from '../components/ui.jsx';
 import { useStore } from '../store.jsx';
 import { ROLES } from '../data/seed.js';
 import { supabaseOn, signIn, signOut, rest, rpc, currentEmail } from '../lib/supabase.js';
+import { status as passkeyStatus, confirm as passkeyConfirm, passkeyError } from '../lib/passkey.js';
+import { PasskeyStep } from './Passkey.jsx';
 
 const AUTH_MESSAGES = {
   invalid_credentials: 'Невірна пошта або пароль.',
@@ -20,6 +22,23 @@ function SupabaseLogin() {
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [pk, setPk] = useState(null); // passkey step: status from api/passkey
+
+  // After the passkey step: the team's people are readable now; enter the app.
+  const finish = async () => {
+    const addr = currentEmail();
+    const rows = await rest('core_members?select=id,doc');
+    const people = rows.map((r) => ({ ...r.doc, id: r.id }));
+    const me = people.find((u) => u.email === addr);
+    if (!me) { await signOut(); setPk(null); setErr('Не вдалося завантажити ваш профіль. Спробуйте ще раз.'); return; }
+    if (me.status === 'invited') {
+      // First sign-in accepts the invitation (the only status change a person may make themselves).
+      me.status = 'active';
+      await rest(`core_members?id=eq.${encodeURIComponent(me.id)}`, { method: 'PATCH', body: { doc: { ...me } } }).catch(() => {});
+    }
+    dispatch({ type: 'shared/sync', kind: 'users', items: people });
+    dispatch({ type: 'login', userId: me.id, via: 'supabase', verified: true });
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -28,33 +47,27 @@ function SupabaseLogin() {
     try {
       await signIn(email, pass);
       const addr = currentEmail();
-      let rows = await rest('core_members?select=id,doc');
-      if (!rows.length && !(await rpc('core_initialised', {}))) {
+      if (!(await rpc('core_initialised', {}))) {
         const id = `u-${Date.now().toString(36)}`;
         await rpc('core_claim_first_admin', { p_id: id, p_doc: { name: addr.split('@')[0], code: 'V-001', title: 'Адміністратор платформи', division: 'it', mfa: false, lastSeen: null } });
-        rows = await rest('core_members?select=id,doc');
       }
-      const people = rows.map((r) => ({ ...r.doc, id: r.id }));
-      const me = people.find((u) => u.email === addr);
-      if (!me) {
+      const st = await passkeyStatus();
+      if (!st.member || st.suspended) {
         await signOut();
-        setErr(`Вас ще не додано до команди. Попросіть адміністратора додати ${addr} у «Доступи».`);
+        setErr(st.suspended ? 'Обліковий запис призупинено. Зверніться до служби безпеки.' : `Вас ще не додано до команди. Попросіть адміністратора додати ${addr} у «Доступи».`);
         return;
       }
-      if (me.status === 'invited') {
-        // First sign-in accepts the invitation (the only status change a person may make themselves).
-        me.status = 'active';
-        await rest(`core_members?id=eq.${encodeURIComponent(me.id)}`, { method: 'PATCH', body: { doc: { ...me } } });
-      }
-      dispatch({ type: 'shared/sync', kind: 'users', items: people });
-      dispatch({ type: 'login', userId: me.id, via: 'supabase' });
+      if (st.verified) await finish(); else setPk(st);
     } catch (x) {
-      setErr(AUTH_MESSAGES[x.code] || (x.status === 400 ? AUTH_MESSAGES.invalid_credentials : `Не вдалося увійти: ${x.message}`));
+      setErr(x.code === 'not_configured' ? 'Сервер ключів доступу не налаштовано (SUPABASE_SERVICE_ROLE_KEY).'
+        : AUTH_MESSAGES[x.code] || (x.status === 400 ? AUTH_MESSAGES.invalid_credentials : `Не вдалося увійти: ${x.message}`));
       if (currentEmail()) await signOut();
     } finally {
       setBusy(false);
     }
   };
+
+  if (pk) return <PasskeyStep st={pk} onDone={() => finish().catch((x) => setErr(x.message))} onCancel={async () => { await signOut(); setPk(null); }} />;
 
   return (
     <form className="login__form" onSubmit={submit}>
@@ -70,7 +83,7 @@ function SupabaseLogin() {
       <button className="vx-btn vx-btn--primary login__submit" disabled={busy}>
         {busy ? <Loader size={18} label="Вхід" /> : <>Увійти <Icon name="lock" /></>}
       </button>
-      <div className="vx-hint">Облікові записи створює адміністратор. Вхід захищено сервером: без нього дані не видаються.</div>
+      <div className="vx-hint">Після пароля — підтвердження ключем доступу (Face ID, Touch ID, Windows Hello). Облікові записи створює адміністратор.</div>
     </form>
   );
 }
@@ -202,15 +215,22 @@ export function Lock({ onUnlock }) {
     if (pass.length < 6) return setErr('Пароль має містити щонайменше 6 символів.');
     if (supabaseOn) {
       try { await signIn(me.email || currentEmail(), pass); } catch { return setErr('Невірний пароль.'); }
+      // A new server session after the password: confirm it with the passkey too.
+      try { await passkeyConfirm(); } catch (x) { return setErr(passkeyError(x)); }
     }
     dispatch({ type: 'unlock' });
     onUnlock();
+  };
+  const withKey = async () => {
+    setErr('');
+    try { await passkeyConfirm(); dispatch({ type: 'unlock' }); onUnlock(); } catch (x) { setErr(passkeyError(x)); }
   };
   return (
     <div className="lock">
       <Loader size={72} label="Сесію заблоковано" />
       <div className="vx-eyebrow">Сесію заблоковано</div>
       <div className="lock__who"><Avatar name={me.name} /> <span>{me.name}</span> <span className="vx-mono vx-muted">{me.code}</span></div>
+      {supabaseOn && <button className="vx-btn vx-btn--primary" onClick={withKey}><Icon name="key" /> Розблокувати ключем (Face ID / Touch ID)</button>}
       <form className="lock__form" onSubmit={submit}>
         <input type="password" className="vx-input" placeholder="Пароль" value={pass} onChange={(e) => setPass(e.target.value)} autoFocus aria-label="Пароль" />
         <button className="vx-btn vx-btn--primary">Розблокувати</button>

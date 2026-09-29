@@ -3,8 +3,10 @@ import { useStore, fmtAgo, fmtDate } from '../store.jsx';
 import { SealBadge, Panel, Status, Avatar, Drawer, ClassBadge, Switch } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { DIVISIONS, ROLES, CLEARANCE, MODULES, PERMISSIONS } from '../data/seed.js';
-import { LEVELS, SEAL } from '../data/clearance.js';
+import { LEVELS, SEAL, CUSTOS } from '../data/clearance.js';
 import { supabaseOn } from '../lib/supabase.js';
+import { issueCode } from '../lib/passkey.js';
+import { copyText } from '../lib/io.js';
 
 const STATUS = {
   active: ['ok', 'Активний'],
@@ -108,9 +110,41 @@ function People({ focus, setFocus }) {
   );
 }
 
-function EditUser({ id, onClose, readOnly }) {
+// CUSTOS only: bind a new device for someone, or reset lost keys. The code is shown once.
+function KeyAccess({ u }) {
+  const [busy, setBusy] = useState(false);
+  const [code, setCode] = useState(null);
+  const [err, setErr] = useState('');
+  const [armed, setArmed] = useState(false);
+  const run = async (reset) => {
+    if (reset && !armed) { setArmed(true); return; }
+    setBusy(true); setErr(''); setArmed(false);
+    try { setCode(await issueCode(u.id, reset)); } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+  return (
+    <div className="stack">
+      <div className="vx-eyebrow">Ключі доступу · {CUSTOS.name}</div>
+      {code ? <>
+        <div className="pk-code-box">{code.code}</div>
+        <div className="vx-hint">Передайте код особисто. Діє {code.expiresHours} год, один раз. Людина вводить його після пароля й прив’язує свій пристрій Face ID / Touch ID / Windows Hello.</div>
+        <button className="vx-btn vx-btn--sm" onClick={() => copyText(code.code)}><Icon name="copy" /> Скопіювати</button>
+      </> : <>
+        <div className="vx-hint">Лише ви можете видати код прив’язки або скинути ключі, якщо пристрій втрачено.</div>
+        <div className="toolbar">
+          <button className="vx-btn vx-btn--sm" disabled={busy} onClick={() => run(false)}><Icon name="key" /> Видати код прив’язки</button>
+          <button className="vx-btn vx-btn--sm vx-btn--danger" disabled={busy} onClick={() => run(true)} onBlur={() => setArmed(false)}>{armed ? 'Точно скинути всі ключі?' : 'Скинути ключі й видати код'}</button>
+        </div>
+      </>}
+      {err && <div className="vx-error">{err}</div>}
+    </div>
+  );
+}
+
+function EditUser({ id, onClose, readOnly: ro }) {
   const { state, me, dispatch, toast } = useStore();
   const u = state.users.find((x) => x.id === id);
+  // The CUSTOS card is changed only by CUSTOS (the server enforces it too).
+  const readOnly = ro || (u.custos && u.id !== me.id);
   const [draft, setDraft] = useState({ role: u.role, division: u.division, clearance: u.clearance, status: u.status, mfa: u.mfa });
   const set = (k) => (v) => setDraft((d) => ({ ...d, [k]: v }));
   const save = () => {
@@ -128,8 +162,9 @@ function EditUser({ id, onClose, readOnly }) {
       </>}>
       <div className="cell-person">
         <Avatar name={u.name} lg />
-        <div><div className="vx-mono">{u.code}</div><div className="vx-muted">{u.title}</div></div>
+        <div><div className="vx-mono">{u.code}{u.custos && <span className="vx-class vx-class--custos" title={CUSTOS.rule}>{CUSTOS.name}</span>}</div><div className="vx-muted">{u.title}</div></div>
       </div>
+      {u.custos && u.id !== me.id && <div className="vx-hint">{CUSTOS.name} — {CUSTOS.gloss}. Цей профіль змінює лише власник.</div>}
       <div className="form-grid">
         <div className="vx-field">
           <label className="vx-label" htmlFor="role">Роль</label>
@@ -159,7 +194,8 @@ function EditUser({ id, onClose, readOnly }) {
           </select>
         </div>
       </div>
-      {!readOnly && <Switch checked={draft.mfa} onChange={set('mfa')} label="Двофакторна автентифікація обов'язкова" />}
+      {!readOnly && !supabaseOn && <Switch checked={draft.mfa} onChange={set('mfa')} label="Двофакторна автентифікація обов'язкова" />}
+      {supabaseOn && me.custos && u.id !== me.id && <KeyAccess u={u} />}
       <div>
         <div className="vx-eyebrow">Остання активність у журналі</div>
         <div className="list">

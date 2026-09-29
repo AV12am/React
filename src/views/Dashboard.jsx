@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import { useStore, fmtBytes, fmtAgo } from '../store.jsx';
+import { supabaseOn, rest } from '../lib/supabase.js';
 import { Panel, StatTile, Status, BarList, Trend, Avatar } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { STORAGE_QUOTA, DIVISIONS } from '../data/seed.js';
@@ -13,7 +15,14 @@ export function Dashboard({ go }) {
   const now = Date.now();
   const pending = state.requests.filter((r) => r.status === 'pending').length;
   const active = state.users.filter((u) => u.status === 'active');
-  const mfa = active.length ? Math.round((active.filter((u) => u.mfa).length / active.length) * 100) : 0;
+  // With Supabase: real passkey coverage from the server; otherwise the (simulated) MFA flag.
+  const [withKeys, setWithKeys] = useState(null);
+  useEffect(() => {
+    if (!supabaseOn || !['admin'].includes(me?.role)) return;
+    rest('core_passkeys?select=member_id').then((rows) => setWithKeys(new Set(rows.map((r) => r.member_id)))).catch(() => {});
+  }, [me?.role, state.users.length]);
+  const hasFactor = (u) => (supabaseOn ? withKeys?.has(u.id) : u.mfa);
+  const mfa = active.length ? Math.round((active.filter(hasFactor).length / active.length) * 100) : 0;
   const used = state.files.reduce((s, f) => s + f.size, 0);
   const quota = backend?.quota || STORAGE_QUOTA;
   const since = (iso, weeks = 1) => iso && now - new Date(iso).getTime() < weeks * WEEK;
@@ -59,8 +68,8 @@ export function Dashboard({ go }) {
         </button>
         <StatTile label="Сховище" value={fmtBytes(used)} unit={`/ ${fmtBytes(quota)}`}
           meter={(used / quota) * 100} delta={`${backend ? backend.label : '…'} · ${state.files.length} файлів у ${state.folders.length} папках`} />
-        <StatTile label="Покриття MFA" value={mfa} unit="%" meter={mfa} meterBrass={mfa < 100}
-          delta={`${active.filter((u) => !u.mfa).length} активних без MFA`} sensitive={false} />
+        <StatTile label={supabaseOn ? 'Ключі доступу' : 'Покриття MFA'} value={supabaseOn && !withKeys ? '—' : mfa} unit={supabaseOn && !withKeys ? '' : '%'} meter={mfa} meterBrass={mfa < 100}
+          delta={supabaseOn ? (withKeys ? `${active.filter((u) => !withKeys.has(u.id)).length} активних без ключа` : 'бачить адміністратор') : `${active.filter((u) => !u.mfa).length} активних без MFA`} sensitive={false} />
         <StatTile label="Активні користувачі" value={active.length} delta={`${state.users.filter((u) => u.status === 'invited').length} запрошено`} sensitive={false} />
       </div>
 

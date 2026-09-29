@@ -137,3 +137,12 @@ export const hasBasis = (me, f) => !f.sealed || f.owner === me.id || (me.basis |
 
 /** May the content leave the system as a file? */
 export const canExport = (f) => !f.sealed && levelOf(f.clearance).download;
+
+/* ---------- CUSTOS: the owner ---------- */
+// One person. Alone issues enrolment codes and resets lost passkeys; no administrator can change,
+// suspend or remove this status (enforced in deploy/supabase.sql and api/passkey.js).
+export const CUSTOS = {
+  name: 'CUSTOS',
+  gloss: 'хранитель ключів',
+  rule: 'Лише CUSTOS повертає доступ тому, хто втратив ключі.',
+};

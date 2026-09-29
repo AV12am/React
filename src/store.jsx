@@ -78,9 +78,11 @@ function reducer(state, a) {
   const me = state.session?.userId;
   switch (a.type) {
     case 'login': {
-      const s = { ...state, session: { userId: a.userId, since: new Date().toISOString() } };
+      const s = { ...state, session: { userId: a.userId, since: new Date().toISOString(), verified: !!a.verified } };
       return withAudit(s, a.userId, 'auth', a.via === 'supabase' ? 'Вхід у систему · пароль перевірено сервером' : 'Вхід у систему · MFA підтверджено');
     }
+    case 'session/verified':
+      return state.session ? { ...state, session: { ...state.session, verified: a.value } } : state;
     case 'logout':
       return { ...withAudit(state, me, 'auth', 'Вихід із системи'), session: null };
     case 'lock':
@@ -259,8 +261,10 @@ export function StoreProvider({ children }) {
   useEffect(() => { if (supabaseOn && !state.session && signedIn()) signOut(); }, [state.session]);
   const syncRef = useRef(null);
   const loggedIn = !!state.session?.userId;
+  const verified = !!state.session?.verified;
   useEffect(() => {
-    if (!backend?.docs || !loggedIn || (backend.needsSignIn && !sbSession)) return undefined;
+    // With Supabase the server answers only after the passkey step (session.verified).
+    if (!backend?.docs || !loggedIn || (backend.needsSignIn && (!sbSession || !verified))) return undefined;
     const engine = createSync({
       docs: backend.docs,
       getState: () => stateRef.current,
@@ -269,7 +273,7 @@ export function StoreProvider({ children }) {
     });
     syncRef.current = engine;
     return () => { engine.stop(); syncRef.current = null; };
-  }, [backend, loggedIn, sbSession]);
+  }, [backend, loggedIn, sbSession, verified]);
   useEffect(() => { syncRef.current?.changed(); }, [state.users, state.records, state.requests, state.audit]);
 
   const toastRef = useRef(null);

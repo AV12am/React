@@ -470,3 +470,11 @@ kbd {
 .ws-long { white-space: pre-wrap; }
 .ws-bad { color: var(--danger); }
 @media (max-width: 720px) { .ws-board { grid-auto-columns: 82vw; } }
+
+/* ---------- Passkeys ---------- */
+.pk-codes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 16px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-md); font-size: 15px; letter-spacing: 0.04em; }
+.pk-key { display: flex; align-items: center; gap: 10px; }
+.pk-code-box { font: 600 22px/1.3 var(--font-mono); letter-spacing: 0.08em; padding: 12px 14px; background: var(--surface); border: 1px solid var(--brass); border-radius: var(--radius-md); }
+.vx-class--custos { color: var(--on-brass); background: var(--ink); border-color: var(--ink); }
+
+.lock__form--wide { width: min(420px, 100%); display: block; }

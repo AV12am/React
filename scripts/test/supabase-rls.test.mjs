@@ -23,16 +23,23 @@ await db.exec(SQL);
 await db.exec(SQL); // re-runnable
 await db.exec(`grant select, insert, update, delete on all tables in schema public to authenticated, anon; grant select, insert, delete on storage.objects to authenticated;`);
 
-const as = async (email, fn) => {
-  await db.exec(`reset role; select set_config('test.jwt', '${email ? JSON.stringify({ email }) : ''}', false); set role ${email ? 'authenticated' : 'anon'};`);
+// Every person signs in with their own session; `verify` marks it confirmed with a passkey (what api/passkey.js does).
+const sid = (email) => `00000000-0000-4000-8000-${Buffer.from(email).toString('hex').padEnd(12, '0').slice(0, 12)}`;
+const as = async (email, fn, session = email && sid(email)) => {
+  await db.exec(`reset role; select set_config('test.jwt', '${email ? JSON.stringify({ email, session_id: session }) : ''}', false); set role ${email ? 'authenticated' : 'anon'};`);
   try { return await fn(); } finally { await db.exec('reset role'); }
 };
+const verify = (email) => db.exec(`insert into core_verified (session_id, member_id, expires_at)
+  select '${sid(email)}', id, now() + interval '12 hours' from core_members where email = '${email}' on conflict do nothing`);
 const tryq = async (s, p) => { try { const r = await q(s, p); return { ok: true, rows: r.rows, n: r.affectedRows }; } catch (e) { return { ok: false, err: e.message.split('\n')[0] }; } };
 const ok = (name, cond, extra = '') => { if (!cond) failures.push(`${name}${extra ? ' — ' + extra : ''}`); };
 
 // 1. first sign-in claims admin
 let r = await as('boss@x.ua', () => tryq(`select public.core_claim_first_admin('u01', '{"name":"Бос","code":"V-001"}'::jsonb) as d`));
-ok('first person becomes admin', r.ok && r.rows[0].d.role === 'admin' && r.rows[0].d.clearance === 2);
+ok('first person becomes admin and CUSTOS', r.ok && r.rows[0].d.role === 'admin' && r.rows[0].d.clearance === 2 && r.rows[0].d.custos === true);
+r = await as('boss@x.ua', () => tryq(`select count(*)::int n from core_members`));
+ok('without a passkey-confirmed session nothing is returned', r.ok && r.rows[0].n === 0, JSON.stringify(r.rows));
+await verify('boss@x.ua');
 r = await as('mallory@x.ua', () => tryq(`select public.core_claim_first_admin('u99', '{}'::jsonb)`));
 ok('second claim refused', !r.ok, r.err);
 
@@ -42,6 +49,7 @@ r = await as('boss@x.ua', () => tryq(`insert into core_members (id, email, doc) 
   ('u03','ann@x.ua','{"name":"Аналітик","role":"analyst","clearance":1,"status":"invited","division":"int"}'),
   ('u04','low@x.ua','{"name":"Новачок","role":"analyst","clearance":0,"status":"active","division":"it"}')`));
 ok('admin adds members', r.ok, r.err);
+for (const e of ['lead@x.ua', 'ann@x.ua', 'low@x.ua']) await verify(e);
 r = await as('lead@x.ua', () => tryq(`select count(*)::int n from core_members`));
 ok('e-mail stored lower-case, lead reads directory', r.ok && r.rows[0].n === 4);
 
@@ -95,7 +103,37 @@ ok('with a basis the sealed body opens', r.rows[0].s === 'x2/b.pdf', r.rows[0].s
 r = await as('stranger@x.ua', () => tryq(`insert into storage.objects values ('vault','evil.bin')`));
 ok('non-member cannot upload', !r.ok, r.err);
 
-// 7. suspended member loses everything
+// 7. CUSTOS: nobody else can touch it
+await db.exec(`insert into core_members (id, email, doc) values ('u05','adm2@x.ua','{"name":"Другий адмін","role":"admin","clearance":2,"status":"active"}')`);
+await verify('adm2@x.ua');
+r = await as('adm2@x.ua', () => tryq(`update core_members set doc = jsonb_set(doc, '{status}', '"suspended"') where id='u01'`));
+ok('another admin cannot suspend or change CUSTOS', !r.ok, r.err);
+r = await as('adm2@x.ua', () => tryq(`update core_members set doc = jsonb_set(doc, '{custos}', 'true') where id='u05'`));
+ok('an admin cannot make themselves CUSTOS', !r.ok, r.err);
+r = await as('adm2@x.ua', () => tryq(`delete from core_members where id='u01'`));
+ok('an admin cannot delete CUSTOS', !r.ok || r.n === 0, r.err || `rows ${r.n}`);
+r = await as('boss@x.ua', () => tryq(`update core_members set doc = doc - 'custos' where id='u01'`));
+ok('even CUSTOS cannot drop the flag by hand (server only)', !r.ok, r.err);
+r = await as('boss@x.ua', () => tryq(`update core_members set doc = doc || '{"name":"Власник"}' where id='u01'`));
+ok('CUSTOS edits own profile', r.ok && r.n === 1, r.err);
+
+// 8. passkeys: readable by the owner of the key and by admins, writable by the server only
+await db.exec(`insert into core_passkeys (id, member_id, public_key) values ('k-ann','u03','pk'), ('k-boss','u01','pk')`);
+await db.exec(`update core_members set doc = jsonb_set(doc, '{status}', '"active"') where id='u03'`);
+r = await as('low@x.ua', () => tryq(`select count(*)::int n from core_passkeys`));
+ok('a person sees no one else\'s keys', r.ok && r.rows[0].n === 0);
+r = await as('boss@x.ua', () => tryq(`select count(*)::int n from core_passkeys`));
+ok('an admin sees key coverage', r.ok && r.rows[0].n === 2);
+r = await as('ann@x.ua', () => tryq(`insert into core_passkeys (id, member_id, public_key) values ('evil','u03','x')`));
+ok('nobody adds a key from the browser', !r.ok, r.err);
+r = await as('ann@x.ua', () => tryq(`insert into core_verified (session_id, member_id, expires_at) values ('${sid('ann@x.ua')}','u03', now())`));
+ok('nobody marks their own session verified', !r.ok, r.err);
+r = await as('ann@x.ua', () => tryq(`select count(*)::int n from core_codes`));
+ok('codes are unreadable from the browser', !r.ok || r.rows[0].n === 0);
+r = await as('ann@x.ua', () => tryq(`select count(*)::int n from core_docs`), '11111111-1111-4111-8111-111111111111');
+ok('another (unconfirmed) session of the same person reads nothing', r.ok && r.rows[0].n === 0);
+
+// 9. suspended member loses everything
 await as('boss@x.ua', () => tryq(`update core_members set doc = jsonb_set(doc, '{status}', '"suspended"') where id='u03'`));
 r = await as('ann@x.ua', () => tryq(`select count(*)::int n from core_docs`));
 ok('suspended member reads nothing', r.rows[0].n === 0);
