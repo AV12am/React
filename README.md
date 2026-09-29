@@ -47,6 +47,13 @@ npm run build    # збірка в dist/
 - **Зниження грифа:** правило задається при реєстрації (після дати або після події); коли умова настала, документ позначається «до зниження», знижує людина на один крок (NOX → UMBRA → LUMEN), позначка в номері змінюється, порядковий номер — ні.
 - Джерело правди — `src/data/clearance.js`. Дані зі старої чотириступеневої шкали мігрують автоматично.
 
+## Деплой на Vercel
+
+- Framework **Vite**, Build `npm run build`, Output `dist`.
+- Production Branch: `claude/vibrant-darwin-dzhvqb` (Settings → Environments → Production). Кожен push у цю гілку оновлює основне посилання.
+- Якщо деплой зібрався як Preview: Deployments → ⋯ → **Promote to Production**.
+- Зміна Production Branch діє лише на наступні push, уже зібрані деплої вона не переносить.
+
 ## Інтеграція з v0
 
 Tailwind + shadcn-токени, прив'язані до стилю Reaction, `components.json`, аліас `@/`, пісочниця `#/v0`
