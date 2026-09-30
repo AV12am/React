@@ -108,6 +108,19 @@ function reducer(state, a) {
       if (!changes.length) return state;
       return withAudit({ ...state, users }, me, 'access', `${before.code} ${before.name}: ${changes.join(', ')}`);
     }
+    case 'training/result': {
+      // A test attempt of the signed-in person: best score kept, a pass is valid for a year (see data/academy/meta.js).
+      const u = state.users.find((x) => x.id === me);
+      const prev = u?.training?.[a.course] || {};
+      const pct = Math.round((a.score / a.total) * 100);
+      const now = new Date().toISOString();
+      const rec = {
+        best: Math.max(prev.best || 0, pct), last: pct, attempts: (prev.attempts || 0) + 1,
+        passed: a.passed || !!prev.passed, at: a.passed ? now : prev.at || null, tried: now,
+      };
+      const users = state.users.map((x) => (x.id === me ? { ...x, training: { ...(x.training || {}), [a.course]: rec } } : x));
+      return withAudit({ ...state, users }, me, 'training', `Курс «${a.title}»: ${a.score}/${a.total} (${pct}%) — ${a.passed ? 'складено' : 'не складено'}`);
+    }
     case 'user/invite': {
       const n = state.users.filter((u) => u.code.startsWith('V-')).length + 80;
       const user = { id: uid('u'), code: `V-${String(n).padStart(3, '0')}`, status: 'invited', mfa: false, lastSeen: null, ...a.user };

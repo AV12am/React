@@ -4,7 +4,7 @@ import { Panel, Avatar } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { saveFile, SAVE_MESSAGE } from '../lib/io.js';
 
-const TYPES = { auth: 'Вхід', access: 'Доступ', vault: 'Сховище', map: 'Карта', work: 'Напрями', security: 'Безпека', system: 'Система' };
+const TYPES = { auth: 'Вхід', access: 'Доступ', vault: 'Сховище', map: 'Карта', work: 'Напрями', training: 'Навчання', security: 'Безпека', system: 'Система' };
 
 // A short, stable fingerprint so each entry can be cited in reports.
 const fp = (e) => {

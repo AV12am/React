@@ -6,6 +6,7 @@ import { ROLES, DIVISIONS, CLEARANCE, MODULES } from '../data/seed.js';
 import { MAX_LEVEL, CUSTOS } from '../data/clearance.js';
 import { supabaseOn } from '../lib/supabase.js';
 import { isTouch, useInstall } from '../lib/mobile.js';
+import { missingFor } from '../data/academy/meta.js';
 import { listKeys, enroll, removeKey, passkeyError } from '../lib/passkey.js';
 import { clearBlobs } from '../vaultdb.js';
 
@@ -85,12 +86,13 @@ function Keys() {
   );
 }
 
-export function Settings() {
+export function Settings({ go }) {
   const { state, me, perms, dispatch, toast } = useStore();
   const s = state.settings;
   const set = (patch) => dispatch({ type: 'settings', patch });
   const [reason, setReason] = useState('');
   const [armed, setArmed] = useState(false);
+  const missing = me.clearance < MAX_LEVEL ? missingFor(me, me.clearance + 1) : [];
   const hasPending = state.requests.some((r) => r.user === me.id && r.status === 'pending' && r.kind === 'clearance');
 
   const ask = (e) => {
@@ -129,7 +131,12 @@ export function Settings() {
           {me.clearance < MAX_LEVEL && (
             <form className="ask" onSubmit={ask}>
               <div className="vx-eyebrow">Підвищення допуску до «{CLEARANCE[me.clearance + 1].short}»</div>
-              {hasPending ? <div className="vx-hint">Ваш запит уже розглядається.</div> : <>
+              {hasPending ? <div className="vx-hint">Ваш запит уже розглядається.</div> : missing.length ? <>
+                <div className="vx-hint">Спершу складіть обов’язкові курси в «Навчанні»:</div>
+                <div className="req-courses">
+                  {missing.map((c) => <button type="button" key={c.id} className="vx-btn vx-btn--sm" onClick={() => go?.('learn', c.id)}><Icon name="book" /> {c.title}</button>)}
+                </div>
+              </> : <>
                 <input className="vx-input" placeholder="Обґрунтування" value={reason} onChange={(e) => setReason(e.target.value)} aria-label="Обґрунтування запиту" />
                 <button className="vx-btn" disabled={reason.trim().length < 8}>Надіслати запит</button>
               </>}

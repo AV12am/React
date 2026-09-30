@@ -13,6 +13,8 @@ import { Access } from './views/Access.jsx';
 import { Vault } from './views/Vault.jsx';
 import { Audit } from './views/Audit.jsx';
 import { Settings } from './views/Settings.jsx';
+import { Learn } from './views/Academy.jsx';
+import { COURSES } from './data/academy/meta.js';
 import { ROLES } from './data/seed.js';
 import { TRACKS } from './data/geo.js';
 import { canSeeFile, fmtAgo, requestLabel } from './store.jsx';
@@ -30,6 +32,7 @@ const NAV = [
   { id: 'vault', label: 'Сховище', icon: 'vault' },
   { id: 'map', label: 'Карта', icon: 'map' },
   { id: 'audit', label: 'Журнал аудиту', icon: 'audit' },
+  { id: 'learn', label: 'Навчання', icon: 'book', always: true },
   { id: 'settings', label: 'Налаштування', icon: 'settings', always: true },
 ];
 // Phone: the bottom bar holds the four most used sections; everything else is under «Ще».
@@ -169,7 +172,8 @@ function Shell() {
     vault: <Vault focus={sub} setFocus={(f) => go('vault', f)} />,
     map: <MapView key={sub || 'map'} focus={sub} go={go} />,
     audit: <Audit />,
-    settings: <Settings />,
+    learn: <Learn key={sub || 'all'} focus={sub} go={go} />,
+    settings: <Settings go={go} />,
     v0: V0Sandbox && <Suspense fallback={null}><V0Sandbox /></Suspense>,
   }[current];
 
@@ -317,12 +321,13 @@ function Palette({ onClose, go, allowed, lock }) {
     const places = allowed.some((n) => n.id === 'map')
       ? [...state.points.filter((p) => p.clearance <= me.clearance).map((p) => ({ id: p.id, icon: 'map', label: p.name, hint: 'Позначка', run: () => go('map', p.id) })),
         ...TRACKS.filter((t) => t.clearance <= me.clearance).map((t) => ({ id: t.id, icon: 'target', label: t.name, hint: 'Об\u2019єкт', run: () => go('map', t.id) }))] : [];
+    const courses = COURSES.map((c) => ({ id: `c-${c.id}`, icon: 'book', label: c.title, hint: 'Курс', run: () => go('learn', c.id) }));
     const actions = [
       { id: 'lock', icon: 'lock', label: 'Заблокувати сесію', hint: 'Ctrl L', run: lock },
       { id: 'theme', icon: 'eye', label: state.settings.theme === 'matte' ? 'Тема: Папір' : 'Тема: Матова чорна', run: () => { dispatch({ type: 'settings', patch: { theme: state.settings.theme === 'matte' ? 'paper' : 'matte' } }); onClose(); } },
       { id: 'logout', icon: 'logout', label: 'Вийти', run: () => dispatch({ type: 'logout' }) },
     ];
-    const all = [...nav, ...actions, ...people, ...files, ...places];
+    const all = [...nav, ...actions, ...people, ...files, ...places, ...courses];
     const t = q.trim().toLowerCase();
     return (t ? all.filter((i) => `${i.label} ${i.hint ?? ''}`.toLowerCase().includes(t)) : [...nav, ...actions]).slice(0, 9);
   }, [q, allowed, state, me, go, lock, dispatch, onClose]);

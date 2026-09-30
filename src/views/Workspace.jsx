@@ -421,6 +421,7 @@ export function Workspace({ divId, tab, go }) {
         {regs.map((r) => (
           <button key={r.id} role="tab" aria-selected={current === r.id} className={`vx-tab ${current === r.id ? 'is-active' : ''}`} onClick={() => setTab(r.id)}>{r.name}</button>
         ))}
+        {divId === 'acad' && <button role="tab" aria-selected="false" className="vx-tab" onClick={() => go('learn')}>Навчання й тести</button>}
       </nav>
       {reg ? <RegisterView key={reg.id} d={d} reg={reg} access={access} go={go} /> : <Overview d={d} go={go} setTab={setTab} />}
     </div>
