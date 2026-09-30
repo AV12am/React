@@ -18,7 +18,7 @@ const initial = () => ({
   records: [], // division workspaces (src/data/workspaces.js)
   seen: {},
   audit: SEED_AUDIT,
-  settings: { theme: 'matte', sensitive: true, lockMinutes: 5 },
+  settings: { theme: 'matte', sensitive: true, lockMinutes: 30, lockV: 2 },
   session: null,
 });
 
@@ -49,6 +49,8 @@ function restore() {
 
 function load() {
   const st = restore();
+  // Auto-lock default went from 5 to 30 minutes: raise earlier saved values once.
+  if (st.settings && !st.settings.lockV) st.settings = { ...st.settings, lockMinutes: Math.max(st.settings.lockMinutes || 0, 30), lockV: 2 };
   // With Supabase a remembered session counts only if the server session belongs to the same person;
   // otherwise (e.g. one left over from the simulated sign-in) sign in again.
   if (supabaseOn && st.session) {

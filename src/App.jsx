@@ -148,7 +148,7 @@ function Shell() {
 
   // Phone: hide the screen in the app switcher, and lock when the app has been away too long.
   const [veiled, setVeiled] = useState(false);
-  const hideLock = state.settings.hideLock ?? 60; // seconds; -1 — never
+  const hideLock = state.settings.hideLock ?? 300; // seconds; -1 — never (default 5 min)
   const onHide = useCallback(() => { if (isTouch()) setVeiled(true); if (isTouch() && hideLock === 0) lock(); }, [hideLock, lock]);
   const onShow = useCallback((ms) => { setVeiled(false); if (isTouch() && hideLock >= 0 && ms >= hideLock * 1000) lock(); }, [hideLock, lock]);
   useHidden(onHide, onShow);
