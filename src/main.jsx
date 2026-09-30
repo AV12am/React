@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
+import { labelTables } from './lib/mobile.js';
 // Fonts ship with the app (no third-party font host): Cyrillic and Latin subsets of the weights in use.
 import '@fontsource-variable/source-serif-4/opsz.css';
 import '@fontsource-variable/source-serif-4/opsz-italic.css';
@@ -18,3 +19,4 @@ import './styles/app.css';
 import './styles/v0-bridge.css';
 
 createRoot(document.getElementById('root')).render(<App />);
+labelTables(); // table cells know their column, for the card layout on phones

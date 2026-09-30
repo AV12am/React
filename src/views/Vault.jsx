@@ -24,6 +24,7 @@ export function Vault({ focus, setFocus }) {
   const [drag, setDrag] = useState(false);
   const [newFolder, setNewFolder] = useState(false);
   const input = useRef(null);
+  const camera = useRef(null);
 
   const used = usage?.bytes ?? state.files.reduce((s, f) => s + f.size, 0);
   const quota = usage?.maxBytes || backend?.quota || STORAGE_QUOTA;
@@ -95,7 +96,13 @@ export function Vault({ focus, setFocus }) {
             <button className="vx-btn vx-btn--primary" disabled={!canWrite || folder === 'all'} title={folder === 'all' ? 'Оберіть папку' : ''} onClick={() => input.current.click()}>
               <Icon name="upload" /> Завантажити
             </button>
+            {/* Phone: photograph a paper document straight into the folder (rear camera). */}
+            <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { choose(e.target.files); e.target.value = ''; }} />
+            <button className="vx-btn only-touch" disabled={!canWrite || folder === 'all'} onClick={() => camera.current.click()}>
+              <Icon name="camera" /> Камера
+            </button>
           </div>
+          {canWrite && folder === 'all' && <div className="vx-hint only-touch">Щоб завантажити файл або фото, спершу оберіть папку вище.</div>}
 
           <div className={`dropzone ${drag ? 'is-over' : ''}`}>
             <Panel bodyClass="vx-table-wrap">

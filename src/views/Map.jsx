@@ -694,6 +694,21 @@ export function MapView({ focus }) {
   };
 
   const zoomBy = (f) => (f > 1 ? mapRef.current?.zoomIn() : mapRef.current?.zoomOut());
+  // Phone: where am I. The position stays on the device — it only moves the map and fills the coordinates.
+  const [locating, setLocating] = useState(false);
+  const locate = () => {
+    if (!navigator.geolocation) { setQueryErr('Цей пристрій не надає геолокацію.'); return; }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition((pos) => {
+      setLocating(false);
+      const { latitude: lat, longitude: lon } = pos.coords;
+      setSel({ type: 'coord', lat, lon });
+      flyTo(lat, lon, Math.max(mapRef.current?.getZoom() ?? 5, detailed ? 14 : 9));
+    }, (e) => {
+      setLocating(false);
+      setQueryErr(e.code === 1 ? 'Доступ до геолокації заборонено. Дозвольте його в налаштуваннях браузера.' : 'Не вдалося визначити місце. Спробуйте ще раз надворі або біля вікна.');
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+  };
   const preset = (p) => { setFollow(null); fitBounds(PRESETS[p]); };
 
   const measureTotal = measure.slice(1).reduce((a, b, i) => a + distanceKm(measure[i], b), 0);
@@ -775,6 +790,12 @@ export function MapView({ focus }) {
                   ))}
                 </div>
               </div>
+              <label className="map-sim map-sim--menu">
+                <span className="vx-hint">Час симуляції</span>
+                <select className="vx-select" value={sim} onChange={(e) => setSim(+e.target.value)} aria-label="Швидкість симуляції">
+                  {SIM.map((m) => <option key={m} value={m}>×{m}</option>)}
+                </select>
+              </label>
               {LAYERS.map(([id, name]) => (
                 <label key={id} className="check"><input type="checkbox" checked={layers[id]} onChange={(e) => setLayers({ ...layers, [id]: e.target.checked })} /> {name}</label>
               ))}
@@ -790,7 +811,7 @@ export function MapView({ focus }) {
             </div>
           )}
         </div>
-        <label className="map-sim">
+        <label className="map-sim map-sim--bar">
           <span className="vx-hint">Час симуляції</span>
           <select className="vx-select" value={sim} onChange={(e) => setSim(+e.target.value)} aria-label="Швидкість симуляції">
             {SIM.map((m) => <option key={m} value={m}>×{m}</option>)}
@@ -808,6 +829,7 @@ export function MapView({ focus }) {
           <div className="map-zoom">
             <button className="vx-btn vx-btn--icon vx-btn--sm" onClick={() => zoomBy(2)} aria-label="Наблизити"><Icon name="plus" /></button>
             <button className="vx-btn vx-btn--icon vx-btn--sm" onClick={() => zoomBy(0.5)} aria-label="Віддалити"><Icon name="minus" /></button>
+            <button className="vx-btn vx-btn--icon vx-btn--sm only-touch" onClick={locate} disabled={locating} aria-label="Де я" title="Де я"><Icon name="locate" /></button>
           </div>
           {layers.conflicts && (
             <button className="map-legend" onClick={() => setTab('conflicts')} title="Показати список зон">

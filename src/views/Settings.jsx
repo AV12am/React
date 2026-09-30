@@ -5,10 +5,48 @@ import { Icon } from '../components/Icon.jsx';
 import { ROLES, DIVISIONS, CLEARANCE, MODULES } from '../data/seed.js';
 import { MAX_LEVEL, CUSTOS } from '../data/clearance.js';
 import { supabaseOn } from '../lib/supabase.js';
+import { isTouch, useInstall } from '../lib/mobile.js';
 import { listKeys, enroll, removeKey, passkeyError } from '../lib/passkey.js';
 import { clearBlobs } from '../vaultdb.js';
 
 const LEVEL = ['Немає', 'Перегляд', 'Редагування', 'Керування'];
+const touch = isTouch();
+
+// Phone only: install to the home screen, what happens when the app is put away.
+function ThisPhone() {
+  const { state, dispatch, toast } = useStore();
+  const inst = useInstall();
+  const hideLock = state.settings.hideLock ?? 60;
+  const install = async () => { if (await inst.prompt()) toast('Reaction додано на головний екран'); };
+  return (
+    <Panel title="Цей телефон">
+      <div className="stack">
+        {inst.installed ? (
+          <div className="vx-status"><Icon name="ok" /> Відкрито з головного екрана — окреме вікно без адресного рядка.</div>
+        ) : inst.canPrompt ? (
+          <button className="vx-btn vx-btn--primary" onClick={install}><Icon name="download" /> Встановити на головний екран</button>
+        ) : inst.ios ? (
+          <div className="vx-hint install-ios">
+            <b>Встановити на iPhone:</b> у Safari натисніть <Icon name="share" size={15} /> «Поділитися» → «На початковий екран» → «Додати».
+            Застосунок відкриватиметься окремо, на весь екран.
+          </div>
+        ) : (
+          <div className="vx-hint">Встановити: меню браузера ⋮ → «Додати на головний екран» / «Встановити застосунок».</div>
+        )}
+        <div className="vx-field">
+          <label className="vx-label" htmlFor="hide-lock">Блокувати, коли застосунок згорнуто</label>
+          <select id="hide-lock" className="vx-select" value={hideLock} onChange={(e) => dispatch({ type: 'settings', patch: { hideLock: +e.target.value } })}>
+            <option value={0}>Одразу</option>
+            <option value={60}>Через 1 хв</option>
+            <option value={300}>Через 5 хв</option>
+            <option value={-1}>Не блокувати</option>
+          </select>
+          <div className="vx-hint">У перемикачі застосунків екран Reaction завжди прихований.{supabaseOn ? ' Розблокування — Face ID / Touch ID.' : ''}</div>
+        </div>
+      </div>
+    </Panel>
+  );
+}
 
 // This person's passkeys: add another device, remove one (never the last).
 function Keys() {
@@ -99,6 +137,7 @@ export function Settings() {
         </Panel>
 
         <div className="stack">
+          {touch && <ThisPhone />}
           {supabaseOn && <Keys />}
           <Panel title="Інтерфейс">
             <div className="stack">
@@ -130,7 +169,7 @@ export function Settings() {
             </div>
           </Panel>
 
-          <Panel title="Гарячі клавіші">
+          <Panel title="Гарячі клавіші" className="only-desktop">
             <dl className="meta meta--keys">
               <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Командний рядок</dd>
               <dt><kbd>Ctrl</kbd> <kbd>L</kbd></dt><dd>Заблокувати сесію</dd>

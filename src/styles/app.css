@@ -478,3 +478,114 @@ kbd {
 .vx-class--custos { color: var(--on-brass); background: var(--ink); border-color: var(--ink); }
 
 .lock__form--wide { width: min(420px, 100%); display: block; }
+
+/* ---------- Phone ---------- */
+/* Visibility helpers: only-touch — phones and tablets; only-desktop — hidden on a phone-width screen. */
+.only-touch { display: none !important; }
+@media (pointer: coarse), (hover: none) { .only-touch { display: inline-flex !important; } div.only-touch { display: block !important; } }
+.map-sim--menu { display: none; }
+.tabbar, .veil { display: none; }
+.topbar__mark { background: none; border: 0; padding: 0; cursor: pointer; }
+.install-ios svg { vertical-align: -2px; }
+
+/* The screen is covered while the app is in the app switcher. */
+.veil {
+  position: fixed; inset: 0; z-index: 100; background: var(--bg); color: var(--mark);
+  display: grid; place-items: center;
+}
+
+@media (max-width: 900px) {
+  .only-desktop { display: none !important; }
+  :root { --tabbar-h: calc(58px + env(safe-area-inset-bottom, 0px)); }
+
+  /* Notch and home indicator */
+  .topbar { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); height: calc(56px + env(safe-area-inset-top, 0px)); padding-top: env(safe-area-inset-top, 0px); top: 0; }
+  .content { padding: 16px max(16px, env(safe-area-inset-left)) calc(var(--tabbar-h) + 24px) max(16px, env(safe-area-inset-right)); }
+  .sidebar { padding-top: calc(20px + env(safe-area-inset-top, 0px)); padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .sidebar .vx-nav-item { min-height: 44px; }
+
+  /* Bottom tab bar */
+  .tabbar {
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; height: var(--tabbar-h);
+    padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+    background: var(--bg); border-top: 1px solid var(--line-strong);
+  }
+  .tabbar__item {
+    position: relative; display: grid; justify-items: center; align-content: center; gap: 3px; min-width: 0;
+    background: none; border: 0; color: var(--ink-3); font: 600 11.5px/1 var(--font-text); letter-spacing: 0.02em;
+    -webkit-tap-highlight-color: transparent; cursor: pointer;
+  }
+  .tabbar__item svg { width: 22px; height: 22px; }
+  .tabbar__item.is-active { color: var(--ink); }
+  .tabbar__item.is-active::before { content: ''; position: absolute; top: -1px; left: 30%; right: 30%; height: 2px; background: var(--brass); }
+  .tabbar__dot { position: absolute; top: 9px; left: calc(50% + 8px); width: 8px; height: 8px; border-radius: 50%; background: var(--brass); }
+  .vx-toasts { bottom: calc(var(--tabbar-h) + 12px); left: 16px; right: 16px; width: auto; }
+
+  /* iOS zooms into any field under 16px — keep them at 16 */
+  .vx-input, .vx-select, textarea.vx-input { font-size: 16px; height: 46px; }
+  textarea.vx-input { height: auto; }
+  .vx-btn { min-height: 44px; }
+  .vx-btn--sm { min-height: 36px; }
+  .toolbar > .vx-btn { flex: 1 1 auto; }
+
+  /* Tabs and segmented controls scroll sideways instead of wrapping or clipping */
+  .vx-tabs { scrollbar-width: none; margin-right: -16px; padding-right: 16px; }
+  .vx-tabs::-webkit-scrollbar { display: none; }
+  .page__head { padding-bottom: 14px; }
+
+  /* Drawers become full-height sheets from the bottom */
+  .vx-drawer {
+    top: auto; left: 0; width: 100%; height: calc(100dvh - 24px - env(safe-area-inset-top, 0px)); border-left: 0;
+    border-top: 1px solid var(--line-strong); border-radius: 14px 14px 0 0; animation: vx-sheet 0.28s var(--ease);
+  }
+  .vx-drawer__head { padding: 18px 16px 14px; position: relative; }
+  .vx-drawer__head::before { content: ''; position: absolute; top: 7px; left: calc(50% - 20px); width: 40px; height: 4px; border-radius: 2px; background: var(--line-strong); }
+  .vx-drawer__body { padding: 16px; }
+  .vx-drawer__foot { padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .vx-drawer__foot .vx-btn { flex: 1; }
+  .vx-modal { top: calc(12px + env(safe-area-inset-top, 0px)); width: calc(100vw - 24px); }
+  .palette__list { max-height: 60dvh; }
+
+  /* Tables → cards: every cell shows its column name (see lib/mobile.js) */
+  .vx-table:not(.matrix) thead { display: none; }
+  .vx-table:not(.matrix), .vx-table:not(.matrix) tbody { display: block; }
+  .vx-table:not(.matrix) tr { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .vx-table:not(.matrix) tr:last-child { border-bottom: 0; }
+  .vx-table:not(.matrix) td { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0; border: 0; text-align: right; min-width: 0; }
+  .vx-table:not(.matrix) td::before { content: attr(data-label); flex: none; color: var(--ink-3); font-size: 13px; font-weight: 600; font-variant-caps: small-caps; letter-spacing: 0.03em; text-align: left; }
+  .vx-table:not(.matrix) td:first-child { display: block; text-align: left; font-size: 15.5px; margin-bottom: 2px; }
+  .vx-table:not(.matrix) td:first-child::before, .vx-table:not(.matrix) td[data-label='']::before { display: none; }
+  .vx-table:not(.matrix) td:empty { display: none; }
+  .vx-table:not(.matrix) td[colspan] { display: block; text-align: center; }
+  .vx-table:not(.matrix) td[colspan]::before { display: none; }
+  .vx-table .ta-r { text-align: right; }
+  .matrix { min-width: 640px; }
+  .vx-panel:has(> .matrix), .vx-panel:has(.matrix) { overflow-x: auto; }
+
+  /* Map: the map takes the screen; tools scroll in one row */
+  .page--map .page__head > div:first-child { display: none; }
+  .page--map .page__head { border-bottom: 0; padding-bottom: 8px; }
+  .map-tools { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px 2px; }
+  .map-tools::-webkit-scrollbar { display: none; }
+  .map-tools .segmented { flex-wrap: nowrap; flex: none; }
+  .map-tools .segmented button { white-space: nowrap; }
+  .map-sim--bar { display: none; }
+  .map-sim--menu { display: flex; }
+  .map-layers { position: static; }
+  .map-layers__menu { position: fixed; left: 12px; right: 12px; top: auto; bottom: calc(var(--tabbar-h) + 12px); max-height: 70dvh; overflow-y: auto; z-index: 45; }
+  .map-frame { height: calc(100dvh - var(--tabbar-h) - 56px - env(safe-area-inset-top, 0px) - 150px); min-height: 340px; margin: 0 -16px; border-radius: 0; border-left: 0; border-right: 0; }
+  .map-zoom .vx-btn { width: 40px; height: 40px; min-height: 40px; }
+  /* Overlays: coordinates top-left, legend along the bottom, scale and attribution just above it */
+  .map-frame .map-readout { top: 12px; left: 12px; right: auto; bottom: auto; min-width: 0; max-width: calc(100% - 76px); padding: 6px 8px; font-size: 11px; line-height: 14px; }
+  .map-frame .map-readout > div:nth-child(2) { display: none; }
+  .map-frame .map-readout span { width: 40px; font-size: 11px; }
+  .map-frame .map-legend { left: 12px; right: 12px; bottom: 12px; top: auto; font-size: 12.5px; padding: 6px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .map-frame .map-legend i { display: inline-block; vertical-align: -1px; margin-right: 6px; }
+  .map-frame .map-scale { right: 12px; bottom: 52px; padding: 4px 8px; font-size: 12px; }
+  .map-frame .maplibregl-ctrl-bottom-right { bottom: 88px; right: auto; left: 0; }
+  .map-frame .maplibregl-ctrl-bottom-right .maplibregl-ctrl { margin: 0 0 4px 12px; }
+  .map-mode { top: auto; bottom: 90px; left: 12px; right: 12px; font-size: 13px; }
+}
+@keyframes vx-sheet { from { transform: translateY(40px); opacity: 0; } }
+@media (max-width: 900px) and (prefers-reduced-motion: reduce) { .vx-drawer { animation: none; } }

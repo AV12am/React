@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StoreProvider, useStore } from './store.jsx';
 import { Wordmark, Mark, Loader } from './brand/Mark.jsx';
 import { Icon } from './components/Icon.jsx';
@@ -16,6 +16,7 @@ import { Settings } from './views/Settings.jsx';
 import { ROLES } from './data/seed.js';
 import { TRACKS } from './data/geo.js';
 import { canSeeFile, fmtAgo, requestLabel } from './store.jsx';
+import { useSwipe, useHidden, isTouch, buzz } from './lib/mobile.js';
 
 // The map ships its own geography (~1 MB), so it loads only when opened.
 const MapView = lazy(() => import('./views/Map.jsx').then((m) => ({ default: m.MapView })));
@@ -31,6 +32,9 @@ const NAV = [
   { id: 'audit', label: 'Журнал аудиту', icon: 'audit' },
   { id: 'settings', label: 'Налаштування', icon: 'settings', always: true },
 ];
+// Phone: the bottom bar holds the four most used sections; everything else is under «Ще».
+const TABS = ['overview', 'divisions', 'vault', 'map'];
+const SHORT = { overview: 'Огляд', divisions: 'Напрями', vault: 'Сховище', map: 'Карта' };
 
 export default function App() {
   return (
@@ -142,6 +146,20 @@ function Shell() {
     return () => { clearTimeout(t); ev.forEach((e) => window.removeEventListener(e, reset)); };
   }, [locked, lock, state.settings.lockMinutes]);
 
+  // Phone: hide the screen in the app switcher, and lock when the app has been away too long.
+  const [veiled, setVeiled] = useState(false);
+  const hideLock = state.settings.hideLock ?? 60; // seconds; -1 — never
+  const onHide = useCallback(() => { if (isTouch()) setVeiled(true); if (isTouch() && hideLock === 0) lock(); }, [hideLock, lock]);
+  const onShow = useCallback((ms) => { setVeiled(false); if (isTouch() && hideLock >= 0 && ms >= hideLock * 1000) lock(); }, [hideLock, lock]);
+  useHidden(onHide, onShow);
+
+  // Swipe from the left edge opens the menu; swipe left on it closes it.
+  const sideRef = useRef(null);
+  const openMenu = useCallback(() => setMenu(true), []);
+  const closeMenu = useCallback(() => setMenu(false), []);
+  useSwipe(useRef(null), { onRight: openMenu, edge: 24 });
+  useSwipe(sideRef, { onLeft: closeMenu });
+
   if (locked) return <Lock onUnlock={() => {}} />;
 
   const page = {
@@ -157,7 +175,7 @@ function Shell() {
 
   return (
     <div className="shell">
-      <aside className={`sidebar ${menu ? 'is-open' : ''}`}>
+      <aside className={`sidebar ${menu ? 'is-open' : ''}`} ref={sideRef}>
         <div className="sidebar__brand"><Wordmark /></div>
         <div className="sidebar__product vx-eyebrow">Core · внутрішня платформа</div>
         <nav className="sidebar__nav" aria-label="Головне меню">
@@ -189,7 +207,7 @@ function Shell() {
       <div className="main">
         <header className="topbar">
           <button className="vx-btn vx-btn--ghost vx-btn--icon topbar__menu" onClick={() => setMenu(true)} aria-label="Меню"><Icon name="menu" /></button>
-          <span className="topbar__mark"><Mark size={22} /></span>
+          <button className="topbar__mark" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Нагору"><Mark size={22} /></button>
           <button className="topbar__search" onClick={() => setPalette(true)}>
             <Icon name="search" size={16} /> <span className="topbar__search-long">Пошук і команди</span><span className="topbar__search-short">Пошук</span> <kbd>Ctrl K</kbd>
           </button>
@@ -203,7 +221,21 @@ function Shell() {
         </main>
       </div>
 
+      <nav className="tabbar" aria-label="Розділи">
+        {allowed.filter((n) => TABS.includes(n.id)).map((n) => (
+          <button key={n.id} className={`tabbar__item ${current === n.id ? 'is-active' : ''}`} aria-current={current === n.id ? 'page' : undefined}
+            onClick={() => { buzz(); if (current === n.id) window.scrollTo({ top: 0, behavior: 'smooth' }); else go(n.id); }}>
+            <Icon name={n.icon} /><span>{SHORT[n.id]}</span>
+          </button>
+        ))}
+        <button className={`tabbar__item ${!TABS.includes(current) || menu ? 'is-active' : ''}`} onClick={() => { buzz(); setMenu(true); }} aria-label="Ще: інші розділи">
+          <Icon name="menu" /><span>Ще</span>
+          {pending > 0 && perms.access >= 2 && <span className="tabbar__dot" aria-hidden="true" />}
+        </button>
+      </nav>
+
       {palette && <Palette onClose={() => setPalette(false)} go={go} allowed={allowed} lock={lock} />}
+      {veiled && <div className="veil" aria-hidden="true"><Mark size={64} /></div>}
     </div>
   );
 }
