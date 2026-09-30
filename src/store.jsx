@@ -175,6 +175,16 @@ function reducer(state, a) {
       const lvl = Math.max(old?.clearance ?? 0, a.patch.clearance ?? 0);
       return withAudit({ ...state, records }, me, 'work', `${a.where}: ${a.note || 'змінено'} «${a.label}»`, lvl);
     }
+    case 'record/bulk': {
+      // Many records at once (the watch conveyor): new ones added, `patches` applied, one audit entry.
+      const have = new Set((state.records || []).map((r) => r.id));
+      const now = new Date().toISOString();
+      const added = a.records.filter((r) => !have.has(r.id)).map((r) => ({ at: now, owner: me, ...r, updated: now }));
+      const patches = new Map((a.patches || []).map((p) => [p.id, p.patch]));
+      const records = [...added, ...(state.records || []).map((r) => (patches.has(r.id) ? { ...r, ...patches.get(r.id), updated: now } : r))];
+      const lvl = Math.max(0, ...added.map((r) => r.clearance || 0));
+      return withAudit({ ...state, records }, me, 'work', `${a.where}: ${a.label}`, lvl);
+    }
     case 'record/delete': {
       const old = (state.records || []).find((r) => r.id === a.id);
       return withAudit({ ...state, records: (state.records || []).filter((r) => r.id !== a.id) }, me, 'work', `${a.where}: видалено «${a.label}»`, old?.clearance);

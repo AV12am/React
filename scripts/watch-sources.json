@@ -1,0 +1,26 @@
+{
+  "userAgent": "ReactionCore-watch/1.0 (+open-source monitoring)",
+  "gdelt": {
+    "enabled": true,
+    "url": "https://api.gdeltproject.org/api/v2/doc/doc",
+    "timespan": "1d",
+    "max": 25,
+    "attribution": "GDELT Project (gdeltproject.org)"
+  },
+  "sanctions": {
+    "ofac": {
+      "enabled": true,
+      "name": "OFAC SDN (США)",
+      "sdn": "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.CSV",
+      "alt": "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/ALT.CSV",
+      "attribution": "U.S. Treasury, OFAC — Specially Designated Nationals List"
+    },
+    "eu": {
+      "enabled": true,
+      "name": "Санкції ЄС (FSF)",
+      "url": "https://webgate.ec.europa.eu/fsd/fsf/public/files/csvFullSanctionsList_1_1/content?token=dG9rZW4tMjAxNw",
+      "attribution": "European Commission — Financial Sanctions Files"
+    }
+  },
+  "match": { "report": 0.75 }
+}

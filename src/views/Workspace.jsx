@@ -3,7 +3,11 @@ import { useStore, fmtDate, fmtAgo, canSeeFile } from '../store.jsx';
 import { Panel, Drawer, ClassBadge, Avatar } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { DIVISIONS, ROLES, CLEARANCE } from '../data/seed.js';
-import { WORKSPACES, registersOf, registerOf } from '../data/workspaces.js';
+import { WORKSPACES, registersOf, registerOf, viewsOf } from '../data/workspaces.js';
+import { needsReview } from '../lib/provenance.js';
+import { wordFor } from '../lib/forecast.js';
+import { RecordExtras, ReviewView, ForecastsView, reviewCount } from './Analysis.jsx';
+import { WatchView } from './Watch.jsx';
 import { parseCoords, fmtDD, fmtMGRS, distanceKm, fmtKm } from '../map/coords.js';
 
 /* ---------- access ---------- */
@@ -31,6 +35,8 @@ function useLookups(divId) {
     user: (id) => state.users.find((u) => u.id === id),
     file: (id) => state.files.find((f) => f.id === id),
     record: (id) => (state.records || []).find((r) => r.id === id && r.div === divId),
+    any: (id) => (state.records || []).find((r) => r.id === id),
+    visibleIn: (div, col) => (state.records || []).filter((r) => r.div === div && r.col === col && r.clearance <= me.clearance),
     visibleFiles: state.files.filter((f) => canSeeFile(me, f)),
     recordsOf: (col) => (state.records || []).filter((r) => r.div === divId && r.col === col && r.clearance <= me.clearance),
   }), [state.users, state.files, state.records, me, divId]);
@@ -43,7 +49,8 @@ function FieldValue({ field, value, look, go, compact = false }) {
   switch (field.type) {
     case 'user': return <span>{look.user(value)?.name ?? '—'}</span>;
     case 'date': return <span className="vx-num">{fmtDate(value, false)}</span>;
-    case 'percent': return <span className="ws-pct"><span className="vx-meter"><span style={{ width: `${Math.min(100, +value)}%` }} /></span><span className="vx-num">{value}%</span></span>;
+    case 'percent': if (field.id === 'probability') return <span className="vx-num">{value}% <span className="vx-hint">{wordFor(value)}</span></span>;
+      return <span className="ws-pct"><span className="vx-meter"><span style={{ width: `${Math.min(100, +value)}%` }} /></span><span className="vx-num">{value}%</span></span>;
     case 'url': return <a href={value} target="_blank" rel="noopener noreferrer" className="ws-link" onClick={(e) => e.stopPropagation()}>{compact ? new URL(value, location.href).host : value}</a>;
     case 'select': return <span>{compact ? short(value) : value}</span>;
     case 'file': {
@@ -57,6 +64,20 @@ function FieldValue({ field, value, look, go, compact = false }) {
       // A linked record above the reader's clearance stays masked, even inside a lower-level record.
       if (r.clearance > look.me.clearance) return <span title="Гриф вище вашого допуску"><span className="vx-redacted">{'█'.repeat(8)}</span></span>;
       return <span>{titleOf(registerOf(r.div, r.col), r)}</span>;
+    }
+    case 'links': {
+      if (!Array.isArray(value) || !value.length) return <span className="vx-hint">—</span>;
+      if (compact) return <span className="vx-num">{value.length} підст.</span>;
+      return (
+        <span className="ws-links">
+          {value.map((id) => {
+            const r = look.any(id);
+            if (!r) return <span key={id} className="vx-tag vx-hint">видалено</span>;
+            if (r.clearance > look.me.clearance) return <span key={id} className="vx-tag"><span className="vx-redacted">{'█'.repeat(6)}</span></span>;
+            return <button type="button" key={id} className="vx-tag ws-chip" onClick={() => go('divisions', r.div, `${r.col}:${r.id}`)}>{titleOf(registerOf(r.div, r.col), r)}</button>;
+          })}
+        </span>
+      );
     }
     case 'coords': {
       const c = parseCoords(value);
@@ -84,6 +105,30 @@ function grading(r, look) {
 
 /* ---------- form ---------- */
 
+// Several records from the registers in field.refs (any division) — the basis of a judgment or product.
+function LinksInput({ field, value, set, look }) {
+  const [q, setQ] = useState('');
+  const chosen = Array.isArray(value) ? value : [];
+  const options = field.refs.flatMap(([div, col]) => look.visibleIn(div, col).map((r) => ({ r, reg: registerOf(div, col) })));
+  const shown = options.filter(({ r, reg }) => !q || titleOf(reg, r).toLowerCase().includes(q.toLowerCase())).slice(0, 30);
+  const toggle = (id) => set(chosen.includes(id) ? chosen.filter((x) => x !== id) : [...chosen, id]);
+  return (
+    <div className="ws-picker">
+      <input id={`f-${field.id}`} className="vx-input" placeholder="Пошук надходжень і джерел" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="ws-picker__list">
+        {shown.map(({ r, reg }) => (
+          <label key={r.id} className="check">
+            <input type="checkbox" checked={chosen.includes(r.id)} onChange={() => toggle(r.id)} />
+            <span>{titleOf(reg, r)} <span className="vx-hint">· {reg.one}</span></span>
+          </label>
+        ))}
+        {!shown.length && <div className="vx-hint">Немає доступних записів.</div>}
+      </div>
+      <div className="vx-hint">Обрано: {chosen.length}</div>
+    </div>
+  );
+}
+
 function FieldInput({ field, value, set, look, me }) {
   const id = `f-${field.id}`;
   const common = { id, className: 'vx-input', value: value ?? '', onChange: (e) => set(e.target.value) };
@@ -92,10 +137,11 @@ function FieldInput({ field, value, set, look, me }) {
     case 'number': return <input {...common} type="number" onChange={(e) => set(e.target.value === '' ? '' : +e.target.value)} />;
     case 'percent': return (
       <div className="ws-range">
-        <input id={id} type="range" min="0" max="100" step="5" value={value ?? 0} onChange={(e) => set(+e.target.value)} />
-        <span className="vx-num">{value ?? 0}%</span>
+        <input id={id} type="range" min="0" max="100" step="5" value={value ?? (field.id === 'probability' ? 50 : 0)} onChange={(e) => set(+e.target.value)} />
+        <span className="vx-num">{value ?? (field.id === 'probability' ? 50 : 0)}%{field.id === 'probability' ? ` · ${wordFor(value ?? 50)}` : ''}</span>
       </div>
     );
+    case 'links': return <LinksInput field={field} value={value} set={set} look={look} />;
     case 'date': return <input {...common} type="date" />;
     case 'url': return <input {...common} type="url" placeholder="https://" />;
     case 'select': return (
@@ -141,7 +187,11 @@ function RecordDrawer({ d, reg, record, access, onClose, go }) {
   const look = { ...base, users: state.users.filter((u) => u.status !== 'suspended') };
   const isNew = !record;
   const [editing, setEditing] = useState(isNew);
-  const [draft, setDraft] = useState(() => (record ? { ...record } : { stage: reg.stages?.[0] ?? null, clearance: Math.min(reg.level, me.clearance) }));
+  const [draft, setDraft] = useState(() => (record ? { ...record } : {
+    stage: reg.stages?.[0] ?? null, clearance: Math.min(reg.level, me.clearance),
+    ...(reg.id === 'judgments' ? { probability: 50, outcome: 'Відкрито', analyst: me.id } : {}),
+    ...(reg.id === 'watchlists' ? { state: 'Активний', owner: me.id } : {}),
+  }));
   const [armed, setArmed] = useState(false);
   const where = `${d.name} · ${reg.name}`;
 
@@ -151,7 +201,7 @@ function RecordDrawer({ d, reg, record, access, onClose, go }) {
     if (want != null && isNew && want > next.clearance) next.clearance = Math.min(want, me.clearance);
     return next;
   });
-  const missing = reg.fields.filter((f) => f.required && (draft[f.id] == null || draft[f.id] === ''));
+  const missing = reg.fields.filter((f) => f.required && !f.hidden && (draft[f.id] == null || draft[f.id] === '' || (f.type === 'percent' && draft[f.id] == null)));
   const badCoords = reg.fields.some((f) => f.type === 'coords' && draft[f.id] && !parseCoords(draft[f.id]));
   const canDelete = access.canManage || record?.owner === me.id;
 
@@ -201,7 +251,7 @@ function RecordDrawer({ d, reg, record, access, onClose, go }) {
               </div>
             </div>
           )}
-          {reg.fields.map((f) => (
+          {reg.fields.filter((f) => !f.hidden).map((f) => (
             <div className="vx-field" key={f.id}>
               <label className="vx-label" htmlFor={`f-${f.id}`}>{f.label}{f.required && ' *'}</label>
               <FieldInput field={f} value={draft[f.id]} set={set(f.id)} look={look} me={me} />
@@ -225,11 +275,12 @@ function RecordDrawer({ d, reg, record, access, onClose, go }) {
             {grade && <span className="vx-tag vx-mono" title="Надійність джерела + достовірність інформації">{grade}</span>}
           </div>
           <dl className="meta">
-            {reg.fields.map((f) => <FieldRow key={f.id} f={f} record={record} look={look} go={go} />)}
+            {reg.fields.filter((f) => !f.hidden).map((f) => <FieldRow key={f.id} f={f} record={record} look={look} go={go} />)}
             {a && b && <><dt>Відстань</dt><dd className="vx-num">{fmtKm(distanceKm(a, b))} по прямій</dd></>}
             <dt>Створив</dt><dd>{owner?.name ?? '—'} · {fmtDate(record.at)}</dd>
             <dt>Змінено</dt><dd>{fmtAgo(record.updated)}</dd>
           </dl>
+          <RecordExtras reg={reg} record={record} canEdit={access.canEdit} go={go} />
         </>
       )}
     </Drawer>
@@ -242,6 +293,12 @@ const FieldRow = ({ f, record, look, go }) => (
 
 /* ---------- register views ---------- */
 
+function ReviewFlag({ reg, r }) {
+  const { state, me } = useStore();
+  if (!['judgments', 'products'].includes(reg.id) || !needsReview(r, state.records || [], me)) return null;
+  return <span className="vx-tag ws-flag" title="У ланцюгу підстав щось змінилося — див. «Перегляд»">перегляд</span>;
+}
+
 function Card({ reg, r, look, locked, onOpen, draggable, go }) {
   const grade = reg.id === 'intake' && !locked ? grading(r, look) : null;
   return (
@@ -250,6 +307,7 @@ function Card({ reg, r, look, locked, onOpen, draggable, go }) {
       <span className="ws-card__top">
         <ClassBadge level={r.clearance} />
         {grade && <span className="vx-tag vx-mono">{grade}</span>}
+        {!locked && <ReviewFlag reg={reg} r={r} />}
       </span>
       <span className="ws-card__title">{locked ? <span className="vx-redacted">{'█'.repeat(14)}</span> : titleOf(reg, r)}</span>
       {!locked && (
@@ -263,11 +321,11 @@ function Card({ reg, r, look, locked, onOpen, draggable, go }) {
   );
 }
 
-function RegisterView({ d, reg, access, go }) {
+function RegisterView({ d, reg, access, go, openId }) {
   const { state, me, dispatch } = useStore();
   const look = useLookups(d.id);
   const [q, setQ] = useState('');
-  const [open, setOpen] = useState(null); // record | 'new'
+  const [open, setOpen] = useState(() => (openId ? { id: openId } : null)); // record | 'new'
   const [over, setOver] = useState(null);
   const all = (state.records || []).filter((r) => r.div === d.id && r.col === reg.id);
   const locked = (r) => r.clearance > me.clearance;
@@ -320,7 +378,7 @@ function RegisterView({ d, reg, access, go }) {
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} className={locked(r) ? 'is-locked' : 'is-clickable'} onClick={() => !locked(r) && setOpen(r)}>
-                  <td>{locked(r) ? <span className="vx-redacted">{'█'.repeat(14)}</span> : titleOf(reg, r)}</td>
+                  <td>{locked(r) ? <span className="vx-redacted">{'█'.repeat(14)}</span> : <>{titleOf(reg, r)} <ReviewFlag reg={reg} r={r} /></>}</td>
                   {reg.fields.filter((f) => f.list && f.id !== reg.title).map((f) => (
                     <td key={f.id} className="vx-hint">{locked(r) ? '' : <FieldValue field={f} value={r[f.id]} look={look} go={go} compact />}</td>
                   ))}
@@ -334,7 +392,7 @@ function RegisterView({ d, reg, access, go }) {
         </Panel>
       )}
 
-      {open && (open === 'new' || all.some((x) => x.id === open.id)) && (
+      {open && (open === 'new' || all.some((x) => x.id === open.id && x.clearance <= me.clearance)) && (
         <RecordDrawer key={open === 'new' ? 'new' : open.id} d={d} reg={reg} record={open === 'new' ? null : all.find((x) => x.id === open.id)}
           access={access} onClose={() => setOpen(null)} go={go} />
       )}
@@ -397,14 +455,21 @@ function Overview({ d, go, setTab }) {
 
 /* ---------- workspace ---------- */
 
+const VIEWS = { review: ReviewView, forecasts: ForecastsView, watch: WatchView };
+
 export function Workspace({ divId, tab, go }) {
-  const { me, perms } = useStore();
+  const { state, me, perms } = useStore();
   const d = DIVISIONS.find((x) => x.id === divId);
   const regs = registersOf(divId);
-  const current = regs.find((r) => r.id === tab) ? tab : 'overview';
+  const views = viewsOf(divId);
+  // «intake:w-123» opens that record (links from the «звідки ми це знаємо» chain).
+  const [tabId, openId] = (tab || '').split(':');
+  const current = regs.find((r) => r.id === tabId) || views.find((v) => v.id === tabId) ? tabId : 'overview';
   const access = workspaceAccess(me, perms, d);
   const setTab = (t) => go('divisions', divId, t === 'overview' ? null : t);
   const reg = registerOf(divId, current);
+  const View = VIEWS[current];
+  const flagged = divId === 'ana' ? reviewCount(state.records || [], me) : 0;
 
   return (
     <div className="page">
@@ -421,9 +486,15 @@ export function Workspace({ divId, tab, go }) {
         {regs.map((r) => (
           <button key={r.id} role="tab" aria-selected={current === r.id} className={`vx-tab ${current === r.id ? 'is-active' : ''}`} onClick={() => setTab(r.id)}>{r.name}</button>
         ))}
+        {views.map((v) => (
+          <button key={v.id} role="tab" aria-selected={current === v.id} className={`vx-tab ${current === v.id ? 'is-active' : ''}`} onClick={() => setTab(v.id)}>
+            {v.name}{v.id === 'review' && flagged > 0 && <span className="vx-nav-item__count">{flagged}</span>}
+          </button>
+        ))}
         {divId === 'acad' && <button role="tab" aria-selected="false" className="vx-tab" onClick={() => go('learn')}>Навчання й тести</button>}
       </nav>
-      {reg ? <RegisterView key={reg.id} d={d} reg={reg} access={access} go={go} /> : <Overview d={d} go={go} setTab={setTab} />}
+      {reg ? <RegisterView key={`${reg.id}:${openId || ''}`} d={d} reg={reg} access={access} go={go} openId={openId} />
+        : View ? <View d={d} access={access} go={go} /> : <Overview d={d} go={go} setTab={setTab} />}
     </div>
   );
 }

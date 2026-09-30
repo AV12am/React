@@ -6,7 +6,18 @@
   "headers": [
     {
       "source": "/data/conflicts/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/watch",
+      "schedule": "40 4 * * *"
     }
   ]
 }

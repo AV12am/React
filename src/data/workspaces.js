@@ -2,7 +2,10 @@
 // Pure data — the Workspace view builds boards, tables and forms from it.
 //
 // Field types: text · longtext · select · date · number · percent · url · user · file (from the Vault)
-//              · ref (a record of another register in the same division) · coords (lat, lon or MGRS).
+//              · ref (a record of another register in the same division) · coords (lat, lon or MGRS)
+//              · links (several records of the registers in `refs`, any division — the «звідки ми це знаємо» chain).
+// `hidden` fields are kept on the record but not shown in forms (set by the system).
+// `views` add tabs with their own screens (see Workspace.jsx VIEWS).
 // A register with `stages` is shown as a board (a column per stage); without — as a table.
 // `title` names the field used as the record's heading; `list` fields show on cards and in tables.
 
@@ -17,6 +20,8 @@ export const CREDIBILITY = [
   '1 — підтверджено іншими джерелами', '2 — імовірно правдиве', '3 — можливо правдиве',
   '4 — сумнівне', '5 — малоймовірне', '6 — не можна оцінити',
 ];
+export const OUTCOMES = ['Відкрито', 'Сталося', 'Не сталося', 'Скасовано'];
+export const WATCH_KINDS = ['Медіа', 'Контрагенти й санкції'];
 export const SOURCE_CLASSES = ['OSINT', 'SOCMINT', 'HUMINT', 'SIGINT', 'GEOINT', 'IMINT', 'FININT', 'TECHINT'];
 
 export const WORKSPACES = {
@@ -69,7 +74,11 @@ export const WORKSPACES = {
           { id: 'assignee', label: 'Аналітик', type: 'user', list: true },
           { id: 'where', label: 'Місце', type: 'coords' },
           { id: 'summary', label: 'Зміст і висновок', type: 'longtext' },
+          { id: 'url', label: 'Посилання', type: 'url' },
+          { id: 'watchlist', label: 'Список спостереження', type: 'ref', ref: 'watchlists' },
           { id: 'file', label: 'Матеріал', type: 'file' },
+          { id: 'fingerprint', type: 'hidden', hidden: true },
+          { id: 'origin', type: 'hidden', hidden: true },
         ],
       },
       {
@@ -96,7 +105,22 @@ export const WORKSPACES = {
           { id: 'file', label: 'Методичка', type: 'file' },
         ],
       },
+      {
+        // What the conveyor watches in open sources (api/watch.js). The list itself shows the company's interests: UMBRA.
+        id: 'watchlists', name: 'Списки спостереження', one: 'список', icon: 'eye', title: 'name', level: 1,
+        fields: [
+          { id: 'name', label: 'Назва', type: 'text', required: true },
+          { id: 'kind', label: 'Що шукати', type: 'select', list: true, required: true, options: WATCH_KINDS },
+          { id: 'terms', label: 'Об’єкти й фрази', type: 'longtext', required: true, hint: 'По одному на рядок. Медіа: назва або фраза. Контрагенти: назва компанії; код (ЄДРПОУ, реєстраційний) — через «;», напр. «ТОВ Ромашка; 12345678».' },
+          { id: 'feeds', label: 'Додаткові RSS-стрічки', type: 'longtext', hint: 'Адреси RSS по одній на рядок (необов’язково, лише для «Медіа»).' },
+          { id: 'state', label: 'Стан', type: 'select', list: true, options: ['Активний', 'Призупинений'] },
+          { id: 'owner', label: 'Відповідальний', type: 'user', list: true },
+          { id: 'lastRun', type: 'hidden', hidden: true },
+          { id: 'lastFound', type: 'hidden', hidden: true },
+        ],
+      },
     ],
+    views: [{ id: 'watch', name: 'Конвеєр' }],
   },
 
   ana: {
@@ -113,10 +137,44 @@ export const WORKSPACES = {
           { id: 'analyst', label: 'Аналітик', type: 'user', list: true },
           { id: 'due', label: 'Термін', type: 'date', list: true },
           { id: 'questions', label: 'Ключові питання', type: 'longtext' },
+          { id: 'basis', label: 'Підстави — звідки ми це знаємо', type: 'links', refs: [['int', 'intake'], ['int', 'sources']] },
           { id: 'file', label: 'Документ', type: 'file' },
         ],
       },
+      {
+        // Key judgments: each with a probability and its basis. A «Прогноз» is checked on its date — that feeds calibration.
+        id: 'judgments', name: 'Судження', one: 'судження', icon: 'target', title: 'statement', level: 1,
+        fields: [
+          { id: 'statement', label: 'Судження', type: 'text', required: true, hint: 'Одне речення, яке можна перевірити: що, де, до коли.' },
+          { id: 'product', label: 'Продукт', type: 'ref', ref: 'products', list: true },
+          { id: 'kind', label: 'Тип', type: 'select', list: true, required: true, options: ['Оцінка', 'Прогноз'] },
+          { id: 'probability', label: 'Ймовірність', type: 'percent', list: true, required: true },
+          { id: 'confidence', label: 'Упевненість', type: 'select', list: true, options: ['Низька', 'Помірна', 'Висока'] },
+          { id: 'due', label: 'Дата перевірки', type: 'date', list: true, hint: 'Для прогнозу: коли стане відомо, чи справдився.' },
+          { id: 'outcome', label: 'Результат', type: 'select', list: true, options: OUTCOMES },
+          { id: 'analyst', label: 'Аналітик', type: 'user', list: true },
+          { id: 'basis', label: 'Підстави — звідки ми це знаємо', type: 'links', refs: [['int', 'intake'], ['int', 'sources']] },
+          { id: 'notes', label: 'Міркування', type: 'longtext' },
+          { id: 'resolvedAt', type: 'hidden', hidden: true },
+          { id: 'resolvedBy', type: 'hidden', hidden: true },
+          { id: 'reviewed', type: 'hidden', hidden: true },
+        ],
+      },
+      {
+        // Signposts: when one is observed, the judgment it belongs to is flagged for review.
+        id: 'indicators', name: 'Індикатори', one: 'індикатор', icon: 'bell', title: 'name', level: 1,
+        fields: [
+          { id: 'name', label: 'Індикатор', type: 'text', required: true, hint: 'Спостережувана подія: «оголошено тендер на …», «порт закрито понад 3 доби».' },
+          { id: 'judgment', label: 'Судження', type: 'ref', ref: 'judgments', list: true, required: true },
+          { id: 'effect', label: 'Якщо спостерігається', type: 'select', list: true, options: ['Підтримує судження', 'Послаблює судження'] },
+          { id: 'state', label: 'Стан', type: 'select', list: true, options: ['Не спостерігається', 'Спостерігається'] },
+          { id: 'observed', label: 'Коли помічено', type: 'date', list: true },
+          { id: 'evidence', label: 'Що це показало', type: 'links', refs: [['int', 'intake']] },
+          { id: 'owner', label: 'Хто стежить', type: 'user' },
+        ],
+      },
     ],
+    views: [{ id: 'review', name: 'Перегляд' }, { id: 'forecasts', name: 'Прогнози й калібрування' }],
   },
 
   sec: {
@@ -261,3 +319,4 @@ export const WORKSPACES = {
 
 export const registersOf = (div) => WORKSPACES[div]?.registers || [];
 export const registerOf = (div, id) => registersOf(div).find((r) => r.id === id);
+export const viewsOf = (div) => WORKSPACES[div]?.views || [];
