@@ -43,6 +43,10 @@ export function nameScore(a, b) {
     if (short.length >= 2) return 0.9;
     return short[0].length >= 6 && !GENERIC.has(short[0]) ? 0.75 : 0.4; // one distinctive word inside a longer name
   }
+  // The leading word of either name is a distinctive shared word («Ромашка Трейдинг» ↔ «Romashka Trading»):
+  // English words written in Ukrainian don't transliterate back, so the brand word carries the match. Checked by hand.
+  const key = (t) => t.length >= 6 && !GENERIC.has(t);
+  if ((key(A[0]) && B.includes(A[0])) || (key(B[0]) && A.includes(B[0]))) return 0.75;
   const inter = A.filter((t) => B.includes(t)).length;
   return inter / new Set([...A, ...B]).size;
 }

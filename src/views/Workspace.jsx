@@ -8,6 +8,7 @@ import { needsReview } from '../lib/provenance.js';
 import { wordFor } from '../lib/forecast.js';
 import { RecordExtras, ReviewView, ForecastsView, reviewCount } from './Analysis.jsx';
 import { WatchView } from './Watch.jsx';
+import { BUILTIN, BUILTIN_NOTE, builtinCount } from './AcademyRegisters.jsx';
 import { parseCoords, fmtDD, fmtMGRS, distanceKm, fmtKm } from '../map/coords.js';
 
 /* ---------- access ---------- */
@@ -339,8 +340,10 @@ function RegisterView({ d, reg, access, go, openId }) {
     dispatch({ type: 'record/update', id, patch: { stage }, where, label: titleOf(reg, r), note: `етап → ${stage}` });
   };
 
+  const Builtin = BUILTIN[`${d.id}:${reg.id}`];
   return (
     <div className="stack">
+      {Builtin && <><Builtin go={go} /><h2 className="vx-h2 ws-own">{BUILTIN_NOTE[`${d.id}:${reg.id}`]}</h2></>}
       <div className="toolbar">
         <div className="vx-search toolbar__grow">
           <Icon name="search" />
@@ -413,9 +416,10 @@ function Overview({ d, go, setTab }) {
       <div className="grid grid--3">
         {regs.map((reg) => {
           const rs = recs.filter((r) => r.col === reg.id);
+          const built = builtinCount(d.id, reg.id, state.users);
           return (
             <button key={reg.id} className="vx-panel ws-reg" onClick={() => setTab(reg.id)}>
-              <span className="ws-reg__head"><Icon name={reg.icon} /> <b>{reg.name}</b><span className="vx-num ws-reg__n">{rs.length}</span></span>
+              <span className="ws-reg__head"><Icon name={reg.icon} /> <b>{reg.name}</b><span className="vx-num ws-reg__n">{rs.length + built}</span></span>
               {reg.stages ? (
                 <span className="ws-reg__stages">
                   {reg.stages.map((s) => <span key={s}><span className="vx-hint">{s}</span> <b className="vx-num">{rs.filter((r) => (r.stage || reg.stages[0]) === s).length}</b></span>)}

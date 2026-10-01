@@ -17,18 +17,77 @@ const toIntake = (f, sources) => ({
 });
 const toSource = (s) => ({ ...s, div: 'int', col: 'sources', state: 'Активне', clearance: 0 });
 
+const STEPS = [
+  ['Створіть список', 'Що шукати: «Медіа» — згадки в новинах; «Контрагенти й санкції» — компанії в санкційних списках США й ЄС.'],
+  ['Запустіть', 'Кнопка «Запустити зараз» або щодня автоматично о 07:40 (Kyiv).'],
+  ['Опрацюйте знахідки', 'Вони з’являються в «Опрацюванні» на етапі «Надійшло» — з посиланням, датою й оцінкою. Перетягніть далі або в архів.'],
+];
+
+// Step-by-step start: a list in one form, or all suppliers of Logistics in one click — created and run at once.
+function QuickStart({ lists, busy, onCreate }) {
+  const { state, me, dispatch, toast } = useStore();
+  const [open, setOpen] = useState(!lists.length);
+  const [name, setName] = useState('');
+  const [kind, setKind] = useState('Контрагенти й санкції');
+  const [terms, setTerms] = useState('');
+  const suppliers = (state.records || []).filter((r) => r.div === 'ops' && r.col === 'suppliers' && r.clearance <= me.clearance && r.name);
+  const create = (w) => {
+    const rec = { id: `w-list-${Date.now().toString(36)}`, div: 'int', col: 'watchlists', state: 'Активний', owner: me.id, clearance: Math.min(1, me.clearance), ...w };
+    dispatch({ type: 'record/add', record: rec, where: 'Розвідка · Списки спостереження', label: w.name });
+    toast(`Створено список «${w.name}» — запускаю`);
+    setName(''); setTerms(''); setOpen(false);
+    onCreate(rec);
+  };
+  const ok = name.trim() && terms.trim();
+  return (
+    <Panel title="Як запустити" action={lists.length > 0 && <button className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => setOpen(!open)}>{open ? 'Згорнути' : 'Новий список'}</button>}>
+      <div className="stack">
+        <ol className="watch-steps">
+          {STEPS.map(([t, d], i) => <li key={t} className={i === 0 && !lists.length ? 'is-current' : ''}><b>{t}</b><span className="vx-hint">{d}</span></li>)}
+        </ol>
+        {open && <>
+          {suppliers.length > 0 && (
+            <button className="vx-btn" disabled={busy} onClick={() => create({ name: 'Постачальники Логістики', kind: 'Контрагенти й санкції', terms: suppliers.map((s) => s.name).join('\n') })}>
+              <Icon name="truck" /> Перевірити всіх постачальників ({suppliers.length}) за санкційними списками
+            </button>
+          )}
+          <div className="form-grid">
+            <div className="vx-field">
+              <label className="vx-label" htmlFor="qs-name">Назва списку</label>
+              <input id="qs-name" className="vx-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Напр. «Конкуренти» або «Зернові термінали»" />
+            </div>
+            <div className="vx-field">
+              <span className="vx-label">Що шукати</span>
+              <div className="segmented" role="group" aria-label="Що шукати">
+                {['Контрагенти й санкції', 'Медіа'].map((k) => <button type="button" key={k} className={kind === k ? 'is-active' : ''} onClick={() => setKind(k)}>{k}</button>)}
+              </div>
+            </div>
+          </div>
+          <div className="vx-field">
+            <label className="vx-label" htmlFor="qs-terms">{kind === 'Медіа' ? 'Що шукати в новинах — по одному на рядок' : 'Компанії — по одній на рядок, код ЄДРПОУ через «;» (необов’язково)'}</label>
+            <textarea id="qs-terms" className="vx-input ws-textarea" rows={4} value={terms} onChange={(e) => setTerms(e.target.value)}
+              placeholder={kind === 'Медіа' ? 'Укрзалізниця\nпорт Одеса\nзерновий коридор' : 'ТОВ Ромашка; 12345678\nАТ Степове Зерно'} />
+          </div>
+          <button className="vx-btn vx-btn--primary" disabled={!ok || busy} onClick={() => create({ name: name.trim(), kind, terms: terms.trim() })}><Icon name="refresh" /> Створити й запустити</button>
+        </>}
+      </div>
+    </Panel>
+  );
+}
+
 export function WatchView({ access, go }) {
   const { state, me, dispatch, toast } = useStore();
   const [busy, setBusy] = useState(false);
   const [last, setLast] = useState(null);
   const records = state.records || [];
   const lists = records.filter((r) => r.div === 'int' && r.col === 'watchlists' && r.clearance <= me.clearance);
-  const active = lists.filter((w) => (w.state || 'Активний') === 'Активний');
+  const activeLists = lists.filter((w) => (w.state || 'Активний') === 'Активний');
   const found = records.filter((r) => r.col === 'intake' && r.origin === 'auto' && r.clearance <= me.clearance)
     .sort((a, b) => (b.at || '').localeCompare(a.at || '')).slice(0, 40);
   const listName = (id) => lists.find((w) => w.id === id)?.name || '—';
 
-  const run = async () => {
+  const run = async (extra = []) => {
+    const active = [...activeLists, ...extra];
     setBusy(true); setLast(null);
     try {
       const res = await fetch(new URL('api/watch', document.baseURI), {
@@ -38,6 +97,7 @@ export function WatchView({ access, go }) {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.message || (res.status === 404 ? 'Серверна функція недоступна (працює лише на Vercel)' : `HTTP ${res.status}`));
+      const records = state.records || [];
       const have = new Set(records.filter((r) => r.col === 'intake' && r.fingerprint).map((r) => r.fingerprint));
       const fresh = body.findings.filter((f) => !have.has(f.fingerprint));
       const needSources = [...new Set(fresh.map((f) => f.source))].map((k) => body.sources[k]).filter((s) => !records.some((r) => r.id === s.id));
@@ -58,8 +118,9 @@ export function WatchView({ access, go }) {
 
   return (
     <div className="stack">
+      {access.canEdit && <QuickStart lists={lists} busy={busy} onCreate={(w) => run([w])} />}
       <Panel title="Конвеєр спостереження" action={access.canEdit && (
-        <button className="vx-btn vx-btn--primary" onClick={run} disabled={busy || !active.length}>
+        <button className="vx-btn vx-btn--primary" onClick={() => run()} disabled={busy || !activeLists.length}>
           {busy ? <Loader size={18} label="Пошук" /> : <><Icon name="refresh" /> Запустити зараз</>}
         </button>
       )}>
@@ -77,7 +138,7 @@ export function WatchView({ access, go }) {
               {last.errors.map((e, i) => <Status key={i} kind="warn">{e.source}: {e.message}</Status>)}
             </div>
           ))}
-          {!active.length && <div className="vx-hint">Немає активних списків. Додайте їх у вкладці «Списки спостереження».</div>}
+
         </div>
       </Panel>
 

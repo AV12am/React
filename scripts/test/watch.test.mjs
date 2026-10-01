@@ -26,6 +26,8 @@ test('names: transliteration, legal forms, similarity', () => {
   assert.equal(nameScore('stepove zerno', 'stepove zerno'), 1);
   assert.equal(nameScore('romashka', 'romashka holding'), 0.75);
   assert.ok(nameScore('energy', 'global energy trading') < 0.75, 'short common word is not a match');
+  assert.equal(nameScore(normName('ТОВ Ромашка Трейдинг'), normName('ROMASHKA TRADING LIMITED')), 0.75, 'brand word carries the match');
+  assert.ok(nameScore(normName('Сонячна Енергія'), normName('Global Energy Trading')) < 0.75);
 });
 
 test('terms with codes', () => {

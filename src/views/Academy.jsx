@@ -6,6 +6,7 @@ import { Loader } from '../brand/Mark.jsx';
 import { CLEARANCE, DIVISIONS } from '../data/seed.js';
 import { MAX_LEVEL } from '../data/clearance.js';
 import { TRACKS, COURSES, GRADES, PASS, REQUIRED, courseById, resultOf, missingFor, loadTrack } from '../data/academy/meta.js';
+import { sortedCourses } from './AcademyRegisters.jsx';
 
 // Which clearance a course unlocks, if any: { [courseId]: level }.
 const UNLOCKS = Object.fromEntries(Object.entries(REQUIRED).flatMap(([lvl, ids]) => ids.map((id) => [id, +lvl])));
@@ -73,7 +74,7 @@ function Catalogue({ go }) {
           <div className="stack">
             <div className="vx-hint">{t.about}</div>
             <div className="list">
-              {COURSES.filter((c) => c.track === t.id).map((c) => (
+              {sortedCourses(t.id).map((c) => (
                 <button key={c.id} className="list__row list__row--btn learn-row" onClick={() => go('learn', c.id)}>
                   <span className="learn-row__title">
                     <span>{c.title}</span>

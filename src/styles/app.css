@@ -669,3 +669,17 @@ kbd {
 }
 .watch-sources { margin: 0; padding-left: 20px; display: grid; gap: 4px; color: var(--ink-2); }
 .calib__dot { pointer-events: none; }
+/* Academy built-in curriculum; conveyor quick start */
+.acad-filter { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.acad-filter .segmented { flex-wrap: wrap; }
+.acad-filter .segmented button { white-space: nowrap; }
+.stack > .vx-panel, .stack > .grid { min-width: 0; }
+.acad-program { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.acad-done { color: var(--ok); margin-left: 6px; vertical-align: -2px; }
+.ws-own { margin: 8px 0 0; font-size: 22px; }
+.watch-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; counter-reset: st; }
+.watch-steps li { counter-increment: st; display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-md); }
+.watch-steps li::before { content: counter(st); font: 500 22px/1 var(--font-display); color: var(--brass); }
+.watch-steps li.is-current { border-color: var(--brass); }
+@media (max-width: 900px) { .watch-steps { grid-template-columns: 1fr; } }
+.acad-program .ws-link { text-align: left; }
