@@ -20,6 +20,9 @@ export const CREDIBILITY = [
   '1 — підтверджено іншими джерелами', '2 — імовірно правдиве', '3 — можливо правдиве',
   '4 — сумнівне', '5 — малоймовірне', '6 — не можна оцінити',
 ];
+import { ORG_SECTORS } from './orgs-ua.js';
+
+export const ORG_STATUS = ['Діє', 'У стані припинення', 'Банкрутство', 'Ліквідовано', 'Невідомо'];
 export const OUTCOMES = ['Відкрито', 'Сталося', 'Не сталося', 'Скасовано'];
 export const WATCH_KINDS = ['Медіа', 'Контрагенти й санкції'];
 export const SOURCE_CLASSES = ['OSINT', 'SOCMINT', 'HUMINT', 'SIGINT', 'GEOINT', 'IMINT', 'FININT', 'TECHINT'];
@@ -76,6 +79,7 @@ export const WORKSPACES = {
           { id: 'summary', label: 'Зміст і висновок', type: 'longtext' },
           { id: 'url', label: 'Посилання', type: 'url' },
           { id: 'watchlist', label: 'Список спостереження', type: 'ref', ref: 'watchlists' },
+          { id: 'org', label: 'Організація', type: 'ref', ref: 'orgs' },
           { id: 'file', label: 'Матеріал', type: 'file' },
           { id: 'fingerprint', type: 'hidden', hidden: true },
           { id: 'origin', type: 'hidden', hidden: true },
@@ -94,6 +98,25 @@ export const WORKSPACES = {
         ],
         // HUMINT identifies people: it opens at NOX by default.
         levelFor: (v) => (v.class === 'HUMINT' ? 2 : null),
+      },
+      {
+        // Organisations: public registry facts with a source, plus the team's own notes. Public data → LUMEN by default.
+        id: 'orgs', name: 'Організації', one: 'організацію', icon: 'divisions', title: 'name', level: 0,
+        fields: [
+          { id: 'name', label: 'Назва', type: 'text', required: true },
+          { id: 'legal', label: 'Юридична назва', type: 'text' },
+          { id: 'code', label: 'ЄДРПОУ', type: 'text', list: true, hint: '8 цифр, з державного реєстру' },
+          { id: 'sector', label: 'Галузь', type: 'select', list: true, options: ORG_SECTORS },
+          { id: 'city', label: 'Місто', type: 'text', list: true },
+          { id: 'status', label: 'Стан', type: 'select', list: true, options: ORG_STATUS },
+          { id: 'relation', label: 'Стосунок до нас', type: 'select', list: true, options: ['Немає', 'Постачальник', 'Клієнт', 'Партнер', 'Конкурент', 'Об’єкт аналізу'] },
+          { id: 'significance', label: 'Значущість', type: 'select', options: ['Ключова', 'Важлива', 'Довідкова'] },
+          { id: 'website', label: 'Сайт', type: 'url' },
+          { id: 'owners', label: 'Власники й бенефіціари', type: 'longtext', hint: 'Лише з державного реєстру, з датою. Про людей — тільки публічна ділова роль.' },
+          { id: 'notes', label: 'Нотатки', type: 'longtext' },
+          { id: 'source', label: 'Джерело даних', type: 'url' },
+          { id: 'checked', label: 'Перевірено', type: 'date' },
+        ],
       },
       {
         id: 'methods', name: 'Методики', one: 'методику', icon: 'book', title: 'name', level: 0,
@@ -137,7 +160,7 @@ export const WORKSPACES = {
           { id: 'analyst', label: 'Аналітик', type: 'user', list: true },
           { id: 'due', label: 'Термін', type: 'date', list: true },
           { id: 'questions', label: 'Ключові питання', type: 'longtext' },
-          { id: 'basis', label: 'Підстави — звідки ми це знаємо', type: 'links', refs: [['int', 'intake'], ['int', 'sources']] },
+          { id: 'basis', label: 'Підстави — звідки ми це знаємо', type: 'links', refs: [['int', 'intake'], ['int', 'sources'], ['int', 'orgs']] },
           { id: 'file', label: 'Документ', type: 'file' },
         ],
       },
@@ -153,7 +176,7 @@ export const WORKSPACES = {
           { id: 'due', label: 'Дата перевірки', type: 'date', list: true, hint: 'Для прогнозу: коли стане відомо, чи справдився.' },
           { id: 'outcome', label: 'Результат', type: 'select', list: true, options: OUTCOMES },
           { id: 'analyst', label: 'Аналітик', type: 'user', list: true },
-          { id: 'basis', label: 'Підстави — звідки ми це знаємо', type: 'links', refs: [['int', 'intake'], ['int', 'sources']] },
+          { id: 'basis', label: 'Підстави — звідки ми це знаємо', type: 'links', refs: [['int', 'intake'], ['int', 'sources'], ['int', 'orgs']] },
           { id: 'notes', label: 'Міркування', type: 'longtext' },
           { id: 'resolvedAt', type: 'hidden', hidden: true },
           { id: 'resolvedBy', type: 'hidden', hidden: true },

@@ -130,8 +130,9 @@ export function matchList(terms, entries, threshold = 0.75) {
 /* ---------- media ---------- */
 
 /** GDELT DOC 2.0 query: the terms as quoted phrases joined by OR (GDELT needs 3+ letter phrases). */
+export const GDELT_BATCH = 12; // phrases per request (GDELT limits query length)
 export function gdeltUrl(cfg, terms) {
-  const phrases = terms.map((t) => t.name.replace(/"/g, '')).filter((p) => p.length >= 3).slice(0, 12);
+  const phrases = terms.map((t) => t.name.replace(/"/g, '')).filter((p) => p.length >= 3).slice(0, GDELT_BATCH);
   if (!phrases.length) return null;
   const q = phrases.length === 1 ? `"${phrases[0]}"` : `(${phrases.map((p) => `"${p}"`).join(' OR ')})`;
   const p = new URLSearchParams({ query: q, mode: 'artlist', format: 'json', maxrecords: String(cfg.max || 25), timespan: cfg.timespan || '1d', sort: 'datedesc' });
@@ -190,6 +191,8 @@ export async function runWatch({ watchlists, fetchImpl, cfg, now = new Date() })
   const ua = cfg.userAgent;
   const day = now.toISOString().slice(0, 10);
   let lists = null;
+  let gdeltCalls = 0;
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const loadLists = async () => {
     if (lists) return lists;
     lists = {};
@@ -228,8 +231,15 @@ export async function runWatch({ watchlists, fetchImpl, cfg, now = new Date() })
       }
     } else {
       if (cfg.gdelt?.enabled) {
-        const url = gdeltUrl(cfg.gdelt, terms);
-        if (url) {
+        // A long list goes in batches of 12 phrases, spaced as GDELT asks; the run's time budget caps the batches.
+        for (let i = 0; i < terms.length; i += GDELT_BATCH) {
+          if (gdeltCalls >= (cfg.gdelt.maxCalls || 8)) {
+            errors.push({ source: 'gdelt', watchlist: w.id, message: `Перевірено ${i} з ${terms.length} об’єктів за цей запуск; решта — наступного` });
+            break;
+          }
+          const url = gdeltUrl(cfg.gdelt, terms.slice(i, i + GDELT_BATCH));
+          if (!url) continue;
+          if (gdeltCalls++ > 0) await wait(cfg.gdelt.spacingMs ?? 5000);
           try {
             for (const a of parseGdelt(JSON.parse(await getText(fetchImpl, url, ua)))) {
               add({

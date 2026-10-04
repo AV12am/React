@@ -18,7 +18,7 @@ const env = process.env;
 const SB_URL = (env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
 const ANON = env.SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || '';
 const SERVICE = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SECRET_KEY || '';
-const MAX_TERMS = 200;
+const MAX_TERMS = 500;
 
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
 
@@ -61,7 +61,7 @@ export async function POST(req) {
     if (supabase && !(await caller(req))) return json(401, { error: 'signin', message: 'Потрібен вхід із підтвердженням ключем' });
     const body = await req.json().catch(() => ({}));
     const lists = (Array.isArray(body.watchlists) ? body.watchlists : []).map(clean).filter((w) => w.id && w.terms);
-    const cap = supabase ? MAX_TERMS : 20;
+    const cap = supabase ? MAX_TERMS : 120; // without sign-in (local demo) a smaller cap
     if (termCount(lists) > cap) return json(400, { error: 'too_many', message: `Забагато об’єктів за один запуск (понад ${cap})` });
     const out = await runWatch({ watchlists: lists, fetchImpl: fetch, cfg });
     return json(200, { ...out, sources: SOURCE_RECORDS });

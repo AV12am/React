@@ -5,6 +5,7 @@ import { Panel, ClassBadge, Status, Avatar } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { registerOf, OUTCOMES } from '../data/workspaces.js';
 import { chainOf, reasonsFor, usedBy, reviewQueue, isOpen, attention } from '../lib/provenance.js';
+import { OrgExtras } from './Orgs.jsx';
 import { wordFor, isForecast, outcomeValue, calibration, summary, byAnalyst, brier, skill } from '../lib/forecast.js';
 
 const titleOf = (r) => {
@@ -119,6 +120,23 @@ export function RecordExtras({ reg, record, canEdit, go }) {
             ) : <div className="vx-hint">Немає індикаторів. Додайте у вкладці «Індикатори», що саме покаже, що судження треба переглянути.</div>}
           </div>
         )}
+      </>
+    );
+  }
+  if (reg.id === 'orgs') {
+    const deps = usedBy(record.id, records).filter((r) => r.clearance <= me.clearance);
+    const about = records.filter((r) => r.col === 'intake' && r.org === record.id && r.clearance <= me.clearance);
+    return (
+      <>
+        <OrgExtras record={record} />
+        <div className="stack">
+          <div className="vx-eyebrow">Пов’язані записи</div>
+          {deps.length || about.length ? (
+            <ul className="chain__reasons">
+              {[...about, ...deps].map((r) => <li key={r.id}><span className="vx-tag">{registerOf(r.div, r.col)?.one}</span> <button type="button" className="ws-link" onClick={() => openRecord(go, r)}>{titleOf(r)}</button></li>)}
+            </ul>
+          ) : <div className="vx-hint">Надходжень і суджень про цю організацію ще немає.</div>}
+        </div>
       </>
     );
   }

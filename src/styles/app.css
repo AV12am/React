@@ -683,3 +683,4 @@ kbd {
 .watch-steps li.is-current { border-color: var(--brass); }
 @media (max-width: 900px) { .watch-steps { grid-template-columns: 1fr; } }
 .acad-program .ws-link { text-align: left; }
+.org-sectors { display: flex; flex-wrap: wrap; gap: 6px; }

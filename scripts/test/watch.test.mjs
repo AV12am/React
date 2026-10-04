@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { normName, nameScore, parseTerms, parseOfac, parseEu, matchList, parseGdelt, parseFeed, mentions, runWatch, toIntake, gdeltUrl } from '../lib/watch.mjs';
 
 const cfg = JSON.parse(readFileSync(new URL('../watch-sources.json', import.meta.url), 'utf8'));
+cfg.gdelt.spacingMs = 0;
 
 const SDN = [
   '36,"AEROCARIBBEAN AIRLINES",-0- ,"CUBA",-0- ,-0- ,-0- ,-0- ,-0- ,-0- ,-0- ,"Havana, Cuba."',
@@ -96,7 +97,16 @@ test('api/watch POST works without Supabase for small lists', async () => {
     const res = await POST(new Request('http://x/api/watch', { method: 'POST', body: JSON.stringify({ watchlists: [{ id: 'w', kind: 'Медіа', terms: 'Степове Зерно' }] }) }));
     const body = await res.json();
     assert.equal(res.status, 200); assert.equal(body.findings.length, 1); assert.ok(body.sources.gdelt);
-    const big = await POST(new Request('http://x/api/watch', { method: 'POST', body: JSON.stringify({ watchlists: [{ id: 'w', kind: 'Медіа', terms: Array.from({ length: 30 }, (_, i) => `term ${i}`).join('\n') }] }) }));
+    const big = await POST(new Request('http://x/api/watch', { method: 'POST', body: JSON.stringify({ watchlists: [{ id: 'w', kind: 'Медіа', terms: Array.from({ length: 130 }, (_, i) => `term ${i}`).join('\n') }] }) }));
     assert.equal(big.status, 400);
   } finally { globalThis.fetch = saved; }
+});
+
+test('long media lists go to GDELT in batches, capped per run', async () => {
+  const urls = [];
+  const fetchImpl = async (url) => { urls.push(url); return { ok: true, status: 200, text: async () => JSON.stringify({ articles: [] }) }; };
+  const terms = Array.from({ length: 30 }, (_, i) => `Компанія номер ${i}`).join('\n');
+  const r = await runWatch({ watchlists: [{ id: 'm', kind: 'Медіа', terms }], fetchImpl, cfg: { ...cfg, gdelt: { ...cfg.gdelt, spacingMs: 0, maxCalls: 2 } } });
+  assert.equal(urls.length, 2);
+  assert.match(r.errors[0].message, /Перевірено 24 з 30/);
 });

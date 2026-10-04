@@ -8,7 +8,11 @@ import { needsReview } from '../lib/provenance.js';
 import { wordFor } from '../lib/forecast.js';
 import { RecordExtras, ReviewView, ForecastsView, reviewCount } from './Analysis.jsx';
 import { WatchView } from './Watch.jsx';
-import { BUILTIN, BUILTIN_NOTE, builtinCount } from './AcademyRegisters.jsx';
+import { BUILTIN as ACAD_BUILTIN, BUILTIN_NOTE as ACAD_NOTE, builtinCount } from './AcademyRegisters.jsx';
+import { OrgDirectory } from './Orgs.jsx';
+
+const BUILTIN = { ...ACAD_BUILTIN, 'int:orgs': OrgDirectory };
+const BUILTIN_NOTE = { ...ACAD_NOTE, 'int:orgs': 'Реєстр організацій' };
 import { parseCoords, fmtDD, fmtMGRS, distanceKm, fmtKm } from '../map/coords.js';
 
 /* ---------- access ---------- */
