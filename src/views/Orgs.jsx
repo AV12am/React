@@ -2,7 +2,7 @@
 import { useStore, fmtDate } from '../store.jsx';
 import { Panel, Status } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
-import { ORGS_UA, ORGS_CHECKED, ORG_SECTORS, aboutOf } from '../data/orgs-ua.js';
+import { ORGS_UA, ORGS_CHECKED, ORG_SECTORS, aboutOf, factsOf } from '../data/orgs-ua.js';
 
 // The two standing lists organisations are watched in (created on first use).
 const LISTS = {
@@ -14,9 +14,16 @@ const statusOf = (note) => (/банкрут/i.test(note) ? 'Банкрутств
 const toRecord = (o) => ({
   id: `org-${o.code}`, div: 'int', col: 'orgs', clearance: 0,
   name: o.name, legal: o.legal, code: o.code, sector: o.sector, city: o.city === '—' ? '' : o.city,
-  status: statusOf(o.note), relation: 'Немає', notes: o.note, source: o.source, checked: ORGS_CHECKED, about: aboutOf(o.code),
+  status: statusOf(o.note), relation: 'Немає', notes: o.note, source: o.source, checked: ORGS_CHECKED, about: aboutOf(o.code), ...factsOf(o.code),
 });
 export const orgToRecord = toRecord;
+
+/** Patches that fill still-empty reference fields (about, website, founded, owners) of directory records — never overwriting edits. */
+export const refPatches = (records) => records.filter((r) => r.col === 'orgs' && r.id.startsWith('org-')).map((r) => {
+  const ref = { about: aboutOf(r.code), ...factsOf(r.code) };
+  const patch = Object.fromEntries(Object.entries(ref).filter(([k, v]) => v !== '' && (r[k] === undefined || r[k] === null || r[k] === '')));
+  return { id: r.id, patch };
+}).filter((p) => Object.keys(p.patch).length);
 
 /** Adds organisations to a standing watchlist (sanctions or media); returns how many were new there. */
 export function useWatchOrgs() {
@@ -46,10 +53,11 @@ export function OrgDirectory({ go }) {
     dispatch({ type: 'record/bulk', records: missing.map(toRecord), where: 'Розвідка · Організації', label: `завантажено довідник: ${missing.length} компаній` });
     toast(`Додано ${missing.length} компаній`);
   };
-  const noAbout = inRegister.filter((r) => r.id.startsWith('org-') && !r.about && aboutOf(r.code));
-  const fillAbout = () => {
-    dispatch({ type: 'record/bulk', records: [], patches: noAbout.map((r) => ({ id: r.id, patch: { about: aboutOf(r.code) } })), where: 'Розвідка · Організації', label: `додано описи: ${noAbout.length}` });
-    toast(`Додано описи: ${noAbout.length}`);
+  // Directory records loaded earlier: fill the reference fields that are still empty (never overwrite edits).
+  const backfill = refPatches(inRegister);
+  const fillRefs = () => {
+    dispatch({ type: 'record/bulk', records: [], patches: backfill, where: 'Розвідка · Організації', label: `доповнено довідкові дані: ${backfill.length}` });
+    toast(`Доповнено: ${backfill.length}`);
   };
   const bySector = ORG_SECTORS.map((s) => [s, inRegister.filter((r) => r.sector === s).length]).filter(([, n]) => n);
   return (
@@ -57,13 +65,13 @@ export function OrgDirectory({ go }) {
       <div className="stack">
         <div className="vx-hint">
           Енергетика, нафта й газ, транспорт, металургія, агро, роздріб, телеком, IT, банки, фармацевтика, машинобудування, хімія.
-          Для кожної — юридична назва, код ЄДРПОУ, галузь, місто й посилання на запис у відкритому реєстрі. Власників і фінанси навмисно не внесено:
-          додавайте їх із реєстру з датою перевірки.
+          Для кожної — юридична назва, код ЄДРПОУ, галузь, місто, сайт, рік заснування, власники (на рівні групи чи кінцевого бенефіціара,
+          з відкритих джерел станом на жовтень 2026 р.) і посилання на запис у відкритому реєстрі. Власність змінюється — звіряйте з реєстром.
         </div>
         <div className="toolbar">
           {missing.length > 0 && <button className="vx-btn vx-btn--primary" onClick={load}><Icon name="download" /> Завантажити в реєстр ({missing.length})</button>}
           {missing.length === 0 && <Status kind="ok">Довідник завантажено</Status>}
-          {noAbout.length > 0 && <button className="vx-btn" onClick={fillAbout}><Icon name="file" /> Додати описи ({noAbout.length})</button>}
+          {backfill.length > 0 && <button className="vx-btn" onClick={fillRefs}><Icon name="file" /> Доповнити описи, сайти, роки, власників ({backfill.length})</button>}
           <button className="vx-btn vx-btn--ghost" onClick={() => go('divisions', 'int', 'companies')}><Icon name="divisions" /> Картки компаній</button>
           {inRegister.length > 0 && <>
             <button className="vx-btn" onClick={() => watch(inRegister, 'sanctions')}><Icon name="shield" /> Усі — на санкційне спостереження</button>

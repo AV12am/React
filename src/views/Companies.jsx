@@ -13,7 +13,7 @@ import { ORG_STATUS, registerOf } from '../data/workspaces.js';
 import { docNumber, nextSerial } from '../data/clearance.js';
 import { storageError } from '../lib/storage.js';
 import { usedBy } from '../lib/provenance.js';
-import { OrgExtras, orgToRecord } from './Orgs.jsx';
+import { OrgExtras, orgToRecord, refPatches } from './Orgs.jsx';
 
 const isImage = (f) => /^image\//.test(f?.type || '');
 const openRecord = (go, r) => go('divisions', r.div, `${r.col}:${r.id}`);
@@ -141,6 +141,11 @@ function CompanyList({ access, go }) {
     dispatch({ type: 'record/bulk', records: add, where: 'Розвідка · Компанії', label: `завантажено довідник: ${add.length} компаній` });
     toast(`Додано ${add.length} компаній`);
   };
+  const backfill = refPatches(orgs);
+  const fill = () => {
+    dispatch({ type: 'record/bulk', records: [], patches: backfill, where: 'Розвідка · Компанії', label: `доповнено довідкові дані: ${backfill.length}` });
+    toast(`Доповнено: ${backfill.length}`);
+  };
   if (!orgs.length) {
     return (
       <Panel title="Компанії">
@@ -167,7 +172,10 @@ function CompanyList({ access, go }) {
           {['Постачальник', 'Клієнт', 'Партнер', 'Конкурент', 'Об’єкт аналізу'].map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
-      <div className="vx-hint">{shown.length} з {orgs.length}</div>
+      <div className="toolbar">
+        <span className="vx-hint">{shown.length} з {orgs.length}</span>
+        {access.canEdit && backfill.length > 0 && <button className="vx-btn vx-btn--sm" onClick={fill}><Icon name="file" /> Доповнити сайти, роки, власників ({backfill.length})</button>}
+      </div>
       <div className="co-grid">{shown.map((o) => <CompanyCard key={o.id} org={o} go={go} />)}</div>
       {!shown.length && <div className="vx-empty"><Icon name="search" /><div>Нічого не знайдено</div></div>}
     </div>
@@ -308,7 +316,8 @@ function CompanyPage({ org, access, go }) {
             <div className="stack">
               {org.about ? <p className="co-about">{org.about}</p> : <div className="vx-hint">Опису ще немає.</div>}
               {org.products && <><div className="vx-eyebrow">Продукти й напрями</div><p className="co-about">{org.products}</p></>}
-              {org.owners && <><div className="vx-eyebrow">Власники й бенефіціари</div><p className="co-about">{org.owners}</p></>}
+              {org.owners && <><div className="vx-eyebrow">Власники й бенефіціари</div><p className="co-about">{org.owners}</p>
+                {org.id.startsWith('org-') && <div className="vx-hint">З відкритих джерел (Forbes Україна, Opendatabot, SMIDA), станом на {fmtDate(org.checked || '2026-10-04', false)}. Власність змінюється — звіряйте з реєстром.</div>}</>}
               {org.notes && <><div className="vx-eyebrow">Нотатки</div><p className="co-about vx-muted">{org.notes}</p></>}
               {org.id.startsWith('org-') && <div className="vx-hint">Опис із довідника — чернетка: перевірте й доповніть.</div>}
             </div>

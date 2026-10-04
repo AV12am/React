@@ -13,3 +13,13 @@ test('100 organisations with unique codes and sources', () => {
     assert.ok(o.legal && o.name, o.code);
   }
 });
+
+test('reference facts: every company has an entry; sites are https, years plausible', async () => {
+  const { factsOf } = await import('../../src/data/orgs-ua.js');
+  for (const o of ORGS_UA) {
+    const f = factsOf(o.code);
+    assert.ok(f.website || f.founded || f.owners, `${o.name}: no facts`);
+    if (f.website) assert.match(f.website, /^https:\/\/[\w.-]+\.[a-z]{2,}/, o.name);
+    if (f.founded) assert.ok(Number.isInteger(f.founded) && f.founded >= 1700 && f.founded <= 2026, `${o.name}: ${f.founded}`);
+  }
+});
