@@ -128,7 +128,7 @@ export function RecordExtras({ reg, record, canEdit, go }) {
     const about = records.filter((r) => r.col === 'intake' && r.org === record.id && r.clearance <= me.clearance);
     return (
       <>
-        <OrgExtras record={record} />
+        <OrgExtras record={record} go={go} />
         <div className="stack">
           <div className="vx-eyebrow">Пов’язані записи</div>
           {deps.length || about.length ? (

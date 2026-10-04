@@ -104,8 +104,9 @@ function supabaseBackend() {
     maxFile: 50 * MiB, // free-tier per-file limit
     // Free plan: 1 GB of files. On a paid plan set VITE_STORAGE_QUOTA_GB (or NEXT_PUBLIC_STORAGE_QUOTA_GB), e.g. 100.
     quota: (Number(import.meta.env?.VITE_STORAGE_QUOTA_GB || import.meta.env?.NEXT_PUBLIC_STORAGE_QUOTA_GB) || 1) * 1024 * MiB,
-    async put(id, file) {
-      const ref = `${id}/${file.name.replace(/[^\w.-]+/g, '_')}`;
+    // `dir` keeps related files together in the bucket, e.g. companies/20077720/<id>/logo.png.
+    async put(id, file, { dir } = {}) {
+      const ref = `${dir ? `${dir.replace(/[^\w/-]+/g, '_')}/` : ''}${id}/${file.name.replace(/[^\w.-]+/g, '_')}`;
       await ok(await fetch(obj(ref), { method: 'POST', headers: await authHeaders({ 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'false' }), body: file }));
       return { ref };
     },

@@ -8,6 +8,7 @@ import { needsReview } from '../lib/provenance.js';
 import { wordFor } from '../lib/forecast.js';
 import { RecordExtras, ReviewView, ForecastsView, reviewCount } from './Analysis.jsx';
 import { WatchView } from './Watch.jsx';
+import { CompaniesView } from './Companies.jsx';
 import { BUILTIN as ACAD_BUILTIN, BUILTIN_NOTE as ACAD_NOTE, builtinCount } from './AcademyRegisters.jsx';
 import { OrgDirectory } from './Orgs.jsx';
 
@@ -463,7 +464,7 @@ function Overview({ d, go, setTab }) {
 
 /* ---------- workspace ---------- */
 
-const VIEWS = { review: ReviewView, forecasts: ForecastsView, watch: WatchView };
+const VIEWS = { review: ReviewView, forecasts: ForecastsView, watch: WatchView, companies: CompaniesView };
 
 export function Workspace({ divId, tab, go }) {
   const { state, me, perms } = useStore();
@@ -502,7 +503,7 @@ export function Workspace({ divId, tab, go }) {
         {divId === 'acad' && <button role="tab" aria-selected="false" className="vx-tab" onClick={() => go('learn')}>Навчання й тести</button>}
       </nav>
       {reg ? <RegisterView key={`${reg.id}:${openId || ''}`} d={d} reg={reg} access={access} go={go} openId={openId} />
-        : View ? <View d={d} access={access} go={go} /> : <Overview d={d} go={go} setTab={setTab} />}
+        : View ? <View d={d} access={access} go={go} openId={openId} /> : <Overview d={d} go={go} setTab={setTab} />}
     </div>
   );
 }

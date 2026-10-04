@@ -2,7 +2,7 @@
 import { useStore, fmtDate } from '../store.jsx';
 import { Panel, Status } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
-import { ORGS_UA, ORGS_CHECKED, ORG_SECTORS } from '../data/orgs-ua.js';
+import { ORGS_UA, ORGS_CHECKED, ORG_SECTORS, aboutOf } from '../data/orgs-ua.js';
 
 // The two standing lists organisations are watched in (created on first use).
 const LISTS = {
@@ -14,8 +14,9 @@ const statusOf = (note) => (/банкрут/i.test(note) ? 'Банкрутств
 const toRecord = (o) => ({
   id: `org-${o.code}`, div: 'int', col: 'orgs', clearance: 0,
   name: o.name, legal: o.legal, code: o.code, sector: o.sector, city: o.city === '—' ? '' : o.city,
-  status: statusOf(o.note), relation: 'Немає', notes: o.note, source: o.source, checked: ORGS_CHECKED,
+  status: statusOf(o.note), relation: 'Немає', notes: o.note, source: o.source, checked: ORGS_CHECKED, about: aboutOf(o.code),
 });
+export const orgToRecord = toRecord;
 
 /** Adds organisations to a standing watchlist (sanctions or media); returns how many were new there. */
 export function useWatchOrgs() {
@@ -45,6 +46,11 @@ export function OrgDirectory({ go }) {
     dispatch({ type: 'record/bulk', records: missing.map(toRecord), where: 'Розвідка · Організації', label: `завантажено довідник: ${missing.length} компаній` });
     toast(`Додано ${missing.length} компаній`);
   };
+  const noAbout = inRegister.filter((r) => r.id.startsWith('org-') && !r.about && aboutOf(r.code));
+  const fillAbout = () => {
+    dispatch({ type: 'record/bulk', records: [], patches: noAbout.map((r) => ({ id: r.id, patch: { about: aboutOf(r.code) } })), where: 'Розвідка · Організації', label: `додано описи: ${noAbout.length}` });
+    toast(`Додано описи: ${noAbout.length}`);
+  };
   const bySector = ORG_SECTORS.map((s) => [s, inRegister.filter((r) => r.sector === s).length]).filter(([, n]) => n);
   return (
     <Panel title="Довідник: 100 провідних компаній України" action={<span className="vx-hint">коди звірено {fmtDate(ORGS_CHECKED, false)}</span>}>
@@ -57,6 +63,8 @@ export function OrgDirectory({ go }) {
         <div className="toolbar">
           {missing.length > 0 && <button className="vx-btn vx-btn--primary" onClick={load}><Icon name="download" /> Завантажити в реєстр ({missing.length})</button>}
           {missing.length === 0 && <Status kind="ok">Довідник завантажено</Status>}
+          {noAbout.length > 0 && <button className="vx-btn" onClick={fillAbout}><Icon name="file" /> Додати описи ({noAbout.length})</button>}
+          <button className="vx-btn vx-btn--ghost" onClick={() => go('divisions', 'int', 'companies')}><Icon name="divisions" /> Картки компаній</button>
           {inRegister.length > 0 && <>
             <button className="vx-btn" onClick={() => watch(inRegister, 'sanctions')}><Icon name="shield" /> Усі — на санкційне спостереження</button>
             <button className="vx-btn" onClick={() => watch(inRegister, 'media')}><Icon name="layers" /> Усі — на медіамоніторинг</button>
@@ -70,7 +78,7 @@ export function OrgDirectory({ go }) {
 }
 
 /** In an organisation's card: watch buttons and the registry link. */
-export function OrgExtras({ record }) {
+export function OrgExtras({ record, go }) {
   const watch = useWatchOrgs();
   const { state } = useStore();
   const listed = (id, line) => String((state.records || []).find((r) => r.id === id)?.terms || '').split(/\n/).map((l) => l.trim()).includes(line);
@@ -78,6 +86,7 @@ export function OrgExtras({ record }) {
   const inMedia = listed(LISTS.media.id, LISTS.media.line(record));
   return (
     <div className="stack">
+      {go && <button className="vx-btn vx-btn--sm" onClick={() => go('divisions', 'int', `companies:${record.id}`)}><Icon name="divisions" /> Картка компанії: логотип, фото, документи</button>}
       <div className="vx-eyebrow">Спостереження</div>
       <div className="toolbar">
         {inSanctions ? <Status kind="ok">У санкційному спостереженні</Status>

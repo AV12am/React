@@ -14,7 +14,9 @@ const ext = (name) => (name.split('.').pop() || '').toUpperCase().slice(0, 5);
 
 export function Vault({ focus, setFocus }) {
   const { state, me, perms, dispatch, userById, toast, backend } = useStore();
-  const [folder, setFolder] = useState('all');
+  const [folder, setFolder] = useState(() => (state.folders.some((f) => f.id === focus) ? focus : 'all'));
+  const [coOpen, setCoOpen] = useState(() => !!state.folders.find((f) => f.id === focus)?.group);
+  useEffect(() => { if (state.folders.some((f) => f.id === focus)) { setFolder(focus); setCoOpen(true); } }, [focus, state.folders]);
   const [usage, setUsage] = useState(null);
   useEffect(() => { backend?.usage?.().then(setUsage).catch(() => {}); }, [backend, state.files.length]);
   const [q, setQ] = useState('');
@@ -35,6 +37,18 @@ export function Vault({ focus, setFocus }) {
     .filter((f) => (folder === 'all' || f.folder === folder))
     .filter((f) => (q ? canSeeFile(me, f) && f.name.toLowerCase().includes(q.toLowerCase()) : true))
     .sort((a, b) => b.at.localeCompare(a.at)), [state.files, folder, q, me]);
+
+  // Company folders («Компанії / …», created from the company cards) are collapsed into one group.
+  const companies = state.folders.filter((f) => f.group === 'companies').sort((a, b) => a.name.localeCompare(b.name, 'uk'));
+  const folderButton = (f) => {
+    const locked = f.clearance > me.clearance && !(me.grants || []).includes(f.id);
+    return (
+      <button key={f.id} className={`vx-nav-item ${folder === f.id ? 'is-active' : ''}`} onClick={() => setFolder(f.id)}>
+        <Icon name={locked ? 'lock' : 'folder'} /> <span className="vault__fname">{f.group ? f.name.replace(/^Компанії \/ /, '') : f.name}</span>
+        <span className="vault__count">{state.files.filter((x) => x.folder === f.id).length}</span>
+      </button>
+    );
+  };
 
   const choose = (list) => {
     if (!list?.length) return;
@@ -71,15 +85,14 @@ export function Vault({ focus, setFocus }) {
           <button className={`vx-nav-item ${folder === 'all' ? 'is-active' : ''}`} onClick={() => setFolder('all')}>
             <Icon name="vault" /> Усі файли <span className="vault__count">{state.files.length}</span>
           </button>
-          {state.folders.map((f) => {
-            const locked = f.clearance > me.clearance && !(me.grants || []).includes(f.id);
-            return (
-              <button key={f.id} className={`vx-nav-item ${folder === f.id ? 'is-active' : ''}`} onClick={() => setFolder(f.id)}>
-                <Icon name={locked ? 'lock' : 'folder'} /> <span className="vault__fname">{f.name}</span>
-                <span className="vault__count">{state.files.filter((x) => x.folder === f.id).length}</span>
-              </button>
-            );
-          })}
+          {state.folders.filter((f) => !f.group).map(folderButton)}
+          {companies.length > 0 && <>
+            <button className="vx-nav-item" onClick={() => setCoOpen(!coOpen)} aria-expanded={coOpen}>
+              <Icon name="chevron" className={`vault__chev ${coOpen ? 'is-open' : ''}`} /> <span className="vault__fname">Компанії</span>
+              <span className="vault__count">{companies.length}</span>
+            </button>
+            {coOpen && <div className="vault__group">{companies.map(folderButton)}</div>}
+          </>}
           {perms.vault >= 3 && (
             <button className="vx-nav-item vault__new" onClick={() => setNewFolder(true)}><Icon name="plus" /> Нова папка</button>
           )}

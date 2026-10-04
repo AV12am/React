@@ -112,10 +112,16 @@ export const WORKSPACES = {
           { id: 'relation', label: 'Стосунок до нас', type: 'select', list: true, options: ['Немає', 'Постачальник', 'Клієнт', 'Партнер', 'Конкурент', 'Об’єкт аналізу'] },
           { id: 'significance', label: 'Значущість', type: 'select', options: ['Ключова', 'Важлива', 'Довідкова'] },
           { id: 'website', label: 'Сайт', type: 'url' },
+          { id: 'about', label: 'Опис', type: 'longtext' },
+          { id: 'products', label: 'Продукти й напрями', type: 'longtext' },
+          { id: 'founded', label: 'Рік заснування', type: 'number' },
+          { id: 'headcount', label: 'Персонал', type: 'text', hint: 'Приблизно, з датою й джерелом' },
           { id: 'owners', label: 'Власники й бенефіціари', type: 'longtext', hint: 'Лише з державного реєстру, з датою. Про людей — тільки публічна ділова роль.' },
           { id: 'notes', label: 'Нотатки', type: 'longtext' },
           { id: 'source', label: 'Джерело даних', type: 'url' },
           { id: 'checked', label: 'Перевірено', type: 'date' },
+          { id: 'logo', type: 'hidden', hidden: true },
+          { id: 'photos', type: 'hidden', hidden: true },
         ],
       },
       {
@@ -143,7 +149,7 @@ export const WORKSPACES = {
         ],
       },
     ],
-    views: [{ id: 'watch', name: 'Конвеєр' }],
+    views: [{ id: 'companies', name: 'Компанії' }, { id: 'watch', name: 'Конвеєр' }],
   },
 
   ana: {

@@ -684,3 +684,36 @@ kbd {
 @media (max-width: 900px) { .watch-steps { grid-template-columns: 1fr; } }
 .acad-program .ws-link { text-align: left; }
 .org-sectors { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Intelligence · Компанії */
+.co-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.co-card { display: flex; gap: 12px; align-items: flex-start; text-align: left; padding: 14px; cursor: pointer; color: inherit; font: inherit; min-width: 0; }
+.co-card:hover, .co-card:focus-visible { border-color: var(--line-strong); background: var(--surface-2); }
+.co-card__text { display: grid; gap: 4px; min-width: 0; }
+.co-card__name { font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
+.co-card__tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.co-logo { flex: none; border-radius: var(--radius-md); object-fit: contain; background: #fff; border: 1px solid var(--line); }
+.co-logo--mono { display: grid; place-items: center; font: 600 16px/1 var(--font-display); letter-spacing: .02em; color: hsl(var(--hue) 55% 78%); background: hsl(var(--hue) 30% 14%); border-color: hsl(var(--hue) 30% 26%); }
+.co-hero { display: flex; gap: 20px; align-items: flex-start; padding: 20px; }
+.co-hero__logo { display: grid; gap: 8px; justify-items: center; flex: none; }
+.co-hero__main { display: grid; gap: 8px; flex: 1; min-width: 0; }
+.co-cols { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; }
+.co-cols > .vx-panel, .co-page > .vx-panel { min-width: 0; }
+.co-about { margin: 0; line-height: 1.6; white-space: pre-wrap; }
+.co-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.co-photo { aspect-ratio: 4 / 3; padding: 0; border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; background: var(--surface-2); cursor: zoom-in; display: grid; place-items: center; }
+.co-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.co-lightbox { display: grid; gap: 12px; }
+.co-lightbox img { max-width: 100%; max-height: 70vh; object-fit: contain; margin: 0 auto; display: block; }
+.co-lightbox__bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.co-wide { grid-column: 1 / -1; }
+.vault__group { display: grid; padding-left: 12px; max-height: 320px; overflow-y: auto; }
+.vault__chev { transition: transform .15s; }
+.vault__chev.is-open { transform: rotate(90deg); }
+@media (max-width: 900px) {
+  .co-cols { grid-template-columns: 1fr; }
+  .co-hero { flex-direction: column; align-items: stretch; }
+  .co-hero__logo { justify-items: start; grid-auto-flow: column; align-items: end; justify-content: start; }
+  .co-grid { grid-template-columns: 1fr; }
+  .co-gallery { grid-template-columns: repeat(2, 1fr); }
+}
