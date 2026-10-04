@@ -36,7 +36,7 @@ export function Dashboard({ go }) {
   });
   const weeks = weekly.map((_, i) => (i === 11 ? 'Цей' : `Т-${11 - i}`));
   const byDivision = DIVISIONS.map((d) => ({
-    id: d.code,
+    id: d.id, label: d.name,
     value: state.files.filter((f) => state.folders.find((x) => x.id === f.folder)?.division === d.id).length,
   })).sort((x, y) => y.value - x.value);
   const shared = state.files.filter((f) => !state.folders.find((x) => x.id === f.folder)?.division).length;

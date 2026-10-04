@@ -28,7 +28,7 @@ export function Divisions({ focus, tab, go }) {
             <button key={d.id} className={`vx-panel division ${me.division === d.id ? 'is-mine' : ''}`} onClick={() => go('divisions', d.id)}>
               <div className="division__top">
                 <span className="division__icon"><Icon name={d.icon} /></span>
-                <span className="vx-tag">{me.division === d.id ? 'Ваш напрям' : d.code}</span>
+                {me.division === d.id && <span className="vx-tag">Ваш напрям</span>}
               </div>
               <h2 className="vx-h2">{d.name}</h2>
               <p className="vx-muted division__about">{WORKSPACES[d.id]?.tagline || d.about}</p>

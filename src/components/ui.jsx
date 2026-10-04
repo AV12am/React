@@ -136,7 +136,9 @@ function useWidth() {
 export function BarList({ data, unit = '', highlight }) {
   const [ref, w] = useWidth();
   const [hover, setHover] = useState(null);
-  const row = 30, labelW = 84, valueW = 44;
+  const row = 30, valueW = 44;
+  const labelOf = (d) => d.label ?? d.id;
+  const labelW = Math.min(190, Math.max(84, 12 + 7 * Math.max(0, ...data.map((d) => String(labelOf(d)).length))));
   const max = Math.max(1, ...data.map((d) => d.value));
   const plotW = Math.max(40, w - labelW - valueW);
   const h = data.length * row;
@@ -149,7 +151,7 @@ export function BarList({ data, unit = '', highlight }) {
           return (
             <g key={d.id} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
               <rect x="0" y={y} width={w} height={row} fill="transparent" />
-              <text className="label" x="0" y={y + row / 2 + 4}>{d.id}</text>
+              <text className="label" x="0" y={y + row / 2 + 4}>{labelOf(d)}</text>
               <rect
                 className={`bar ${d.id === highlight ? 'is-hi' : ''} ${hover === i && d.id !== highlight ? 'is-hover' : ''}`}
                 x={labelW} y={y + 8} width={bw} height={row - 16} rx="2"
@@ -161,7 +163,7 @@ export function BarList({ data, unit = '', highlight }) {
       </svg>
       {hover != null && (
         <div className="vx-tip" style={{ left: labelW + ((data[hover].value / max) * plotW) / 2, top: hover * row + 8 }}>
-          <span>{data[hover].id} · </span><b>{data[hover].value}</b> {unit}
+          <span>{labelOf(data[hover])} · </span><b>{data[hover].value}</b> {unit}
         </div>
       )}
     </div>

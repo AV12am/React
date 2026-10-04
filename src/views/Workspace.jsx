@@ -484,7 +484,7 @@ export function Workspace({ divId, tab, go }) {
     <div className="page">
       <header className="page__head">
         <div>
-          <button className="vx-eyebrow ws-back" onClick={() => go('divisions')}><Icon name="chevron" size={12} className="ws-back__icon" /> Напрями · {d.code}</button>
+          <button className="vx-eyebrow ws-back" onClick={() => go('divisions')}><Icon name="chevron" size={12} className="ws-back__icon" /> Напрями</button>
           <h1 className="vx-h1 ws-title"><Icon name={d.icon} size={28} /> {d.name}</h1>
           <div className="vx-muted">{WORKSPACES[divId]?.tagline}</div>
         </div>
