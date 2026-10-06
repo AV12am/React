@@ -23,6 +23,8 @@ import { useInstalledTiles, elevationAt } from '../map/tiles.js';
 
 /* ---------- geography ---------- */
 
+const DOCK_KEY = 'reaction-core/map-docks';
+
 function prepare(topo) {
   const fc = feature(topo, topo.objects.countries);
   for (const f of fc.features) {
@@ -183,7 +185,6 @@ export function MapView({ focus }) {
   const [centre, setCentre] = useState(null);
   const [mode, setMode] = useState('view');
   const [layers, setLayers] = useState({ relief: true, conflicts: true, events: true, grid: 'off', labels: true, cities: true, points: true, tracks: true, trails: true });
-  const [layersOpen, setLayersOpen] = useState(false);
   const [sel, setSel] = useState(null); // {type:'point'|'track'|'event'|'coord', id?, lat?, lon?}
   const [follow, setFollow] = useState(null);
   const [measure, setMeasure] = useState([]);
@@ -196,6 +197,34 @@ export function MapView({ focus }) {
   const [zoom, setZoom] = useState(5);
   const [armed, setArmed] = useState(false);
   const [frontSource, setFrontSource] = useState('auto');
+  // Side docks over the full-size map; open/closed is remembered per browser. On a phone they are bottom sheets, one at a time.
+  const narrow = () => window.matchMedia?.('(max-width: 900px)').matches ?? false;
+  const [dock, setDock] = useState(() => {
+    if (narrow()) return { left: false, right: false };
+    try { return { left: true, right: true, ...JSON.parse(localStorage.getItem(DOCK_KEY) || '{}') }; } catch { return { left: true, right: true }; }
+  });
+  const setDockSide = useCallback((side, open) => setDock((d) => {
+    const next = narrow() && open ? { left: false, right: false, [side]: true } : { ...d, [side]: open };
+    if (!narrow()) { try { localStorage.setItem(DOCK_KEY, JSON.stringify(next)); } catch { /* private mode */ } }
+    return next;
+  }), []);
+  const showTab = (t) => { setTab(t); setDockSide('right', true); };
+  const [full, setFull] = useState(false);
+  const toggleFull = () => {
+    const on = !full;
+    setFull(on);
+    try {
+      if (on && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
+      if (!on && document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+    } catch { /* not allowed: the CSS mode still covers the app */ }
+  };
+  useEffect(() => {
+    const onFs = () => { if (!document.fullscreenElement) setFull(false); };
+    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.vx-modal')) setFull(false); };
+    document.addEventListener('fullscreenchange', onFs);
+    window.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('fullscreenchange', onFs); window.removeEventListener('keydown', onKey); };
+  }, []);
 
   // Live conflict data (see scripts/update-conflicts.mjs); built-in outlines when it is absent.
   const liveData = useLiveConflicts();
@@ -736,6 +765,15 @@ export function MapView({ focus }) {
   const selPoint = sel?.type === 'point' && points.find((p) => p.id === sel.id);
   const selTrack = sel?.type === 'track' && tracks.find((t) => t.id === sel.id);
   const selEvent = sel?.type === 'event' && events.find((e) => e.id === sel.id);
+  // A selection opens the right dock (its card lives there).
+  useEffect(() => { if (sel) setDockSide('right', true); }, [sel, setDockSide]);
+  // Keep the visible centre of the map between the docks (desktop; on a phone the sheets come and go).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    const wide = !narrow();
+    map.easeTo({ padding: { left: wide && dock.left ? 336 : 0, right: wide && dock.right ? 376 : 0, top: 0, bottom: 0 }, duration: 250 });
+  }, [dock, ready]);
   const selCoord = sel?.type === 'coord' ? sel : selPoint || (selTrack && live[selTrack.id]) || selEvent || null;
 
   const coordRows = (lat, lon) => (
@@ -750,89 +788,23 @@ export function MapView({ focus }) {
   );
 
   return (
-    <div className="page page--map">
-      <header className="page__head">
-        <div>
-          <div className="vx-eyebrow">WGS 84 · {detailed && baseOk ? 'OpenStreetMap' : 'Natural Earth'}{tiles.terrain ? ` · ${tiles.terrain.kind === 'aws' ? 'рельєф AWS' : 'Copernicus DEM'}` : ''}</div>
-          <h1 className="vx-h1">Карта</h1>
-        </div>
-        <form className="map-search" onSubmit={search}>
-          <div className="vx-search">
-            <Icon name="search" />
-            <input className="vx-input" value={query} onChange={(e) => { setQuery(e.target.value); setQueryErr(''); }}
-              placeholder="Координати, MGRS, місто, країна або позначка" aria-label="Пошук на карті" id="map-query" />
-          </div>
-          <button className="vx-btn vx-btn--primary">Знайти</button>
-        </form>
-      </header>
-      {queryErr && <div className="vx-error map-err" role="alert">{queryErr}</div>}
-
-      <div className="map-tools">
-        <div className="segmented" role="group" aria-label="Режим">
-          <button className={mode === 'view' ? 'is-active' : ''} onClick={() => setMode('view')}>Огляд</button>
-          <button className={mode === 'mark' ? 'is-active' : ''} onClick={() => setMode('mark')} disabled={!canWrite} title={canWrite ? '' : 'Недостатньо прав'}>Позначка</button>
-          <button className={mode === 'measure' ? 'is-active' : ''} onClick={() => { setMode('measure'); setTab('measure'); }}>Вимір</button>
-        </div>
-        <div className="segmented" role="group" aria-label="Швидкий перехід">
-          <button onClick={() => preset('world')}>Світ</button>
-          <button onClick={() => preset('europe')}>Європа</button>
-          <button onClick={() => preset('ukraine')}>Україна</button>
-        </div>
-        <div className="map-layers">
-          <button className="vx-btn" onClick={() => setLayersOpen((o) => !o)} aria-expanded={layersOpen}><Icon name="layers" /> Шари</button>
-          {layersOpen && (
-            <div className="map-layers__menu vx-panel">
-              <div className="map-layers__grid">
-                <span className="vx-hint">Координатна сітка</span>
-                <div className="segmented" role="group" aria-label="Координатна сітка">
-                  {[['off', 'Вимк.'], ['deg', 'Градуси'], ['mgrs', 'MGRS']].map(([id, name]) => (
-                    <button key={id} className={layers.grid === id ? 'is-active' : ''} onClick={() => setLayers({ ...layers, grid: id })}>{name}</button>
-                  ))}
-                </div>
-              </div>
-              <label className="map-sim map-sim--menu">
-                <span className="vx-hint">Час симуляції</span>
-                <select className="vx-select" value={sim} onChange={(e) => setSim(+e.target.value)} aria-label="Швидкість симуляції">
-                  {SIM.map((m) => <option key={m} value={m}>×{m}</option>)}
-                </select>
-              </label>
-              {LAYERS.map(([id, name]) => (
-                <label key={id} className="check"><input type="checkbox" checked={layers[id]} onChange={(e) => setLayers({ ...layers, [id]: e.target.checked })} /> {name}</label>
-              ))}
-              <div className="vx-hint map-layers__note">
-                {detailed && !baseOk && 'Детальна карта зараз недоступна (немає зв’язку з джерелом). Показано кордони Natural Earth.'}
-                {detailed && baseOk
-                  ? (tiles.basemap.kind === 'openfreemap'
-                    ? 'Детальна карта: OpenStreetMap через OpenFreeMap (онлайн). Кордони — власні, Крим у складі України.'
-                    : `Детальна карта: OpenStreetMap, збірка ${tiles.basemap.build}.`)
-                  : !detailed && 'Детальна карта не встановлена на цьому сервері. Показано кордони Natural Earth.'}
-                {tiles.terrain ? ` Рельєф: ${tiles.terrain.dataset}.` : ''}
-              </div>
-            </div>
-          )}
-        </div>
-        <label className="map-sim map-sim--bar">
-          <span className="vx-hint">Час симуляції</span>
-          <select className="vx-select" value={sim} onChange={(e) => setSim(+e.target.value)} aria-label="Швидкість симуляції">
-            {SIM.map((m) => <option key={m} value={m}>×{m}</option>)}
-          </select>
-        </label>
-      </div>
-
-      <div className="map-layout">
-        <div className={`map-frame vx-panel mode-${mode}`} ref={wrapRef}>
+    <div className={`page page--map ${full ? 'is-full' : ''} ${dock.left ? 'has-left' : ''} ${dock.right ? 'has-right' : ''}`}>
+      <div className="map-stage">
+        <div className={`map-frame mode-${mode}`} ref={wrapRef}>
           <div ref={mapDivRef} className="map-gl" onPointerMove={onPointerMove} onPointerDown={onPointerDown} onPointerUp={onPointerUp}
             onPointerLeave={() => !touch && setCursor(null)} role="application" aria-label="Карта" />
           <canvas ref={overlayRef} className="map-overlay" aria-hidden="true" />
           {!ready && <div className="map-loading"><Loader size={48} label="Завантаження карти" /></div>}
           {touch && <div className="map-crosshair" aria-hidden="true" />}
+          <div className="map-hud">
           <div className="map-zoom">
+            <button className="vx-btn vx-btn--icon vx-btn--sm" onClick={toggleFull} aria-label={full ? 'Вийти з повноекранного режиму' : 'На весь екран'} title={full ? 'Вийти з повноекранного режиму (Esc)' : 'На весь екран'}><Icon name={full ? 'close' : 'expand'} /></button>
             <button className="vx-btn vx-btn--icon vx-btn--sm" onClick={() => zoomBy(2)} aria-label="Наблизити"><Icon name="plus" /></button>
             <button className="vx-btn vx-btn--icon vx-btn--sm" onClick={() => zoomBy(0.5)} aria-label="Віддалити"><Icon name="minus" /></button>
             <button className="vx-btn vx-btn--icon vx-btn--sm only-touch" onClick={locate} disabled={locating} aria-label="Де я" title="Де я"><Icon name="locate" /></button>
           </div>
           {layers.conflicts && (
-            <button className="map-legend" onClick={() => setTab('conflicts')} title="Показати список зон">
+            <button className="map-legend" onClick={() => showTab('conflicts')} title="Показати список зон">
               <i aria-hidden="true" />
               {front.pick === 'builtin'
                 ? <>Зони конфліктів · орієнтовно, {CONFLICTS_AS_OF}{liveData.manifest?.sources?.deepstate?.status === 'error' && <b className="map-legend__stale"> · DeepState недоступний</b>}</>
@@ -861,8 +833,81 @@ export function MapView({ focus }) {
             {detailLoading && <Loader size={14} label="Детальні кордони" />}
           </div>
         </div>
+        </div>
 
-        <aside className="map-side">
+        {/* Left dock: search, modes, layers. Right dock: the selection card and the lists. Both fold away. */}
+        <aside className={`map-dock map-dock--left vx-panel ${dock.left ? '' : 'is-collapsed'}`} aria-label="Інструменти карти" aria-hidden={!dock.left}>
+          <div className="map-dock__head">
+            <div>
+              <div className="vx-eyebrow">WGS 84 · {detailed && baseOk ? 'OpenStreetMap' : 'Natural Earth'}{tiles.terrain ? ` · ${tiles.terrain.kind === 'aws' ? 'рельєф AWS' : 'Copernicus DEM'}` : ''}</div>
+              <h1 className="vx-h2">Карта</h1>
+            </div>
+            <button className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" onClick={() => setDockSide('left', false)} aria-label="Згорнути панель інструментів" title="Згорнути"><Icon name="chevron" className="map-dock__fold map-dock__fold--left" /></button>
+          </div>
+          <div className="map-dock__body stack">
+            <form className="map-search" onSubmit={search}>
+          <div className="vx-search">
+            <Icon name="search" />
+            <input className="vx-input" value={query} onChange={(e) => { setQuery(e.target.value); setQueryErr(''); }}
+              placeholder="Координати, MGRS, місто, країна або позначка" aria-label="Пошук на карті" id="map-query" />
+          </div>
+          <button className="vx-btn vx-btn--primary">Знайти</button>
+        </form>
+            {queryErr && <div className="vx-error" role="alert">{queryErr}</div>}
+            <div className="map-dock__group">
+              <span className="vx-eyebrow">Режим</span>
+              <div className="segmented" role="group" aria-label="Режим">
+                <button className={mode === 'view' ? 'is-active' : ''} onClick={() => setMode('view')}>Огляд</button>
+                <button className={mode === 'mark' ? 'is-active' : ''} onClick={() => setMode('mark')} disabled={!canWrite} title={canWrite ? '' : 'Недостатньо прав'}>Позначка</button>
+                <button className={mode === 'measure' ? 'is-active' : ''} onClick={() => { setMode('measure'); showTab('measure'); }}>Вимір</button>
+              </div>
+            </div>
+            <div className="map-dock__group">
+              <span className="vx-eyebrow">Швидкий перехід</span>
+              <div className="segmented" role="group" aria-label="Швидкий перехід">
+                <button onClick={() => preset('world')}>Світ</button>
+                <button onClick={() => preset('europe')}>Європа</button>
+                <button onClick={() => preset('ukraine')}>Україна</button>
+              </div>
+            </div>
+            <div className="map-dock__group map-layers">
+              <span className="vx-eyebrow">Шари</span>
+              <div className="map-layers__grid">
+                <span className="vx-hint">Координатна сітка</span>
+                <div className="segmented" role="group" aria-label="Координатна сітка">
+                  {[['off', 'Вимк.'], ['deg', 'Градуси'], ['mgrs', 'MGRS']].map(([id, name]) => (
+                    <button key={id} className={layers.grid === id ? 'is-active' : ''} onClick={() => setLayers({ ...layers, grid: id })}>{name}</button>
+                  ))}
+                </div>
+              </div>
+              <label className="map-sim">
+                <span className="vx-hint">Час симуляції</span>
+                <select className="vx-select" value={sim} onChange={(e) => setSim(+e.target.value)} aria-label="Швидкість симуляції">
+                  {SIM.map((m) => <option key={m} value={m}>×{m}</option>)}
+                </select>
+              </label>
+              {LAYERS.map(([id, name]) => (
+                <label key={id} className="check"><input type="checkbox" checked={layers[id]} onChange={(e) => setLayers({ ...layers, [id]: e.target.checked })} /> {name}</label>
+              ))}
+              <div className="vx-hint map-layers__note">
+                {detailed && !baseOk && 'Детальна карта зараз недоступна (немає зв’язку з джерелом). Показано кордони Natural Earth.'}
+                {detailed && baseOk
+                  ? (tiles.basemap.kind === 'openfreemap'
+                    ? 'Детальна карта: OpenStreetMap через OpenFreeMap (онлайн). Кордони — власні, Крим у складі України.'
+                    : `Детальна карта: OpenStreetMap, збірка ${tiles.basemap.build}.`)
+                  : !detailed && 'Детальна карта не встановлена на цьому сервері. Показано кордони Natural Earth.'}
+                {tiles.terrain ? ` Рельєф: ${tiles.terrain.dataset}.` : ''}
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <aside className={`map-dock map-dock--right ${dock.right ? '' : 'is-collapsed'}`} aria-label="Об’єкти, позначки, конфлікти, вимір" aria-hidden={!dock.right}>
+          <div className="map-dock__head map-dock__head--right vx-panel">
+            <span className="vx-eyebrow">Дані карти</span>
+            <button className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" onClick={() => setDockSide('right', false)} aria-label="Згорнути бічну панель" title="Згорнути"><Icon name="chevron" className="map-dock__fold" /></button>
+          </div>
+          <div className="map-dock__scroll">
           {selCoord && (
             <Panel className="map-card" title={selPoint ? selPoint.name : selTrack ? selTrack.name : selEvent ? (EVENT_TYPE[selEvent.type] || selEvent.type) : 'Координата'}
               action={<button className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" onClick={() => { setSel(null); setFollow(null); }} aria-label="Закрити"><Icon name="close" /></button>}>
@@ -1009,7 +1054,11 @@ export function MapView({ focus }) {
               </div>
             )}
           </Panel>
+          </div>
         </aside>
+
+        {!dock.left && <button className="map-rail map-rail--left" onClick={() => setDockSide('left', true)} aria-label="Показати інструменти" title="Інструменти"><Icon name="search" /><span>Інструменти</span></button>}
+        {!dock.right && <button className="map-rail map-rail--right" onClick={() => setDockSide('right', true)} aria-label="Показати бічну панель" title="Об’єкти й списки"><Icon name="layers" /><span>Дані{selCoord ? ' · 1' : ''}</span></button>}
       </div>
 
       {draft && (

@@ -22,6 +22,7 @@ const P = {
   folder: <><path d="M3 6h7l2 2h9v12H3z" /></>,
   eye: <><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></>,
   eyeOff: <><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6 0 10 7 10 7a17 17 0 0 1-3.2 3.9M6.1 6.9C3.6 8.6 2 12 2 12s4 7 10 7c1.6 0 3-.4 4.3-1" /></>,
+  expand: <><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></>,
   chevron: <><path d="M9 6l6 6-6 6" /></>,
   arrowUp: <><path d="M12 19V5M6 11l6-6 6 6" /></>,
   arrowDown: <><path d="M12 5v14M6 13l6 6 6-6" /></>,

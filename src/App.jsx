@@ -220,7 +220,7 @@ function Shell() {
           <Clock />
           <span className="topbar__secure vx-hint"><Icon name="shield" size={14} /> Захищено</span>
         </header>
-        <main className="content" id="main">
+        <main className={`content ${current === 'map' ? 'content--map' : ''}`} id="main">
           <Suspense fallback={<div className="vx-empty page-loading"><Loader size={56} label="Завантаження карти" /><div className="vx-mono">Завантаження карти…</div></div>}>{page}</Suspense>
         </main>
       </div>
