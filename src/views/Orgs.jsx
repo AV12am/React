@@ -2,7 +2,7 @@
 import { useStore, fmtDate } from '../store.jsx';
 import { Panel, Status } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
-import { ORGS_UA, ORGS_CHECKED, ORG_SECTORS, aboutOf, factsOf } from '../data/orgs-ua.js';
+import { ORGS_UA, ORGS_CHECKED, aboutOf, factsOf } from '../data/orgs-ua.js';
 
 // The two standing lists organisations are watched in (created on first use).
 const LISTS = {
