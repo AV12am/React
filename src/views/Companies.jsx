@@ -105,8 +105,6 @@ function useCompanyFiles(org) {
 /* ---------- list ---------- */
 
 function CompanyCard({ org, go }) {
-  const { state } = useStore();
-  const photos = state.files.filter((f) => f.folder === folderId(org) && f.role === 'photo').length;
   return (
     <button className="co-card vx-panel" onClick={() => go('divisions', 'int', `companies:${org.id}`)}>
       <Logo org={org} size={48} />
@@ -116,8 +114,6 @@ function CompanyCard({ org, go }) {
         <span className="co-card__tags">
           {org.code && <span className="vx-tag vx-mono">{org.code}</span>}
           {org.status && org.status !== 'Діє' && <span className="vx-tag ws-flag">{org.status}</span>}
-          {org.relation && org.relation !== 'Немає' && <span className="vx-tag">{org.relation}</span>}
-          {photos > 0 && <span className="vx-tag"><Icon name="camera" size={12} /> {photos}</span>}
         </span>
       </span>
     </button>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useStore, fmtDate, fmtAgo, canSeeFile } from '../store.jsx';
 import { Panel, Drawer, ClassBadge, Avatar } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
@@ -305,20 +305,21 @@ function ReviewFlag({ reg, r }) {
   return <span className="vx-tag ws-flag" title="У ланцюгу підстав щось змінилося — див. «Перегляд»">перегляд</span>;
 }
 
+/** The columns a list shows: the first two marked `list` (everything else is in the record itself). */
+const mainCols = (reg) => reg.fields.filter((f) => f.list && f.id !== reg.title).slice(0, 2);
+
 function Card({ reg, r, look, locked, onOpen, draggable, go }) {
-  const grade = reg.id === 'intake' && !locked ? grading(r, look) : null;
   return (
     <button className={`ws-card ${locked ? 'is-locked' : ''}`} onClick={() => !locked && onOpen(r)} draggable={draggable}
       onDragStart={(e) => { e.dataTransfer.setData('text/plain', r.id); e.dataTransfer.effectAllowed = 'move'; }}>
       <span className="ws-card__top">
         <ClassBadge level={r.clearance} />
-        {grade && <span className="vx-tag vx-mono">{grade}</span>}
         {!locked && <ReviewFlag reg={reg} r={r} />}
       </span>
       <span className="ws-card__title">{locked ? <span className="vx-redacted">{'█'.repeat(14)}</span> : titleOf(reg, r)}</span>
       {!locked && (
         <span className="ws-card__meta">
-          {reg.fields.filter((f) => f.list && f.id !== reg.title).slice(0, 3).map((f) => (r[f.id] != null && r[f.id] !== '') && (
+          {mainCols(reg).map((f) => (r[f.id] != null && r[f.id] !== '') && (
             <span key={f.id} className="vx-hint"><FieldValue field={f} value={r[f.id]} look={look} go={go} compact /></span>
           ))}
         </span>
@@ -339,6 +340,7 @@ function RegisterView({ d, reg, access, go, openId }) {
     .filter((r) => !q || (!locked(r) && JSON.stringify(reg.fields.map((f) => r[f.id] ?? '')).toLowerCase().includes(q.toLowerCase())))
     .sort((a, b) => (b.updated || '').localeCompare(a.updated || ''));
   const where = `${d.name} · ${reg.name}`;
+  const cols = mainCols(reg); // the rest of the fields are in the record card and its form
   const move = (id, stage) => {
     const r = all.find((x) => x.id === id);
     if (!r || r.stage === stage || locked(r)) return;
@@ -380,18 +382,17 @@ function RegisterView({ d, reg, access, go, openId }) {
           <table className="vx-table">
             <thead><tr>
               <th>{reg.fields.find((f) => f.id === reg.title)?.label}</th>
-              {reg.fields.filter((f) => f.list && f.id !== reg.title).map((f) => <th key={f.id}>{f.label}</th>)}
-              <th>Гриф</th><th>Змінено</th>
+              {cols.map((f) => <th key={f.id}>{f.label}</th>)}
+              <th>Гриф</th>
             </tr></thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} className={locked(r) ? 'is-locked' : 'is-clickable'} onClick={() => !locked(r) && setOpen(r)}>
                   <td>{locked(r) ? <span className="vx-redacted">{'█'.repeat(14)}</span> : <>{titleOf(reg, r)} <ReviewFlag reg={reg} r={r} /></>}</td>
-                  {reg.fields.filter((f) => f.list && f.id !== reg.title).map((f) => (
+                  {cols.map((f) => (
                     <td key={f.id} className="vx-hint">{locked(r) ? '' : <FieldValue field={f} value={r[f.id]} look={look} go={go} compact />}</td>
                   ))}
                   <td><ClassBadge level={r.clearance} /></td>
-                  <td className="vx-hint">{fmtAgo(r.updated)}</td>
                 </tr>
               ))}
             </tbody>
@@ -464,6 +465,9 @@ function Overview({ d, go, setTab }) {
 
 /* ---------- workspace ---------- */
 
+// Main tabs per division (others go under «Ще»); a division not listed shows its first three.
+const PRIMARY_TABS = { int: ['intake', 'companies', 'sources'], ana: ['products', 'judgments', 'review'] };
+
 const VIEWS = { review: ReviewView, forecasts: ForecastsView, watch: WatchView, companies: CompaniesView };
 
 export function Workspace({ divId, tab, go }) {
@@ -479,6 +483,19 @@ export function Workspace({ divId, tab, go }) {
   const reg = registerOf(divId, current);
   const View = VIEWS[current];
   const flagged = divId === 'ana' ? reviewCount(state.records || [], me) : 0;
+  // Only the main tabs are shown; the rest sit under «Ще».
+  const tabs = [...regs, ...views];
+  const keep = PRIMARY_TABS[divId];
+  const main = keep ? tabs.filter((t) => keep.includes(t.id)).sort((a, b) => keep.indexOf(a.id) - keep.indexOf(b.id)) : tabs.slice(0, 3);
+  const more = tabs.filter((t) => !main.includes(t));
+  const moreCurrent = more.find((t) => t.id === current);
+  const [moreOpen, setMoreOpen] = useState(false);
+  useEffect(() => {
+    if (!moreOpen) return undefined;
+    const close = (e) => { if (!e.target.closest?.('.ws-more')) setMoreOpen(false); };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, [moreOpen]);
 
   return (
     <div className="page">
@@ -492,14 +509,27 @@ export function Workspace({ divId, tab, go }) {
       </header>
       <nav className="vx-tabs" role="tablist">
         <button role="tab" aria-selected={current === 'overview'} className={`vx-tab ${current === 'overview' ? 'is-active' : ''}`} onClick={() => setTab('overview')}>Огляд</button>
-        {regs.map((r) => (
-          <button key={r.id} role="tab" aria-selected={current === r.id} className={`vx-tab ${current === r.id ? 'is-active' : ''}`} onClick={() => setTab(r.id)}>{r.name}</button>
-        ))}
-        {views.map((v) => (
-          <button key={v.id} role="tab" aria-selected={current === v.id} className={`vx-tab ${current === v.id ? 'is-active' : ''}`} onClick={() => setTab(v.id)}>
-            {v.name}{v.id === 'review' && flagged > 0 && <span className="vx-nav-item__count">{flagged}</span>}
+        {main.map((t) => (
+          <button key={t.id} role="tab" aria-selected={current === t.id} className={`vx-tab ${current === t.id ? 'is-active' : ''}`} onClick={() => setTab(t.id)}>
+            {t.name}{t.id === 'review' && flagged > 0 && <span className="vx-nav-item__count">{flagged}</span>}
           </button>
         ))}
+        {more.length > 0 && (
+          <span className="ws-more">
+            <button className={`vx-tab ${moreCurrent ? 'is-active' : ''}`} aria-haspopup="menu" aria-expanded={!!moreOpen} onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMoreOpen((o) => (o ? false : { left: Math.min(r.left, window.innerWidth - 236), top: r.bottom + 6 })); }}>
+              {moreCurrent ? moreCurrent.name : 'Ще'} <Icon name="chevron" size={12} className="ws-more__chev" />
+            </button>
+            {moreOpen && (
+              <span className="ws-more__menu vx-panel" role="menu" style={moreOpen}>
+                {more.map((t) => (
+                  <button key={t.id} role="menuitem" className={`vx-nav-item ${current === t.id ? 'is-active' : ''}`} onClick={() => { setMoreOpen(false); setTab(t.id); }}>
+                    {t.name}{t.id === 'review' && flagged > 0 && <span className="vx-nav-item__count">{flagged}</span>}
+                  </button>
+                ))}
+              </span>
+            )}
+          </span>
+        )}
         {divId === 'acad' && <button role="tab" aria-selected="false" className="vx-tab" onClick={() => go('learn')}>Навчання й тести</button>}
       </nav>
       {reg ? <RegisterView key={`${reg.id}:${openId || ''}`} d={d} reg={reg} access={access} go={go} openId={openId} />

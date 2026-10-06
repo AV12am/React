@@ -59,14 +59,11 @@ export function OrgDirectory({ go }) {
     dispatch({ type: 'record/bulk', records: [], patches: backfill, where: 'Розвідка · Організації', label: `доповнено довідкові дані: ${backfill.length}` });
     toast(`Доповнено: ${backfill.length}`);
   };
-  const bySector = ORG_SECTORS.map((s) => [s, inRegister.filter((r) => r.sector === s).length]).filter(([, n]) => n);
   return (
     <Panel title="Довідник: 100 провідних компаній України" action={<span className="vx-hint">коди звірено {fmtDate(ORGS_CHECKED, false)}</span>}>
       <div className="stack">
         <div className="vx-hint">
-          Енергетика, нафта й газ, транспорт, металургія, агро, роздріб, телеком, IT, банки, фармацевтика, машинобудування, хімія.
-          Для кожної — юридична назва, код ЄДРПОУ, галузь, місто, сайт, рік заснування, власники (на рівні групи чи кінцевого бенефіціара,
-          з відкритих джерел станом на жовтень 2026 р.) і посилання на запис у відкритому реєстрі. Власність змінюється — звіряйте з реєстром.
+          12 галузей: код ЄДРПОУ, сайт, рік заснування, власники й посилання на реєстр. Дані з відкритих джерел — звіряйте з реєстром.
         </div>
         <div className="toolbar">
           {missing.length > 0 && <button className="vx-btn vx-btn--primary" onClick={load}><Icon name="download" /> Завантажити в реєстр ({missing.length})</button>}
@@ -79,7 +76,6 @@ export function OrgDirectory({ go }) {
             <button className="vx-btn vx-btn--ghost" onClick={() => go('divisions', 'int', 'watch')}>Конвеєр <Icon name="chevron" /></button>
           </>}
         </div>
-        {bySector.length > 0 && <div className="org-sectors">{bySector.map(([s, n]) => <span key={s} className="vx-tag">{s} · {n}</span>)}</div>}
       </div>
     </Panel>
   );

@@ -764,3 +764,9 @@ kbd {
 }
 .map-dock .map-tabs { flex-wrap: wrap; row-gap: 6px; column-gap: 14px; padding: 14px 18px 0; }
 .map-dock .map-tabs .vx-tab { font-size: 14px; }
+
+/* Workspace tabs: main tabs + «Ще» */
+.ws-more { position: relative; display: inline-flex; }
+.ws-more__chev { transform: rotate(90deg); margin-left: 4px; }
+.ws-more__menu { position: fixed; z-index: 30; display: grid; gap: 2px; padding: 6px; min-width: 220px; box-shadow: 0 12px 32px rgba(0, 0, 0, .35); }
+.ws-more__menu .vx-nav-item { white-space: nowrap; }

@@ -14,6 +14,7 @@
   --ink-faint: #5a5a5a;
   --mark: #e5e5e5;
   --brass: #c05a69; /* burgundy accent (token name kept for compatibility) */
+  --rhomb: #8c1c32; /* the rhombus from the mark: deep burgundy */
   --brass-dim: #3a1a20;
   --on-brass: #0a0a0a;
   --ok: #8fb89a;
@@ -39,6 +40,7 @@
   --ink-faint: #a3a3a3;
   --mark: #0a0a0a;
   --brass: #7a1f2e;
+  --rhomb: #7a1f2e;
   --brass-dim: #f0d9dd;
   --on-brass: #ffffff;
   --ok: #2f6b3f;
