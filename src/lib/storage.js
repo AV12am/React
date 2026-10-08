@@ -146,6 +146,9 @@ function supabaseBackend() {
               rest('core_docs?select=kind,doc&kind=in.(records,requests)'),
               rest('core_docs?select=doc&kind=eq.audit&order=updated_at.desc&limit=300'),
             ]);
+            // No members visible means the server does not count this sign-in (e.g. the passkey
+            // confirmation expired): keep the local copy rather than replacing it with nothing.
+            if (!members.length) return;
             onKind('users', members.map((r) => ({ ...r.doc, id: r.id })));
             onKind('records', docs.filter((r) => r.kind === 'records').map((r) => r.doc));
             onKind('requests', docs.filter((r) => r.kind === 'requests').map((r) => r.doc));

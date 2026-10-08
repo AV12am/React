@@ -313,3 +313,5 @@
 .vx-redacted { background: var(--ink-faint); color: transparent; border-radius: 1px; user-select: none; }
 .vx-sensitive-off .vx-sensitive { filter: blur(6px); transition: filter 0.2s; }
 .vx-sensitive-off .vx-sensitive:hover { filter: none; }
+.vx-toast--error { border-color: var(--danger); }
+.vx-toast--error svg { color: var(--danger); }

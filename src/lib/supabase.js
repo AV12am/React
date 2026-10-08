@@ -77,7 +77,7 @@ export async function rest(path, { method = 'GET', body, prefer } = {}) {
   if (res.status === 401 && session) { await refresh(); }
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw Object.assign(new Error(data.message || `HTTP ${res.status}`), { status: res.status });
+    throw Object.assign(new Error(data.message || `HTTP ${res.status}`), { status: res.status, code: data.code });
   }
   return res.status === 204 ? null : res.json().catch(() => null);
 }

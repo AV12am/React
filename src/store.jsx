@@ -3,6 +3,7 @@ import { USERS, REQUESTS, FILES, FOLDERS, SEED_AUDIT, PERMISSIONS, CLEARANCE } f
 import { canSeeLevel, levelOf, remark, MAX_LEVEL, SEAL } from './data/clearance.js';
 import { storage } from './lib/storage.js';
 import { createSync } from './lib/sync.js';
+import { status as passkeyStatus } from './lib/passkey.js';
 import { supabaseOn, signedIn, onSession, signOut, currentEmail } from './lib/supabase.js';
 
 // v3: LUMEN · UMBRA · NOX scale. v2 state (old four-step scale) is migrated on load.
@@ -290,21 +291,41 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     // With Supabase the server answers only after the passkey step (session.verified).
     if (!backend?.docs || !loggedIn || (backend.needsSignIn && (!sbSession || !verified))) return undefined;
-    const engine = createSync({
-      docs: backend.docs,
-      getState: () => stateRef.current,
-      dispatch,
-      onError: (e) => toastRef.current?.(`Сервер відхилив зміну: ${e.message}`),
+    let engine = null;
+    let live = true;
+    // A confirmation remembered from an earlier visit may have expired on the server (12 h):
+    // check it first, or every pending change would be refused by row-level security.
+    const askPasskey = () => (backend.needsSignIn ? passkeyStatus().then((x) => !!x.verified).catch(() => true) : Promise.resolve(true));
+    let lastError = 0;
+    askPasskey().then((ok) => {
+      if (!live) return;
+      if (!ok) { dispatch({ type: 'session/verified', value: false }); return; }
+      engine = createSync({
+        docs: backend.docs,
+        getState: () => stateRef.current,
+        dispatch,
+        onError: (e) => {
+          if (Date.now() - lastError < 5000) return; // one message per burst
+          lastError = Date.now();
+          toastRef.current?.(`Сервер відхилив зміну: ${e.message}`, 'error');
+        },
+        onDenied: () => askPasskey().then((still) => {
+          if (!live) return;
+          if (!still) { toastRef.current?.('Підтвердження входу минуло — підтвердьте ключем ще раз', 'error'); dispatch({ type: 'session/verified', value: false }); }
+          else toastRef.current?.('Сервер відхилив зміну: недостатньо прав для цього запису', 'error');
+        }),
+      });
+      syncRef.current = engine;
     });
-    syncRef.current = engine;
-    return () => { engine.stop(); syncRef.current = null; };
+    return () => { live = false; engine?.stop(); syncRef.current = null; };
   }, [backend, loggedIn, sbSession, verified]);
   useEffect(() => { syncRef.current?.changed(); }, [state.users, state.records, state.requests, state.audit]);
 
   const toastRef = useRef(null);
-  const toast = useCallback((text) => {
+  const toast = useCallback((text, kind = 'ok') => {
     const id = uid('t');
-    setToasts((t) => [...t, { id, text }]);
+    // The same message twice in a row is shown once; at most four at a time.
+    setToasts((t) => (t.some((x) => x.text === text) ? t : [...t.slice(-3), { id, text, kind }]));
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3600);
   }, []);
   toastRef.current = toast;

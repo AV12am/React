@@ -14,7 +14,11 @@ export const SHARED_KINDS = ['users', 'records', 'requests', 'audit'];
 
 const json = (d) => JSON.stringify(d);
 
-export function createSync({ docs, getState, dispatch, onError = () => {} }) {
+// A refusal by row-level security: this sign-in no longer counts (passkey confirmation expired,
+// membership suspended) — pushing more would only be refused the same way.
+export const isRlsError = (e) => e?.code === '42501' || /row-level security/i.test(e?.message || '');
+
+export function createSync({ docs, getState, dispatch, onError = () => {}, onDenied = () => {} }) {
   const known = {};   // kind → Map(id → JSON of the last version both sides agreed on)
   const pulled = {};  // kind → has the server answered at least once
   let timer = null;
@@ -50,8 +54,18 @@ export function createSync({ docs, getState, dispatch, onError = () => {} }) {
     schedule();
   });
 
+  let denied = false;
+  // One refusal stops the batch; the caller re-checks the session.
+  const send = async (fn, kind, d) => {
+    if (denied) return;
+    try { await fn(); } catch (e) {
+      if (isRlsError(e)) { denied = true; onDenied(e); } else onError(e, kind, d);
+    }
+  };
+
   async function push() {
     if (pushing) { again = true; return; }
+    if (denied) return;
     pushing = true;
     try {
       const st = getState();
@@ -65,19 +79,19 @@ export function createSync({ docs, getState, dispatch, onError = () => {} }) {
           if (kind === 'audit') {
             if (prev.has(d.id) || sentAudit.has(d.id) || d.actor !== st.session?.userId) continue;
             sentAudit.add(d.id);
-            try { await docs.put(kind, d); } catch (e) { onError(e, kind, d); }
+            await send(() => docs.put(kind, d), kind, d);
             continue;
           }
           const j = json(d);
           if (prev.get(d.id) === j) continue;
           prev.set(d.id, j);
-          try { await docs.put(kind, d); } catch (e) { onError(e, kind, d); }
+          await send(() => docs.put(kind, d), kind, d);
         }
         if (kind === 'audit') continue;
         for (const id of [...prev.keys()]) {
           if (ids.has(id)) continue;
           prev.delete(id);
-          try { await docs.remove(kind, id); } catch (e) { onError(e, kind, { id }); }
+          await send(() => docs.remove(kind, id), kind, { id });
         }
       }
     } finally {

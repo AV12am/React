@@ -112,7 +112,7 @@ export function Toasts({ items }) {
   return (
     <div className="vx-toasts" aria-live="polite">
       {items.map((t) => (
-        <div className="vx-toast" key={t.id}><Icon name="check" /><span>{t.text}</span></div>
+        <div className={`vx-toast ${t.kind === 'error' ? 'vx-toast--error' : ''}`} key={t.id} role={t.kind === 'error' ? 'alert' : undefined}><Icon name={t.kind === 'error' ? 'warn' : 'check'} /><span>{t.text}</span></div>
       ))}
     </div>
   );

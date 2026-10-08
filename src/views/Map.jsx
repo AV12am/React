@@ -25,6 +25,18 @@ import { useInstalledTiles, elevationAt } from '../map/tiles.js';
 
 const DOCK_KEY = 'reaction-core/map-docks';
 
+// Place names → coordinates via OpenStreetMap Nominatim (no key; only the typed name is sent).
+const ZOOM_BY_TYPE = { city: 11, town: 12, village: 13, hamlet: 14, suburb: 13, administrative: 8, state: 7, country: 5 };
+async function geocode(q) {
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=uk&q=${encodeURIComponent(q)}`;
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const [hit] = await res.json();
+  if (!hit) return null;
+  const name = String(hit.display_name || q).split(',').slice(0, 3).join(',').trim();
+  return { lat: +hit.lat, lon: +hit.lon, name, zoom: ZOOM_BY_TYPE[hit.addresstype] || ZOOM_BY_TYPE[hit.type] || 11 };
+}
+
 function prepare(topo) {
   const fc = feature(topo, topo.objects.countries);
   for (const f of fc.features) {
@@ -190,6 +202,7 @@ export function MapView({ focus }) {
   const [measure, setMeasure] = useState([]);
   const [query, setQuery] = useState('');
   const [queryErr, setQueryErr] = useState('');
+  const [finding, setFinding] = useState(false);
   const [draft, setDraft] = useState(null); // new point form
   const [tab, setTab] = useState('tracks');
   const [sim, setSim] = useState(60);
@@ -701,7 +714,16 @@ export function MapView({ focus }) {
       else fitBounds([x0, Math.max(-80, y0), x1, Math.min(84, y1)]);
       return;
     }
-    setQueryErr('Не розпізнано. Приклади: 50.4501, 30.5234 · 50°27′N 30°31′E · 36U UA 24182 91607 · Львів');
+    // Any other place name: OpenStreetMap's geocoder (one request per search, as its usage policy asks).
+    setFinding(true);
+    geocode(q).then((hit) => {
+      if (!hit) { setQueryErr('Не знайдено. Спробуйте іншу назву або координати: 50.4501, 30.5234 · 36U UA 24182 91607'); return; }
+      setSel({ type: 'coord', lat: hit.lat, lon: hit.lon, label: hit.name });
+      if (narrow()) setDockSide('left', false);
+      flyTo(hit.lat, hit.lon, Math.max(cur, hit.zoom));
+      dispatch({ type: 'map/log', text: `Пошук: ${hit.name}` });
+    }).catch(() => setQueryErr('Пошук назв зараз недоступний (немає зв’язку з OpenStreetMap). Координати й MGRS працюють і без нього.'))
+      .finally(() => setFinding(false));
   };
 
   const savePoint = (e) => {
@@ -766,7 +788,8 @@ export function MapView({ focus }) {
   const selTrack = sel?.type === 'track' && tracks.find((t) => t.id === sel.id);
   const selEvent = sel?.type === 'event' && events.find((e) => e.id === sel.id);
   // A selection opens the right dock (its card lives there).
-  useEffect(() => { if (sel) setDockSide('right', true); }, [sel, setDockSide]);
+  // On a phone the card waits behind the «Дані» button, so the map stays visible.
+  useEffect(() => { if (sel && !narrow()) setDockSide('right', true); }, [sel, setDockSide]);
   // Keep the visible centre of the map between the docks (desktop; on a phone the sheets come and go).
   useEffect(() => {
     const map = mapRef.current;
@@ -851,7 +874,7 @@ export function MapView({ focus }) {
             <input className="vx-input" value={query} onChange={(e) => { setQuery(e.target.value); setQueryErr(''); }}
               placeholder="Координати, MGRS, місто, країна або позначка" aria-label="Пошук на карті" id="map-query" />
           </div>
-          <button className="vx-btn vx-btn--primary">Знайти</button>
+          <button className="vx-btn vx-btn--primary" disabled={finding}>{finding ? <Loader size={16} label="Пошук" /> : 'Знайти'}</button>
         </form>
             {queryErr && <div className="vx-error" role="alert">{queryErr}</div>}
             <div className="map-dock__group">
@@ -909,7 +932,7 @@ export function MapView({ focus }) {
           </div>
           <div className="map-dock__scroll">
           {selCoord && (
-            <Panel className="map-card" title={selPoint ? selPoint.name : selTrack ? selTrack.name : selEvent ? (EVENT_TYPE[selEvent.type] || selEvent.type) : 'Координата'}
+            <Panel className="map-card" title={selPoint ? selPoint.name : selTrack ? selTrack.name : selEvent ? (EVENT_TYPE[selEvent.type] || selEvent.type) : sel?.label || 'Координата'}
               action={<button className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" onClick={() => { setSel(null); setFollow(null); }} aria-label="Закрити"><Icon name="close" /></button>}>
               <div className="stack">
                 {selTrack && (() => {
