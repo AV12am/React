@@ -24,7 +24,7 @@ const SB_URL = (env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || env.VITE_SUP
 const ANON = env.SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || '';
 const SERVICE = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SECRET_KEY || '';
 const RP_NAME = 'Reaction Core';
-const SESSION_HOURS = 12;
+const SESSION_HOURS = 24; // a confirmed sign-in lasts a day
 const CODE_HOURS = 72;
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 

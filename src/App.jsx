@@ -48,7 +48,7 @@ export default function App() {
 }
 
 // Supabase: a signed-in session must also be confirmed with a passkey. After a reload the confirmation
-// may have expired (12 h) — ask the server, and show the passkey step again when needed.
+// may have expired (24 h) — ask the server, and show the passkey step again when needed.
 function PasskeyGate() {
   const { dispatch } = useStore();
   const [st, setSt] = useState(null);

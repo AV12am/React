@@ -293,7 +293,7 @@ export function StoreProvider({ children }) {
     if (!backend?.docs || !loggedIn || (backend.needsSignIn && (!sbSession || !verified))) return undefined;
     let engine = null;
     let live = true;
-    // A confirmation remembered from an earlier visit may have expired on the server (12 h):
+    // A confirmation remembered from an earlier visit may have expired on the server (24 h):
     // check it first, or every pending change would be refused by row-level security.
     const askPasskey = () => (backend.needsSignIn ? passkeyStatus().then((x) => !!x.verified).catch(() => true) : Promise.resolve(true));
     let lastError = 0;
