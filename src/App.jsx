@@ -140,7 +140,7 @@ function Shell() {
 
   // Auto-lock after inactivity.
   useEffect(() => {
-    if (locked) return;
+    if (locked || !(state.settings.lockMinutes > 0)) return undefined;
     let t;
     const reset = () => { clearTimeout(t); t = setTimeout(lock, state.settings.lockMinutes * 60000); };
     const ev = ['mousemove', 'keydown', 'pointerdown', 'scroll'];
@@ -151,7 +151,7 @@ function Shell() {
 
   // Phone: hide the screen in the app switcher, and lock when the app has been away too long.
   const [veiled, setVeiled] = useState(false);
-  const hideLock = state.settings.hideLock ?? 300; // seconds; -1 — never (default 5 min)
+  const hideLock = state.settings.hideLock ?? -1; // seconds; -1 — never (default)
   const onHide = useCallback(() => { if (isTouch()) setVeiled(true); if (isTouch() && hideLock === 0) lock(); }, [hideLock, lock]);
   const onShow = useCallback((ms) => { setVeiled(false); if (isTouch() && hideLock >= 0 && ms >= hideLock * 1000) lock(); }, [hideLock, lock]);
   useHidden(onHide, onShow);

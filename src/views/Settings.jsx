@@ -17,7 +17,7 @@ const touch = isTouch();
 function ThisPhone() {
   const { state, dispatch, toast } = useStore();
   const inst = useInstall();
-  const hideLock = state.settings.hideLock ?? 300;
+  const hideLock = state.settings.hideLock ?? -1;
   const install = async () => { if (await inst.prompt()) toast('Reaction додано на головний екран'); };
   return (
     <Panel title="Цей телефон">
@@ -160,7 +160,8 @@ export function Settings({ go }) {
               <div className="vx-field">
                 <label className="vx-label" htmlFor="lock">Автоблокування при бездіяльності</label>
                 <select id="lock" className="vx-select" value={s.lockMinutes} onChange={(e) => set({ lockMinutes: +e.target.value })}>
-                  {[5, 15, 30, 60, 120].map((m) => <option key={m} value={m}>{m < 60 ? `${m} хв` : `${m / 60} год`}</option>)}
+                  <option value={0}>Не блокувати</option>
+                  {[15, 30, 60, 120].map((m) => <option key={m} value={m}>{m < 60 ? `${m} хв` : `${m / 60} год`}</option>)}
                 </select>
               </div>
             </div>
