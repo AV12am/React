@@ -22,6 +22,12 @@
       "name": "Санкції ЄС (FSF)",
       "url": "https://webgate.ec.europa.eu/fsd/fsf/public/files/csvFullSanctionsList_1_1/content?token=dG9rZW4tMjAxNw",
       "attribution": "European Commission — Financial Sanctions Files"
+    },
+    "rnbo": {
+      "enabled": true,
+      "name": "Державний реєстр санкцій (РНБО)",
+      "url": "https://drs.nsdc.gov.ua/registry-api/subjects/export/legal/csv?lang=uk",
+      "attribution": "Апарат РНБО — Державний реєстр санкцій, drs.nsdc.gov.ua"
     }
   },
   "match": {

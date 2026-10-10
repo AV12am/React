@@ -1,10 +1,67 @@
 // Intelligence · «Конвеєр»: watchlists → open sources (api/watch.js) → intake items with source and date.
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useStore, fmtDate, fmtAgo } from '../store.jsx';
 import { Panel, ClassBadge, Status } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { Loader } from '../brand/Mark.jsx';
 import { supabaseOn, authHeaders } from '../lib/supabase.js';
+import { parseRnbo, parseTerms, matchList, rnboFinding, RNBO_SOURCE } from '../../scripts/lib/match.mjs';
+import { docNumber, nextSerial } from '../data/clearance.js';
+import { storageError } from '../lib/storage.js';
+
+// The RNBO register (drs.nsdc.gov.ua) lets only a browser in: a person downloads «Юридичні особи → CSV»
+// and uploads it here. It is kept in the Vault («Санкційні списки») for the whole team and every run matches against it.
+const RNBO_FOLDER = { id: 'f-sanctions', name: 'Санкційні списки', clearance: 0, division: 'int' };
+const RNBO_ROLE = 'rnbo-legal';
+const latestRnbo = (files) => files.filter((f) => f.role === RNBO_ROLE).sort((a, b) => b.at.localeCompare(a.at))[0] || null;
+async function rnboFindings(backend, file, lists) {
+  const blob = file && await backend.get(file);
+  if (!blob) return [];
+  const entries = parseRnbo(await blob.text());
+  const day = new Date().toISOString().slice(0, 10);
+  return lists.filter((w) => w.kind === 'Контрагенти й санкції').flatMap((w) => matchList(parseTerms(w.terms), entries).map((m) => rnboFinding(w, m, day)));
+}
+
+function RnboList({ onUploaded }) {
+  const { state, me, dispatch, toast, backend } = useStore();
+  const input = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const file = latestRnbo(state.files);
+  const upload = async (f) => {
+    if (!f || !backend) return;
+    setBusy(true);
+    try {
+      const entries = parseRnbo(await f.text()); // refuses a wrong file before it is stored
+      if (!state.folders.some((x) => x.id === RNBO_FOLDER.id)) {
+        if (backend.index) await backend.index.addFolder(RNBO_FOLDER);
+        dispatch({ type: 'folder/add', folder: RNBO_FOLDER });
+      }
+      const id = `x-${Date.now().toString(36)}`;
+      const name = `RNBO-legal-${new Date().toISOString().slice(0, 10)}.csv`;
+      let put;
+      try { put = await backend.put(id, f, { dir: 'sanctions' }); } catch (e) { throw new Error(storageError(e)); }
+      const year = new Date().getFullYear();
+      const meta = { id, number: docNumber({ level: 0, sealed: false, year, serial: nextSerial(state.files.map((x) => x.number), year) }), folder: RNBO_FOLDER.id, name, size: f.size, type: 'text/csv', clearance: 0, sealed: false, downgrade: null, owner: me.id, ownerName: me.name, at: new Date().toISOString(), stored: true, backend: backend.kind, role: RNBO_ROLE, entries: entries.length, ...put };
+      if (backend.index) await backend.index.addFile(meta);
+      dispatch({ type: 'file/add', file: meta });
+      toast(`Список РНБО оновлено: ${entries.length} юридичних осіб`);
+      onUploaded(meta);
+    } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  return (
+    <div className="rnbo">
+      <div>
+        <b>Державний реєстр санкцій (РНБО)</b>
+        <div className="vx-hint">
+          {file ? `Список від ${fmtDate(file.at, false)} · ${file.entries ?? '—'} юридичних осіб. ` : 'Список ще не завантажено. '}
+          Реєстр пускає лише браузер: відкрийте <a className="ws-link" href="https://drs.nsdc.gov.ua/subjects" target="_blank" rel="noopener noreferrer">drs.nsdc.gov.ua</a> → «Юридичні особи» → завантажити CSV, і додайте файл сюди. Оновлюйте раз на тиждень або після нових указів.
+        </div>
+      </div>
+      <input ref={input} type="file" accept=".csv,text/csv" hidden onChange={(e) => { upload(e.target.files[0]); e.target.value = ''; }} />
+      <button className="vx-btn vx-btn--sm" disabled={busy || backend?.writable === false} onClick={() => input.current.click()}>{busy ? <Loader size={16} /> : <><Icon name="upload" /> {file ? 'Оновити список' : 'Додати список РНБО'}</>}</button>
+    </div>
+  );
+}
 
 const openRecord = (go, r) => go('divisions', r.div, `${r.col}:${r.id}`);
 const terms = (w) => String(w.terms || '').split(/\n/).filter((l) => l.trim()).length;
@@ -76,7 +133,7 @@ function QuickStart({ lists, busy, onCreate }) {
 }
 
 export function WatchView({ access, go }) {
-  const { state, me, dispatch, toast } = useStore();
+  const { state, me, dispatch, toast, backend } = useStore();
   const [busy, setBusy] = useState(false);
   const [last, setLast] = useState(null);
   const records = state.records || [];
@@ -86,17 +143,26 @@ export function WatchView({ access, go }) {
     .sort((a, b) => (b.at || '').localeCompare(a.at || '')).slice(0, 40);
   const listName = (id) => lists.find((w) => w.id === id)?.name || '—';
 
-  const run = async (extra = []) => {
+  const run = async (extra = [], rnboOverride = null) => {
     const active = [...activeLists, ...extra];
     setBusy(true); setLast(null);
     try {
+      // The RNBO list kept in the Vault is matched here, in the browser; the rest on the server.
+      const rnboFile = rnboOverride || latestRnbo(state.files);
+      const local = await rnboFindings(backend, rnboFile, active).catch((e) => { toast(`РНБО: ${e.message}`, 'error'); return []; });
       const res = await fetch(new URL('api/watch', document.baseURI), {
         method: 'POST',
         headers: supabaseOn ? await authHeaders({ 'Content-Type': 'application/json' }) : { 'Content-Type': 'application/json' },
         body: JSON.stringify({ watchlists: active.map(({ id, name, kind, terms: t, feeds, clearance }) => ({ id, name, kind, terms: t, feeds, clearance })) }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.message || (res.status === 404 ? 'Серверна функція недоступна (працює лише на Vercel)' : `HTTP ${res.status}`));
+      if (!res.ok && !local.length) throw new Error(body.message || (res.status === 404 ? 'Серверна функція недоступна (працює лише на Vercel)' : `HTTP ${res.status}`));
+      if (!res.ok) { body.findings = []; body.errors = [{ source: 'сервер', message: body.message || `HTTP ${res.status}` }]; }
+      body.sources = { ...(body.sources || {}), rnbo: RNBO_SOURCE };
+      // The server's RNBO attempt is replaced by the local list when there is one.
+      if (rnboFile) body.errors = (body.errors || []).filter((e) => e.source !== 'rnbo');
+      const seenFp = new Set(body.findings.map((f) => f.fingerprint));
+      body.findings = [...body.findings, ...local.filter((f) => !seenFp.has(f.fingerprint))];
       const records = state.records || [];
       const have = new Set(records.filter((r) => r.col === 'intake' && r.fingerprint).map((r) => r.fingerprint));
       const fresh = body.findings.filter((f) => !have.has(f.fingerprint));
@@ -130,8 +196,9 @@ export function WatchView({ access, go }) {
           </div>
           <ul className="watch-sources">
             <li><b>Медіа</b> — GDELT (світовий індекс новин, 65+ мов) і ваші RSS-стрічки.</li>
-            <li><b>Контрагенти й санкції</b> — санкційні списки OFAC (США) і ЄС: збіг за назвою (з транслітерацією) або за кодом.</li>
+            <li><b>Контрагенти й санкції</b> — санкційні списки РНБО (України), OFAC (США) і ЄС: збіг за назвою (з транслітерацією) або за кодом.</li>
           </ul>
+          {access.canEdit && <RnboList onUploaded={(f) => activeLists.length && run([], f)} />}
           {last && (last.error ? <div className="vx-error">{last.error}</div> : (
             <div className="stack">
               <Status kind="ok">Знайдено {last.total}, нових {last.fresh}</Status>

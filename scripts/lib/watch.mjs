@@ -7,75 +7,12 @@
 // same code serves the manual run (api/watch POST) and the daily job (api/watch GET).
 // Only open, official or public-index sources; the list of terms is the company's, the data is not.
 import { createHash } from 'node:crypto';
+import { normName, parseTerms, parseCsv, blank, matchList, parseRnbo, rnboFinding, RNBO_SOURCE } from './match.mjs';
+
+export { translit, normName, nameScore, parseTerms, parseCsv, matchList, parseRnbo, rnboFinding, hashId } from './match.mjs';
 
 export const sha = (s) => createHash('sha256').update(s).digest('hex');
 
-/* ---------- names ---------- */
-
-// Ukrainian (КМУ 2010) and Russian letters to Latin — sanctions lists are in Latin script.
-const TR = {
-  а: 'a', б: 'b', в: 'v', г: 'h', ґ: 'g', д: 'd', е: 'e', є: 'ie', ж: 'zh', з: 'z', и: 'y', і: 'i', ї: 'i', й: 'i',
-  к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts',
-  ч: 'ch', ш: 'sh', щ: 'shch', ь: '', ю: 'iu', я: 'ia', ы: 'y', э: 'e', ъ: '', ё: 'e', "'": '', '’': '', 'ʼ': '',
-};
-export const translit = (s) => [...String(s).toLowerCase()].map((c) => (c in TR ? TR[c] : c)).join('');
-
-// Legal forms and filler words that differ between registries and lists.
-const NOISE = new Set([
-  'tov', 'tzov', 'pp', 'pat', 'prat', 'at', 'vat', 'zat', 'dp', 'kp', 'fop', 'ooo', 'oao', 'zao', 'pao', 'ao', 'ip',
-  'llc', 'ltd', 'limited', 'inc', 'corp', 'corporation', 'co', 'company', 'jsc', 'pjsc', 'ojsc', 'cjsc', 'plc', 'gmbh', 'ag', 'sa', 'srl', 'bv', 'nv', 'oy', 'ab', 'as',
-  'the', 'of', 'and', 'group', 'holding', 'holdings',
-  'tovarystvo', 'z', 'obmezhenoiu', 'vidpovidalnistiu', 'aktsionerne', 'tovarishchestvo', 'obshchestvo', 's', 'ogranichennoi', 'otvetstvennostiu', 'aktsionernoe',
-]);
-// Words too common to identify a company on their own.
-const GENERIC = new Set(['energy', 'energiia', 'trading', 'treidynh', 'invest', 'investment', 'service', 'servis', 'international', 'global', 'industrial', 'logistics', 'lohistyka', 'capital', 'finance', 'resources', 'technologies', 'systems', 'ukraine', 'ukraina', 'bank', 'shipping', 'metal', 'agro']);
-export function normName(s) {
-  return translit(s).replace(/[«»"“”„'`]/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter((t) => t && !NOISE.has(t)).join(' ');
-}
-
-/** Similarity of two normalised names, 0..1. */
-export function nameScore(a, b) {
-  if (!a || !b) return 0;
-  if (a === b) return 1;
-  const A = a.split(' '), B = b.split(' ');
-  const [short, long] = A.length <= B.length ? [A, new Set(B)] : [B, new Set(A)];
-  if (short.every((t) => long.has(t))) {
-    if (short.length >= 2) return 0.9;
-    return short[0].length >= 6 && !GENERIC.has(short[0]) ? 0.75 : 0.4; // one distinctive word inside a longer name
-  }
-  // The leading word of either name is a distinctive shared word («Ромашка Трейдинг» ↔ «Romashka Trading»):
-  // English words written in Ukrainian don't transliterate back, so the brand word carries the match. Checked by hand.
-  const key = (t) => t.length >= 6 && !GENERIC.has(t);
-  if ((key(A[0]) && B.includes(A[0])) || (key(B[0]) && A.includes(B[0]))) return 0.75;
-  const inter = A.filter((t) => B.includes(t)).length;
-  return inter / new Set([...A, ...B]).size;
-}
-
-/** «ТОВ Ромашка; 12345678» → { name, norm, code }. One per non-empty line. */
-export function parseTerms(text) {
-  return String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((line) => {
-    const [name, code] = line.split(';').map((x) => x.trim());
-    return { name, norm: normName(name), code: code && /^[A-Za-z0-9-]{5,20}$/.test(code) ? code.replace(/-/g, '') : null };
-  }).filter((t) => t.name);
-}
-
-/* ---------- CSV ---------- */
-
-export function parseCsv(text, sep = ',') {
-  const rows = []; let row = []; let cell = ''; let q = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (q) {
-      if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c;
-    } else if (c === '"') q = true;
-    else if (c === sep) { row.push(cell); cell = ''; }
-    else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
-    else if (c !== '\r') cell += c;
-  }
-  if (cell || row.length) { row.push(cell); rows.push(row); }
-  return rows;
-}
-const blank = (v) => (v == null || v.trim() === '' || v.trim() === '-0-' ? '' : v.trim());
 
 /** OFAC SDN.CSV (no header): ent_num, name, type, program, title, …, remarks (col 11). ALT.CSV: ent_num, alt_num, type, alt_name. */
 export function parseOfac(sdnCsv, altCsv = '') {
@@ -107,24 +44,6 @@ export function parseEu(csv) {
     by.get(id).names.push(name);
   }
   return [...by.values()];
-}
-
-/** Best match of each term against a list: [{ term, entry, score, how }]. */
-export function matchList(terms, entries, threshold = 0.75) {
-  const prepared = entries.map((e) => ({ e, norms: [...new Set(e.names.map(normName).filter(Boolean))], text: `${e.remarks} ${e.names.join(' ')}` }));
-  const out = [];
-  for (const t of terms) {
-    let best = null;
-    for (const { e, norms, text } of prepared) {
-      if (t.code && text.replace(/[\s-]/g, '').includes(t.code)) { best = { entry: e, score: 1, how: 'код' }; break; }
-      for (const n of norms) {
-        const s = nameScore(t.norm, n);
-        if (s >= threshold && (!best || s > best.score)) best = { entry: e, score: s, how: s === 1 ? 'назва' : 'схожа назва' };
-      }
-    }
-    if (best) out.push({ term: t, ...best });
-  }
-  return out;
 }
 
 /* ---------- media ---------- */
@@ -173,6 +92,7 @@ export const SOURCE_RECORDS = {
   gdelt: { id: 'w-src-gdelt', name: 'GDELT — світові новини', class: 'OSINT', reliability: 'F — не можна оцінити', access: 'Відкриті дані', notes: 'Індекс новин GDELT: надійність залежить від конкретного видання.' },
   rss: { id: 'w-src-rss', name: 'RSS-стрічки медіа', class: 'OSINT', reliability: 'F — не можна оцінити', access: 'Відкриті дані', notes: 'Стрічки зі списків спостереження.' },
   ofac: { id: 'w-src-ofac', name: 'OFAC SDN (США)', class: 'FININT', reliability: 'A — повністю надійне', access: 'Відкриті дані', notes: 'Офіційний санкційний список Мінфіну США.' },
+  rnbo: RNBO_SOURCE,
   eu: { id: 'w-src-eu', name: 'Санкційний список ЄС', class: 'FININT', reliability: 'A — повністю надійне', access: 'Відкриті дані', notes: 'Consolidated list of financial sanctions, Єврокомісія.' },
 };
 
@@ -203,6 +123,13 @@ export async function runWatch({ watchlists, fetchImpl, cfg, now = new Date() })
     if (s.eu?.enabled) {
       try { lists.eu = parseEu(await getText(fetchImpl, s.eu.url, ua)); } catch (e) { errors.push({ source: 'eu', message: e.message }); }
     }
+    // The RNBO register sits behind a browser check: from a server it may answer 403. The platform then
+    // matches against the file a person downloaded (Конвеєр → «Список РНБО»).
+    if (s.rnbo?.enabled) {
+      try { lists.rnbo = parseRnbo(await getText(fetchImpl, s.rnbo.url, ua)); } catch (e) {
+        errors.push({ source: 'rnbo', message: /HTTP 403/.test(e.message) ? 'реєстр РНБО пускає лише браузер — оновіть список вручну в «Конвеєрі»' : e.message });
+      }
+    }
     return lists;
   };
 
@@ -214,6 +141,7 @@ export async function runWatch({ watchlists, fetchImpl, cfg, now = new Date() })
       const L = await loadLists();
       for (const [key, entries] of Object.entries(L)) {
         for (const m of matchList(terms, entries, cfg.match?.report ?? 0.75)) {
+          if (key === 'rnbo') { const f = rnboFinding(w, m, day); findings.push(f); n++; continue; }
           const listName = cfg.sanctions[key].name;
           add({
             fingerprint: sha(`${w.id}|${key}|${m.entry.id}|${m.term.norm}`),

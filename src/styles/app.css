@@ -808,3 +808,5 @@ kbd {
   .og__side { max-height: none; }
   .co-owners { grid-template-columns: 1fr; gap: 4px; }
 }
+.rnbo { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-md); }
+@media (max-width: 900px) { .rnbo { flex-direction: column; align-items: stretch; } }
