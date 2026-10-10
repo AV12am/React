@@ -7,7 +7,7 @@ export default [
   { ignores: ['dist', 'node_modules'] },
   {
     files: ['src/**/*.{js,jsx}'],
-    languageOptions: { ecmaVersion: 2023, sourceType: 'module', globals: globals.browser, parserOptions: { ecmaFeatures: { jsx: true } } },
+    languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: globals.browser, parserOptions: { ecmaFeatures: { jsx: true } } },
     plugins: { react, 'react-hooks': reactHooks },
     settings: { react: { version: '18.3' } },
     rules: {
@@ -21,7 +21,7 @@ export default [
   },
   {
     files: ['scripts/**/*.mjs', 'eslint.config.js', 'vite.config.js'],
-    languageOptions: { ecmaVersion: 2023, sourceType: 'module', globals: globals.node },
+    languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: globals.node },
     rules: js.configs.recommended.rules,
   },
 ];

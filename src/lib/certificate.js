@@ -1,6 +1,10 @@
 // Сертифікат Академії: a one-page landscape certificate for a passed course, printed to PDF.
 import { hashId } from '../../scripts/lib/match.mjs';
 import { VALID_DAYS } from '../data/academy/meta.js';
+import paths from '../brand/mark-paths.json' with { type: 'json' };
+
+// The mark, large and faint behind the text.
+const LOGO = `<svg class="logo" viewBox="-100 -100 200 200" aria-hidden="true"><g fill="#111" fill-rule="evenodd">${[...paths.petals, paths.core].map((d) => `<path d="${d}"/>`).join('')}</g></svg>`;
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const day = (iso) => new Date(iso).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -29,7 +33,8 @@ export function certificateHtml({ user, course, result, grade, track }) {
   .foot { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8mm; font-size: 9.5pt; color: #444; position: relative; align-items: end; }
   .foot b { display: block; font-size: 10.5pt; color: #111; font-weight: 600; }
   .foot .c { text-align: center; } .foot .r { text-align: right; }
-</style></head><body><div class="sheet"><div class="frame"></div>
+  .logo { position: absolute; left: 50%; top: 50%; width: 120mm; height: 120mm; transform: translate(-50%, -50%); opacity: .07; }
+</style></head><body><div class="sheet"><div class="frame"></div>${LOGO}
   <div class="top">REACTION<span class="rh"></span>CORE · АКАДЕМІЯ</div>
   <div class="mid">
     <div class="kind">Сертифікат</div>
