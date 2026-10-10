@@ -517,7 +517,7 @@ function NewFolder({ onClose }) {
   const save = async () => {
     const folder = { id: `f-${Date.now().toString(36)}`, name: name.trim(), clearance: level, division: me.division };
     if (backend?.index) {
-      try { await backend.index.addFolder(folder); } catch (e) { toast(`Не вдалося створити папку: ${await refused(e)}`, 'error'); return; }
+      try { await backend.index.addFolder(folder); } catch (e) { toast(`Не вдалося створити папку: ${await refused(e, folder)}`, 'error'); return; }
     }
     dispatch({ type: 'folder/add', folder });
     toast('Папку створено');

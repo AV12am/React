@@ -6,7 +6,7 @@ import { storage } from './lib/storage.js';
 import { createSync, isRlsError } from './lib/sync.js';
 import { status as passkeyStatus } from './lib/passkey.js';
 import { notify } from './lib/notify.js';
-import { supabaseOn, signedIn, onSession, signOut, currentEmail } from './lib/supabase.js';
+import { supabaseOn, signedIn, onSession, signOut, currentEmail, rest } from './lib/supabase.js';
 
 // v3: LUMEN · UMBRA · NOX scale. v2 state (old four-step scale) is migrated on load.
 const KEY = 'reaction-core/v3';
@@ -404,13 +404,20 @@ export function StoreProvider({ children }) {
   }, []);
   toastRef.current = toast;
 
-  // A write the server refused by row-level security: most often the 24-hour passkey confirmation has run out.
-  // Returns a message for the person; asks for the passkey again when that is the reason.
-  const refused = useCallback(async (e) => {
+  // A write the server refused by row-level security. The database itself is asked why: if it no longer
+  // recognises this sign-in as confirmed (the passkey step expired or the session was ended elsewhere),
+  // the passkey is asked for again; otherwise the message names the level that was refused.
+  const refused = useCallback(async (e, doc) => {
     if (!isRlsError(e)) return e?.message || 'Помилка';
-    const still = backend?.needsSignIn ? await passkeyStatus().then((x) => !!x.verified).catch(() => true) : true;
-    if (!still) { dispatch({ type: 'session/verified', value: false }); return 'Підтвердження входу минуло — підтвердьте ключем ще раз і повторіть'; }
-    return 'Сервер відхилив запис: недостатньо прав (гриф вищий за ваш допуск)';
+    if (!backend?.needsSignIn) return 'Сервер відхилив запис: недостатньо прав';
+    const rows = await rest(`core_members?select=email,doc&email=eq.${encodeURIComponent(currentEmail() || '')}`).catch(() => null);
+    if (Array.isArray(rows) && !rows.length) {
+      dispatch({ type: 'session/verified', value: false });
+      return 'База не бачить підтвердження цього входу — підтвердьте ключем ще раз і повторіть';
+    }
+    const mine = rows?.[0]?.doc?.clearance;
+    const want = doc?.clearance;
+    return `Сервер відхилив запис${want != null ? ` (гриф ${want}` : ''}${mine != null ? `${want != null ? ', ' : ' ('}ваш допуск у базі ${mine})` : want != null ? ')' : ''}. Перевірте свій допуск у «Доступах».`;
   }, [backend]);
 
   const value = useMemo(() => {

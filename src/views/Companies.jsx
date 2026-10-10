@@ -68,7 +68,7 @@ async function fileForCompany(ctx, org, list, kind, numbers = []) {
   let folder = state.folders.find((f) => f.id === id);
   if (!folder) {
     folder = { id, name: `Компанії / ${org.name}`, clearance: org.clearance || 0, division: 'int', group: 'companies', org: org.id };
-    if (backend.index) { try { await backend.index.addFolder(folder); } catch (e) { throw new Error(await refused(e)); } }
+    if (backend.index) { try { await backend.index.addFolder(folder); } catch (e) { throw new Error(await refused(e, folder)); } }
     dispatch({ type: 'folder/add', folder });
   }
   const year = new Date().getFullYear();
@@ -88,7 +88,7 @@ async function fileForCompany(ctx, org, list, kind, numbers = []) {
     };
     if (kind === 'doc') { const text = await extractText(file); if (text) meta.text = text; meta.indexed = true; }
     if (backend.index) {
-      try { await backend.index.addFile(meta); } catch (e) { await backend.remove(meta).catch(() => {}); throw new Error(`«${file.name}»: ${await refused(e)}`); }
+      try { await backend.index.addFile(meta); } catch (e) { await backend.remove(meta).catch(() => {}); throw new Error(`«${file.name}»: ${await refused(e, meta)}`); }
     }
     dispatch({ type: 'file/add', file: meta });
     numbers.push(meta.number);
