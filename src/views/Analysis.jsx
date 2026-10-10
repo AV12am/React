@@ -6,6 +6,8 @@ import { Icon } from '../components/Icon.jsx';
 import { registerOf, OUTCOMES } from '../data/workspaces.js';
 import { chainOf, reasonsFor, usedBy, reviewQueue, isOpen, attention } from '../lib/provenance.js';
 import { OrgExtras } from './Orgs.jsx';
+import { canReport, reportNumber, reportModel, printReport, reportDocx, reportFileName } from '../lib/report.js';
+import { saveFile } from '../lib/io.js';
 import { wordFor, isForecast, outcomeValue, calibration, summary, byAnalyst, brier, skill } from '../lib/forecast.js';
 
 const titleOf = (r) => {
@@ -85,6 +87,38 @@ function Resolve({ record, canEdit }) {
   );
 }
 
+/** «Звіт»: the product as a PDF (print dialog) or a Word document, with its grif and number. */
+function ReportButtons({ record }) {
+  const { state, dispatch, toast } = useStore();
+  const [busy, setBusy] = useState('');
+  if (!canReport(record)) return <div className="vx-hint">Гриф цього продукту не дозволяє виносити його за межі системи — звіт лише в платформі.</div>;
+  const make = async (kind) => {
+    setBusy(kind);
+    try {
+      const records = state.records || [];
+      const number = reportNumber(record, { records, files: state.files });
+      const m = reportModel(record, { records, users: state.users, number });
+      if (kind === 'pdf') printReport(m);
+      else {
+        const res = await saveFile(reportFileName(m, 'docx'), await reportDocx(m));
+        if (res !== 'saved') throw new Error(res === 'declined' ? 'Збереження скасовано' : 'Не вдалося зберегти файл');
+      }
+      dispatch({ type: 'report/export', id: record.id, number, format: kind === 'pdf' ? 'PDF' : 'Word', label: m.title, level: record.clearance });
+    } catch (e) { toast(e.message || 'Не вдалося сформувати звіт', 'error'); } finally { setBusy(''); }
+  };
+  return (
+    <div className="stack">
+      <div className="vx-eyebrow">Звіт</div>
+      <div className="toolbar">
+        <button className="vx-btn vx-btn--sm" disabled={!!busy} onClick={() => make('pdf')}><Icon name="file" /> PDF</button>
+        <button className="vx-btn vx-btn--sm" disabled={!!busy} onClick={() => make('docx')}><Icon name="download" /> Word</button>
+        {record.number && <span className="vx-hint vx-mono">{record.number}</span>}
+      </div>
+      <div className="vx-hint">З грифом на кожній сторінці, ключовими судженнями й ланцюгом підстав. Те, що вище грифа продукту, у звіт не потрапляє.</div>
+    </div>
+  );
+}
+
 /** Extra sections in a record's drawer: the chain and its flags (products, judgments), what relies on it (intake, sources). */
 export function RecordExtras({ reg, record, canEdit, go }) {
   const { state, me, dispatch } = useStore();
@@ -96,6 +130,7 @@ export function RecordExtras({ reg, record, canEdit, go }) {
     return (
       <>
         {reg.id === 'judgments' && <Resolve record={record} canEdit={canEdit} />}
+        {reg.id === 'products' && <ReportButtons record={record} />}
         <div className="stack">
           <div className="vx-eyebrow">Звідки ми це знаємо</div>
           <ChainList record={record} go={go} />

@@ -226,6 +226,11 @@ function reducer(state, a) {
       const p = state.points.find((x) => x.id === a.id);
       return withAudit({ ...state, points: state.points.filter((x) => x.id !== a.id) }, me, 'map', `Видалено позначку «${p.name}»`, p.clearance);
     }
+    case 'report/export': {
+      // The first report gives the product its document number; every export is logged.
+      const records = (state.records || []).map((r) => (r.id === a.id && !r.number ? { ...r, number: a.number, updated: new Date().toISOString() } : r));
+      return withAudit({ ...state, records }, me, 'work', `Аналітика · Продукти: звіт ${a.format} ${a.number} «${a.label}»`, a.level);
+    }
     case 'map/log':
       return withAudit(state, me, 'map', a.text);
     case 'seen':
