@@ -782,3 +782,29 @@ kbd {
 .brief__title { min-width: 0; overflow-wrap: anywhere; }
 .brief__more { padding: 2px 0; }
 .brief__range button { height: 30px; padding: 0 10px; font-size: 13px; }
+
+/* Граф зв'язків компаній */
+.og { display: grid; gap: 12px; }
+.og__body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; align-items: start; }
+.og__svg { width: 100%; height: auto; aspect-ratio: 1000 / 680; cursor: grab; touch-action: none; user-select: none; background: var(--surface); }
+.og__svg:active { cursor: grabbing; }
+.og__side { padding: 16px 18px; max-height: 70vh; overflow-y: auto; min-width: 0; }
+.og-link { stroke: var(--line-strong); stroke-width: 1; }
+.og-link--parent { stroke: var(--ink-3); stroke-dasharray: 3 3; }
+.og-link--body { stroke: var(--rhomb); stroke-width: 1.4; }
+.og-link.is-dim, .og-node.is-dim { opacity: .14; }
+.og-node { cursor: pointer; outline: none; }
+.og-node text { font: 11px var(--font-text); fill: var(--ink-2); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; pointer-events: none; }
+.og-node--company circle { fill: var(--ink-2); stroke: var(--surface); stroke-width: 1.5; }
+.og-node rect { fill: var(--surface-3, #2a2a2a); stroke: var(--ink-2); stroke-width: 1.4; }
+.og-node--state rect { fill: var(--rhomb); stroke: var(--rhomb); }
+.og-node:not(.og-node--company) text { font-weight: 600; fill: var(--ink); font-size: 12px; }
+.og-node.is-focus circle, .og-node.is-focus rect { stroke: var(--brass); stroke-width: 3; }
+.og-node:focus-visible circle, .og-node:focus-visible rect { stroke: var(--brass); stroke-width: 3; }
+.co-owners { display: grid; grid-template-columns: 200px 1fr; gap: 12px; }
+.co-owners__peers { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+@media (max-width: 900px) {
+  .og__body { grid-template-columns: 1fr; }
+  .og__side { max-height: none; }
+  .co-owners { grid-template-columns: 1fr; gap: 4px; }
+}

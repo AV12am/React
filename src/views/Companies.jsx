@@ -14,6 +14,8 @@ import { docNumber, nextSerial } from '../data/clearance.js';
 import { storageError } from '../lib/storage.js';
 import { usedBy } from '../lib/provenance.js';
 import { OrgExtras, orgToRecord, refPatches } from './Orgs.jsx';
+import { CompanyGraph } from './CompanyGraph.jsx';
+import { relatedThroughOwners } from '../lib/orggraph.js';
 
 const isImage = (f) => /^image\//.test(f?.type || '');
 const openRecord = (go, r) => go('divisions', r.div, `${r.col}:${r.id}`);
@@ -125,6 +127,7 @@ function CompanyList({ access, go }) {
   const [q, setQ] = useState('');
   const [sector, setSector] = useState('');
   const [rel, setRel] = useState('');
+  const [mode, setMode] = useState('list');
   const orgs = (state.records || []).filter((r) => r.col === 'orgs' && r.clearance <= me.clearance);
   const shown = orgs
     .filter((o) => !sector || o.sector === sector)
@@ -152,9 +155,17 @@ function CompanyList({ access, go }) {
       </Panel>
     );
   }
+  const modes = (
+    <span className="segmented" role="group" aria-label="Вигляд">
+      <button className={mode === 'list' ? 'is-active' : ''} onClick={() => setMode('list')}>Список</button>
+      <button className={mode === 'graph' ? 'is-active' : ''} onClick={() => setMode('graph')}>Зв’язки</button>
+    </span>
+  );
+  if (mode === 'graph') return <div className="stack"><div className="toolbar">{modes}</div><CompanyGraph orgs={orgs} go={go} /></div>;
   return (
     <div className="stack">
       <div className="toolbar">
+        {modes}
         <div className="vx-search toolbar__grow">
           <Icon name="search" />
           <input className="vx-input" placeholder="Назва, ЄДРПОУ, місто або слово з опису" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Пошук компаній" />
@@ -253,6 +264,7 @@ function CompanyPage({ org, access, go }) {
     return [...recs.filter((r) => r.col === 'intake' && r.org === org.id), ...usedBy(org.id, recs)].filter((r) => r.clearance <= me.clearance);
   }, [state.records, org.id, me.clearance]);
   const canEdit = access.canEdit && backend?.writable !== false;
+  const owners = useMemo(() => relatedThroughOwners(org, (state.records || []).filter((r) => r.col === 'orgs' && r.clearance <= me.clearance)), [org, state.records, me.clearance]);
 
   const run = async (label, fn) => { setBusy(label); try { await fn(); } catch (e) { toast(e.message || 'Помилка'); } finally { setBusy(''); } };
   const onLogo = (list) => run('logo', async () => {
@@ -354,6 +366,17 @@ function CompanyPage({ org, access, go }) {
           <button className="ws-link" onClick={() => go('vault', fid)}>Відкрити папку</button>
         </div>
       </Panel>
+
+      {owners.length > 0 && (
+        <Panel title="Пов’язані через власників" bodyClass="list">
+          {owners.map((g) => (
+            <div key={g.id} className="list__row list__row--top co-owners">
+              <span className="vx-hint">{g.name}</span>
+              <span className="co-owners__peers">{g.peers.map((p) => <button key={p.id} className="ws-link" onClick={() => go('divisions', 'int', `companies:${p.id}`)}>{p.name}</button>)}</span>
+            </div>
+          ))}
+        </Panel>
+      )}
 
       <Panel title={`Пов’язані записи · ${related.length}`} bodyClass="list">
         {related.map((r) => (
