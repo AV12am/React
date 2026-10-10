@@ -21,12 +21,14 @@ const FROM = env.BRIEF_FROM || '';
 async function load() {
   const [members, docs] = await Promise.all([
     db('core_members?select=id,email,doc'),
-    db('core_docs?select=kind,doc&kind=in.(records,requests)'),
+    db('core_docs?select=kind,doc&kind=in.(records,requests,tasks,comments)'),
   ]);
   return {
     members,
     records: docs.filter((d) => d.kind === 'records').map((d) => d.doc),
     requests: docs.filter((d) => d.kind === 'requests').map((d) => d.doc),
+    tasks: docs.filter((d) => d.kind === 'tasks').map((d) => d.doc),
+    comments: docs.filter((d) => d.kind === 'comments').map((d) => d.doc),
   };
 }
 
@@ -42,7 +44,7 @@ async function send(to, b, name, appUrl) {
 }
 
 const briefFor = (m, data, now) => buildBrief({
-  records: data.records, requests: data.requests, now, nameUpTo: 0,
+  records: data.records, requests: data.requests, tasks: data.tasks, comments: data.comments, users: data.members.map((x) => ({ id: x.id, name: x.doc?.name })), now, nameUpTo: 0,
   me: { id: m.id, role: m.doc?.role, clearance: Math.max(0, Math.min(2, +m.doc?.clearance || 0)) },
 });
 const appUrlOf = (req) => env.APP_URL || `https://${req.headers.get('host') || ''}`;

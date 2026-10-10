@@ -9,6 +9,7 @@ import { wordFor } from '../lib/forecast.js';
 import { RecordExtras, ReviewView, ForecastsView, reviewCount } from './Analysis.jsx';
 import { WatchView } from './Watch.jsx';
 import { CompaniesView } from './Companies.jsx';
+import { Discussion, RecordTasks } from './Team.jsx';
 import { BUILTIN as ACAD_BUILTIN, BUILTIN_NOTE as ACAD_NOTE, builtinCount } from './AcademyRegisters.jsx';
 import { OrgDirectory } from './Orgs.jsx';
 
@@ -287,6 +288,8 @@ function RecordDrawer({ d, reg, record, access, onClose, go }) {
             <dt>Змінено</dt><dd>{fmtAgo(record.updated)}</dd>
           </dl>
           <RecordExtras reg={reg} record={record} canEdit={access.canEdit} go={go} />
+          <RecordTasks target={record.id} label={titleOf(reg, record)} level={record.clearance} link={`#/divisions/${record.div}/${record.col}:${record.id}`} go={go} />
+          <Discussion target={record.id} label={titleOf(reg, record)} level={record.clearance} link={`#/divisions/${record.div}/${record.col}:${record.id}`} />
         </>
       )}
     </Drawer>

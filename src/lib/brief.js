@@ -26,7 +26,7 @@ export const titleOfRecord = (r) => {
  * @param {number} [p.nameUpTo] highest level whose titles may be shown (default: the reader's clearance)
  * @param {number} [p.limit]    items listed per section (default 6)
  */
-export function buildBrief({ records = [], requests = [], me, now = Date.now(), hours = 24, nameUpTo, limit = 6 }) {
+export function buildBrief({ records = [], requests = [], tasks = [], comments = [], users = [], me, now = Date.now(), hours = 24, nameUpTo, limit = 6 }) {
   const since = new Date(now - hours * 3600000).toISOString();
   const today = isoDay(now);
   const soon = isoDay(now + 7 * DAY);
@@ -68,10 +68,21 @@ export function buildBrief({ records = [], requests = [], me, now = Date.now(), 
   }).sort((a, b) => (a.due || a.deadline).localeCompare(b.due || b.deadline))
     .map((r) => { const d = r.due || r.deadline; return item(r, d < today ? `прострочено з ${d}` : d === today ? 'сьогодні' : d); });
 
+  // Tasks: mine, open, late or due within three days, or newly given to me.
+  const myTasks = tasks.filter((t) => t.assignee === me.id && t.status !== 'done' && (t.clearance ?? 0) <= me.clearance
+    && ((t.due && t.due <= in3) || (t.at || '') >= since))
+    .sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999'))
+    .map((t) => ({ id: t.id, task: true, target: t.target || null, level: t.clearance ?? 0, title: (t.clearance ?? 0) <= top ? t.title : null, note: t.due ? (t.due < today ? `прострочено з ${t.due}` : t.due === today ? 'сьогодні' : `до ${t.due}`) : 'нове' }));
+  const who = (id) => users.find((u) => u.id === id)?.name || 'колега';
+  const mentions = comments.filter((c) => (c.mentions || []).includes(me.id) && c.author !== me.id && (c.at || '') >= since && (c.clearance ?? 0) <= me.clearance)
+    .map((c) => { const r = byId.get(c.target); return { id: c.id, comment: true, target: c.target, div: r?.div, col: r?.col, level: c.clearance ?? 0, title: (c.clearance ?? 0) <= top ? `${who(c.author)}: ${c.text.slice(0, 140)}` : null, note: r && (r.clearance ?? 0) <= top ? titleOfRecord(r) : '' }; });
+
   const canDecide = ['admin', 'lead'].includes(me.role);
   const pending = canDecide ? requests.filter((r) => r.status === 'pending') : [];
 
   const sections = [
+    section('tasks', 'Мої завдання', myTasks, 'Термінових завдань немає'),
+    section('mentions', 'Вас згадали', mentions, 'Згадок немає'),
     section('watch', 'Знахідки конвеєра', auto.map((r) => item(r, watchName(r.watchlist))), 'Нових знахідок немає'),
     section('intake', 'Нові надходження', manual.map((r) => item(r, r.received)), 'Нових надходжень немає'),
     section('due', 'Прогнози на перевірку', due, 'Прогнозів із близькою датою немає'),
@@ -80,7 +91,7 @@ export function buildBrief({ records = [], requests = [], me, now = Date.now(), 
     section('deadlines', 'Терміни на 3 дні', deadlines, 'Термінових справ немає'),
     ...(canDecide ? [section('requests', 'Запити на доступ', pending.map((r) => ({ id: r.id, level: 0, title: r.reason || 'Запит на доступ', note: r.kind })), 'Запитів немає')] : []),
   ];
-  const attentionCount = due.filter((x) => x.note.startsWith('настала')).length + review.length + deadlines.filter((x) => !/^\d/.test(x.note)).length + pending.length;
+  const attentionCount = myTasks.filter((x) => /прострочено|сьогодні/.test(x.note)).length + mentions.length + due.filter((x) => x.note.startsWith('настала')).length + review.length + deadlines.filter((x) => !/^\d/.test(x.note)).length + pending.length;
   return { since, until: new Date(now).toISOString(), sections, total: sections.reduce((a, s) => a + s.total, 0), attention: attentionCount };
 }
 

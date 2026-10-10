@@ -812,3 +812,29 @@ kbd {
 @media (max-width: 900px) { .rnbo { flex-direction: column; align-items: stretch; } }
 .palette__text { display: grid; min-width: 0; text-align: left; }
 .palette__excerpt { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Командна робота */
+.discussion { gap: 12px; }
+.comment { display: flex; gap: 10px; align-items: flex-start; }
+.comment__body { min-width: 0; flex: 1; }
+.comment__head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.comment__del { margin-left: auto; font-size: 12.5px; }
+.comment__text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.mention { color: var(--brass); font-weight: 600; }
+.comment__form { display: grid; gap: 8px; }
+.comment__input { position: relative; }
+.mention-menu { position: absolute; left: 0; right: 0; top: 100%; z-index: 20; padding: 4px; display: grid; box-shadow: 0 12px 32px rgba(0, 0, 0, .35); }
+.task { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.task:last-of-type { border-bottom: 0; }
+.task input { margin-top: 4px; accent-color: var(--brass); }
+.task__body { flex: 1; min-width: 0; }
+.task.is-done .task__title { text-decoration: line-through; color: var(--ink-3); }
+.task.is-late .task__title { color: var(--danger); }
+.task-form { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.task-form > * { min-width: 0; }
+.vx-drawer .task-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.vx-drawer .task-form .vx-input:first-child { grid-column: 1 / -1; }
+.vx-drawer .task-form .vx-btn { grid-column: 1 / -1; justify-self: start; }
+.tasks-panel .vx-panel__head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.tasks-panel .segmented button { height: 30px; padding: 0 10px; font-size: 13px; }
+@media (max-width: 900px) { .task-form { grid-template-columns: 1fr 1fr; } .task-form .vx-input:first-child { grid-column: 1 / -1; } }

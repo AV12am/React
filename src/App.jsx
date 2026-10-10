@@ -256,11 +256,17 @@ function useNotices() {
       && (me.role === 'admin' || state.users.find((u) => u.id === r.user)?.division === me.division))
     : [];
   const mine = state.requests.filter((r) => r.user === me.id && r.status !== 'pending');
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+  const mentions = (state.comments || []).filter((c) => (c.mentions || []).includes(me.id) && c.author !== me.id && c.at > weekAgo);
+  const given = (state.tasks || []).filter((t) => t.assignee === me.id && t.author !== me.id && t.status !== 'done' && t.at > weekAgo);
   const items = [
     ...toDecide.map((r) => ({ id: r.id, at: r.at, kind: 'decide', r })),
     ...mine.map((r) => ({ id: r.id, at: r.at, kind: 'mine', r })),
+    ...mentions.map((c) => ({ id: c.id, at: c.at, kind: 'mention', c })),
+    ...given.map((t) => ({ id: t.id, at: t.at, kind: 'task', t })),
   ].sort((a, b) => b.at.localeCompare(a.at));
-  const unread = toDecide.length + mine.filter((x) => (x.resolvedAt || x.at) > seen).length;
+  const unread = toDecide.length + mine.filter((x) => (x.resolvedAt || x.at) > seen).length
+    + mentions.filter((c) => c.at > seen).length + given.filter((t) => t.at > seen).length;
   return { items, unread };
 }
 
@@ -278,6 +284,19 @@ function Bell({ open, setOpen, go }) {
           <div className="vx-panel__head"><h2 className="vx-panel__title">Сповіщення</h2></div>
           <div className="list">
             {items.slice(0, 8).map((n) => {
+              if (n.kind === 'mention' || n.kind === 'task') {
+                const rec = (state.records || []).find((r) => r.id === (n.c?.target || n.t?.target));
+                const open = () => (rec ? go('divisions', rec.div, rec.col === 'orgs' ? `companies:${rec.id}` : `${rec.col}:${rec.id}`) : go('overview'));
+                return (
+                  <button key={n.id} className="list__row list__row--btn list__row--top" onClick={open}>
+                    <Icon name={n.kind === 'mention' ? 'users' : 'check'} size={16} />
+                    <span className="list__text">
+                      <span>{n.kind === 'mention' ? `${userById(n.c.author)?.name || 'Колега'} згадав(-ла) вас` : `Завдання: ${n.t.title}`}</span>
+                      <span className="vx-hint">{n.kind === 'mention' ? n.c.text.slice(0, 90) : `від ${userById(n.t.author)?.name || '—'}${n.t.due ? ` · до ${n.t.due}` : ''}`} · {fmtAgo(n.at)}</span>
+                    </span>
+                  </button>
+                );
+              }
               const u = userById(n.r.user);
               const what = requestLabel(state, n.r);
               return n.kind === 'decide' ? (

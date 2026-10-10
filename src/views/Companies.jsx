@@ -16,6 +16,7 @@ import { extractText } from '../lib/textract.js';
 import { usedBy } from '../lib/provenance.js';
 import { OrgExtras, orgToRecord, refPatches } from './Orgs.jsx';
 import { CompanyGraph } from './CompanyGraph.jsx';
+import { Discussion, RecordTasks } from './Team.jsx';
 import { relatedThroughOwners } from '../lib/orggraph.js';
 import { diffEdr, edrIntake, EDR_SOURCE } from '../../scripts/lib/edr.mjs';
 import { supabaseOn, authHeaders } from '../lib/supabase.js';
@@ -438,6 +439,13 @@ function CompanyPage({ org, access, go }) {
           </button>
         ))}
         {!related.length && <div className="list__row vx-hint">Надходжень і суджень про цю компанію ще немає.</div>}
+      </Panel>
+
+      <Panel title="Робота команди">
+        <div className="stack">
+          <RecordTasks target={org.id} label={org.name} level={org.clearance} link={`#/divisions/int/companies:${org.id}`} go={go} />
+          <Discussion target={org.id} label={org.name} level={org.clearance} link={`#/divisions/int/companies:${org.id}`} />
+        </div>
       </Panel>
 
       {lightbox && <Lightbox file={lightbox} canEdit={canEdit} onClose={() => setLightbox(null)} onRemove={() => removeFile(lightbox)}

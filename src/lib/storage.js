@@ -143,7 +143,7 @@ function supabaseBackend() {
           try {
             const [members, docs, audit] = await Promise.all([
               rest('core_members?select=doc,id'),
-              rest('core_docs?select=kind,doc&kind=in.(records,requests)'),
+              rest('core_docs?select=kind,doc&kind=in.(records,requests,comments,tasks)'),
               rest('core_docs?select=doc&kind=eq.audit&order=updated_at.desc&limit=300'),
             ]);
             // No members visible means the server does not count this sign-in (e.g. the passkey
@@ -152,6 +152,8 @@ function supabaseBackend() {
             onKind('users', members.map((r) => ({ ...r.doc, id: r.id })));
             onKind('records', docs.filter((r) => r.kind === 'records').map((r) => r.doc));
             onKind('requests', docs.filter((r) => r.kind === 'requests').map((r) => r.doc));
+            onKind('comments', docs.filter((r) => r.kind === 'comments').map((r) => r.doc));
+            onKind('tasks', docs.filter((r) => r.kind === 'tasks').map((r) => r.doc));
             onKind('audit', audit.map((r) => r.doc));
           } catch { /* offline: keep what we have */ }
         };

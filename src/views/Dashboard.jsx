@@ -5,6 +5,7 @@ import { Panel, StatTile, Status, BarList, Trend, Avatar } from '../components/u
 import { Icon } from '../components/Icon.jsx';
 import { STORAGE_QUOTA, DIVISIONS } from '../data/seed.js';
 import { BriefPanel } from './Brief.jsx';
+import { TasksPanel } from './Team.jsx';
 
 const TYPE_LABEL = { auth: 'Вхід', access: 'Доступ', vault: 'Сховище', map: 'Карта', work: 'Напрями', security: 'Безпека', system: 'Система' };
 
@@ -61,6 +62,7 @@ export function Dashboard({ go }) {
       </header>
 
       <BriefPanel go={go} />
+      <TasksPanel go={go} />
 
       <div className="grid grid--stats">
         <StatTile label="Нові файли · тиждень" value={newFiles} delta={`усього ${state.files.length}`} />

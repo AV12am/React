@@ -17,6 +17,8 @@ const initial = () => ({
   files: FILES,
   points: [],
   records: [], // division workspaces (src/data/workspaces.js)
+  comments: [], // discussion on records: { id, target, text, author, at, mentions[], clearance }
+  tasks: [], // { id, title, assignee, due, status: open|done, target?, author, at, updated, clearance }
   seen: {},
   audit: SEED_AUDIT,
   settings: { theme: 'matte', sensitive: true, lockMinutes: 0, hideLock: -1, lockV: 3 },
@@ -236,6 +238,31 @@ function reducer(state, a) {
       const records = (state.records || []).map((r) => (r.id === a.id && !r.number ? { ...r, number: a.number, updated: new Date().toISOString() } : r));
       return withAudit({ ...state, records }, me, 'work', `Аналітика · Продукти: звіт ${a.format} ${a.number} «${a.label}»`, a.level);
     }
+    case 'comment/add': {
+      const c = { id: uid('cm'), at: new Date().toISOString(), author: me, mentions: [], ...a.comment };
+      return withAudit({ ...state, comments: [...(state.comments || []), c] }, me, 'work', `Коментар до «${a.label}»${c.mentions.length ? ` (згадано: ${c.mentions.length})` : ''}`, c.clearance);
+    }
+    case 'comment/delete': {
+      const c = (state.comments || []).find((x) => x.id === a.id);
+      if (!c) return state;
+      return withAudit({ ...state, comments: state.comments.filter((x) => x.id !== a.id) }, me, 'work', `Видалено коментар до «${a.label}»`, c.clearance);
+    }
+    case 'task/add': {
+      const now = new Date().toISOString();
+      const t = { id: uid('tk'), at: now, updated: now, author: me, status: 'open', ...a.task };
+      return withAudit({ ...state, tasks: [t, ...(state.tasks || [])] }, me, 'work', `Завдання «${t.title}»`, t.clearance);
+    }
+    case 'task/update': {
+      const t = (state.tasks || []).find((x) => x.id === a.id);
+      if (!t) return state;
+      const next = { ...t, ...a.patch, updated: new Date().toISOString() };
+      return withAudit({ ...state, tasks: state.tasks.map((x) => (x.id === a.id ? next : x)) }, me, 'work', `Завдання «${t.title}»: ${a.note || 'змінено'}`, t.clearance);
+    }
+    case 'task/delete': {
+      const t = (state.tasks || []).find((x) => x.id === a.id);
+      if (!t) return state;
+      return withAudit({ ...state, tasks: state.tasks.filter((x) => x.id !== a.id) }, me, 'work', `Видалено завдання «${t.title}»`, t.clearance);
+    }
     case 'map/log':
       return withAudit(state, me, 'map', a.text);
     case 'seen':
@@ -249,6 +276,8 @@ function reducer(state, a) {
       const by = (k) => (x, y) => String(y[k] || '').localeCompare(String(x[k] || ''));
       const items = a.kind === 'records' ? [...a.items].sort(by('updated'))
         : a.kind === 'requests' ? [...a.items].sort(by('at'))
+          : a.kind === 'tasks' ? [...a.items].sort(by('updated'))
+          : a.kind === 'comments' ? [...a.items].sort((x, y) => String(x.at).localeCompare(String(y.at)))
           : a.kind === 'audit' ? [...a.items].sort(by('at')).slice(0, 500)
             : a.items;
       return { ...state, [a.kind]: items };
@@ -331,7 +360,7 @@ export function StoreProvider({ children }) {
     });
     return () => { live = false; engine?.stop(); syncRef.current = null; };
   }, [backend, loggedIn, sbSession, verified]);
-  useEffect(() => { syncRef.current?.changed(); }, [state.users, state.records, state.requests, state.audit]);
+  useEffect(() => { syncRef.current?.changed(); }, [state.users, state.records, state.requests, state.audit, state.comments, state.tasks]);
 
   const toastRef = useRef(null);
   const toast = useCallback((text, kind = 'ok') => {

@@ -71,3 +71,19 @@ test('cron: sends one letter per active member with news, respects opt-out', asy
     assert.ok(!sent[0].html.includes('Таємне надходження'));
   } finally { globalThis.fetch = realFetch; }
 });
+
+test('tasks and mentions: mine only, within clearance', () => {
+  const tasks = [
+    { id: 't1', title: 'Перевірити контрагента', assignee: 'u', author: 'x', status: 'open', due: '2026-10-09', clearance: 0, at: '2026-10-01' },
+    { id: 't2', title: 'Чуже', assignee: 'x', status: 'open', due: '2026-10-09', clearance: 0 },
+    { id: 't3', title: 'Виконане', assignee: 'u', status: 'done', due: '2026-10-09', clearance: 0 },
+  ];
+  const comments = [
+    { id: 'c1', target: 'p1', text: '@Анна подивись', author: 'x', mentions: ['u'], at: '2026-10-09T20:00:00Z', clearance: 0 },
+    { id: 'c2', target: 'p1', text: 'таємне', author: 'x', mentions: ['u'], at: '2026-10-09T20:00:00Z', clearance: 2 },
+  ];
+  const b = buildBrief({ records: RECS, tasks, comments, users: [{ id: 'x', name: 'Борис' }], me: { id: 'u', role: 'analyst', clearance: 0 }, now: NOW });
+  assert.deepEqual(sec(b, 'tasks').items.map((i) => [i.id, i.note]), [['t1', 'прострочено з 2026-10-09']]);
+  assert.deepEqual(sec(b, 'mentions').items.map((i) => i.id), ['c1']);
+  assert.match(sec(b, 'mentions').items[0].title, /^Борис: @Анна/);
+});

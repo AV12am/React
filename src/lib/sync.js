@@ -1,5 +1,5 @@
 // Keeps the team's shared state in step with the server: people, division records,
-// access requests and the audit log. Works with any backend that offers `docs`
+// access requests, comments, tasks and the audit log. Works with any backend that offers `docs`
 // (watch / put / remove) — today that is Supabase (src/lib/storage.js).
 //
 // How it reconciles:
@@ -10,7 +10,7 @@
 //     row-level security) is reverted by the next pull, and onError reports it.
 //   · The audit log is append-only: entries are added, never pushed as deletions.
 
-export const SHARED_KINDS = ['users', 'records', 'requests', 'audit'];
+export const SHARED_KINDS = ['users', 'records', 'requests', 'audit', 'comments', 'tasks'];
 
 const json = (d) => JSON.stringify(d);
 
