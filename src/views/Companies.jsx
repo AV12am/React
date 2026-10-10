@@ -99,18 +99,26 @@ async function fileForCompany(ctx, org, list, kind, numbers = []) {
 }
 
 /** A picture → a small PNG data URL (longest side 160 px) kept right on the company record. */
+const readAsDataUrl = (file) => new Promise((ok, fail) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => fail(new Error('Не вдалося прочитати файл')); r.readAsDataURL(file); });
 async function logoDataUrl(file) {
-  if (!isImage(file)) throw new Error(`«${file.name}» — не зображення`);
-  const src = URL.createObjectURL(file);
+  const name = (file.name || '').toLowerCase();
+  if (/\.(heic|heif)$/.test(name) || /heic|heif/.test(file.type)) throw new Error('Формат HEIC (фото з iPhone) браузер не читає — збережіть картинку як PNG або JPG');
+  const svg = file.type === 'image/svg+xml' || name.endsWith('.svg');
+  if (!isImage(file) && !svg && !/\.(png|jpe?g|gif|webp|bmp|ico|avif)$/.test(name)) throw new Error(`«${file.name}» — не зображення (потрібен PNG, JPG, SVG або WebP)`);
+  if (file.size > 15 * 1024 * 1024) throw new Error('Файл завеликий (понад 15 МБ)');
+  const src = await readAsDataUrl(file);
   try {
-    const img = await new Promise((ok, fail) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => fail(new Error('Не вдалося прочитати зображення')); i.src = src; });
-    const w = img.naturalWidth || 160; const h = img.naturalHeight || 160;
+    const img = await new Promise((ok, fail) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => fail(new Error('Браузер не зміг відкрити це зображення — спробуйте PNG або JPG')); i.src = src; });
+    const w = img.naturalWidth || 512; const h = img.naturalHeight || 512;
     const k = Math.min(1, 160 / Math.max(w, h));
     const c = document.createElement('canvas');
     c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
     return c.toDataURL('image/png');
-  } finally { URL.revokeObjectURL(src); }
+  } catch (e) {
+    if (svg && file.size < 200 * 1024) return src; // an SVG the canvas would not take: keep it as is
+    throw e;
+  }
 }
 
 function useCompanyFiles(org) {
