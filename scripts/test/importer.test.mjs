@@ -18,7 +18,7 @@ test('dates: ISO, dd.mm.yyyy, Excel serial', () => {
 
 test('CSV with ; — columns mapped by field label, select values checked', async () => {
   const head = reg.fields.filter((f) => !f.hidden).slice(0, 3).map((f) => f.label);
-  const t = await readTable(file('s.csv', `﻿${head.join(';')}\nТОВ Тест;x;y\n`));
+  const t = await readTable(file('s.csv', `\uFEFF${head.join(';')}\nТОВ Тест;x;y\n`));
   assert.equal(t.rows.length, 1);
   const map = autoMap(reg, t.head);
   assert.equal(map[reg.title], 0);
