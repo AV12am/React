@@ -27,17 +27,18 @@ function layout(graph) {
   return { nodes, links };
 }
 
-export function CompanyGraph({ orgs, go }) {
+export function CompanyGraph({ orgs, go, initial = null }) {
   const { me } = useStore();
   const [hideState, setHideState] = useState(false);
-  const [focus, setFocus] = useState(null); // node id
+  const [focus, setFocus] = useState(initial); // node id; opened from a company card → that company
   const [hover, setHover] = useState(null);
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const drag = useRef(null);
   const svg = useRef(null);
   const visible = orgs.filter((o) => (o.clearance ?? 0) <= me.clearance);
   const { nodes, links } = useMemo(() => layout(buildGraph(visible, { hideState })), [visible.length, hideState]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { setFocus(null); }, [hideState]);
+  const first = useRef(true);
+  useEffect(() => { if (first.current) { first.current = false; return; } setFocus(null); }, [hideState]);
 
   // What lights up: for an owner — everything it holds (through the state's bodies too) and their subsidiaries;
   // for a company — its owners, the companies they hold, its parent and subsidiaries.

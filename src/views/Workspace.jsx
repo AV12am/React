@@ -481,7 +481,8 @@ export function Workspace({ divId, tab, go }) {
   const regs = registersOf(divId);
   const views = viewsOf(divId);
   // «intake:w-123» opens that record (links from the «звідки ми це знаємо» chain).
-  const [tabId, openId] = (tab || '').split(':');
+  const [tabId, ...rest] = (tab || '').split(':');
+  const openId = rest.join(':') || undefined; // e.g. «graph:org-…» keeps its own colon
   const current = regs.find((r) => r.id === tabId) || views.find((v) => v.id === tabId) ? tabId : 'overview';
   const access = workspaceAccess(me, perms, d);
   const setTab = (t) => go('divisions', divId, t === 'overview' ? null : t);

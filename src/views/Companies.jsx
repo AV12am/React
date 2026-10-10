@@ -153,12 +153,12 @@ function CompanyCard({ org, go }) {
   );
 }
 
-function CompanyList({ access, go }) {
+function CompanyList({ access, go, graphFocus = null }) {
   const { state, me, dispatch, toast } = useStore();
   const [q, setQ] = useState('');
   const [sector, setSector] = useState('');
   const [rel, setRel] = useState('');
-  const [mode, setMode] = useState('list');
+  const [mode, setMode] = useState(graphFocus ? 'graph' : 'list');
   const orgs = (state.records || []).filter((r) => r.col === 'orgs' && r.clearance <= me.clearance);
   const shown = orgs
     .filter((o) => !sector || o.sector === sector)
@@ -193,7 +193,7 @@ function CompanyList({ access, go }) {
       <button className={mode === 'graph' ? 'is-active' : ''} onClick={() => setMode('graph')}>Зв’язки</button>
     </span>
   );
-  if (mode === 'graph') return <div className="stack"><div className="toolbar">{modes}</div><CompanyGraph orgs={orgs} go={go} /></div>;
+  if (mode === 'graph') return <div className="stack"><div className="toolbar">{modes}</div><CompanyGraph orgs={orgs} go={go} initial={graphFocus} /></div>;
   return (
     <div className="stack">
       <div className="toolbar">
@@ -393,6 +393,12 @@ function CompanyPage({ org, access, go }) {
             {org.status && <span className={`vx-tag ${org.status !== 'Діє' ? 'ws-flag' : ''}`}>{org.status}</span>}
           </div>
           {org.website && <a className="ws-link" href={org.website} target="_blank" rel="noopener noreferrer"><Icon name="globe" size={14} /> {org.website}</a>}
+          <div>
+            <button className="vx-btn vx-btn--sm" disabled={!org.owners} onClick={() => go('divisions', 'int', `companies:graph:${org.id}`)}
+              title={org.owners ? 'Граф власників і пов’язаних компаній' : 'Власників не вказано — додайте їх у «Редагувати дані»'}>
+              <Icon name="layers" /> Зв’язки
+            </button>
+          </div>
         </div>
         {canEdit && !editing && <button className="vx-btn" onClick={() => setEditing(true)}>Редагувати дані</button>}
       </section>
@@ -486,6 +492,7 @@ function CompanyPage({ org, access, go }) {
 /** Workspace view «Компанії»: the list, or one company when `openId` is given. */
 export function CompaniesView({ access, go, openId }) {
   const { state, me } = useStore();
+  if (openId?.startsWith('graph:')) return <CompanyList key={openId} access={access} go={go} graphFocus={openId.slice(6)} />;
   const org = openId && (state.records || []).find((r) => r.id === openId && r.col === 'orgs');
   if (openId && !org) return <Panel><div className="vx-empty">Компанію не знайдено або вона вища за ваш допуск.</div></Panel>;
   if (org && org.clearance > me.clearance) return <Panel><div className="vx-empty">Гриф вище вашого допуску.</div></Panel>;
