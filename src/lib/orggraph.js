@@ -10,6 +10,8 @@ export const OWNER_ENTITIES = [
   { id: 'fdmu', name: 'Фонд державного майна', kind: 'state', parent: 'state', re: /Фонд державного майна|ФДМУ/ },
   { id: 'minfin', name: 'Мінфін', kind: 'state', parent: 'state', re: /Мінфін/ },
   { id: 'mod', name: 'Міноборони', kind: 'state', parent: 'state', re: /Міноборони/ },
+  { id: 'moz', name: 'МОЗ України', kind: 'state', parent: 'state', re: /МОЗ України/ },
+  { id: 'urm', name: 'Українські розподільні мережі', kind: 'state', parent: 'state', re: /Українські розподільні мережі/ },
   { id: 'scm', name: 'СКМ · Рінат Ахметов', kind: 'group', re: /СКМ|Ахметов|ДТЕК/ },
   { id: 'smart', name: 'Smart Holding · Вадим Новинський', kind: 'group', re: /Smart Holding|Новинськ/ },
   { id: 'df', name: 'Group DF · Дмитро Фірташ', kind: 'group', re: /Group DF|Фірташ/ },
@@ -25,6 +27,10 @@ export const OWNER_ENTITIES = [
   { id: 'poroshenko', name: 'Родина Порошенків', kind: 'person', re: /Порошенк/ },
   { id: 'vs', name: 'VS Energy', kind: 'group', re: /VS Energy/ },
   { id: 'kontinuum', name: 'Група «Континіум»', kind: 'group', re: /Континіум/ },
+  { id: 'surkis', name: 'Ігор і Григорій Суркіси', kind: 'person', re: /Суркіс/ },
+  { id: 'grigorishin', name: 'Енергетичний стандарт · Костянтин Григоришин', kind: 'group', re: /Григоришин|Енергетичний стандарт/ },
+  { id: 'neqsol', name: 'NEQSOL Holding · Насіб Гасанов', kind: 'group', re: /NEQSOL/ },
+  { id: 'fairfax', name: 'Fairfax Financial', kind: 'fund', re: /Fairfax/ },
 ];
 
 const plain = (s) => String(s || '').replace(/[«»"“”]/g, '').replace(/\s+/g, ' ').trim();
@@ -37,11 +43,15 @@ const mentions = (text, name) => {
   return new RegExp(`(^|«)${esc}\\p{L}{0,2}(?![\\p{L}])`, 'u').test(String(text).trim());
 };
 
+// Communal property: «… (Київська міська рада)», «… (Рівненська обласна рада)» — one owner node per council.
+const councils = (text) => [...new Set([...String(text).matchAll(/([А-ЯІЇЄҐ][\p{L}’'-]+) (міська|обласна) рада/gu)].map((m) => `${m[1]} ${m[2]} рада`))]
+  .map((name) => ({ id: `rada:${name}`, name, kind: 'council' }));
+
 /** Owners named in a company's text: [{entity}] and [{org}] (another company of the register). */
 export function ownersOf(org, orgs) {
   const text = org.owners || '';
   if (!text) return { entities: [], orgs: [] };
-  const entities = OWNER_ENTITIES.filter((e) => e.re.test(text));
+  const entities = [...OWNER_ENTITIES.filter((e) => e.re.test(text)), ...councils(text)];
   // A sub-body of the state implies the state.
   if (entities.some((e) => e.parent === 'state') && !entities.some((e) => e.id === 'state')) entities.unshift(OWNER_ENTITIES[0]);
   const parents = orgs.filter((o) => o.id !== org.id && mentions(text, o.name));
@@ -58,7 +68,7 @@ export function buildGraph(orgs, { all = false, hideState = false } = {}) {
   const add = (n) => { if (!nodes.has(n.id)) nodes.set(n.id, n); return nodes.get(n.id); };
   for (const o of orgs) {
     const { entities, orgs: parents } = ownersOf(o, orgs);
-    const ents = hideState ? entities.filter((e) => e.kind !== 'state') : entities;
+    const ents = hideState ? entities.filter((e) => e.kind !== 'state' && e.kind !== 'council') : entities;
     if (!ents.length && !parents.length && !all) continue;
     add({ id: o.id, kind: 'company', name: o.name, org: o });
     for (const e of ents) {

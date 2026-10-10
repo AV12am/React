@@ -412,7 +412,7 @@ function CompanyPage({ org, access, go }) {
               {org.about ? <p className="co-about">{org.about}</p> : <div className="vx-hint">Опису ще немає.</div>}
               {org.products && <><div className="vx-eyebrow">Продукти й напрями</div><p className="co-about">{org.products}</p></>}
               {org.owners && <><div className="vx-eyebrow">Власники й бенефіціари</div><p className="co-about">{org.owners}</p>
-                {org.id.startsWith('org-') && <div className="vx-hint">З відкритих джерел (Forbes Україна, Opendatabot, SMIDA), станом на {fmtDate(org.checked || '2026-10-04', false)}. Власність змінюється — звіряйте з реєстром.</div>}</>}
+                {org.id.startsWith('org-') && <div className="vx-hint">З відкритих джерел (реєстри, НБУ, ФДМУ, Forbes Україна, ділові ЗМІ), станом на {fmtDate(org.checked || '2026-10-10', false)}. Власність змінюється — звіряйте з реєстром.</div>}</>}
               {org.notes && <><div className="vx-eyebrow">Нотатки</div><p className="co-about vx-muted">{org.notes}</p></>}
               {org.id.startsWith('org-') && <div className="vx-hint">Опис із довідника — чернетка: перевірте й доповніть.</div>}
             </div>

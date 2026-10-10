@@ -29,3 +29,17 @@ test('without the state, state-only companies drop out', () => {
   assert.ok(noState < all);
   assert.ok(!buildGraph(ORGS, { hideState: true }).nodes.some((n) => n.name === 'Укрзалізниця'));
 });
+
+test('second hundred: councils, Суркіси, NEQSOL and УРМ join the graph', () => {
+  const kyivMetro = ownersOf(by('Київський метрополітен'), ORGS).entities.map((e) => e.id);
+  assert.deepEqual(kyivMetro, ['rada:Київська міська рада']);
+  const rel = (name, id) => relatedThroughOwners(by(name), ORGS).find((r) => r.id === id)?.peers.map((p) => p.name) || [];
+  assert.ok(rel('Київпастранс', 'rada:Київська міська рада').includes('Київзеленбуд'));
+  assert.ok(rel('Львівобленерго', 'surkis').includes('Акцент-Банк (А-Банк)'));
+  assert.ok(rel('ОГХК', 'neqsol').includes('Vodafone Україна'));
+  const urm = ownersOf(by('Хмельницькобленерго'), ORGS).entities.map((e) => e.id);
+  assert.deepEqual(urm.sort(), ['state', 'urm']);
+  const g = buildGraph(ORGS);
+  assert.ok(g.links.some((l) => l.source === 'e:state' && l.target === 'e:urm' && l.kind === 'body'));
+  assert.ok(!buildGraph(ORGS, { hideState: true }).nodes.some((n) => n.kind === 'council'));
+});

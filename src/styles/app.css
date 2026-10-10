@@ -798,6 +798,7 @@ kbd {
 .og-node--company circle { fill: var(--ink-2); stroke: var(--surface); stroke-width: 1.5; }
 .og-node rect { fill: var(--surface-3, #2a2a2a); stroke: var(--ink-2); stroke-width: 1.4; }
 .og-node--state rect { fill: var(--rhomb); stroke: var(--rhomb); }
+.og-node--council rect { fill: transparent; stroke: var(--rhomb); stroke-width: 1.6; }
 .og-node:not(.og-node--company) text { font-weight: 600; fill: var(--ink); font-size: 12px; }
 .og-node.is-focus circle, .og-node.is-focus rect { stroke: var(--brass); stroke-width: 3; }
 .og-node:focus-visible circle, .og-node:focus-visible rect { stroke: var(--brass); stroke-width: 3; }
