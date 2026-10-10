@@ -838,3 +838,7 @@ kbd {
 .tasks-panel .vx-panel__head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .tasks-panel .segmented button { height: 30px; padding: 0 10px; font-size: 13px; }
 @media (max-width: 900px) { .task-form { grid-template-columns: 1fr 1fr; } .task-form .vx-input:first-child { grid-column: 1 / -1; } }
+.import { display: grid; gap: 16px; }
+.import__map { display: grid; gap: 6px; max-height: 40vh; overflow-y: auto; }
+.import__row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 10px; align-items: center; }
+.import__skip { align-self: end; padding-bottom: 10px; }

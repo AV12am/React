@@ -10,6 +10,7 @@ import { RecordExtras, ReviewView, ForecastsView, reviewCount } from './Analysis
 import { WatchView } from './Watch.jsx';
 import { CompaniesView } from './Companies.jsx';
 import { Discussion, RecordTasks } from './Team.jsx';
+import { ImportButton } from './Import.jsx';
 import { BUILTIN as ACAD_BUILTIN, BUILTIN_NOTE as ACAD_NOTE, builtinCount } from './AcademyRegisters.jsx';
 import { OrgDirectory } from './Orgs.jsx';
 
@@ -359,6 +360,7 @@ function RegisterView({ d, reg, access, go, openId }) {
           <Icon name="search" />
           <input className="vx-input" placeholder={`Пошук: ${reg.name.toLowerCase()}`} value={q} onChange={(e) => setQ(e.target.value)} aria-label="Пошук" />
         </div>
+        {access.canEdit && <ImportButton d={d} reg={reg} />}
         {access.canEdit && <button className="vx-btn vx-btn--primary" onClick={() => setOpen('new')}><Icon name="plus" /> Додати {reg.one}</button>}
       </div>
 
