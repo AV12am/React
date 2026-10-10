@@ -5,6 +5,7 @@ import { nextReview } from './data/academy/meta.js';
 import { storage } from './lib/storage.js';
 import { createSync } from './lib/sync.js';
 import { status as passkeyStatus } from './lib/passkey.js';
+import { notify } from './lib/notify.js';
 import { supabaseOn, signedIn, onSession, signOut, currentEmail } from './lib/supabase.js';
 
 // v3: LUMEN · UMBRA · NOX scale. v2 state (old four-step scale) is migrated on load.
@@ -388,7 +389,7 @@ export function StoreProvider({ children }) {
       if (fresh.length) {
         const me = state.users.find((u) => u.id === myId);
         const deciders = state.users.filter((u) => u.id !== myId && u.status === 'active' && (u.role === 'admin' || (u.role === 'lead' && u.division === me?.division))).map((u) => u.id);
-        import('./views/Team.jsx').then(({ notify }) => notify(deciders, 'Запит на доступ', `${me?.name || 'Колега'}: ${fresh[0].reason || 'потрібне рішення'}`, '#/access/requests')).catch(() => {});
+        notify(deciders, 'Запит на доступ', `${me?.name || 'Колега'}: ${fresh[0].reason || 'потрібне рішення'}`, '#/access/requests');
       }
     }
     knownReq.current = ids;

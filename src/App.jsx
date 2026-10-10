@@ -8,12 +8,6 @@ import { PasskeyStep } from './views/Passkey.jsx';
 import { status as passkeyStatus } from './lib/passkey.js';
 import { supabaseOn, signOut } from './lib/supabase.js';
 import { Dashboard } from './views/Dashboard.jsx';
-import { Divisions } from './views/Divisions.jsx';
-import { Access } from './views/Access.jsx';
-import { Vault } from './views/Vault.jsx';
-import { Audit } from './views/Audit.jsx';
-import { Settings } from './views/Settings.jsx';
-import { Learn } from './views/Academy.jsx';
 import { COURSES } from './data/academy/meta.js';
 import { ROLES } from './data/seed.js';
 import { TRACKS } from './data/geo.js';
@@ -24,7 +18,16 @@ import { titleOfRecord } from './lib/brief.js';
 import { snippet } from './lib/textract.js';
 
 // The map ships its own geography (~1 MB), so it loads only when opened.
-const MapView = lazy(() => import('./views/Map.jsx').then((m) => ({ default: m.MapView })));
+// Every section but the overview loads when first opened: the first screen comes up faster, on phones especially.
+const LOADERS = [];
+const section = (load, name) => { LOADERS.push(load); return lazy(() => load().then((m) => ({ default: m[name] }))); };
+const MapView = section(() => import('./views/Map.jsx'), 'MapView');
+const Divisions = section(() => import('./views/Divisions.jsx'), 'Divisions');
+const Access = section(() => import('./views/Access.jsx'), 'Access');
+const Vault = section(() => import('./views/Vault.jsx'), 'Vault');
+const Audit = section(() => import('./views/Audit.jsx'), 'Audit');
+const Settings = section(() => import('./views/Settings.jsx'), 'Settings');
+const Learn = section(() => import('./views/Academy.jsx'), 'Learn');
 // v0 sandbox — dev server only; dropped from production builds.
 const V0Sandbox = import.meta.env.DEV ? lazy(() => import('./v0/Sandbox.jsx')) : null;
 
@@ -166,6 +169,13 @@ function Shell() {
   useSwipe(useRef(null), { onRight: openMenu, edge: 24 });
   useSwipe(sideRef, { onLeft: closeMenu });
 
+  // Once the first screen is up, the other sections load quietly in the background.
+  useEffect(() => {
+    const warm = () => LOADERS.forEach((load) => load().catch(() => {}));
+    const t = 'requestIdleCallback' in window ? window.requestIdleCallback(warm, { timeout: 4000 }) : setTimeout(warm, 2500);
+    return () => ('cancelIdleCallback' in window ? window.cancelIdleCallback(t) : clearTimeout(t));
+  }, []);
+
   if (locked) return <Lock onUnlock={() => {}} />;
 
   const page = {
@@ -224,7 +234,7 @@ function Shell() {
           <span className="topbar__secure vx-hint"><Icon name="shield" size={14} /> Захищено</span>
         </header>
         <main className={`content ${current === 'map' ? 'content--map' : ''}`} id="main">
-          <Suspense fallback={<div className="vx-empty page-loading"><Loader size={56} label="Завантаження карти" /><div className="vx-mono">Завантаження карти…</div></div>}>{page}</Suspense>
+          <Suspense fallback={<div className="vx-empty page-loading"><Loader size={56} label="Завантаження" /></div>}>{page}</Suspense>
         </main>
       </div>
 

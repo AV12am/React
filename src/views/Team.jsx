@@ -5,20 +5,13 @@ import { useMemo, useRef, useState } from 'react';
 import { useStore, fmtAgo, fmtDate } from '../store.jsx';
 import { Avatar } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
+import { notify } from '../lib/notify.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
 export const isMine = (t, me) => t.assignee === me.id && t.status !== 'done';
 export const overdue = (t) => t.status !== 'done' && t.due && t.due < today();
 
-/** Ask the server to push a notification to these people (no-op without push set up). */
-export async function notify(to, title, body, url) {
-  if (!to?.length) return;
-  try {
-    const { supabaseOn, authHeaders } = await import('../lib/supabase.js');
-    if (!supabaseOn) return;
-    await fetch(new URL('api/push', document.baseURI), { method: 'POST', headers: await authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ to, title, body, url }) });
-  } catch { /* push is best-effort */ }
-}
+export { notify };
 
 /** Text with @Name replaced by highlighted spans. */
 function Rich({ text, users }) {
