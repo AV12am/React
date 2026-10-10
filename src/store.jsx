@@ -362,6 +362,23 @@ export function StoreProvider({ children }) {
   }, [backend, loggedIn, sbSession, verified]);
   useEffect(() => { syncRef.current?.changed(); }, [state.users, state.records, state.requests, state.audit, state.comments, state.tasks]);
 
+  // A request I have just made reaches those who decide it on their phones too (api/push.js).
+  const knownReq = useRef(null);
+  useEffect(() => {
+    const myId = state.session?.userId;
+    const ids = new Set(state.requests.map((r) => r.id));
+    if (knownReq.current && myId && supabaseOn) {
+      const recent = new Date(Date.now() - 120000).toISOString();
+      const fresh = state.requests.filter((r) => !knownReq.current.has(r.id) && r.user === myId && r.status === 'pending' && (r.at || '') > recent);
+      if (fresh.length) {
+        const me = state.users.find((u) => u.id === myId);
+        const deciders = state.users.filter((u) => u.id !== myId && u.status === 'active' && (u.role === 'admin' || (u.role === 'lead' && u.division === me?.division))).map((u) => u.id);
+        import('./views/Team.jsx').then(({ notify }) => notify(deciders, 'Запит на доступ', `${me?.name || 'Колега'}: ${fresh[0].reason || 'потрібне рішення'}`, '#/access/requests')).catch(() => {});
+      }
+    }
+    knownReq.current = ids;
+  }, [state.requests]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const toastRef = useRef(null);
   const toast = useCallback((text, kind = 'ok') => {
     const id = uid('t');

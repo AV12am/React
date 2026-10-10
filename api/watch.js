@@ -12,6 +12,7 @@ import { readFileSync } from 'node:fs';
 import { runWatch, toIntake, sourceRecord, SOURCE_RECORDS } from '../scripts/lib/watch.mjs';
 import { diffEdr, edrTargets, edrIntake, EDR_SOURCE } from '../scripts/lib/edr.mjs';
 import { fetchEdr } from './edr.js';
+import { sendPush, pushReady } from './_push.js';
 
 const cfg = JSON.parse(readFileSync(new URL('../scripts/watch-sources.json', import.meta.url), 'utf8'));
 export const config = { maxDuration: 60 };
@@ -122,6 +123,12 @@ export async function GET(req) {
     for (const w of lists) {
       const doc = { ...w.doc, lastRun: now.toISOString(), lastFound: w.fresh || 0 };
       await db(`core_docs?kind=eq.records&id=eq.${encodeURIComponent(w.id)}`, { method: 'PATCH', prefer: 'return=minimal', body: { doc } });
+    }
+    // Each list's owner gets one notification about its new findings.
+    if (pushReady()) {
+      for (const w of lists) {
+        if (w.fresh && w.owner) await sendPush([w.owner], { title: `Конвеєр: нових знахідок ${w.fresh}`, body: `Список «${w.name}» — перевірте в «Опрацюванні».`, url: '/#/divisions/int/intake', tag: `watch-${w.id}` }).catch(() => {});
+      }
     }
     const edr = env.EDR_API_KEY ? await checkEdr(now).catch((e) => ({ error: e.message })) : null;
     const total = lists.reduce((a, w) => a + (w.fresh || 0), 0);

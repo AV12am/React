@@ -38,6 +38,58 @@ function BriefMail() {
   );
 }
 
+// Push notifications on this device (api/push.js, public/sw.js): mentions, tasks, requests, conveyor, brief.
+const b64ToBytes = (b64) => { const s = atob((b64 + '='.repeat((4 - (b64.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(s, (c) => c.charCodeAt(0)); };
+function PushSettings() {
+  const { toast } = useStore();
+  const supported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  const [on, setOn] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const ios = /iPhone|iPad/.test(navigator.userAgent) && !window.matchMedia?.('(display-mode: standalone)').matches;
+  useEffect(() => {
+    if (!supported) return;
+    navigator.serviceWorker.getRegistration('/sw.js').then((r) => r?.pushManager.getSubscription()).then((s) => setOn(!!s)).catch(() => setOn(false));
+  }, [supported]);
+  const api = async (payload) => {
+    const res = await fetch(new URL('api/push', document.baseURI), { method: 'POST', headers: await authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(payload) });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.message || `HTTP ${res.status}`);
+  };
+  const enable = async () => {
+    setBusy(true);
+    try {
+      const keyRes = await fetch(new URL('api/push', document.baseURI));
+      const key = await keyRes.json().catch(() => ({}));
+      if (!keyRes.ok) throw new Error(key.message || 'Push недоступний на сервері');
+      if ((await Notification.requestPermission()) !== 'granted') throw new Error('Сповіщення заборонено в налаштуваннях браузера');
+      const reg = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(key.publicKey) });
+      await api({ subscribe: sub.toJSON() });
+      setOn(true); toast('Сповіщення на цьому пристрої увімкнено');
+    } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  const disable = async () => {
+    setBusy(true);
+    try {
+      const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+      const sub = await reg?.pushManager.getSubscription();
+      if (sub) { await api({ unsubscribe: sub.endpoint }).catch(() => {}); await sub.unsubscribe(); }
+      setOn(false); toast('Сповіщення вимкнено');
+    } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  return (
+    <Panel title="Сповіщення на пристрій">
+      <div className="stack">
+        <div className="vx-hint">Згадки, нові завдання, запити на доступ, знахідки конвеєра й ранковий бриф — навіть коли платформу закрито. Текст сповіщення короткий; подробиці — лише після входу.</div>
+        {!supported ? <div className="vx-hint">Цей браузер не підтримує push-сповіщення.</div>
+          : ios ? <div className="vx-hint">На iPhone спершу додайте платформу на початковий екран (Поділитися → «На початковий екран»), відкрийте звідти — і ввімкніть тут.</div>
+            : <button className="vx-btn vx-btn--sm" disabled={busy || on === null} onClick={on ? disable : enable}><Icon name="bell" /> {on ? 'Вимкнути на цьому пристрої' : 'Увімкнути на цьому пристрої'}</button>}
+      </div>
+    </Panel>
+  );
+}
+
 // Phone only: install to the home screen, what happens when the app is put away.
 function ThisPhone() {
   const { state, dispatch, toast } = useStore();
@@ -173,6 +225,7 @@ export function Settings({ go }) {
           {touch && <ThisPhone />}
           {supabaseOn && <Keys />}
           <BriefMail />
+          {supabaseOn && <PushSettings />}
           <Panel title="Інтерфейс">
             <div className="stack">
               <div className="vx-field">

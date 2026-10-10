@@ -12,6 +12,7 @@
 // plus SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY. APP_URL is the link in the letter (optional).
 import { buildBrief, briefHtml, briefText } from '../src/lib/brief.js';
 import { env, json, db, caller, SB_URL, SERVICE } from './_core.js';
+import { sendPush, pushReady } from './_push.js';
 
 export const config = { maxDuration: 60 };
 
@@ -67,6 +68,7 @@ export async function GET(req) {
       const b = briefFor(m, data, now);
       if (!b.total) { skipped++; continue; }
       try { await send(m.email, b, d.name || '', appUrlOf(req)); sent++; } catch (e) { errors.push(e.message); }
+      if (b.attention && pushReady()) await sendPush([m.id], { title: 'Ранковий бриф', body: `Потребує уваги: ${b.attention}. Відкрийте «Огляд».`, url: '/#/overview', tag: 'brief' }).catch(() => {});
     }
     return json(200, { sent, skipped, errors });
   } catch (e) {

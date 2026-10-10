@@ -8,12 +8,13 @@ export const SERVICE = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SECRET_KEY 
 
 export const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
 
-export async function db(path) {
-  const headers = { apikey: SERVICE };
+export async function db(path, { method = 'GET', body, prefer } = {}) {
+  const headers = { apikey: SERVICE, 'Content-Type': 'application/json' };
   if (SERVICE.startsWith('eyJ')) headers.Authorization = `Bearer ${SERVICE}`;
-  const res = await fetch(`${SB_URL}/rest/v1/${path}`, { headers });
+  if (prefer) headers.Prefer = prefer;
+  const res = await fetch(`${SB_URL}/rest/v1/${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
   if (!res.ok) throw new Error(`db ${res.status} ${(await res.text().catch(() => '')).slice(0, 200)}`);
-  return res.json();
+  return res.status === 204 || res.status === 201 ? null : res.json().catch(() => null);
 }
 
 // A signed-in member whose session is confirmed with a passkey (same rule as the database's).
