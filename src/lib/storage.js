@@ -133,7 +133,9 @@ function supabaseBackend() {
       },
       addFile: (f) => upsert('vault_files', { id: f.id, doc: f }),
       removeFile: (id) => rest(`vault_files?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' }),
-      addFolder: (f) => upsert('vault_folders', { id: f.id, doc: f }),
+      // Folders never change once made, and the database allows only inserting them: a folder that already
+      // exists (made on another device, or before this one synced) is kept as is — ON CONFLICT DO NOTHING.
+      addFolder: (f) => rest('vault_folders?on_conflict=id', { method: 'POST', body: { id: f.id, doc: f }, prefer: 'resolution=ignore-duplicates,return=minimal' }),
     },
     // Shared app state for the whole team (see src/lib/sync.js): people, records, requests, audit.
     docs: {
