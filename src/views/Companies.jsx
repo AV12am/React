@@ -178,9 +178,10 @@ function CompanyList({ access, go }) {
     .filter((o) => !rel || o.relation === rel)
     .filter((o) => !q || `${o.name} ${o.legal || ''} ${o.code || ''} ${o.city || ''} ${o.about || ''}`.toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name, 'uk'));
+  const have = new Set((state.records || []).map((r) => r.id));
+  const missing = ORGS_UA.map(orgToRecord).filter((r) => !have.has(r.id));
   const loadAll = () => {
-    const have = new Set((state.records || []).map((r) => r.id));
-    const add = ORGS_UA.map(orgToRecord).filter((r) => !have.has(r.id));
+    const add = missing;
     dispatch({ type: 'record/bulk', records: add, where: 'Розвідка · Компанії', label: `завантажено довідник: ${add.length} компаній` });
     toast(`Додано ${add.length} компаній`);
   };
@@ -193,8 +194,8 @@ function CompanyList({ access, go }) {
     return (
       <Panel title="Компанії">
         <div className="stack">
-          <div className="vx-hint">Карток ще немає. Завантажте довідник 100 провідних компаній України або додайте організацію у вкладці «Організації».</div>
-          {access.canEdit && <button className="vx-btn vx-btn--primary" onClick={loadAll}><Icon name="download" /> Завантажити довідник (100)</button>}
+          <div className="vx-hint">Карток ще немає. Завантажте довідник 200 провідних компаній і підприємств України або додайте організацію у вкладці «Організації».</div>
+          {access.canEdit && <button className="vx-btn vx-btn--primary" onClick={loadAll}><Icon name="download" /> Завантажити довідник ({missing.length})</button>}
         </div>
       </Panel>
     );
@@ -225,6 +226,7 @@ function CompanyList({ access, go }) {
       </div>
       <div className="toolbar">
         <span className="vx-hint">{shown.length} з {orgs.length}</span>
+        {access.canEdit && missing.length > 0 && <button className="vx-btn vx-btn--sm" onClick={loadAll}><Icon name="download" /> Нові з довідника ({missing.length})</button>}
         {access.canEdit && backfill.length > 0 && <button className="vx-btn vx-btn--sm" onClick={fill}><Icon name="file" /> Доповнити сайти, роки, власників ({backfill.length})</button>}
         {access.canEdit && <LogosFromSites orgs={orgs} />}
       </div>

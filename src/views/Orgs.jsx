@@ -2,7 +2,7 @@
 import { useStore, fmtDate } from '../store.jsx';
 import { Panel, Status } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
-import { ORGS_UA, ORGS_CHECKED, aboutOf, factsOf } from '../data/orgs-ua.js';
+import { ORGS_UA, ORGS_CHECKED, ORG_SECTORS, aboutOf, factsOf } from '../data/orgs-ua.js';
 
 // The two standing lists organisations are watched in (created on first use).
 const LISTS = {
@@ -60,10 +60,10 @@ export function OrgDirectory({ go }) {
     toast(`Доповнено: ${backfill.length}`);
   };
   return (
-    <Panel title="Довідник: 100 провідних компаній України" action={<span className="vx-hint">коди звірено {fmtDate(ORGS_CHECKED, false)}</span>}>
+    <Panel title="Довідник: 200 провідних компаній і підприємств України" action={<span className="vx-hint">коди звірено {fmtDate(ORGS_CHECKED, false)}</span>}>
       <div className="stack">
         <div className="vx-hint">
-          12 галузей: код ЄДРПОУ, сайт, рік заснування, власники й посилання на реєстр. Дані з відкритих джерел — звіряйте з реєстром.
+          {ORG_SECTORS.length} галузей: код ЄДРПОУ, сайт, рік заснування, власники й посилання на реєстр. Дані з відкритих джерел — звіряйте з реєстром.
         </div>
         <div className="toolbar">
           {missing.length > 0 && <button className="vx-btn vx-btn--primary" onClick={load}><Icon name="download" /> Завантажити в реєстр ({missing.length})</button>}
