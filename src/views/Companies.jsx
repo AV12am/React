@@ -60,45 +60,84 @@ function Logo({ org, size = 56 }) {
 }
 
 /** Upload, attach and remove company files (logo, photos, documents) in the company's Vault folder. */
-function useCompanyFiles(org) {
-  const { state, me, dispatch, toast, backend } = useStore();
-  const ensureFolder = async () => {
-    const id = folderId(org);
-    const existing = state.folders.find((f) => f.id === id);
-    if (existing) return existing;
-    const folder = { id, name: `Компанії / ${org.name}`, clearance: org.clearance || 0, division: 'int', group: 'companies', org: org.id };
-    if (backend?.index) await backend.index.addFolder(folder);
+/** Files a list of files in the company's Vault folder (creating it once). `numbers` — document numbers already taken in this batch. */
+async function fileForCompany(ctx, org, list, kind, numbers = []) {
+  const { state, me, dispatch, toast, backend } = ctx;
+  if (!backend) return [];
+  const id = folderId(org);
+  let folder = state.folders.find((f) => f.id === id);
+  if (!folder) {
+    folder = { id, name: `Компанії / ${org.name}`, clearance: org.clearance || 0, division: 'int', group: 'companies', org: org.id };
+    if (backend.index) await backend.index.addFolder(folder);
     dispatch({ type: 'folder/add', folder });
-    return folder;
-  };
-  const upload = async (list, kind) => {
-    if (!backend) return [];
-    const folder = await ensureFolder();
-    const year = new Date().getFullYear();
-    let serial = nextSerial(state.files.map((f) => f.number), year);
-    const out = [];
-    for (const file of list) {
-      if (kind !== 'doc' && !isImage(file)) { toast(`«${file.name}» — не зображення`); continue; }
-      if (file.size > backend.maxFile) { toast(`«${file.name}» більший за ${fmtBytes(backend.maxFile)}`); continue; }
-      const id = `x-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-      let put;
-      try { put = await backend.put(id, file, { dir: `companies/${org.code || org.id}` }); } catch (e) { toast(`«${file.name}»: ${storageError(e)}`); continue; }
-      const level = Math.max(folder.clearance, org.clearance || 0);
-      const meta = {
-        id, number: docNumber({ level, sealed: false, year, serial }), folder: folder.id, name: file.name, size: file.size,
-        type: file.type || 'application/octet-stream', clearance: level, sealed: false, downgrade: null,
-        owner: me.id, ownerName: me.name, at: new Date().toISOString(), stored: true, backend: backend.kind, org: org.id, role: kind, ...put,
-      };
-      if (kind === 'doc') { const text = await extractText(file); if (text) meta.text = text; meta.indexed = true; }
-      if (backend.index) {
-        try { await backend.index.addFile(meta); } catch { toast(`«${file.name}»: не вдалося записати індекс`); await backend.remove(meta).catch(() => {}); continue; }
-      }
-      dispatch({ type: 'file/add', file: meta });
-      out.push(meta);
-      serial++;
+  }
+  const year = new Date().getFullYear();
+  const out = [];
+  for (const file of list) {
+    if (kind !== 'doc' && !isImage(file)) { toast(`«${file.name}» — не зображення`); continue; }
+    if (file.size > backend.maxFile) { toast(`«${file.name}» більший за ${fmtBytes(backend.maxFile)}`); continue; }
+    const fid = `x-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    let put;
+    try { put = await backend.put(fid, file, { dir: `companies/${org.code || org.id}` }); } catch (e) { toast(`«${file.name}»: ${storageError(e)}`); continue; }
+    const level = Math.max(folder.clearance, org.clearance || 0);
+    const serial = nextSerial([...state.files.map((f) => f.number), ...numbers], year);
+    const meta = {
+      id: fid, number: docNumber({ level, sealed: false, year, serial }), folder: folder.id, name: file.name, size: file.size,
+      type: file.type || 'application/octet-stream', clearance: level, sealed: false, downgrade: null,
+      owner: me.id, ownerName: me.name, at: new Date().toISOString(), stored: true, backend: backend.kind, org: org.id, role: kind, ...put,
+    };
+    if (kind === 'doc') { const text = await extractText(file); if (text) meta.text = text; meta.indexed = true; }
+    if (backend.index) {
+      try { await backend.index.addFile(meta); } catch { toast(`«${file.name}»: не вдалося записати індекс`); await backend.remove(meta).catch(() => {}); continue; }
     }
-    return out;
+    dispatch({ type: 'file/add', file: meta });
+    numbers.push(meta.number);
+    out.push(meta);
+  }
+  return out;
+}
+
+// Logos from the companies' own websites (api/logo.js): a base64 image → a File for the Vault.
+const extOf = (type) => ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/svg+xml': 'svg', 'image/webp': 'webp', 'image/gif': 'gif', 'image/x-icon': 'ico' }[type] || 'img');
+async function fetchLogos(orgs) {
+  const res = await fetch(new URL('api/logo', document.baseURI), {
+    method: 'POST', headers: supabaseOn ? await authHeaders({ 'Content-Type': 'application/json' }) : { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sites: orgs.map((o) => ({ id: o.id, url: o.website })) }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.message || (res.status === 404 ? 'Серверна функція недоступна (працює лише на Vercel)' : `HTTP ${res.status}`));
+  return body.results.map((r) => (r.data ? { ...r, file: new File([Uint8Array.from(atob(r.data), (c) => c.charCodeAt(0))], `logo-${(orgs.find((o) => o.id === r.id)?.code) || r.id}.${extOf(r.type)}`, { type: r.type }) } : r));
+}
+
+/** «Логотипи з сайтів» for every company with a website and no logo yet, eight at a time. */
+function LogosFromSites({ orgs }) {
+  const ctx = useStore();
+  const [busy, setBusy] = useState('');
+  const todo = orgs.filter((o) => o.website && !o.logo);
+  if (!todo.length || ctx.backend?.writable === false) return null;
+  const run = async () => {
+    const numbers = []; let got = 0; let miss = 0;
+    try {
+      for (let i = 0; i < todo.length; i += 8) {
+        setBusy(`${Math.min(i + 8, todo.length)}/${todo.length}`);
+        const batch = todo.slice(i, i + 8);
+        for (const r of await fetchLogos(batch)) {
+          const org = batch.find((o) => o.id === r.id);
+          if (!r.file || !org) { miss++; continue; }
+          const [m] = await fileForCompany(ctx, org, [r.file], 'logo', numbers);
+          if (m) { ctx.dispatch({ type: 'record/update', id: org.id, patch: { logo: m.id, logoFrom: r.from }, where: 'Розвідка · Компанії', label: org.name, note: 'логотип із сайту' }); got++; }
+        }
+      }
+      ctx.toast(`Логотипів додано: ${got}${miss ? ` · не знайдено: ${miss}` : ''}`);
+    } catch (e) { ctx.toast(e.message, 'error'); } finally { setBusy(''); }
   };
+  return <button className="vx-btn vx-btn--sm" disabled={!!busy} onClick={run}><Icon name="download" /> {busy ? `Логотипи ${busy}` : `Логотипи з сайтів (${todo.length})`}</button>;
+}
+
+function useCompanyFiles(org) {
+  const ctx = useStore();
+  const { dispatch, backend } = ctx;
+  const upload = (list, kind) => fileForCompany(ctx, org, list, kind);
   const remove = async (file) => {
     try { await backend.remove(file); } catch { /* already gone */ }
     if (backend.index) await backend.index.removeFile(file.id).catch(() => {});
@@ -187,6 +226,7 @@ function CompanyList({ access, go }) {
       <div className="toolbar">
         <span className="vx-hint">{shown.length} з {orgs.length}</span>
         {access.canEdit && backfill.length > 0 && <button className="vx-btn vx-btn--sm" onClick={fill}><Icon name="file" /> Доповнити сайти, роки, власників ({backfill.length})</button>}
+        {access.canEdit && <LogosFromSites orgs={orgs} />}
       </div>
       <div className="co-grid">{shown.map((o) => <CompanyCard key={o.id} org={o} go={go} />)}</div>
       {!shown.length && <div className="vx-empty"><Icon name="search" /><div>Нічого не знайдено</div></div>}
@@ -318,10 +358,16 @@ function CompanyPage({ org, access, go }) {
   const canEdit = access.canEdit && backend?.writable !== false;
   const owners = useMemo(() => relatedThroughOwners(org, (state.records || []).filter((r) => r.col === 'orgs' && r.clearance <= me.clearance)), [org, state.records, me.clearance]);
 
-  const run = async (label, fn) => { setBusy(label); try { await fn(); } catch (e) { toast(e.message || 'Помилка'); } finally { setBusy(''); } };
+  const run = async (label, fn) => { setBusy(label); try { await fn(); } catch (e) { toast(e.message || 'Помилка', 'error'); } finally { setBusy(''); } };
   const onLogo = (list) => run('logo', async () => {
     const [m] = await upload(list, 'logo');
     if (m) { patch({ logo: m.id }, 'новий логотип'); toast('Логотип оновлено'); }
+  });
+  const fromSite = () => run('site', async () => {
+    const [r] = await fetchLogos([org]);
+    if (!r?.file) throw new Error(r?.error ? `Логотип: ${r.error}` : 'Логотип на сайті не знайдено');
+    const [m] = await upload([r.file], 'logo');
+    if (m) { patch({ logo: m.id, logoFrom: r.from }, 'логотип із сайту'); toast('Логотип із сайту додано'); }
   });
   const onPhotos = (list) => run('photo', async () => {
     const ms = await upload(list, 'photo');
@@ -351,6 +397,7 @@ function CompanyPage({ org, access, go }) {
           {canEdit && <>
             <input ref={logoIn} type="file" accept="image/*" hidden onChange={(e) => { onLogo(Array.from(e.target.files)); e.target.value = ''; }} />
             <button className="vx-btn vx-btn--sm" disabled={!!busy} onClick={() => logoIn.current.click()}>{busy === 'logo' ? <Loader size={16} /> : <><Icon name="upload" /> Логотип</>}</button>
+            {org.website && <button className="vx-btn vx-btn--sm vx-btn--ghost" disabled={!!busy} onClick={fromSite} title={`Взяти логотип із ${org.website}`}>{busy === 'site' ? <Loader size={16} /> : 'З сайту'}</button>}
           </>}
         </div>
         <div className="co-hero__main">
