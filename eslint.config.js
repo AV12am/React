@@ -7,7 +7,7 @@ export default [
   { ignores: ['dist', 'node_modules'] },
   {
     files: ['src/**/*.{js,jsx}'],
-    languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: globals.browser, parserOptions: { ecmaFeatures: { jsx: true } } },
+    languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: { ...globals.browser, __BUILD__: 'readonly' }, parserOptions: { ecmaFeatures: { jsx: true } } },
     plugins: { react, 'react-hooks': reactHooks },
     settings: { react: { version: '18.3' } },
     rules: {

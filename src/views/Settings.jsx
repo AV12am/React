@@ -247,6 +247,7 @@ export function Settings({ go }) {
         <div>
           <div className="vx-eyebrow">Профіль і параметри</div>
           <h1 className="vx-h1">Налаштування</h1>
+          <div className="vx-hint">Версія {__BUILD__}</div>
         </div>
       </header>
 
