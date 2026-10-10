@@ -374,6 +374,52 @@ function Lowering({ f }) {
   );
 }
 
+// Who is looking, and when — repeated across the preview, so a photo of the screen carries it.
+function Watermark({ strong }) {
+  const { me } = useStore();
+  const stamp = `${me.name} · ${me.code} · ${new Date().toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+  const esc = stamp.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='360' height='180'><text x='0' y='120' transform='rotate(-24 0 120)' font-family='Georgia,serif' font-size='15' fill='${strong ? 'rgba(192,90,105,.30)' : 'rgba(160,160,160,.18)'}'>${esc}</text></svg>`;
+  return <div className="watermark" aria-hidden="true" style={{ backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")` }} />;
+}
+
+// PDF pages drawn in the platform (first pages), so a document can be read without leaving it.
+function PdfPreview({ blob }) {
+  const box = useRef(null);
+  const [state, setState] = useState('loading');
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        const pdfjs = await import('pdfjs-dist');
+        pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).href;
+        const doc = await pdfjs.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) }).promise;
+        const el = box.current;
+        if (!live || !el) return;
+        el.innerHTML = '';
+        for (let i = 1; i <= Math.min(doc.numPages, 8) && live; i++) {
+          const page = await doc.getPage(i);
+          const vp = page.getViewport({ scale: 1.4 });
+          const c = document.createElement('canvas');
+          c.width = vp.width; c.height = vp.height;
+          el.appendChild(c);
+          await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+        }
+        if (live) setState(doc.numPages > 8 ? `Показано 8 з ${doc.numPages} сторінок` : 'ok');
+      } catch { if (live) setState('fail'); }
+    })();
+    return () => { live = false; };
+  }, [blob]);
+  return (
+    <div className="pdf-preview">
+      <div ref={box} className="pdf-preview__pages" />
+      {state === 'loading' && <Loader size={40} label="Сторінки" />}
+      {state === 'fail' && <div className="vx-hint">Не вдалося показати PDF.</div>}
+      {state !== 'ok' && state !== 'loading' && state !== 'fail' && <div className="vx-hint">{state}</div>}
+    </div>
+  );
+}
+
 function FileDrawer({ id, onClose }) {
   const { state, me, perms, dispatch, userById, toast, backend } = useStore();
   const f = state.files.find((x) => x.id === id);
@@ -436,8 +482,10 @@ function FileDrawer({ id, onClose }) {
           <div className="vx-empty"><Loader size={64} label="Розшифрування файлу" /><div className="vx-mono">Розшифрування…</div></div>
         ) : <>
           {blob && url && /^image\//.test(blob.type) && <img src={url} alt={f.name} draggable={!gated} />}
+          {blob && (blob.type === 'application/pdf' || /\.pdf$/i.test(f.name)) && <PdfPreview blob={blob} />}
           {text != null && <pre className="vx-mono">{text}</pre>}
-          {blob && !text && !/^image\//.test(blob.type) && <div className="vx-empty"><Loader still size={56} label={f.name} /><div>Попередній перегляд недоступний для цього формату</div>{!exportable && <div className="vx-hint">Файл цього рівня не виноситься з системи.</div>}</div>}
+          {blob && <Watermark strong={gated || f.clearance > 0} />}
+          {blob && !text && !/^image\//.test(blob.type) && !(blob.type === 'application/pdf' || /\.pdf$/i.test(f.name)) && <div className="vx-empty"><Loader still size={56} label={f.name} /><div>Попередній перегляд недоступний для цього формату</div>{!exportable && <div className="vx-hint">Файл цього рівня не виноситься з системи.</div>}</div>}
           {blob === null && <div className="vx-empty"><Loader still size={56} label={f.name} /><div>Вміст недоступний</div><div className="vx-hint">Файл не знайдено в сховищі «{backend?.label}». Можливо, його видалили або він зберігався на іншому пристрої.</div></div>}
         </>}
       </div>

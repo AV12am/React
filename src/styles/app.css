@@ -842,3 +842,9 @@ kbd {
 .import__map { display: grid; gap: 6px; max-height: 40vh; overflow-y: auto; }
 .import__row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 10px; align-items: center; }
 .import__skip { align-self: end; padding-bottom: 10px; }
+.preview { position: relative; }
+.watermark { position: absolute; inset: 0; pointer-events: none; background-repeat: repeat; z-index: 2; }
+.pdf-preview { width: 100%; max-height: 480px; overflow: auto; display: grid; justify-items: center; gap: 8px; padding: 8px; }
+.pdf-preview__pages { display: grid; gap: 8px; justify-items: center; width: 100%; }
+.pdf-preview canvas { max-width: 100%; height: auto; background: #fff; box-shadow: 0 2px 10px rgba(0, 0, 0, .3); }
+@media print { .app-root { display: none !important; } }
