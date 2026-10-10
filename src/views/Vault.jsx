@@ -7,6 +7,7 @@ import { Loader } from '../brand/Mark.jsx';
 import { STORAGE_QUOTA, CLEARANCE } from '../data/seed.js';
 import { SEAL, DOWNGRADE_KINDS, levelOf, docNumber, nextSerial, hasBasis, canExport, exportName, downgradeState } from '../data/clearance.js';
 import { storageError } from '../lib/storage.js';
+import { extractText } from '../lib/textract.js';
 
 const STORE_LABEL = { local: 'Цей пристрій (IndexedDB)', artifact: 'Сховище Reaction (claude.ai)', supabase: 'Supabase Storage' };
 
@@ -96,6 +97,7 @@ export function Vault({ focus, setFocus }) {
           {perms.vault >= 3 && (
             <button className="vx-nav-item vault__new" onClick={() => setNewFolder(true)}><Icon name="plus" /> Нова папка</button>
           )}
+          {perms.vault >= 3 && <IndexFiles />}
         </nav>
 
         <div className="vault__main">
@@ -190,6 +192,33 @@ function RuleFields({ level, rule, setRule, idp }) {
 const ruleValid = (level, r) => level <= 0 || r.kind === 'none' || (r.kind === 'date' && r.at) || (r.kind === 'event' && (r.text || '').trim().length >= 4);
 const ruleOut = (level, r) => (level <= 0 || r.kind === 'none' ? null : r.kind === 'date' ? { kind: 'date', at: r.at } : { kind: 'event', text: r.text.trim() });
 
+// Files uploaded before the search existed: read them once and add their text to the cards.
+function IndexFiles() {
+  const { state, me, dispatch, toast, backend } = useStore();
+  const [busy, setBusy] = useState(null);
+  const todo = state.files.filter((f) => !f.indexed && !f.sealed && f.stored && canSeeFile(me, f));
+  if (!todo.length || !backend) return null;
+  const run = async () => {
+    const done = [];
+    for (let i = 0; i < todo.length; i++) {
+      setBusy(`${i + 1}/${todo.length}`);
+      const f = todo[i];
+      try {
+        const blob = await backend.get(f);
+        if (!blob) continue;
+        const text = await extractText(new File([blob], f.name, { type: f.type }));
+        const meta = { ...f, indexed: true, ...(text ? { text } : {}) };
+        if (backend.index) await backend.index.addFile(meta);
+        done.push(meta);
+      } catch { /* skip unreadable */ }
+    }
+    if (done.length) dispatch({ type: 'file/index', files: done });
+    toast(`Проіндексовано: ${done.length}`);
+    setBusy(null);
+  };
+  return <button className="vx-nav-item vault__new" disabled={!!busy} onClick={run}><Icon name="search" /> {busy ? `Читаю ${busy}` : `Проіндексувати текст (${todo.length})`}</button>;
+}
+
 function UploadModal({ files, folder, onClose }) {
   const { state, me, dispatch, toast, backend } = useStore();
   const [level, setLevel] = useState(Math.min(folder.clearance, me.clearance));
@@ -213,6 +242,8 @@ function UploadModal({ files, folder, onClose }) {
         type: file.type || 'application/octet-stream', clearance: level, sealed, downgrade: ruleOut(level, rule),
         owner: me.id, ownerName: me.name, at: new Date().toISOString(), stored: true, backend: backend.kind, ...put,
       };
+      // Searchable text (not for sealed files: their content is shown only on a recorded basis).
+      if (!sealed) { const text = await extractText(file); if (text) meta.text = text; meta.indexed = true; }
       if (backend.index) {
         try { await backend.index.addFile(meta); } catch { toast(`«${file.name}»: не вдалося записати індекс`); await backend.remove(meta).catch(() => {}); continue; }
       }

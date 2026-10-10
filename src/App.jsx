@@ -19,6 +19,9 @@ import { ROLES } from './data/seed.js';
 import { TRACKS } from './data/geo.js';
 import { canSeeFile, fmtAgo, requestLabel } from './store.jsx';
 import { useSwipe, useHidden, isTouch, buzz } from './lib/mobile.js';
+import { registerOf } from './data/workspaces.js';
+import { titleOfRecord } from './lib/brief.js';
+import { snippet } from './lib/textract.js';
 
 // The map ships its own geography (~1 MB), so it loads only when opened.
 const MapView = lazy(() => import('./views/Map.jsx').then((m) => ({ default: m.MapView })));
@@ -317,19 +320,32 @@ function Palette({ onClose, go, allowed, lock }) {
     const people = allowed.some((n) => n.id === 'access')
       ? state.users.map((u) => ({ id: u.id, icon: 'user', label: u.name, hint: u.code, run: () => go('access', 'people', u.id) })) : [];
     const files = allowed.some((n) => n.id === 'vault')
-      ? state.files.filter((f) => canSeeFile(me, f)).map((f) => ({ id: f.id, icon: 'file', label: f.name, hint: 'Сховище', run: () => go('vault', f.id) })) : [];
+      ? state.files.filter((f) => canSeeFile(me, f)).map((f) => ({ id: f.id, icon: 'file', label: f.name, hint: 'Сховище', text: f.sealed ? '' : f.text || '', run: () => go('vault', f.id) })) : [];
     const places = allowed.some((n) => n.id === 'map')
       ? [...state.points.filter((p) => p.clearance <= me.clearance).map((p) => ({ id: p.id, icon: 'map', label: p.name, hint: 'Позначка', run: () => go('map', p.id) })),
         ...TRACKS.filter((t) => t.clearance <= me.clearance).map((t) => ({ id: t.id, icon: 'target', label: t.name, hint: 'Об\u2019єкт', run: () => go('map', t.id) }))] : [];
+    // Records of every division (all their fields) and the text inside files.
+    const regName = (r) => registerOf(r.div, r.col)?.one || 'запис';
+    const records = allowed.some((n) => n.id === 'divisions')
+      ? (state.records || []).filter((r) => r.clearance <= me.clearance).map((r) => ({
+        id: `r-${r.id}`, icon: 'layers', label: titleOfRecord(r), hint: regName(r),
+        text: Object.entries(r).filter(([k, v]) => typeof v === 'string' && !['id', 'div', 'col', 'owner', 'at', 'updated', 'fingerprint', 'logo'].includes(k)).map(([, v]) => v).join(' \n '),
+        run: () => go('divisions', r.div, `${r.col}:${r.id}`),
+      })) : [];
     const courses = COURSES.map((c) => ({ id: `c-${c.id}`, icon: 'book', label: c.title, hint: 'Курс', run: () => go('learn', c.id) }));
     const actions = [
       { id: 'lock', icon: 'lock', label: 'Заблокувати сесію', hint: 'Ctrl L', run: lock },
       { id: 'theme', icon: 'eye', label: state.settings.theme === 'matte' ? 'Тема: Папір' : 'Тема: Матова чорна', run: () => { dispatch({ type: 'settings', patch: { theme: state.settings.theme === 'matte' ? 'paper' : 'matte' } }); onClose(); } },
       { id: 'logout', icon: 'logout', label: 'Вийти', run: () => dispatch({ type: 'logout' }) },
     ];
-    const all = [...nav, ...actions, ...people, ...files, ...places, ...courses];
+    const all = [...nav, ...actions, ...people, ...files, ...records, ...places, ...courses];
     const t = q.trim().toLowerCase();
-    return (t ? all.filter((i) => `${i.label} ${i.hint ?? ''}`.toLowerCase().includes(t)) : [...nav, ...actions]).slice(0, 9);
+    if (!t) return [...nav, ...actions].slice(0, 9);
+    // Names first, then matches inside the content (with the place they occur).
+    const byName = all.filter((i) => `${i.label} ${i.hint ?? ''}`.toLowerCase().includes(t));
+    const inside = t.length < 3 ? [] : all.filter((i) => !byName.includes(i) && i.text && i.text.toLowerCase().includes(t))
+      .map((i) => ({ ...i, hint: `${i.hint} · у тексті`, excerpt: snippet(i.text, q.trim()) }));
+    return [...byName.slice(0, 8), ...inside.slice(0, 8)].slice(0, 14);
   }, [q, allowed, state, me, go, lock, dispatch, onClose]);
 
   const onKey = (e) => {
@@ -343,12 +359,12 @@ function Palette({ onClose, go, allowed, lock }) {
       <div className="palette">
         <div className="vx-search palette__input">
           <Icon name="search" />
-          <input className="vx-input" autoFocus placeholder="Люди, файли, розділи, дії…" value={q} onChange={(e) => { setQ(e.target.value); setSel(0); }} onKeyDown={onKey} aria-label="Пошук" />
+          <input className="vx-input" autoFocus placeholder="Записи, компанії, файли й текст у них, люди, дії…" value={q} onChange={(e) => { setQ(e.target.value); setSel(0); }} onKeyDown={onKey} aria-label="Пошук" />
         </div>
         <div className="palette__list" role="listbox">
           {items.map((i, n) => (
             <button key={i.id} role="option" aria-selected={n === sel} className={`palette__item ${n === sel ? 'is-active' : ''}`} onMouseEnter={() => setSel(n)} onClick={i.run}>
-              <Icon name={i.icon} size={16} /> <span>{i.label}</span> {i.hint && <span className="vx-hint palette__hint">{i.hint}</span>}
+              <Icon name={i.icon} size={16} /> <span className="palette__text"><span>{i.label}</span>{i.excerpt && <span className="vx-hint palette__excerpt">{i.excerpt}</span>}</span> {i.hint && <span className="vx-hint palette__hint">{i.hint}</span>}
             </button>
           ))}
           {!items.length && <div className="vx-empty">Нічого не знайдено</div>}

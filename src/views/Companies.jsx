@@ -12,10 +12,13 @@ import { ORG_SECTORS, ORGS_UA } from '../data/orgs-ua.js';
 import { ORG_STATUS, registerOf } from '../data/workspaces.js';
 import { docNumber, nextSerial } from '../data/clearance.js';
 import { storageError } from '../lib/storage.js';
+import { extractText } from '../lib/textract.js';
 import { usedBy } from '../lib/provenance.js';
 import { OrgExtras, orgToRecord, refPatches } from './Orgs.jsx';
 import { CompanyGraph } from './CompanyGraph.jsx';
 import { relatedThroughOwners } from '../lib/orggraph.js';
+import { diffEdr, edrIntake, EDR_SOURCE } from '../../scripts/lib/edr.mjs';
+import { supabaseOn, authHeaders } from '../lib/supabase.js';
 
 const isImage = (f) => /^image\//.test(f?.type || '');
 const openRecord = (go, r) => go('divisions', r.div, `${r.col}:${r.id}`);
@@ -85,6 +88,7 @@ function useCompanyFiles(org) {
         type: file.type || 'application/octet-stream', clearance: level, sealed: false, downgrade: null,
         owner: me.id, ownerName: me.name, at: new Date().toISOString(), stored: true, backend: backend.kind, org: org.id, role: kind, ...put,
       };
+      if (kind === 'doc') { const text = await extractText(file); if (text) meta.text = text; meta.indexed = true; }
       if (backend.index) {
         try { await backend.index.addFile(meta); } catch { toast(`«${file.name}»: не вдалося записати індекс`); await backend.remove(meta).catch(() => {}); continue; }
       }
@@ -186,6 +190,53 @@ function CompanyList({ access, go }) {
       <div className="co-grid">{shown.map((o) => <CompanyCard key={o.id} org={o} go={go} />)}</div>
       {!shown.length && <div className="vx-empty"><Icon name="search" /><div>Нічого не знайдено</div></div>}
     </div>
+  );
+}
+
+/* ---------- card: the register (ЄДР) ---------- */
+
+const EDR_ROWS = [['name', 'Назва'], ['status', 'Стан'], ['head', 'Керівник'], ['address', 'Адреса'], ['activity', 'Основний вид діяльності'], ['owners', 'Засновники й бенефіціари']];
+
+/** The company's register snapshot, and «Перевірити зараз» — a change becomes an intake item. */
+function EdrPanel({ org, canEdit, go }) {
+  const { state, me, dispatch, toast } = useStore();
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState('');
+  const snap = org.edr?.data;
+  const check = async () => {
+    setBusy(true); setNote('');
+    try {
+      const res = await fetch(new URL('api/edr', document.baseURI), { method: 'POST', headers: supabaseOn ? await authHeaders({ 'Content-Type': 'application/json' }) : { 'Content-Type': 'application/json' }, body: JSON.stringify({ codes: [org.code] }) });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || (res.status === 404 ? 'Серверна функція недоступна (працює лише на Vercel)' : `HTTP ${res.status}`));
+      const r = body.results?.[0];
+      if (!r?.data) throw new Error(r?.error || 'Немає відповіді реєстру');
+      const changes = diffEdr(snap, r.data);
+      const records = [];
+      if (changes.length) {
+        if (!(state.records || []).some((x) => x.id === EDR_SOURCE.id)) records.push({ ...EDR_SOURCE, div: 'int', col: 'sources', state: 'Активне', clearance: 0 });
+        records.push(edrIntake(org, changes, { owner: me.id }));
+      }
+      dispatch({ type: 'record/bulk', where: 'Розвідка · Компанії', label: `ЄДР: ${org.name}${changes.length ? ` — змін ${changes.length}` : ''}`, records, patches: [{ id: org.id, patch: { edr: { checked: body.checked, data: r.data } } }] });
+      setNote(!snap ? 'Перший знімок збережено — далі платформа повідомлятиме про зміни.' : changes.length ? `Змін: ${changes.length} — додано в «Опрацювання».` : 'Змін немає.');
+    } catch (e) { setNote(''); toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  if (!org.code) return null;
+  return (
+    <Panel title="Реєстр (ЄДР)" action={canEdit && <button className="vx-btn vx-btn--sm" disabled={busy} onClick={check}>{busy ? <Loader size={16} /> : <><Icon name="refresh" /> Перевірити зараз</>}</button>}>
+      <div className="stack">
+        {snap ? (
+          <dl className="meta">
+            {EDR_ROWS.map(([k, l]) => {
+              const v = k === 'owners' ? (snap.owners || []).join('; ') : snap[k];
+              return v ? <Fragment key={k}><dt>{l}</dt><dd>{v}</dd></Fragment> : null;
+            })}
+          </dl>
+        ) : <div className="vx-hint">Знімка з реєстру ще немає. Перевірте вручну або додайте компанію на спостереження — тоді її перевірятимуть щодня й повідомлять про зміну керівника, власників, адреси чи стану.</div>}
+        {org.edr?.checked && <div className="vx-hint">Перевірено {fmtDate(org.edr.checked)} · джерело: ЄДР через Opendatabot</div>}
+        {note && <div className="vx-hint">{note} {/Опрацювання/.test(note) && <button className="ws-link" onClick={() => go('divisions', 'int', 'intake')}>Відкрити</button>}</div>}
+      </div>
+    </Panel>
   );
 }
 
@@ -366,6 +417,8 @@ function CompanyPage({ org, access, go }) {
           <button className="ws-link" onClick={() => go('vault', fid)}>Відкрити папку</button>
         </div>
       </Panel>
+
+      <EdrPanel org={org} canEdit={canEdit} go={go} />
 
       {owners.length > 0 && (
         <Panel title="Пов’язані через власників" bodyClass="list">

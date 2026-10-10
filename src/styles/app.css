@@ -810,3 +810,5 @@ kbd {
 }
 .rnbo { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-md); }
 @media (max-width: 900px) { .rnbo { flex-direction: column; align-items: stretch; } }
+.palette__text { display: grid; min-width: 0; text-align: left; }
+.palette__excerpt { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -197,6 +197,11 @@ function reducer(state, a) {
       if (!f) return state;
       return withAudit({ ...state, files: state.files.map((x) => (x.id === f.id ? a.file : x)) }, me, 'vault', `${a.note} «${f.name}»`, f.clearance);
     }
+    case 'file/index': {
+      // Searchable text added to existing files in one go (Сховище → «Проіндексувати текст»).
+      const by = new Map(a.files.map((f) => [f.id, f]));
+      return withAudit({ ...state, files: state.files.map((x) => by.get(x.id) || x) }, me, 'vault', `Проіндексовано текст файлів: ${a.files.length}`, 0);
+    }
     case 'file/level': {
       // One step down the scale, by a person, following the rule set at filing (see lowerFile).
       const f = state.files.find((x) => x.id === a.file.id);

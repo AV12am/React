@@ -10,6 +10,8 @@
 //   intake records (duplicates are skipped by id), updates each list's last run and adds an audit entry.
 import { readFileSync } from 'node:fs';
 import { runWatch, toIntake, sourceRecord, SOURCE_RECORDS } from '../scripts/lib/watch.mjs';
+import { diffEdr, edrTargets, edrIntake, EDR_SOURCE } from '../scripts/lib/edr.mjs';
+import { fetchEdr } from './edr.js';
 
 const cfg = JSON.parse(readFileSync(new URL('../scripts/watch-sources.json', import.meta.url), 'utf8'));
 export const config = { maxDuration: 60 };
@@ -70,6 +72,28 @@ export async function POST(req) {
   }
 }
 
+// Зміни в ЄДР for watched companies: new snapshot on the record, an intake item for each change.
+// The first snapshot of a company is only a baseline.
+async function checkEdr(now) {
+  const rows = await db('core_docs?kind=eq.records&doc->>col=in.(orgs,watchlists)&select=doc');
+  const targets = edrTargets(rows.map((r) => r.doc));
+  let changed = 0; const failed = [];
+  if (targets.length) await db('core_docs?on_conflict=kind,id', { method: 'POST', prefer: 'resolution=ignore-duplicates,return=minimal', body: [{ kind: 'records', id: EDR_SOURCE.id, doc: { ...EDR_SOURCE, div: 'int', col: 'sources', state: 'Активне', clearance: 0, owner: null, at: now.toISOString(), updated: now.toISOString() } }] });
+  for (const org of targets) {
+    let data;
+    try { data = await fetchEdr(org.code); } catch (e) { failed.push(`${org.code}: ${e.message}`); continue; }
+    const changes = diffEdr(org.edr?.data, data);
+    const doc = { ...org, edr: { checked: now.toISOString(), data }, ...(changes.length ? { updated: now.toISOString() } : {}) };
+    await db(`core_docs?kind=eq.records&id=eq.${encodeURIComponent(org.id)}`, { method: 'PATCH', prefer: 'return=minimal', body: { doc } });
+    if (changes.length) {
+      const item = edrIntake(org, changes, { now });
+      await db('core_docs?on_conflict=kind,id', { method: 'POST', prefer: 'resolution=ignore-duplicates,return=minimal', body: [{ kind: 'records', id: item.id, doc: item }] });
+      changed++;
+    }
+  }
+  return { checked: targets.length, changed, failed };
+}
+
 export async function GET(req) {
   const secret = env.CRON_SECRET;
   if (!secret) return json(503, { error: 'not_configured', message: 'CRON_SECRET не задано' });
@@ -99,10 +123,11 @@ export async function GET(req) {
       const doc = { ...w.doc, lastRun: now.toISOString(), lastFound: w.fresh || 0 };
       await db(`core_docs?kind=eq.records&id=eq.${encodeURIComponent(w.id)}`, { method: 'PATCH', prefer: 'return=minimal', body: { doc } });
     }
+    const edr = env.EDR_API_KEY ? await checkEdr(now).catch((e) => ({ error: e.message })) : null;
     const total = lists.reduce((a, w) => a + (w.fresh || 0), 0);
     const id = `a-watch-${now.getTime().toString(36)}`;
     await db('core_docs', { method: 'POST', prefer: 'return=minimal', body: { kind: 'audit', id, doc: { id, at: now.toISOString(), actor: null, type: 'work', text: `Конвеєр спостереження: ${lists.length} списків, нових надходжень ${total}${errors.length ? `, помилок джерел ${errors.length}` : ''}`, clearance: 1 } } }).catch(() => {});
-    return json(200, { lists: lists.length, found: findings.length, fresh: total, stats, errors });
+    return json(200, { lists: lists.length, found: findings.length, fresh: total, stats, errors, edr });
   } catch (e) {
     return json(500, { error: 'error', message: e.message });
   }
