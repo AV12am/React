@@ -49,5 +49,7 @@ export async function confirm() {
 }
 
 export const listKeys = () => call('keys');
+export const listSessions = () => call('sessions');
+export const endSessions = (opts) => call('end-sessions', opts);
 export const removeKey = (id) => call('remove-key', { id });
 export const issueCode = (memberId, reset) => call('issue-code', { memberId, reset });

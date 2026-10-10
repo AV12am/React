@@ -7,7 +7,7 @@ import { MAX_LEVEL, CUSTOS } from '../data/clearance.js';
 import { supabaseOn, authHeaders } from '../lib/supabase.js';
 import { isTouch, useInstall } from '../lib/mobile.js';
 import { missingFor } from '../data/academy/meta.js';
-import { listKeys, enroll, removeKey, passkeyError } from '../lib/passkey.js';
+import { listKeys, enroll, removeKey, passkeyError, listSessions, endSessions } from '../lib/passkey.js';
 import { clearBlobs } from '../vaultdb.js';
 
 const LEVEL = ['Немає', 'Перегляд', 'Редагування', 'Керування'];
@@ -128,6 +128,43 @@ function ThisPhone() {
 }
 
 // This person's passkeys: add another device, remove one (never the last).
+// «Мої сеанси»: where I am signed in (confirmed with a key), and ending those sessions.
+const deviceOf = (ua) => {
+  if (!ua) return 'Невідомий пристрій';
+  const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Mac OS X|Macintosh/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : 'Пристрій';
+  const br = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) && !/Chromium/.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'браузер';
+  return `${os} · ${br}`;
+};
+function Sessions() {
+  const { toast } = useStore();
+  const [list, setList] = useState(null);
+  const [err, setErr] = useState('');
+  const load = () => listSessions().then((r) => setList(r.sessions)).catch((e) => setErr(e.message));
+  useEffect(() => { load(); }, []);
+  const end = async (opts) => {
+    try { await endSessions(opts); toast(opts.all ? 'Усі інші сеанси завершено' : 'Сеанс завершено'); await load(); } catch (e) { toast(e.message, 'error'); }
+  };
+  const others = (list || []).filter((s) => !s.current);
+  return (
+    <Panel title="Мої сеанси" action={others.length > 0 && <button className="vx-btn vx-btn--sm vx-btn--danger" onClick={() => end({ all: true })}>Вийти на всіх інших</button>}>
+      <div className="list">
+        {err && <div className="list__row vx-error">{err}</div>}
+        {!list && !err && <div className="list__row vx-hint">Завантаження…</div>}
+        {(list || []).map((s) => (
+          <div className="list__row" key={s.id}>
+            <span className="list__text">
+              <span>{deviceOf(s.ua)}{s.current && <span className="vx-tag"> цей пристрій</span>}</span>
+              <span className="vx-hint">Підтверджено {fmtDate(s.verifiedAt)}{s.key ? ` · ключ «${s.key}»` : ''} · діє до {fmtDate(s.expiresAt)}</span>
+            </span>
+            {!s.current && <button className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => end({ id: s.id })}>Завершити</button>}
+          </div>
+        ))}
+        <div className="list__row vx-hint">Незнайомий пристрій — завершіть сеанс і змініть пароль. Завершений сеанс одразу втрачає доступ до даних.</div>
+      </div>
+    </Panel>
+  );
+}
+
 function Keys() {
   const { me, toast } = useStore();
   const [keys, setKeys] = useState(null);
@@ -224,6 +261,7 @@ export function Settings({ go }) {
         <div className="stack">
           {touch && <ThisPhone />}
           {supabaseOn && <Keys />}
+          {supabaseOn && <Sessions />}
           <BriefMail />
           {supabaseOn && <PushSettings />}
           <Panel title="Інтерфейс">

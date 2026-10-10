@@ -92,10 +92,15 @@ async function isVerified(sessionId, memberId) {
   const rows = await db(`core_verified?session_id=eq.${q(sessionId)}&member_id=eq.${q(memberId)}&expires_at=gt.${q(new Date().toISOString())}&select=session_id`);
   return rows.length > 0;
 }
-const markVerified = (sessionId, memberId) => db('core_verified?on_conflict=session_id', {
-  method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal',
-  body: { session_id: sessionId, member_id: memberId, verified_at: new Date().toISOString(), expires_at: later(SESSION_HOURS) },
-});
+const markVerified = async (sessionId, memberId, info = {}) => {
+  await db('core_verified?on_conflict=session_id', {
+    method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal',
+    body: { session_id: sessionId, member_id: memberId, verified_at: new Date().toISOString(), expires_at: later(SESSION_HOURS) },
+  });
+  // What device this session is, for «Мої сеанси» — kept at a level no person can read through the API.
+  const doc = { id: sessionId, member: memberId, clearance: 99, ua: String(info.ua || '').slice(0, 300), key: info.key || '', at: new Date().toISOString() };
+  await db('core_docs?on_conflict=kind,id', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: [{ kind: 'session', id: sessionId, doc }] }).catch(() => {});
+};
 const setDoc = (member, patch) => db(`core_members?id=eq.${q(member.id)}`, {
   method: 'PATCH', prefer: 'return=minimal',
   body: { doc: Object.fromEntries(Object.entries({ ...member, ...patch }).filter(([k]) => k !== 'id')) },
@@ -200,7 +205,7 @@ async function registerVerify(ctx, body, req) {
   if (ch.code_hash) await db(`core_codes?hash=eq.${ch.code_hash}`, { method: 'PATCH', prefer: 'return=minimal', body: { used_at: new Date().toISOString() } });
   const first = !member.keysEver;
   if (first) await setDoc(member, { keysEver: true });
-  await markVerified(sessionId, member.id);
+  await markVerified(sessionId, member.id, { ua: req.headers.get('user-agent'), key: device });
   await audit(member.id, `Додано ключ доступу: ${device}`);
   // CUSTOS's first key: recovery codes, shown once — the only way back if every key is lost.
   let recovery = null;
@@ -241,7 +246,7 @@ async function loginVerify(ctx, body, req) {
   } catch (e) { await noteFailure(member.id); throw new Fail(400, 'verify', e.message); }
   if (!v.verified) { await noteFailure(member.id); throw new Fail(400, 'verify'); }
   await db(`core_passkeys?id=eq.${q(key.id)}`, { method: 'PATCH', prefer: 'return=minimal', body: { counter: v.authenticationInfo.newCounter, last_used_at: new Date().toISOString() } });
-  await markVerified(sessionId, member.id);
+  await markVerified(sessionId, member.id, { ua: req.headers.get('user-agent'), key: key.device || '' });
   await audit(member.id, `Вхід підтверджено ключем: ${key.device || 'пристрій'}`);
   return { ok: true };
 }
@@ -253,6 +258,33 @@ async function requireVerified(ctx) {
 async function listKeys(ctx) {
   await requireVerified(ctx);
   return { keys: (await keysOf(ctx.member.id)).map(({ id, device, created_at, last_used_at }) => ({ id, device, created_at, last_used_at })) };
+}
+
+// «Мої сеанси»: every confirmed sign-in of mine that is still valid, and ending them.
+async function listSessions(ctx) {
+  await requireVerified(ctx);
+  const rows = await db(`core_verified?member_id=eq.${q(ctx.member.id)}&expires_at=gt.${q(new Date().toISOString())}&select=session_id,verified_at,expires_at&order=verified_at.desc`);
+  const ids = rows.map((r) => r.session_id);
+  const info = ids.length ? await db(`core_docs?kind=eq.session&id=in.(${ids.map((i) => `"${i}"`).join(',')})&select=id,doc`) : [];
+  const by = new Map(info.map((r) => [r.id, r.doc]));
+  return { sessions: rows.map((r) => ({ id: r.session_id, current: r.session_id === ctx.sessionId, verifiedAt: r.verified_at, expiresAt: r.expires_at, ua: by.get(r.session_id)?.ua || '', key: by.get(r.session_id)?.key || '' })) };
+}
+
+async function endSessions(ctx, body, req) {
+  await requireVerified(ctx);
+  const all = body.all === true;
+  const target = all ? null : String(body.id || '');
+  if (!all && (!target || target === ctx.sessionId)) throw new Fail(400, 'session', 'Поточний сеанс завершується кнопкою «Вийти»');
+  // Without the confirmation the database answers nothing to that session (core_me), so it is cut off at once.
+  const filter = all ? `session_id=neq.${q(ctx.sessionId)}` : `session_id=eq.${q(target)}`;
+  await db(`core_verified?member_id=eq.${q(ctx.member.id)}&${filter}`, { method: 'DELETE' });
+  if (all) {
+    // Also end the other sign-ins at Supabase Auth, so they need the password again.
+    const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+    await fetch(`${SB_URL}/auth/v1/logout?scope=others`, { method: 'POST', headers: { apikey: ANON || SERVICE, Authorization: `Bearer ${token}` } }).catch(() => {});
+  }
+  await audit(ctx.member.id, all ? 'Завершено всі інші сеанси' : 'Завершено сеанс на іншому пристрої');
+  return { ok: true };
 }
 
 async function removeKey(ctx, body) {
@@ -285,7 +317,7 @@ async function issueCode(ctx, body) {
 
 const OPS = {
   status, 'register-options': registerOptions, 'register-verify': registerVerify,
-  'login-options': loginOptions, 'login-verify': loginVerify, keys: listKeys, 'remove-key': removeKey, 'issue-code': issueCode,
+  'login-options': loginOptions, 'login-verify': loginVerify, keys: listKeys, 'remove-key': removeKey, 'issue-code': issueCode, sessions: listSessions, 'end-sessions': endSessions,
 };
 
 export async function POST(req) {
