@@ -4,7 +4,7 @@ import { Panel, Avatar, ClassBadge, Switch, Status } from '../components/ui.jsx'
 import { Icon } from '../components/Icon.jsx';
 import { ROLES, DIVISIONS, CLEARANCE, MODULES } from '../data/seed.js';
 import { MAX_LEVEL, CUSTOS } from '../data/clearance.js';
-import { supabaseOn } from '../lib/supabase.js';
+import { supabaseOn, authHeaders } from '../lib/supabase.js';
 import { isTouch, useInstall } from '../lib/mobile.js';
 import { missingFor } from '../data/academy/meta.js';
 import { listKeys, enroll, removeKey, passkeyError } from '../lib/passkey.js';
@@ -12,6 +12,31 @@ import { clearBlobs } from '../vaultdb.js';
 
 const LEVEL = ['Немає', 'Перегляд', 'Редагування', 'Керування'];
 const touch = isTouch();
+
+// The morning brief by e-mail (api/brief.js): on by default; titles above LUMEN never go into the letter.
+function BriefMail() {
+  const { me, dispatch, toast } = useStore();
+  const [busy, setBusy] = useState(false);
+  const on = me.brief !== false;
+  const sendNow = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch(new URL('api/brief', document.baseURI), { method: 'POST', headers: await authHeaders({ 'Content-Type': 'application/json' }) });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || (res.status === 404 ? 'Серверна функція недоступна (працює лише на Vercel)' : `HTTP ${res.status}`));
+      toast(`Бриф надіслано на ${body.to}`);
+    } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  return (
+    <Panel title="Ранковий бриф">
+      <div className="stack">
+        <Switch checked={on} onChange={(v) => dispatch({ type: 'user/update', id: me.id, patch: { brief: v } })} label="Щоранку о 8:00 на пошту" />
+        <div className="vx-hint">{me.email ? `Адреса: ${me.email}. ` : ''}Лист приходить, лише коли є що повідомити. Назви записів вище грифа LUMEN у листі не показуються — лише їх кількість.</div>
+        {supabaseOn && <button className="vx-btn vx-btn--sm" onClick={sendNow} disabled={busy}><Icon name="bell" /> {busy ? 'Надсилаю…' : 'Надіслати мені зараз'}</button>}
+      </div>
+    </Panel>
+  );
+}
 
 // Phone only: install to the home screen, what happens when the app is put away.
 function ThisPhone() {
@@ -147,6 +172,7 @@ export function Settings({ go }) {
         <div className="stack">
           {touch && <ThisPhone />}
           {supabaseOn && <Keys />}
+          <BriefMail />
           <Panel title="Інтерфейс">
             <div className="stack">
               <div className="vx-field">

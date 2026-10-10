@@ -105,6 +105,7 @@ function reducer(state, a) {
           if (k === 'role') return `роль → ${a.patch[k]}`;
           if (k === 'division') return `напрям → ${a.patch[k]}`;
           if (k === 'mfa') return a.patch[k] ? 'MFA увімкнено' : 'MFA вимкнено';
+          if (k === 'brief') return a.patch[k] ? 'ранковий бриф увімкнено' : 'ранковий бриф вимкнено';
           return k;
         });
       if (!changes.length) return state;

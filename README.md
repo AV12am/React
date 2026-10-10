@@ -159,6 +159,10 @@ Tailwind + shadcn-токени, прив'язані до стилю Reaction, `c
 - 5 невдалих спроб за 15 хв → пауза. Підтвердження діє 24 год (вхід раз на добу).
 
 Конвеєр спостереження щодня: Vercel → Environment Variables → `CRON_SECRET` (будь-який довгий випадковий рядок, Sensitive) → Redeploy.
+
+Ранковий бриф на пошту (щодня ≈ 8:00 за Києвом, `api/brief.js`): зареєструйтеся на resend.com, підтвердьте свій домен,
+створіть API-ключ і додайте у Vercel `RESEND_API_KEY`, `BRIEF_FROM` (напр. `Reaction Core <brief@ваш-домен>`) і, за бажання, `APP_URL`.
+Потрібен і `CRON_SECRET`. Лист отримують активні учасники, які не вимкнули бриф у «Налаштуваннях»; назви записів вище LUMEN у лист не потрапляють.
 Vercel сам додає його до щоденного виклику `/api/watch`; без нього щоденний запуск вимкнено, ручний працює.
 
 Потрібно: Vercel → Environment Variables → `SUPABASE_SERVICE_ROLE_KEY` (Supabase → Project Settings → API → *service_role* /

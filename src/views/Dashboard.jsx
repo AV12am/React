@@ -4,6 +4,7 @@ import { supabaseOn, rest } from '../lib/supabase.js';
 import { Panel, StatTile, Status, BarList, Trend, Avatar } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { STORAGE_QUOTA, DIVISIONS } from '../data/seed.js';
+import { BriefPanel } from './Brief.jsx';
 
 const TYPE_LABEL = { auth: 'Вхід', access: 'Доступ', vault: 'Сховище', map: 'Карта', work: 'Напрями', security: 'Безпека', system: 'Система' };
 
@@ -58,6 +59,8 @@ export function Dashboard({ go }) {
           {checks.filter((c) => c.status === 'ok').length} з {checks.length} перевірок у нормі
         </Status>
       </header>
+
+      <BriefPanel go={go} />
 
       <div className="grid grid--stats">
         <StatTile label="Нові файли · тиждень" value={newFiles} delta={`усього ${state.files.length}`} />

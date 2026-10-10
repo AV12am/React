@@ -770,3 +770,15 @@ kbd {
 .ws-more__chev { transform: rotate(90deg); margin-left: 4px; }
 .ws-more__menu { position: fixed; z-index: 30; display: grid; gap: 2px; padding: 6px; min-width: 220px; box-shadow: 0 12px 32px rgba(0, 0, 0, .35); }
 .ws-more__menu .vx-nav-item { white-space: nowrap; }
+
+/* Ранковий бриф */
+.brief__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px 20px; }
+.brief__sec { display: grid; gap: 2px; align-content: start; min-width: 0; padding-top: 10px; border-top: 1px solid var(--line); }
+.brief__sec.is-act { border-top-color: var(--rhomb); }
+.brief__head { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font: 600 14px/20px var(--font-text); font-variant-caps: small-caps; letter-spacing: .03em; margin-bottom: 4px; }
+.brief__head b { margin-left: auto; color: var(--ink); font-size: 15px; }
+.brief__item { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 6px 8px; margin: 0 -8px; background: none; border: 0; border-radius: var(--radius-sm); text-align: left; color: var(--ink); cursor: pointer; font: inherit; min-width: 0; }
+.brief__item:hover { background: var(--surface-2); }
+.brief__title { min-width: 0; overflow-wrap: anywhere; }
+.brief__more { padding: 2px 0; }
+.brief__range button { height: 30px; padding: 0 10px; font-size: 13px; }
