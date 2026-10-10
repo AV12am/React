@@ -51,8 +51,9 @@ function useFileUrl(file) {
 
 function Logo({ org, size = 56 }) {
   const { state } = useStore();
-  const file = org.logo && state.files.find((f) => f.id === org.logo);
-  const url = useFileUrl(file);
+  const file = !org.logoData && org.logo && state.files.find((f) => f.id === org.logo);
+  const stored = useFileUrl(file);
+  const url = org.logoData || stored;
   const style = { width: size, height: size, '--hue': SECTOR_HUE[org.sector] ?? 220 };
   return url
     ? <img className="co-logo" src={url} alt={`Логотип ${org.name}`} style={style} />
@@ -97,47 +98,20 @@ async function fileForCompany(ctx, org, list, kind, numbers = []) {
   return out;
 }
 
-// Logos (api/logo.js): the company's site, Wikidata by EDRPOU code, or a picture address someone found.
-// A base64 image → a File for the Vault.
-const extOf = (type) => ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/svg+xml': 'svg', 'image/webp': 'webp', 'image/gif': 'gif', 'image/x-icon': 'ico' }[type] || 'img');
-async function fetchLogos(orgs) {
-  const res = await fetch(new URL('api/logo', document.baseURI), {
-    method: 'POST', headers: supabaseOn ? await authHeaders({ 'Content-Type': 'application/json' }) : { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sites: orgs.map((o) => ({ id: o.id, url: o.website || '', code: o.code || '', image: o.image || '' })) }),
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.message || (res.status === 404 ? 'Серверна функція недоступна (працює лише на Vercel)' : `HTTP ${res.status}`));
-  return body.results.map((r) => (r.data ? { ...r, file: new File([Uint8Array.from(atob(r.data), (c) => c.charCodeAt(0))], `logo-${(orgs.find((o) => o.id === r.id)?.code) || r.id}.${extOf(r.type)}`, { type: r.type }) } : r));
+/** A picture → a small PNG data URL (longest side 160 px) kept right on the company record. */
+async function logoDataUrl(file) {
+  if (!isImage(file)) throw new Error(`«${file.name}» — не зображення`);
+  const src = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, fail) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => fail(new Error('Не вдалося прочитати зображення')); i.src = src; });
+    const w = img.naturalWidth || 160; const h = img.naturalHeight || 160;
+    const k = Math.min(1, 160 / Math.max(w, h));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL('image/png');
+  } finally { URL.revokeObjectURL(src); }
 }
-
-/** «Знайти логотипи» for every company with no logo yet that has a site or an EDRPOU code, six at a time. */
-function LogosFromSites({ orgs }) {
-  const ctx = useStore();
-  const [busy, setBusy] = useState('');
-  const todo = orgs.filter((o) => !o.logo && (o.website || /^\d{8}$/.test(o.code || '')));
-  if (!todo.length || ctx.backend?.writable === false) return null;
-  const run = async () => {
-    const numbers = []; let got = 0; let miss = 0;
-    try {
-      for (let i = 0; i < todo.length; i += 6) {
-        setBusy(`${Math.min(i + 6, todo.length)}/${todo.length}`);
-        const batch = todo.slice(i, i + 6);
-        for (const r of await fetchLogos(batch)) {
-          const org = batch.find((o) => o.id === r.id);
-          if (!r.file || !org) { miss++; continue; }
-          const [m] = await fileForCompany(ctx, org, [r.file], 'logo', numbers);
-          if (m) { ctx.dispatch({ type: 'record/update', id: org.id, patch: logoPatch(org, m, r), where: 'Розвідка · Компанії', label: org.name, note: `логотип: ${r.via || 'знайдено'}` }); got++; }
-        }
-      }
-      ctx.toast(`Логотипів додано: ${got}${miss ? ` · не знайдено: ${miss}` : ''}`);
-    } catch (e) { ctx.toast(e.message, 'error'); } finally { setBusy(''); }
-  };
-  return <button className="vx-btn vx-btn--sm" disabled={!!busy} onClick={run} title="З сайту компанії, а якщо там немає — з Wikidata за кодом ЄДРПОУ"><Icon name="download" /> {busy ? `Логотипи ${busy}` : `Знайти логотипи (${todo.length})`}</button>;
-}
-
-/** The record change for a found logo; a site learned from Wikidata fills an empty «Сайт». */
-const logoPatch = (org, m, r) => ({ logo: m.id, logoFrom: r.from, ...(r.website && !org.website ? { website: r.website } : {}) });
-const imageSearch = (org) => `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(`${org.name} логотип`)}`;
 
 function useCompanyFiles(org) {
   const ctx = useStore();
@@ -233,7 +207,6 @@ function CompanyList({ access, go }) {
         <span className="vx-hint">{shown.length} з {orgs.length}</span>
         {access.canEdit && missing.length > 0 && <button className="vx-btn vx-btn--sm" onClick={loadAll}><Icon name="download" /> Нові з довідника ({missing.length})</button>}
         {access.canEdit && backfill.length > 0 && <button className="vx-btn vx-btn--sm" onClick={fill}><Icon name="file" /> Доповнити сайти, роки, власників ({backfill.length})</button>}
-        {access.canEdit && <LogosFromSites orgs={orgs} />}
       </div>
       <div className="co-grid">{shown.map((o) => <CompanyCard key={o.id} org={o} go={go} />)}</div>
       {!shown.length && <div className="vx-empty"><Icon name="search" /><div>Нічого не знайдено</div></div>}
@@ -352,7 +325,6 @@ function CompanyPage({ org, access, go }) {
   const { state, me, toast, backend } = useStore();
   const { upload, remove, patch, folderId: fid } = useCompanyFiles(org);
   const [busy, setBusy] = useState('');
-  const [linkOpen, setLinkOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [lightbox, setLightbox] = useState(null);
   const logoIn = useRef(null), photoIn = useRef(null), docIn = useRef(null);
@@ -368,14 +340,9 @@ function CompanyPage({ org, access, go }) {
 
   const run = async (label, fn) => { setBusy(label); try { await fn(); } catch (e) { toast(e.message || 'Помилка', 'error'); } finally { setBusy(''); } };
   const onLogo = (list) => run('logo', async () => {
-    const [m] = await upload(list, 'logo');
-    if (m) { patch({ logo: m.id }, 'новий логотип'); toast('Логотип оновлено'); }
-  });
-  const findLogo = (image = '') => run(image ? 'link' : 'site', async () => {
-    const [r] = await fetchLogos([{ ...org, image }]);
-    if (!r?.file) throw new Error(r?.error ? `Логотип: ${r.error}` : 'Логотип не знайдено');
-    const [m] = await upload([r.file], 'logo');
-    if (m) { patch(logoPatch(org, m, r), `логотип: ${r.via || 'знайдено'}`); toast(`Логотип додано (${r.via || 'знайдено'})`); setLinkOpen(false); }
+    if (!list[0]) return;
+    patch({ logoData: await logoDataUrl(list[0]), logo: null }, 'новий логотип');
+    toast('Логотип оновлено');
   });
   const onPhotos = (list) => run('photo', async () => {
     const ms = await upload(list, 'photo');
@@ -405,16 +372,6 @@ function CompanyPage({ org, access, go }) {
           {canEdit && <>
             <input ref={logoIn} type="file" accept="image/*" hidden onChange={(e) => { onLogo(Array.from(e.target.files)); e.target.value = ''; }} />
             <button className="vx-btn vx-btn--sm" disabled={!!busy} onClick={() => logoIn.current.click()}>{busy === 'logo' ? <Loader size={16} /> : <><Icon name="upload" /> Логотип</>}</button>
-            {(org.website || org.code) && <button className="vx-btn vx-btn--sm vx-btn--ghost" disabled={!!busy} onClick={() => findLogo()} title="З сайту компанії, а якщо там немає — з Wikidata за кодом ЄДРПОУ">{busy === 'site' ? <Loader size={16} /> : 'Знайти'}</button>}
-            <button className="vx-btn vx-btn--sm vx-btn--ghost" disabled={!!busy} onClick={() => setLinkOpen(!linkOpen)} aria-expanded={linkOpen}>За посиланням</button>
-            {linkOpen && (
-              <form className="co-logo-link" onSubmit={(e) => { e.preventDefault(); const v = e.currentTarget.elements.img.value.trim(); if (v) findLogo(v); }}>
-                <input name="img" className="vx-input" type="url" placeholder="https://… адреса зображення" aria-label="Адреса зображення логотипа" autoFocus />
-                <button className="vx-btn vx-btn--sm vx-btn--primary" disabled={!!busy}>{busy === 'link' ? <Loader size={16} /> : 'Додати'}</button>
-                <a className="ws-link vx-hint" href={imageSearch(org)} target="_blank" rel="noreferrer noopener">Шукати зображення ↗</a>
-                <span className="vx-hint">Знайдіть логотип, правою кнопкою — «Копіювати адресу зображення», вставте сюди.</span>
-              </form>
-            )}
           </>}
         </div>
         <div className="co-hero__main">
