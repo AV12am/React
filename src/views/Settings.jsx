@@ -128,6 +128,31 @@ function ThisPhone() {
 }
 
 // This person's passkeys: add another device, remove one (never the last).
+// Administrator: an encrypted backup of the database now (the weekly one runs by itself).
+function BackupNow() {
+  const { toast } = useStore();
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch(new URL('api/backup', document.baseURI), { method: 'POST', headers: await authHeaders() });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.message || `HTTP ${res.status}`); }
+      const name = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') || '')?.[1] || 'backup.json.enc';
+      const { saveFile } = await import('../lib/io.js');
+      await saveFile(name, await res.blob());
+      toast(`Резервну копію створено: ${name}`);
+    } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  return (
+    <Panel title="Резервні копії">
+      <div className="stack">
+        <div className="vx-hint">Щопонеділка база (люди, записи, обговорення, індекс Сховища, налаштування) зберігається зашифрованою в Supabase Storage; зберігаються 8 останніх копій. Розшифрувати можна лише фразою BACKUP_KEY — зберігайте її окремо від платформи.</div>
+        <button className="vx-btn vx-btn--sm" disabled={busy} onClick={run}><Icon name="download" /> {busy ? 'Створюю…' : 'Створити й завантажити копію зараз'}</button>
+      </div>
+    </Panel>
+  );
+}
+
 // «Мої сеанси»: where I am signed in (confirmed with a key), and ending those sessions.
 const deviceOf = (ua) => {
   if (!ua) return 'Невідомий пристрій';
@@ -262,6 +287,7 @@ export function Settings({ go }) {
           {touch && <ThisPhone />}
           {supabaseOn && <Keys />}
           {supabaseOn && <Sessions />}
+          {supabaseOn && me.role === 'admin' && <BackupNow />}
           <BriefMail />
           {supabaseOn && <PushSettings />}
           <Panel title="Інтерфейс">
