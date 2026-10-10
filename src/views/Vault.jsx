@@ -511,13 +511,13 @@ function FileDrawer({ id, onClose }) {
 }
 
 function NewFolder({ onClose }) {
-  const { me, dispatch, toast, backend } = useStore();
+  const { me, dispatch, toast, backend, refused } = useStore();
   const [name, setName] = useState('');
   const [level, setLevel] = useState(0);
   const save = async () => {
     const folder = { id: `f-${Date.now().toString(36)}`, name: name.trim(), clearance: level, division: me.division };
     if (backend?.index) {
-      try { await backend.index.addFolder(folder); } catch { toast('Не вдалося створити папку в сховищі'); return; }
+      try { await backend.index.addFolder(folder); } catch (e) { toast(`Не вдалося створити папку: ${await refused(e)}`, 'error'); return; }
     }
     dispatch({ type: 'folder/add', folder });
     toast('Папку створено');

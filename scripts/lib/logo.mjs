@@ -35,3 +35,31 @@ export function isPrivateAddress(ip) {
   const v6 = ip.toLowerCase();
   return v6 === '::1' || v6 === '::' || v6.startsWith('fc') || v6.startsWith('fd') || v6.startsWith('fe80') || v6.startsWith('::ffff:127.') || v6.startsWith('::ffff:10.') || v6.startsWith('::ffff:192.168.');
 }
+
+/* ---------- Wikidata: the logo (P154) and site (P856) of the entity with this EDRPOU code (P3125) ---------- */
+
+export const WIKIDATA_SPARQL = 'https://query.wikidata.org/sparql';
+
+/** SPARQL request URL for a company's logo and official website by its 8-digit EDRPOU code. */
+export function wikidataQuery(code) {
+  if (!/^\d{8}$/.test(String(code || ''))) return '';
+  const q = `SELECT ?logo ?site WHERE { ?c wdt:P3125 "${code}" . OPTIONAL { ?c wdt:P154 ?logo } OPTIONAL { ?c wdt:P856 ?site } } LIMIT 5`;
+  return `${WIKIDATA_SPARQL}?format=json&query=${encodeURIComponent(q)}`;
+}
+
+/** { logo, site } from a SPARQL JSON answer; the logo is a Commons file. Several matches for one code → none trusted. */
+export function parseWikidata(body) {
+  const rows = body?.results?.bindings || [];
+  const logos = [...new Set(rows.map((r) => r.logo?.value).filter(Boolean))];
+  const sites = [...new Set(rows.map((r) => r.site?.value).filter((v) => /^https?:\/\//.test(v || '')))];
+  return { logo: logos.length === 1 ? logos[0] : '', site: sites[0] || '' };
+}
+
+/** A Commons Special:FilePath link → a raster thumbnail of this width (SVG logos come back as PNG). */
+export function commonsThumb(url, width = 256) {
+  if (!url) return '';
+  const u = new URL(url.replace(/^http:/, 'https:'));
+  if (!/(^|\.)wikimedia\.org$/.test(u.hostname) || !/Special:FilePath/i.test(u.pathname)) return '';
+  u.searchParams.set('width', String(width));
+  return u.href;
+}

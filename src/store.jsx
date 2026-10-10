@@ -3,7 +3,7 @@ import { USERS, REQUESTS, FILES, FOLDERS, SEED_AUDIT, PERMISSIONS, CLEARANCE } f
 import { canSeeLevel, levelOf, remark, MAX_LEVEL, SEAL } from './data/clearance.js';
 import { nextReview } from './data/academy/meta.js';
 import { storage } from './lib/storage.js';
-import { createSync } from './lib/sync.js';
+import { createSync, isRlsError } from './lib/sync.js';
 import { status as passkeyStatus } from './lib/passkey.js';
 import { notify } from './lib/notify.js';
 import { supabaseOn, signedIn, onSession, signOut, currentEmail } from './lib/supabase.js';
@@ -404,12 +404,21 @@ export function StoreProvider({ children }) {
   }, []);
   toastRef.current = toast;
 
+  // A write the server refused by row-level security: most often the 24-hour passkey confirmation has run out.
+  // Returns a message for the person; asks for the passkey again when that is the reason.
+  const refused = useCallback(async (e) => {
+    if (!isRlsError(e)) return e?.message || 'Помилка';
+    const still = backend?.needsSignIn ? await passkeyStatus().then((x) => !!x.verified).catch(() => true) : true;
+    if (!still) { dispatch({ type: 'session/verified', value: false }); return 'Підтвердження входу минуло — підтвердьте ключем ще раз і повторіть'; }
+    return 'Сервер відхилив запис: недостатньо прав (гриф вищий за ваш допуск)';
+  }, [backend]);
+
   const value = useMemo(() => {
     const me = state.users.find((u) => u.id === state.session?.userId) || null;
     const perms = me ? PERMISSIONS[me.role] : {};
     const userById = (id) => state.users.find((u) => u.id === id);
-    return { state, dispatch, me, perms, userById, toast, toasts, backend };
-  }, [state, toast, toasts, backend]);
+    return { state, dispatch, me, perms, userById, toast, toasts, backend, refused };
+  }, [state, toast, toasts, backend, refused]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
