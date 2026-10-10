@@ -5,7 +5,9 @@ import { Icon } from '../components/Icon.jsx';
 import { Loader } from '../brand/Mark.jsx';
 import { CLEARANCE, DIVISIONS } from '../data/seed.js';
 import { MAX_LEVEL } from '../data/clearance.js';
-import { TRACKS, COURSES, GRADES, PASS, REQUIRED, courseById, resultOf, missingFor, loadTrack } from '../data/academy/meta.js';
+import { TRACKS, COURSES, GRADES, PASS, REQUIRED, courseById, resultOf, missingFor, loadTrack, dueReviews } from '../data/academy/meta.js';
+import { certificateHtml } from '../lib/certificate.js';
+import { printHtml } from '../lib/report.js';
 import { sortedCourses } from './AcademyRegisters.jsx';
 
 // Which clearance a course unlocks, if any: { [courseId]: level }.
@@ -13,8 +15,83 @@ const UNLOCKS = Object.fromEntries(Object.entries(REQUIRED).flatMap(([lvl, ids])
 
 /** Training — Academy courses with tests. `focus`: a course id. */
 export function Learn({ focus, go }) {
+  if (focus === 'review') return <Review go={go} />;
   const course = focus && courseById(focus);
   return course ? <Course key={course.id} course={course} go={go} /> : <Catalogue go={go} />;
+}
+
+/* ---------- повторення помилок ---------- */
+
+const shuffleIdx = (n) => { const a = Array.from({ length: n }, (_, i) => i); for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+function Review({ go }) {
+  const { me, dispatch } = useStore();
+  const [items, setItems] = useState(null);
+  const [picked, setPicked] = useState({});
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    const due = dueReviews(me).slice(0, 20);
+    const tracks = [...new Set(due.map((d) => courseById(d.course)?.track).filter(Boolean))];
+    Promise.all(tracks.map((t) => loadTrack(t).then((c) => [t, c]))).then((loaded) => {
+      const content = Object.assign({}, ...loaded.map(([, c]) => c));
+      setItems(due.map((d) => {
+        const row = content[d.course]?.quiz?.find(([q]) => q === d.q);
+        if (!row) return null;
+        const [q, opts, why] = row;
+        const order = shuffleIdx(opts.length);
+        return { course: d.course, title: courseById(d.course)?.title, q, why, opts: order.map((i) => opts[i]), right: order.indexOf(0) };
+      }).filter(Boolean));
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const submit = () => {
+    const byCourse = {};
+    items.forEach((it, i) => {
+      const b = (byCourse[it.course] ||= { right: [], wrong: [] });
+      (picked[i] === it.right ? b.right : b.wrong).push(it.q);
+    });
+    dispatch({ type: 'training/review', byCourse });
+    setDone(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const score = items ? items.filter((it, i) => picked[i] === it.right).length : 0;
+  return (
+    <div className="page">
+      <header className="page__head">
+        <div>
+          <button className="vx-eyebrow ws-back" onClick={() => go('learn')}><Icon name="chevron" size={12} className="ws-back__icon" /> Навчання</button>
+          <h1 className="vx-h1">Повторення помилок</h1>
+          <div className="vx-hint">Питання, на які ви відповіли неправильно, повертаються через 2, 7 і 21 день — доки не закріпляться.</div>
+        </div>
+      </header>
+      {!items ? <div className="vx-empty"><Loader size={40} label="Завантаження" /></div> : !items.length ? (
+        <Panel><div className="vx-empty"><Icon name="check" /><div>На сьогодні повторювати нічого.</div></div></Panel>
+      ) : <div className="quiz">
+        {done && (
+          <Panel className="quiz__result is-pass">
+            <div className="quiz__score"><span className="vx-mono">{score} / {items.length}</span><Status kind={score === items.length ? 'ok' : 'warn'}>{score === items.length ? 'Усе правильно' : 'Неправильні повернуться за 2 дні'}</Status></div>
+            <div className="toolbar"><button className="vx-btn" onClick={() => go('learn')}>До курсів</button></div>
+          </Panel>
+        )}
+        <ol className="quiz__list">
+          {items.map((it, i) => (
+            <li key={i} className="quiz__q vx-panel">
+              <fieldset disabled={done}>
+                <legend><span className="vx-hint">{it.title}</span><br />{it.q}</legend>
+                {it.opts.map((o, j) => (
+                  <label key={j} className={`quiz__opt ${done ? (j === it.right ? 'is-right' : picked[i] === j ? 'is-wrong' : '') : ''}`}>
+                    <input type="radio" name={`rv-${i}`} checked={picked[i] === j} onChange={() => setPicked({ ...picked, [i]: j })} />
+                    <span>{o}</span>
+                  </label>
+                ))}
+                {done && <div className="quiz__why vx-hint">{picked[i] === it.right ? '✓ ' : '✗ '}{it.why}</div>}
+              </fieldset>
+            </li>
+          ))}
+        </ol>
+        {!done && <div className="course__foot"><span className="vx-hint">Відповіді: {Object.keys(picked).length} з {items.length}</span><button className="vx-btn vx-btn--primary" disabled={Object.keys(picked).length < items.length} onClick={submit}>Завершити</button></div>}
+      </div>}
+    </div>
+  );
 }
 
 /* ---------- catalogue ---------- */
@@ -47,6 +124,12 @@ function Catalogue({ go }) {
           <div className="vx-meter vx-meter--brass"><span style={{ width: `${(passed / COURSES.length) * 100}%` }} /></div>
         </div>
       </header>
+
+      {dueReviews(me).length > 0 && (
+        <Panel title="Повторення помилок" action={<button className="vx-btn vx-btn--primary vx-btn--sm" onClick={() => go('learn', 'review')}><Icon name="refresh" /> Повторити · {dueReviews(me).length}</button>}>
+          <div className="vx-hint">Питання, на які ви помилилися, — на сьогодні їх {dueReviews(me).length}. Кілька хвилин, і вони закріпляться.</div>
+        </Panel>
+      )}
 
       {next != null && (
         <Panel title={`Для допуску ${CLEARANCE[next].short}`} action={<ClassBadge level={next} />}>
@@ -175,7 +258,10 @@ function Course({ course, go }) {
                 Тест: {content.quiz.length} питань, прохідний поріг {Math.round(PASS * 100)}%.
                 {r ? ` Спроб: ${r.attempts}, найкращий результат ${r.best}%${r.passed && r.at ? `, складено ${fmtDate(r.at, false)}` : ''}.` : ''}
               </div>
-              <button className="vx-btn vx-btn--primary" onClick={() => setTesting(true)}><Icon name="check" /> Пройти тест</button>
+              <span className="toolbar">
+                {r?.fresh && <button className="vx-btn" onClick={() => printHtml(certificateHtml({ user: me, course, result: r, grade: GRADES[course.grade], track: track.name }))}><Icon name="file" /> Сертифікат PDF</button>}
+                <button className="vx-btn vx-btn--primary" onClick={() => setTesting(true)}><Icon name="check" /> Пройти тест</button>
+              </span>
             </div>
           </>}
     </div>
@@ -195,7 +281,8 @@ function Quiz({ course, quiz, onClose, go }) {
 
   const submit = () => {
     setDone(true);
-    dispatch({ type: 'training/result', course: course.id, title: course.title, score, total: items.length, passed });
+    dispatch({ type: 'training/result', course: course.id, title: course.title, score, total: items.length, passed,
+      wrong: items.filter((it, i) => picked[i] !== it.right).map((it) => it.q), right: items.filter((it, i) => picked[i] === it.right).map((it) => it.q) });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const again = () => { setPicked({}); setDone(false); setRound((n) => n + 1); window.scrollTo(0, 0); };

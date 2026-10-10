@@ -94,3 +94,28 @@ export const loadTrack = (track) => ({
   ops: () => import('./ops.js'),
   lead: () => import('./lead.js'),
 })[track]().then((m) => m.default);
+
+/* ---------- Повторення помилок (spaced repetition) ---------- */
+// A question answered wrongly comes back after 2 days; answered right again it moves on to 7, then 21 days,
+// and after that it is learned. Kept per course on the person's card: training[course].review = [{ q, box, due }].
+export const REVIEW_DAYS = [2, 7, 21];
+const addDays = (n, now = Date.now()) => new Date(now + n * 86400000).toISOString().slice(0, 10);
+
+/** The review list after answers: wrong → box 1; right on a listed question → next box or learned. */
+export function nextReview(list = [], { wrong = [], right = [] }, now = Date.now()) {
+  const by = new Map(list.map((x) => [x.q, x]));
+  for (const q of wrong) by.set(q, { q, box: 1, due: addDays(REVIEW_DAYS[0], now) });
+  for (const q of right) {
+    const x = by.get(q);
+    if (!x) continue;
+    if (x.box >= REVIEW_DAYS.length) by.delete(q);
+    else by.set(q, { q, box: x.box + 1, due: addDays(REVIEW_DAYS[x.box], now) });
+  }
+  return [...by.values()];
+}
+
+/** What is due today for this person: [{ course, q, box }]. */
+export function dueReviews(user, now = Date.now()) {
+  const today = new Date(now).toISOString().slice(0, 10);
+  return Object.entries(user?.training || {}).flatMap(([course, r]) => (r.review || []).filter((x) => x.due <= today).map((x) => ({ course, ...x })));
+}

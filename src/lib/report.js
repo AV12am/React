@@ -102,17 +102,20 @@ export function reportHtml(m) {
 </body></html>`;
 }
 
-/** Opens the system print dialog for the report (save as PDF there). */
-export function printReport(m) {
+/** Prints a complete HTML document through a hidden frame (the system dialog offers «Save as PDF»). */
+export function printHtml(html) {
   const frame = document.createElement('iframe');
   frame.setAttribute('aria-hidden', 'true');
   Object.assign(frame.style, { position: 'fixed', right: '0', bottom: '0', width: '0', height: '0', border: '0' });
-  frame.srcdoc = reportHtml(m);
+  frame.srcdoc = html;
   frame.onload = () => {
     try { frame.contentWindow.focus(); frame.contentWindow.print(); } finally { setTimeout(() => frame.remove(), 60000); }
   };
   document.body.appendChild(frame);
 }
+
+/** Opens the system print dialog for the report (save as PDF there). */
+export const printReport = (m) => printHtml(reportHtml(m));
 
 /* ---------- Word ---------- */
 
