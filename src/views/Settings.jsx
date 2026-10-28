@@ -294,6 +294,19 @@ export function Settings({ go }) {
           <Panel title="Інтерфейс">
             <div className="stack">
               <div className="vx-field">
+                <span className="vx-label">Мова інтерфейсу · Language</span>
+                {/* data-no-i18n: the names of the languages stay in their own language */}
+                <div className="segmented" role="group" aria-label="Мова інтерфейсу" data-no-i18n>
+                  {[['uk', 'Українська'], ['en', 'English']].map(([id, name]) => (
+                    <button key={id} className={(s.lang || 'uk') === id ? 'is-active' : ''} onClick={() => {
+                      if ((s.lang || 'uk') === id) return;
+                      set({ lang: id });
+                      setTimeout(() => location.reload(), 80); // the choice is saved first; the page restarts in the new language
+                    }}>{name}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="vx-field">
                 <span className="vx-label">Тема</span>
                 <div className="segmented" role="group" aria-label="Тема">
                   <button className={s.theme === 'matte' ? 'is-active' : ''} onClick={() => set({ theme: 'matte' })}>Матова чорна</button>

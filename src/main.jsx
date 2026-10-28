@@ -18,5 +18,13 @@ import './styles/components.css';
 import './styles/app.css';
 import './styles/v0-bridge.css';
 
-createRoot(document.getElementById('root')).render(<App />);
+// Interface language (Налаштування → Мова інтерфейсу). English swaps the texts as they appear (src/i18n/dom.js).
+let lang = 'uk';
+try { lang = JSON.parse(localStorage.getItem('reaction-core/v3') || '{}')?.settings?.lang || 'uk'; } catch { /* private mode */ }
+document.documentElement.lang = lang;
+const ready = lang === 'en'
+  ? Promise.all([import('./i18n/dom.js'), import('./i18n/en.js')]).then(([{ createTranslator, startTranslator }, dict]) => { startTranslator(createTranslator(dict)); }).catch(() => {})
+  : Promise.resolve();
+
+ready.then(() => createRoot(document.getElementById('root')).render(<App />));
 labelTables(); // table cells know their column, for the card layout on phones
