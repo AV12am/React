@@ -10,6 +10,8 @@
 // A register with `stages` is shown as a board (a column per stage); without — as a table.
 // `title` names the field used as the record's heading; `list` fields show on cards and in tables.
 // `layout: 'cards'` shows the register as cards with a cover photo and the start of the `about` field.
+// Every record is created as a short card (fields marked `create`; if none — all but files) and then opens as its
+// own page with working entries, files, tasks and discussion (Workspace.jsx RecordPage; `page: false` opts out).
 
 const PRIORITY = { id: 'priority', label: 'Пріоритет', type: 'select', list: true, options: ['Критичний', 'Високий', 'Середній', 'Низький'] };
 
@@ -158,14 +160,14 @@ export const WORKSPACES = {
     tagline: 'Аналітичні продукти: документи, звіти й матеріали — з переглядом просто на платформі',
     registers: [
       {
-        id: 'products', name: 'Продукти', one: 'продукт', icon: 'chart', title: 'title', level: 1, layout: 'cards', about: 'about',
+        id: 'products', name: 'Продукти', one: 'продукт', icon: 'chart', title: 'title', level: 1, layout: 'cards', about: 'about', entryLabel: 'Робота над продуктом',
         stages: ['Чернетка', 'Рецензія', 'Затверджено', 'Видано'],
         fields: [
-          { id: 'title', label: 'Назва', type: 'text', required: true },
-          { id: 'about', label: 'Опис', type: 'longtext' },
+          { id: 'title', label: 'Назва', type: 'text', required: true, create: true },
+          { id: 'about', label: 'Опис', type: 'longtext', create: true },
           { id: 'files', label: 'Файли продукту', type: 'files' },
-          { id: 'kind', label: 'Тип', type: 'select', list: true, options: ['Оцінка', 'Довідка', 'Прогноз', 'Бриф', 'Звіт'] },
-          { id: 'customer', label: 'Замовник', type: 'text', list: true },
+          { id: 'kind', label: 'Тип', type: 'select', list: true, create: true, options: ['Оцінка', 'Довідка', 'Прогноз', 'Бриф', 'Звіт'] },
+          { id: 'customer', label: 'Замовник', type: 'text', list: true, create: true },
           { id: 'confidence', label: 'Рівень упевненості', type: 'select', list: true, options: ['Низький', 'Помірний', 'Високий'] },
           { id: 'analyst', label: 'Аналітик', type: 'user', list: true },
           { id: 'due', label: 'Термін', type: 'date', list: true },
@@ -334,16 +336,20 @@ export const WORKSPACES = {
     tagline: 'Дослідження: опис, фото й документи в одній картці',
     registers: [
       {
-        id: 'studies', name: 'Дослідження', one: 'дослідження', icon: 'atom', title: 'title', level: 1, layout: 'cards', about: 'about',
+        // `page`: created with a short form (fields marked `create`), then opened as its own page where the
+        // team adds entries — notes, findings, photos and documents — as the study goes on.
+        id: 'studies', name: 'Дослідження', one: 'дослідження', icon: 'atom', title: 'title', level: 1, layout: 'cards', about: 'about', page: true,
+        entryLabel: 'Записи дослідження',
         fields: [
-          { id: 'title', label: 'Назва', type: 'text', required: true },
-          { id: 'about', label: 'Опис', type: 'longtext' },
-          { id: 'state', label: 'Стан', type: 'select', list: true, options: ['Планується', 'Триває', 'Завершено', 'Призупинено'] },
-          { id: 'lead', label: 'Керівник', type: 'user', list: true },
+          { id: 'title', label: 'Назва', type: 'text', required: true, create: true },
+          { id: 'about', label: 'Опис', type: 'longtext', create: true },
+          { id: 'state', label: 'Стан', type: 'select', list: true, create: true, options: ['Планується', 'Триває', 'Завершено', 'Призупинено'] },
+          { id: 'lead', label: 'Керівник', type: 'user', list: true, create: true },
           { id: 'hypothesis', label: 'Гіпотеза чи питання', type: 'longtext' },
           { id: 'method', label: 'Метод', type: 'text' },
           { id: 'results', label: 'Результати', type: 'longtext' },
-          { id: 'files', label: 'Фото й документи', type: 'files' },
+          { id: 'files', label: 'Основні фото й документи', type: 'files' },
+          { id: 'entries', type: 'hidden', hidden: true }, // [{ id, at, author, title, text, files }] — added on the study's page
           { id: 'file', label: 'Звіт', type: 'file', hidden: true }, // earlier single report from the Vault
         ],
       },
@@ -354,12 +360,12 @@ export const WORKSPACES = {
     tagline: 'Окремі проєкти: опис, команда, документи й матеріали',
     registers: [
       {
-        id: 'projects', name: 'Проєкти', one: 'проєкт', icon: 'layers', title: 'name', level: 1, layout: 'cards', about: 'about',
+        id: 'projects', name: 'Проєкти', one: 'проєкт', icon: 'layers', title: 'name', level: 1, layout: 'cards', about: 'about', entryLabel: 'Робота над проєктом',
         fields: [
-          { id: 'name', label: 'Назва', type: 'text', required: true },
-          { id: 'about', label: 'Опис', type: 'longtext' },
-          { id: 'state', label: 'Стан', type: 'select', list: true, options: ['Планується', 'Триває', 'На паузі', 'Завершено'] },
-          { id: 'lead', label: 'Керівник проєкту', type: 'user', list: true },
+          { id: 'name', label: 'Назва', type: 'text', required: true, create: true },
+          { id: 'about', label: 'Опис', type: 'longtext', create: true },
+          { id: 'state', label: 'Стан', type: 'select', list: true, create: true, options: ['Планується', 'Триває', 'На паузі', 'Завершено'] },
+          { id: 'lead', label: 'Керівник проєкту', type: 'user', list: true, create: true },
           { id: 'team', label: 'Команда', type: 'text' },
           { id: 'start', label: 'Початок', type: 'date' },
           { id: 'deadline', label: 'Термін', type: 'date' },

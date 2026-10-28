@@ -192,12 +192,12 @@ function FieldInput({ field, value, set, look, me }) {
   }
 }
 
-function RecordDrawer({ d, reg, record, access, onClose, go }) {
+function RecordDrawer({ d, reg, record, access, onClose, go, onCreated, startEditing = false }) {
   const { state, me, dispatch, toast } = useStore();
   const base = useLookups(d.id);
   const look = { ...base, users: state.users.filter((u) => u.status !== 'suspended') };
   const isNew = !record;
-  const [editing, setEditing] = useState(isNew);
+  const [editing, setEditing] = useState(isNew || startEditing);
   const [draft, setDraft] = useState(() => (record ? { ...record } : {
     stage: reg.stages?.[0] ?? null, clearance: Math.min(reg.level, me.clearance),
     ...(reg.id === 'judgments' ? { probability: 50, outcome: 'Відкрито', analyst: me.id } : {}),
@@ -221,13 +221,14 @@ function RecordDrawer({ d, reg, record, access, onClose, go }) {
     const clean = Object.fromEntries(Object.entries(draft).filter(([k]) => !['id', 'div', 'col', 'owner', 'at', 'updated'].includes(k)));
     const label = titleOf(reg, draft);
     if (isNew) {
-      dispatch({ type: 'record/add', record: { div: d.id, col: reg.id, ...clean }, where, label });
+      const id = `w-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+      dispatch({ type: 'record/add', record: { id, div: d.id, col: reg.id, ...clean }, where, label });
       toast(`Додано: ${label}`);
-      onClose();
+      if (onCreated) onCreated(id); else onClose();
     } else {
       dispatch({ type: 'record/update', id: record.id, patch: clean, where, label });
       toast('Зміни збережено');
-      setEditing(false);
+      if (startEditing) onClose(); else setEditing(false);
     }
   };
   const remove = () => {
@@ -246,7 +247,8 @@ function RecordDrawer({ d, reg, record, access, onClose, go }) {
   return (
     <Drawer title={isNew ? `Новий запис · ${reg.name}` : titleOf(reg, record)} onClose={onClose}
       footer={editing ? <>
-        {!isNew && <button className="vx-btn vx-btn--ghost" onClick={() => { setDraft({ ...record }); setEditing(false); }}>Скасувати</button>}
+        {!isNew && <button className="vx-btn vx-btn--ghost" onClick={() => { if (startEditing) { onClose(); return; } setDraft({ ...record }); setEditing(false); }}>Скасувати</button>}
+        {startEditing && canDelete && <button className="vx-btn vx-btn--danger" onClick={remove} onBlur={() => setArmed(false)}><Icon name="trash" /> {armed ? 'Точно видалити?' : 'Видалити'}</button>}
         <button className="vx-btn vx-btn--primary" onClick={save} disabled={!!missing.length || badCoords}><Icon name="check" /> {isNew ? 'Додати' : 'Зберегти'}</button>
       </> : <>
         {canDelete && <button className="vx-btn vx-btn--danger" onClick={remove} onBlur={() => setArmed(false)}><Icon name="trash" /> {armed ? 'Точно видалити?' : 'Видалити'}</button>}
@@ -262,7 +264,8 @@ function RecordDrawer({ d, reg, record, access, onClose, go }) {
               </div>
             </div>
           )}
-          {reg.fields.filter((f) => !f.hidden).map((f) => (
+          {isNew && isPage(reg) && <div className="vx-hint">Спершу — картка опису. Після створення {reg.one} відкриється окремою сторінкою: там додаватимете записи, фото й документи.</div>}
+          {(isNew && isPage(reg) ? createFields(reg) : reg.fields).filter((f) => !f.hidden && !(isPage(reg) && f.type === 'files')).map((f) => (
             <div className="vx-field" key={f.id}>
               <label className="vx-label" htmlFor={`f-${f.id}`}>{f.label}{f.required && ' *'}</label>
               {f.type === 'files'
@@ -367,11 +370,124 @@ function Tile({ reg, r, look, locked, onOpen, go }) {
   );
 }
 
+/* ---------- a record as its own page ---------- */
+
+// Every register works the same way: a record is created as a short description card and then opens as
+// its own page — a working space with entries, files, tasks and discussion. Organisations have their own
+// company page («Компанії»), so they keep the side card.
+const isPage = (reg) => reg.page ?? reg.id !== 'orgs';
+/** The fields of the short creation card: those marked `create`, or — if none is — all but files. */
+const createFields = (reg) => (reg.fields.some((f) => f.create) ? reg.fields.filter((f) => f.create) : reg.fields.filter((f) => f.type !== 'files'));
+
+/** One entry of the study: what was done or found, with its own files. */
+function EntryForm({ d, record, onAdd, label }) {
+  const [title, setTitle] = useState('');
+  const [text, setText] = useState('');
+  const [files, setFiles] = useState([]);
+  const ready = text.trim() || files.length;
+  const add = (e) => {
+    e.preventDefault();
+    if (!ready) return;
+    onAdd({ title: title.trim(), text: text.trim(), files });
+    setTitle(''); setText(''); setFiles([]);
+  };
+  return (
+    <form className="vx-panel rp-form" onSubmit={add}>
+      <div className="vx-eyebrow">Новий запис</div>
+      <input className="vx-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Заголовок (необов’язково): етап, подія, знахідка" aria-label="Заголовок запису" />
+      <textarea className="vx-input ws-textarea" rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder={`Що зроблено чи з’ясовано — ${label.toLowerCase()}`} aria-label="Текст запису" />
+      <Attachments value={files} onChange={setFiles} canEdit clearance={record.clearance} division={d.id} record={record.id} hint="Фото, PDF, Word, Excel — прикріпляться до цього запису." />
+      <div className="toolbar"><button className="vx-btn vx-btn--primary" disabled={!ready}><Icon name="plus" /> Додати запис</button></div>
+    </form>
+  );
+}
+
+function RecordPage({ d, reg, record, access, go }) {
+  const { state, me, dispatch, toast } = useStore();
+  const look = { ...useLookups(d.id), users: state.users };
+  const [editing, setEditing] = useState(false);
+  const where = `${d.name} · ${reg.name}`;
+  const title = titleOf(reg, record);
+  const entries = Array.isArray(record.entries) ? record.entries : [];
+  const patch = (p, note) => dispatch({ type: 'record/update', id: record.id, patch: p, where, label: title, note });
+  const addEntry = (e) => {
+    const entry = { id: `e-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, at: new Date().toISOString(), author: me.id, ...e };
+    patch({ entries: [entry, ...entries] }, `новий запис${e.title ? ` «${e.title}»` : ''}`);
+    toast('Запис додано');
+  };
+  const setEntry = (id, p) => patch({ entries: entries.map((x) => (x.id === id ? { ...x, ...p } : x)) }, 'змінено запис');
+  const dropEntry = (x) => { if (window.confirm('Видалити цей запис? Файли запису лишаться у Сховищі.')) patch({ entries: entries.filter((y) => y.id !== x.id) }, 'видалено запис'); };
+  const about = reg.fields.find((f) => f.id === reg.about);
+  const filesField = reg.fields.find((f) => f.type === 'files');
+  const facts = reg.fields.filter((f) => !f.hidden && f.type !== 'files' && f.id !== reg.title && f.id !== reg.about && record[f.id] != null && record[f.id] !== '');
+  const allFiles = [...(filesField ? record[filesField.id] || [] : []), ...entries.flatMap((x) => x.files || [])];
+  const link = `#/divisions/${d.id}/${reg.id}:${record.id}`;
+  return (
+    <div className="stack rp">
+      <button className="vx-eyebrow ws-back" onClick={() => go('divisions', d.id, reg.id)}><Icon name="chevron" size={12} className="ws-back__icon" /> {reg.name}</button>
+      <section className="vx-panel rp-hero">
+        <div className="rp-hero__main">
+          <div className="ws-head"><ClassBadge level={record.clearance} />{record.state && <span className="vx-tag">{record.state}</span>}{reg.stages && <span className="vx-tag">{record.stage || reg.stages[0]}</span>}</div>
+          <h1 className="vx-h1">{title}</h1>
+          {about && (record[about.id] ? <p className="rp-about">{record[about.id]}</p> : <p className="vx-hint">Опису ще немає.</p>)}
+          {!!facts.length && (
+            <dl className="meta rp-facts">
+              {facts.map((f) => <FieldRow key={f.id} f={f} record={record} look={look} go={go} />)}
+            </dl>
+          )}
+          <div className="vx-hint">Створив {look.user(record.owner)?.name || '—'} · {fmtDate(record.at)} · змінено {fmtAgo(record.updated)}</div>
+          <RecordExtras reg={reg} record={record} canEdit={access.canEdit} go={go} />
+        </div>
+        {access.canEdit && <button className="vx-btn" onClick={() => setEditing(true)}><Icon name="file" /> Редагувати опис</button>}
+      </section>
+
+      <div className="rp-cols">
+        <div className="stack">
+          {access.canEdit && <EntryForm d={d} record={record} onAdd={addEntry} label={reg.entryLabel || 'Робочі записи'} />}
+          <h2 className="vx-h2">{reg.entryLabel || 'Робочі записи'} · {entries.length}</h2>
+          {!entries.length && <div className="vx-hint">Записів ще немає.{access.canEdit ? ' Додайте перший — що зроблено, що з’ясовано, фото й документи.' : ''}</div>}
+          {entries.map((x) => {
+            const mine = x.author === me.id || me.role === 'admin';
+            return (
+              <article key={x.id} className="vx-panel rp-entry">
+                <header className="rp-entry__head">
+                  <Avatar name={look.user(x.author)?.name || '?'} />
+                  <div className="rp-entry__who"><b>{x.title || 'Запис'}</b><span className="vx-hint">{look.user(x.author)?.name || '—'} · {fmtDate(x.at)}</span></div>
+                  {access.canEdit && mine && <button className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" onClick={() => dropEntry(x)} aria-label="Видалити запис"><Icon name="trash" /></button>}
+                </header>
+                {x.text && <p className="rp-entry__text">{x.text}</p>}
+                {(x.files?.length > 0 || (access.canEdit && mine)) && (
+                  <Attachments value={x.files || []} onChange={(ids) => setEntry(x.id, { files: ids })} canEdit={access.canEdit && mine}
+                    clearance={record.clearance} division={d.id} record={record.id} hint="Додати файли до цього запису." />
+                )}
+              </article>
+            );
+          })}
+        </div>
+        <aside className="stack">
+          {filesField && (
+            <Panel title={filesField.label}>
+              <Attachments value={record[filesField.id]} onChange={(ids) => patch({ [filesField.id]: ids }, 'файли')} canEdit={access.canEdit}
+                clearance={record.clearance} division={d.id} record={record.id} hint="Обкладинка — перше фото." />
+            </Panel>
+          )}
+          {allFiles.length > 0 && <div className="vx-hint">Усього файлів у дослідженні: {allFiles.length}</div>}
+          <RecordTasks target={record.id} label={title} level={record.clearance} link={link} go={go} />
+          <Discussion target={record.id} label={title} level={record.clearance} link={link} />
+        </aside>
+      </div>
+      {editing && <RecordDrawer d={d} reg={reg} record={record} access={access} go={go} startEditing onClose={() => setEditing(false)} />}
+    </div>
+  );
+}
+
 function RegisterView({ d, reg, access, go, openId }) {
   const { state, me, dispatch } = useStore();
   const look = useLookups(d.id);
   const [q, setQ] = useState('');
-  const [open, setOpen] = useState(() => (openId ? { id: openId } : null)); // record | 'new'
+  const [open, setOpen] = useState(() => (openId && !isPage(reg) ? { id: openId } : null)); // record | 'new'
+  // A register with its own pages: a record opens as a page (…/studies:<id>), not in the side drawer.
+  const openPage = (r) => go('divisions', d.id, `${reg.id}:${r.id}`);
   const [over, setOver] = useState(null);
   const all = (state.records || []).filter((r) => r.div === d.id && r.col === reg.id);
   const locked = (r) => r.clearance > me.clearance;
@@ -387,6 +503,11 @@ function RegisterView({ d, reg, access, go, openId }) {
   };
 
   const Builtin = BUILTIN[`${d.id}:${reg.id}`];
+  if (isPage(reg) && openId) {
+    const rec = all.find((x) => x.id === openId);
+    if (!rec || locked(rec)) return <Panel><div className="vx-empty"><Icon name={reg.icon} /><div>{rec ? 'Гриф вище вашого допуску' : 'Запис не знайдено — можливо, його видалено'}</div><button className="vx-btn" onClick={() => go('divisions', d.id, reg.id)}>До списку</button></div></Panel>;
+    return <RecordPage key={rec.id} d={d} reg={reg} record={rec} access={access} go={go} />;
+  }
   return (
     <div className="stack">
       {Builtin && <><Builtin go={go} /><h2 className="vx-h2 ws-own">{BUILTIN_NOTE[`${d.id}:${reg.id}`]}</h2></>}
@@ -402,7 +523,7 @@ function RegisterView({ d, reg, access, go, openId }) {
       {reg.layout === 'cards' ? (
         <>
           <div className="ws-cards">
-            {rows.map((r) => <Tile key={r.id} reg={reg} r={r} look={look} locked={locked(r)} onOpen={setOpen} go={go} />)}
+            {rows.map((r) => <Tile key={r.id} reg={reg} r={r} look={look} locked={locked(r)} onOpen={isPage(reg) ? openPage : setOpen} go={go} />)}
           </div>
           {!rows.length && <Panel><div className="vx-empty"><Icon name={reg.icon} /><div>{q ? 'Нічого не знайдено' : `Ще немає записів у «${reg.name}». Натисніть «Додати ${reg.one}».`}</div></div></Panel>}
         </>
@@ -417,7 +538,7 @@ function RegisterView({ d, reg, access, go, openId }) {
                 onDrop={(e) => { e.preventDefault(); setOver(null); move(e.dataTransfer.getData('text/plain'), s); }}>
                 <header className="ws-col__head"><span>{s}</span><span className="vx-hint vx-num">{col.length}</span></header>
                 <div className="ws-col__body">
-                  {col.map((r) => <Card key={r.id} reg={reg} r={r} look={look} locked={locked(r)} onOpen={setOpen} draggable={access.canEdit && !locked(r)} go={go} />)}
+                  {col.map((r) => <Card key={r.id} reg={reg} r={r} look={look} locked={locked(r)} onOpen={isPage(reg) ? openPage : setOpen} draggable={access.canEdit && !locked(r)} go={go} />)}
                   {!col.length && <div className="ws-col__empty vx-hint">—</div>}
                 </div>
               </section>
@@ -434,7 +555,7 @@ function RegisterView({ d, reg, access, go, openId }) {
             </tr></thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className={locked(r) ? 'is-locked' : 'is-clickable'} onClick={() => !locked(r) && setOpen(r)}>
+                <tr key={r.id} className={locked(r) ? 'is-locked' : 'is-clickable'} onClick={() => !locked(r) && (isPage(reg) ? openPage(r) : setOpen(r))}>
                   <td>{locked(r) ? <span className="vx-redacted">{'█'.repeat(14)}</span> : <>{titleOf(reg, r)} <ReviewFlag reg={reg} r={r} /></>}</td>
                   {cols.map((f) => (
                     <td key={f.id} className="vx-hint">{locked(r) ? '' : <FieldValue field={f} value={r[f.id]} look={look} go={go} compact />}</td>
@@ -450,7 +571,7 @@ function RegisterView({ d, reg, access, go, openId }) {
 
       {open && (open === 'new' || all.some((x) => x.id === open.id && x.clearance <= me.clearance)) && (
         <RecordDrawer key={open === 'new' ? 'new' : open.id} d={d} reg={reg} record={open === 'new' ? null : all.find((x) => x.id === open.id)}
-          access={access} onClose={() => setOpen(null)} go={go} />
+          access={access} onClose={() => setOpen(null)} go={go} onCreated={isPage(reg) ? (id) => { setOpen(null); go('divisions', d.id, `${reg.id}:${id}`); } : null} />
       )}
     </div>
   );
