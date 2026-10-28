@@ -92,7 +92,7 @@ function Resolve({ record, canEdit }) {
  * «Звіт»: a record page as a PDF (print dialog) or a Word document, with its grif and number — the
  * description, data and entries, the cover photo, and every attached file as an appendix.
  */
-export function ReportButtons({ reg, record, facts = [], look }) {
+export function ReportButtons({ reg, record, facts = [], look, factPairs, extraFiles, about }) {
   const { state, me, backend, dispatch, toast } = useStore();
   const [busy, setBusy] = useState('');
   if (!canReport(record)) return <div className="vx-hint">Гриф цього запису не дозволяє виносити його за межі системи — звіт лише в платформі.</div>;
@@ -113,7 +113,8 @@ export function ReportButtons({ reg, record, facts = [], look }) {
       const extra = await reportExtra(record, {
         reg, files: state.files, backend, may: (f) => canSeeFile(me, f),
         user: (id) => state.users.find((u) => u.id === id)?.name || '',
-        facts: reg.id === 'products' ? null : facts.map((f) => [f.label, text(f)]).filter(([, v]) => v),
+        facts: reg.id === 'products' ? null : factPairs || facts.map((f) => [f.label, text(f)]).filter(([, v]) => v),
+        extraFiles, about,
       });
       if (!extra.facts) delete extra.facts;
       const m = reportModel(record, { records, users: state.users, number, extra });

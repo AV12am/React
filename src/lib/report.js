@@ -50,7 +50,7 @@ export function reportModel(product, { records = [], users = [], number, now = n
       url: b.url || '',
     };
   });
-  const isProduct = !product.col || product.col === 'products';
+  const isProduct = extra ? product.col === 'products' : (!product.col || product.col === 'products');
   return {
     number,
     level: { code: level.code, name: level.name, gloss: level.gloss },

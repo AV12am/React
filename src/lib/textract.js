@@ -27,29 +27,29 @@ async function pdfText(file) {
   return out;
 }
 
-/** The searchable text of a file, or '' when there is none we can read. */
-export async function extractText(file) {
+/** The searchable text of a file, or '' when there is none we can read. `limit`: how much to keep. */
+export async function extractText(file, limit = TEXT_LIMIT) {
   const name = (file.name || '').toLowerCase();
   const type = file.type || '';
   try {
-    if (type === 'application/pdf' || name.endsWith('.pdf')) return squash(await pdfText(file)).slice(0, TEXT_LIMIT);
+    if (type === 'application/pdf' || name.endsWith('.pdf')) return squash(await pdfText(file)).slice(0, limit);
     if (name.endsWith('.docx')) {
       const z = await unzip(file);
       const xml = dec(z['word/document.xml'] || new Uint8Array());
-      return squash(xml.replace(/<\/w:p>/g, '\n').replace(/<w:tab\/>/g, ' ').replace(/<[^>]+>/g, '')).slice(0, TEXT_LIMIT);
+      return squash(xml.replace(/<\/w:p>/g, '\n').replace(/<w:tab\/>/g, ' ').replace(/<[^>]+>/g, '')).slice(0, limit);
     }
     if (name.endsWith('.xlsx')) {
       const z = await unzip(file);
-      return squash(xmlText(dec(z['xl/sharedStrings.xml'] || new Uint8Array()), 't')).slice(0, TEXT_LIMIT);
+      return squash(xmlText(dec(z['xl/sharedStrings.xml'] || new Uint8Array()), 't')).slice(0, limit);
     }
     if (name.endsWith('.pptx')) {
       const z = await unzip(file);
       const slides = Object.keys(z).filter((k) => /^ppt\/slides\/slide\d+\.xml$/.test(k)).sort((x, y) => parseInt(x.match(/\d+/)[0], 10) - parseInt(y.match(/\d+/)[0], 10));
-      return squash(slides.map((k) => xmlText(dec(z[k]), 'a:t')).join('\n')).slice(0, TEXT_LIMIT);
+      return squash(slides.map((k) => xmlText(dec(z[k]), 'a:t')).join('\n')).slice(0, limit);
     }
     if (/^text\/|^application\/(json|xml|csv)$/.test(type) || /\.(txt|md|csv|json|xml|html?|log)$/.test(name)) {
-      const t = await file.slice(0, TEXT_LIMIT * 4).text();
-      return squash(/html?$/.test(name) || /html/.test(type) ? t.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ') : t).slice(0, TEXT_LIMIT);
+      const t = await file.slice(0, limit * 4).text();
+      return squash(/html?$/.test(name) || /html/.test(type) ? t.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ') : t).slice(0, limit);
     }
   } catch { /* unreadable or encrypted: no text */ }
   return '';

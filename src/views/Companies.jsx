@@ -15,6 +15,7 @@ import { storageError } from '../lib/storage.js';
 import { extractText } from '../lib/textract.js';
 import { usedBy } from '../lib/provenance.js';
 import { OrgExtras, orgToRecord, refPatches } from './Orgs.jsx';
+import { ReportButtons } from './Analysis.jsx';
 import { CompanyGraph } from './CompanyGraph.jsx';
 import { Discussion, RecordTasks } from './Team.jsx';
 import { relatedThroughOwners } from '../lib/orggraph.js';
@@ -399,6 +400,10 @@ function CompanyPage({ org, access, go }) {
               <Icon name="layers" /> Зв’язки
             </button>
           </div>
+          {/* The company's report: description, data, owners, its photos and documents as appendices. */}
+          <ReportButtons reg={registerOf('int', 'orgs')} record={org} factPairs={facts.map(([k, v]) => [k, String(v)])}
+            extraFiles={[...photos, ...docs]}
+            about={[org.about, org.products && `Продукти й напрями: ${org.products}`, org.owners && `Власники й бенефіціари: ${org.owners}`, org.notes && `Нотатки: ${org.notes}`].filter(Boolean).join('\n\n')} />
         </div>
         {canEdit && !editing && <button className="vx-btn" onClick={() => setEditing(true)}>Редагувати дані</button>}
       </section>
