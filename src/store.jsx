@@ -390,7 +390,7 @@ export function StoreProvider({ children }) {
       const fresh = state.requests.filter((r) => !knownReq.current.has(r.id) && r.user === myId && r.status === 'pending' && (r.at || '') > recent);
       if (fresh.length) {
         const me = state.users.find((u) => u.id === myId);
-        const deciders = state.users.filter((u) => u.id !== myId && u.status === 'active' && (u.role === 'admin' || (u.role === 'lead' && u.division === me?.division))).map((u) => u.id);
+        const deciders = state.users.filter((u) => u.id !== myId && u.status === 'active' && (u.role === 'admin' || u.role === 'lead')).map((u) => u.id);
         notify(deciders, 'Запит на доступ', `${me?.name || 'Колега'}: ${fresh[0].reason || 'потрібне рішення'}`, '#/access/requests');
       }
     }

@@ -149,28 +149,59 @@ function supabaseBackend() {
     },
     // Shared app state for the whole team (see src/lib/sync.js): people, records, requests, audit.
     docs: {
+      // Only what changed is fetched: the first load (and every sign-in) takes everything, then each
+      // poll asks for documents updated since the last one seen, and once a minute for the list of ids
+      // alone, to notice deletions. A kind with nothing new is not handed on, so the screen stays still.
       watch(onKind) {
-        const load = async () => {
+        const KINDS = ['records', 'requests', 'comments', 'tasks'];
+        let cache = null; // kind -> Map(id -> doc)
+        let audit = new Map();
+        let cursor = '';
+        let ticks = 0;
+        let lastMembers = '';
+        const later = (t) => { if (t && t > cursor) cursor = t; };
+        const load = async (full = false) => {
           if (!signedIn()) return;
           try {
-            const [members, docs, audit] = await Promise.all([
+            const fresh = full || !cache;
+            const since = fresh ? '' : `&updated_at=gte.${encodeURIComponent(cursor)}`;
+            const checkIds = !fresh && ++ticks % 6 === 0;
+            const [members, docs, log, ids] = await Promise.all([
               rest('core_members?select=doc,id'),
-              rest('core_docs?select=kind,doc&kind=in.(records,requests,comments,tasks)'),
-              rest('core_docs?select=doc&kind=eq.audit&order=updated_at.desc&limit=300'),
+              rest(`core_docs?select=kind,doc,updated_at&kind=in.(${KINDS.join(',')})${since}`),
+              rest(`core_docs?select=doc,updated_at&kind=eq.audit&order=updated_at.desc&limit=300${since}`),
+              checkIds ? rest(`core_docs?select=kind,id&kind=in.(${KINDS.join(',')})`) : null,
             ]);
             // No members visible means the server does not count this sign-in (e.g. the passkey
             // confirmation expired): keep the local copy rather than replacing it with nothing.
             if (!members.length) return;
-            onKind('users', members.map((r) => ({ ...r.doc, id: r.id })));
-            onKind('records', docs.filter((r) => r.kind === 'records').map((r) => r.doc));
-            onKind('requests', docs.filter((r) => r.kind === 'requests').map((r) => r.doc));
-            onKind('comments', docs.filter((r) => r.kind === 'comments').map((r) => r.doc));
-            onKind('tasks', docs.filter((r) => r.kind === 'tasks').map((r) => r.doc));
-            onKind('audit', audit.map((r) => r.doc));
+            const m = JSON.stringify(members);
+            if (fresh || m !== lastMembers) onKind('users', members.map((r) => ({ ...r.doc, id: r.id })));
+            lastMembers = m;
+            const changed = new Set(fresh ? KINDS : []);
+            if (fresh) cache = Object.fromEntries(KINDS.map((k) => [k, new Map()]));
+            for (const r of docs) {
+              later(r.updated_at);
+              const before = cache[r.kind].get(r.doc.id);
+              if (!before || JSON.stringify(before) !== JSON.stringify(r.doc)) { cache[r.kind].set(r.doc.id, r.doc); changed.add(r.kind); }
+            }
+            if (ids) {
+              const live = new Set(ids.map((r) => `${r.kind}/${r.id}`));
+              for (const k of KINDS) for (const id of [...cache[k].keys()]) if (!live.has(`${k}/${id}`)) { cache[k].delete(id); changed.add(k); }
+            }
+            for (const k of changed) onKind(k, [...cache[k].values()]);
+            if (fresh) audit = new Map();
+            const auditBefore = audit.size;
+            for (const r of log) { later(r.updated_at); audit.set(r.doc.id, r.doc); }
+            if (fresh || audit.size !== auditBefore) {
+              const list = [...audit.values()].sort((a, b) => (b.at || '').localeCompare(a.at || '')).slice(0, 300);
+              audit = new Map(list.map((d) => [d.id, d]));
+              onKind('audit', list);
+            }
           } catch { /* offline: keep what we have */ }
         };
-        const stop = poll(load, 10000);
-        const off = onSession(() => load());
+        const stop = poll(() => load(false), 10000);
+        const off = onSession(() => load(true));
         return () => { stop(); off(); };
       },
       // People are updated in place (PATCH) and inserted only when new: an upsert would be checked

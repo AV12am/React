@@ -19,21 +19,33 @@ export async function db(path, { method = 'GET', body, prefer } = {}) {
 }
 
 // A signed-in member whose session is confirmed with a passkey (same rule as the database's).
+// Two round trips instead of four: who the token is, then the member, the passkey setting and the session's
+// confirmation together. A warm function remembers the answer for a token for 30 seconds — the IP check runs
+// every time, and a suspension or an ended session takes effect within that half-minute.
+const seen = new Map(); // token → { m, at }
+const FRESH = 30000;
 export async function caller(req) {
   const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
   if (!token) return null;
+  const hit = seen.get(token);
+  const m = hit && Date.now() - hit.at < FRESH ? hit.m : await lookup(token);
+  if (!hit || hit.m !== m) { if (seen.size > 500) seen.clear(); if (m) seen.set(token, { m, at: Date.now() }); }
+  if (!m) return null;
+  if (!ipAllowed(m.doc, clientIp(req))) return null; // the person's access is limited to their devices' addresses
+  return m;
+}
+async function lookup(token) {
   const res = await fetch(`${SB_URL}/auth/v1/user`, { headers: { apikey: ANON || SERVICE, Authorization: `Bearer ${token}` } });
   if (!res.ok) return null;
   const email = String((await res.json()).email || '').toLowerCase();
   const sid = JSON.parse(Buffer.from(token.split('.')[1] || '', 'base64url').toString() || '{}').session_id;
-  const [m] = await db(`core_members?email=eq.${encodeURIComponent(email)}&select=id,email,doc`);
+  const [[m], [need], ok] = await Promise.all([
+    db(`core_members?email=eq.${encodeURIComponent(email)}&select=id,email,doc`),
+    db('core_settings?key=eq.require_passkey&select=value').catch(() => []),
+    db(`core_verified?session_id=eq.${encodeURIComponent(sid || '')}&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=member_id`).catch(() => []),
+  ]);
   if (!m || m.doc?.status === 'suspended') return null;
-  if (!ipAllowed(m.doc, clientIp(req))) return null; // the person's access is limited to their devices' addresses
-  const [need] = await db('core_settings?key=eq.require_passkey&select=value').catch(() => []);
-  if (need?.value !== false && need?.value !== 'false') {
-    const ok = await db(`core_verified?session_id=eq.${encodeURIComponent(sid || '')}&member_id=eq.${encodeURIComponent(m.id)}&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=session_id`).catch(() => []);
-    if (!ok?.length) return null;
-  }
+  if (need?.value !== false && need?.value !== 'false' && !(ok || []).some((r) => r.member_id === m.id)) return null;
   return m;
 }
 

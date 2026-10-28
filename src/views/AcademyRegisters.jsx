@@ -91,7 +91,7 @@ function Programs({ go }) {
 function Results({ go }) {
   const { state, me } = useStore();
   const all = me.role === 'admin' || me.role === 'lead';
-  const people = state.users.filter((u) => u.status !== 'suspended' && (all ? me.role === 'admin' || u.division === me.division : u.id === me.id));
+  const people = state.users.filter((u) => u.status !== 'suspended' && (all ? me.role === 'admin' || me.role === 'lead' : u.id === me.id));
   const rows = people.flatMap((u) => Object.keys(u.training || {}).map((id) => ({ u, c: COURSES.find((x) => x.id === id), r: resultOf(u, id) })))
     .filter((x) => x.c)
     .sort((a, b) => (b.r.tried || b.r.at || '').localeCompare(a.r.tried || a.r.at || ''));

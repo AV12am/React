@@ -5,6 +5,7 @@
 // The other stores (this browser, claude.ai) go through the ordinary backend calls.
 import { supabaseOn, filesApi as api } from './supabase.js';
 import { extractText } from './textract.js';
+import { thumbOf } from './thumb.js';
 import { docNumber, nextSerial } from '../data/clearance.js';
 import { DIVISIONS } from '../data/seed.js';
 
@@ -42,6 +43,7 @@ export async function upload(ctx, list, { clearance = 0, division = 'int', recor
       number: docNumber({ level: clearance, sealed: false, year, serial: nextSerial(taken, year) }), role: 'attachment',
     };
     taken.push(meta.number);
+    if (kindOf(file) === 'image') { const t = await thumbOf(file); if (t) meta.thumb = t; }
     if (['pdf', 'docx', 'text'].includes(kindOf(file))) { const text = await extractText(file).catch(() => ''); if (text) meta.text = text; meta.indexed = true; }
     let card;
     if (supabaseOn && backend.kind === 'supabase') {
@@ -72,7 +74,7 @@ export async function upload(ctx, list, { clearance = 0, division = 'int', recor
 /** What a record keeps of a file: enough to show, open and report it without the Vault index. */
 export const cardForRecord = (c) => ({
   id: c.id, name: c.name, type: c.type, size: c.size, ref: c.ref, wrap: c.wrap, number: c.number, clearance: c.clearance, store: c.store,
-  folder: c.folder, owner: c.owner, at: c.at, backend: c.backend, ...(c.text ? { text: String(c.text).slice(0, 20000) } : {}),
+  folder: c.folder, owner: c.owner, at: c.at, backend: c.backend, ...(c.thumb ? { thumb: c.thumb } : {}), ...(c.text ? { text: String(c.text).slice(0, 20000) } : {}),
 });
 
 const cache = new Map(); // file id → { url, blob }

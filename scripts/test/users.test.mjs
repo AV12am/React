@@ -27,7 +27,7 @@ test('admin sets passwords', async () => {
     if (u.includes('core_docs')) { calls.push(['AUDIT', JSON.parse(opts.body).doc.text]); return ok(null); }
     throw new Error(`unexpected ${opts.method || 'GET'} ${u}`);
   };
-  const token = `x.${Buffer.from(JSON.stringify({ session_id: 's1' })).toString('base64url')}.y`;
+  let token = `x.${Buffer.from(JSON.stringify({ session_id: 's1' })).toString('base64url')}.y`;
   try {
     const { POST } = await import('../../api/users.js');
     const call = async (memberId, password) => { const r = await POST(new Request('https://app.test/api/users', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: JSON.stringify({ op: 'password', memberId, password }) })); return [r.status, await r.json()]; };
@@ -46,6 +46,7 @@ test('admin sets passwords', async () => {
     assert.equal((await call('u404', 'Another1Pass'))[1].error, 'member');
     // not an admin
     me = { ...me, doc: { ...me.doc, role: 'lead' } };
+    token = `x.${Buffer.from(JSON.stringify({ session_id: 's2' })).toString('base64url')}.y`; // a new sign-in (a known one is remembered for 30 s)
     assert.equal((await call('u2', 'NewPassw0rd99'))[0], 403);
   } finally { globalThis.fetch = real; }
 });

@@ -285,7 +285,7 @@ function useNotices() {
   const seen = state.seen?.[me.id] || '';
   const toDecide = perms.access >= 2
     ? state.requests.filter((r) => r.status === 'pending' && r.user !== me.id
-      && (me.role === 'admin' || state.users.find((u) => u.id === r.user)?.division === me.division))
+      && (me.role === 'admin' || me.role === 'lead'))
     : [];
   const mine = state.requests.filter((r) => r.user === me.id && r.status !== 'pending');
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();

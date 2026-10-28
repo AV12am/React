@@ -327,12 +327,11 @@ function Gate({ f, onOpen }) {
 }
 
 function Lowering({ f }) {
-  const { me, dispatch, toast, backend, state } = useStore();
+  const { me, dispatch, toast, backend } = useStore();
   const [edit, setEdit] = useState(false);
   const [rule, setRule] = useState(f.downgrade || { kind: 'none' });
   const [why, setWhy] = useState('');
-  const division = state.folders.find((x) => x.id === f.folder)?.division;
-  const may = f.owner === me.id || me.role === 'admin' || (me.role === 'lead' && (!division || division === me.division));
+  const may = f.owner === me.id || me.role === 'admin' || me.role === 'lead';
   const st = downgradeState(f);
   const write = async (next) => {
     if (backend?.index) { try { await backend.index.addFile(next); } catch { toast('Не вдалося оновити індекс сховища'); return false; } }

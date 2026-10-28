@@ -3,7 +3,7 @@ import { useStore, fmtDate } from '../store.jsx';
 import { Panel, ClassBadge, Status, Avatar } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { Loader } from '../brand/Mark.jsx';
-import { CLEARANCE, DIVISIONS } from '../data/seed.js';
+import { CLEARANCE } from '../data/seed.js';
 import { MAX_LEVEL } from '../data/clearance.js';
 import { TRACKS, COURSES, GRADES, PASS, REQUIRED, courseById, resultOf, missingFor, loadTrack, dueReviews } from '../data/academy/meta.js';
 import { certificateHtml } from '../lib/certificate.js';
@@ -178,7 +178,7 @@ function Catalogue({ go }) {
 
 // Admins see everyone, leads — their division: who has passed what the next clearance needs.
 function Team({ users, me }) {
-  const people = users.filter((u) => u.status !== 'suspended' && (me.role === 'admin' || u.division === me.division));
+  const people = users.filter((u) => u.status !== 'suspended' && (me.role === 'admin' || me.role === 'lead'));
   const count = (u, lvl) => REQUIRED[lvl].filter((id) => resultOf(u, id)?.fresh).length;
   return (
     <Panel title="Прогрес команди" bodyClass="">
@@ -187,7 +187,7 @@ function Team({ users, me }) {
         <tbody>
           {people.map((u) => (
             <tr key={u.id}>
-              <td><div className="cell-person"><Avatar name={u.name} /><div><div>{u.name}</div><div className="vx-hint">{DIVISIONS.find((d) => d.id === u.division)?.name}</div></div></div></td>
+              <td><div className="cell-person"><Avatar name={u.name} /><div><div>{u.name}</div><div className="vx-hint">{u.title}</div></div></div></td>
               <td><ClassBadge level={u.clearance} /></td>
               <td>{count(u, 1)} / {REQUIRED[1].length}</td>
               <td>{count(u, 2)} / {REQUIRED[2].length}</td>

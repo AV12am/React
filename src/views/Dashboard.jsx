@@ -108,12 +108,11 @@ export function Dashboard({ go }) {
 
         <Panel title="Навантаження напрямів" bodyClass="list">
           {DIVISIONS.map((d) => {
-            const people = state.users.filter((u) => u.division === d.id && u.status === 'active').length;
             const files = state.files.filter((f) => state.folders.find((x) => x.id === f.folder)?.division === d.id).length;
             return (
               <button className="list__row list__row--btn" key={d.id} onClick={() => go('divisions', d.id)}>
                 <span className="list__lead"><Icon name={d.icon} size={16} /> {d.name}</span>
-                <span className="vx-hint vx-num">{people} осіб · {files} файлів</span>
+                <span className="vx-hint vx-num">{files} файлів</span>
               </button>
             );
           })}

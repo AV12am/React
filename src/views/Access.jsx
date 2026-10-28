@@ -3,10 +3,8 @@ import { useStore, fmtAgo, fmtDate } from '../store.jsx';
 import { SealBadge, Panel, Status, Avatar, Drawer, ClassBadge, Switch } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { Loader } from '../brand/Mark.jsx';
-import { DIVISIONS, ROLES, CLEARANCE, MODULES, PERMISSIONS } from '../data/seed.js';
+import { ROLES, CLEARANCE, MODULES, PERMISSIONS } from '../data/seed.js';
 
-// Hidden divisions are offered only to someone already in one (so their record still reads right).
-const divOptions = (cur) => DIVISIONS.filter((d) => !d.hidden || d.id === cur);
 import { LEVELS, SEAL, CUSTOS } from '../data/clearance.js';
 import { supabaseOn, rpc, setPassword } from '../lib/supabase.js';
 import { issueCode, status as passkeyStatus } from '../lib/passkey.js';
@@ -48,20 +46,19 @@ export function Access({ tab, setTab, focus, setFocus }) {
 function canManage(me, perms, target) {
   if (perms.access < 2) return false;
   if (me.role === 'admin') return true;
-  return target ? target.division === me.division && target.id !== me.id : true;
+  // Leads manage everyone but administrators and themselves (people are not tied to a division for now).
+  return target ? target.role !== 'admin' && target.id !== me.id : true;
 }
 
 function People({ focus, setFocus }) {
   const { state, me, perms } = useStore();
   const [q, setQ] = useState('');
-  const [div, setDiv] = useState('all');
   const [st, setSt] = useState('all');
   const edit = focus && state.users.some((u) => u.id === focus) ? focus : null;
   const setEdit = (id) => setFocus(id);
   const [invite, setInvite] = useState(false);
 
   const rows = state.users.filter((u) =>
-    (div === 'all' || u.division === div) &&
     (st === 'all' || u.status === st) &&
     (`${u.name} ${u.code} ${u.title}`.toLowerCase().includes(q.toLowerCase())));
 
@@ -72,10 +69,6 @@ function People({ focus, setFocus }) {
           <Icon name="search" />
           <input className="vx-input" placeholder="Пошук за ім'ям, кодом, посадою" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Пошук людей" />
         </div>
-        <select className="vx-select toolbar__sel" value={div} onChange={(e) => setDiv(e.target.value)} aria-label="Напрям">
-          <option value="all">Усі напрями</option>
-          {divOptions(div).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-        </select>
         <select className="vx-select toolbar__sel" value={st} onChange={(e) => setSt(e.target.value)} aria-label="Статус">
           <option value="all">Будь-який статус</option>
           {Object.entries(STATUS).map(([k, [, l]]) => <option key={k} value={k}>{l}</option>)}
@@ -86,7 +79,7 @@ function People({ focus, setFocus }) {
       <Panel bodyClass="vx-table-wrap">
         <table className="vx-table">
           <thead>
-            <tr><th>Співробітник</th><th>Напрям</th><th>Роль</th><th>Допуск</th><th>MFA</th><th>Статус</th><th>Активність</th></tr>
+            <tr><th>Співробітник</th><th>Роль</th><th>Допуск</th><th>MFA</th><th>Статус</th><th>Активність</th></tr>
           </thead>
           <tbody>
             {rows.map((u) => (
@@ -97,7 +90,6 @@ function People({ focus, setFocus }) {
                     <div><div>{u.name}</div><div className="vx-hint"><span className="vx-mono">{u.code}</span> · {u.title}</div></div>
                   </div>
                 </td>
-                <td>{DIVISIONS.find((d) => d.id === u.division)?.name}</td>
                 <td>{ROLES.find((r) => r.id === u.role).name}</td>
                 <td><ClassBadge level={u.clearance} /></td>
                 <td>{u.mfa ? <Status kind="ok">Так</Status> : <Status kind="warn">Ні</Status>}</td>
@@ -284,7 +276,7 @@ function EditUser({ id, onClose, readOnly: ro }) {
   const u = state.users.find((x) => x.id === id);
   // The CUSTOS card is changed only by CUSTOS (the server enforces it too).
   const readOnly = ro || (u.custos && u.id !== me.id);
-  const [draft, setDraft] = useState({ role: u.role, division: u.division, clearance: u.clearance, status: u.status, mfa: u.mfa, ips: rulesOf(u) });
+  const [draft, setDraft] = useState({ role: u.role, clearance: u.clearance, status: u.status, mfa: u.mfa, ips: rulesOf(u) });
   const set = (k) => (v) => setDraft((d) => ({ ...d, [k]: v }));
   const [ipErr, setIpErr] = useState('');
   const save = async () => {
@@ -316,12 +308,6 @@ function EditUser({ id, onClose, readOnly: ro }) {
           <label className="vx-label" htmlFor="role">Роль</label>
           <select id="role" className="vx-select" value={draft.role} disabled={readOnly || me.role !== 'admin'} onChange={(e) => set('role')(e.target.value)}>
             {ROLES.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-          </select>
-        </div>
-        <div className="vx-field">
-          <label className="vx-label" htmlFor="division">Напрям</label>
-          <select id="division" className="vx-select" value={draft.division} disabled={readOnly || me.role !== 'admin'} onChange={(e) => set('division')(e.target.value)}>
-            {divOptions(draft.division).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </div>
         <div className="vx-field">
@@ -362,7 +348,7 @@ function EditUser({ id, onClose, readOnly: ro }) {
 function Invite({ onClose }) {
   const { me, dispatch, toast } = useStore();
   const { state } = useStore();
-  const [f, setF] = useState({ name: '', email: '', title: '', role: 'analyst', division: 'int', clearance: 0 });
+  const [f, setF] = useState({ name: '', email: '', title: '', role: 'analyst', clearance: 0 });
   const [pw, setPw] = useState('');
   const [busy, setBusy] = useState(false);
   const withPassword = supabaseOn && me.role === 'admin';
@@ -399,8 +385,6 @@ function Invite({ onClose }) {
       <div className="form-grid">
         <div className="vx-field"><label className="vx-label" htmlFor="r">Роль</label>
           <select id="r" className="vx-select" value={f.role} onChange={set('role')}>{ROLES.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
-        <div className="vx-field"><label className="vx-label" htmlFor="d">Напрям</label>
-          <select id="d" className="vx-select" value={f.division} onChange={set('division')}>{divOptions(f.division).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
         <div className="vx-field"><label className="vx-label" htmlFor="c">Допуск</label>
           <select id="c" className="vx-select" value={f.clearance} onChange={set('clearance')}>{CLEARANCE.filter((c) => c.id <= me.clearance).map((c) => <option key={c.id} value={c.id}>{c.full}</option>)}</select></div>
       </div>
@@ -432,7 +416,7 @@ function Requests() {
         {rows.map((r) => {
           const u = userById(r.user);
           const basisFile = r.kind === 'basis' ? state.files.find((f) => f.id === r.file) : null;
-          const canDecide = perms.access >= 2 && (me.role === 'admin' || u.division === me.division) && u.id !== me.id
+          const canDecide = perms.access >= 2 && (me.role === 'admin' || me.role === 'lead') && u.id !== me.id
             && (r.kind !== 'clearance' || r.to <= me.clearance)
             && (r.kind !== 'basis' || (basisFile && basisFile.clearance <= me.clearance));
           const folder = state.folders.find((f) => f.id === r.folder);
@@ -442,7 +426,7 @@ function Requests() {
                 <Avatar name={u.name} />
                 <div>
                   <div>{u.name} <span className="vx-mono vx-muted">{u.code}</span></div>
-                  <div className="vx-hint">{DIVISIONS.find((d) => d.id === u.division)?.name} · {fmtAgo(r.at)}</div>
+                  <div className="vx-hint">{fmtAgo(r.at)}</div>
                 </div>
               </div>
               <div className="request__what">

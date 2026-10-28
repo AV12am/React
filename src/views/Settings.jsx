@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useStore, fmtDate } from '../store.jsx';
 import { Panel, Avatar, ClassBadge, Switch, Status } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
-import { ROLES, DIVISIONS, CLEARANCE, MODULES } from '../data/seed.js';
+import { ROLES, CLEARANCE, MODULES } from '../data/seed.js';
 import { MAX_LEVEL, CUSTOS } from '../data/clearance.js';
 import { supabaseOn, authHeaders } from '../lib/supabase.js';
 import { isTouch, useInstall } from '../lib/mobile.js';
@@ -263,7 +263,6 @@ export function Settings({ go }) {
           <dl className="meta">
             <dt>Ідентифікатор</dt><dd className="vx-mono">{me.code}</dd>
             <dt>Роль</dt><dd>{ROLES.find((r) => r.id === me.role).name}</dd>
-            <dt>Напрям</dt><dd>{DIVISIONS.find((d) => d.id === me.division)?.name}</dd>
             <dt>Допуск</dt><dd><ClassBadge level={me.clearance} /></dd>
             <dt>MFA</dt><dd>{me.mfa ? <Status kind="ok">Увімкнено</Status> : <Status kind="warn">Не налаштовано</Status>}</dd>
             <dt>Сесія з</dt><dd>{fmtDate(state.session.since)}</dd>

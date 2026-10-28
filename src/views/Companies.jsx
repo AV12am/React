@@ -21,6 +21,7 @@ import { Discussion, RecordTasks } from './Team.jsx';
 import { relatedThroughOwners } from '../lib/orggraph.js';
 import { diffEdr, edrIntake, EDR_SOURCE } from '../../scripts/lib/edr.mjs';
 import { supabaseOn, authHeaders } from '../lib/supabase.js';
+import { imageUrl } from '../lib/imgurl.js';
 
 const isImage = (f) => /^image\//.test(f?.type || '');
 const openRecord = (go, r) => go('divisions', r.div, `${r.col}:${r.id}`);
@@ -29,24 +30,17 @@ const folderId = (org) => `f-org-${org.code || org.id}`;
 const initials = (name) => name.replace(/[«»"()]/g, '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 const SECTOR_HUE = Object.fromEntries(ORG_SECTORS.map((s, i) => [s, (i * 29 + 8) % 360]));
 
-/* ---------- files: blob URLs with a small cache ---------- */
+/* ---------- pictures: signed addresses for the whole page at once (src/lib/imgurl.js) ---------- */
 
-const urls = new Map();
 function useFileUrl(file) {
   const { backend } = useStore();
-  const [url, setUrl] = useState(() => (file && urls.get(file.id)) || null);
+  const [url, setUrl] = useState(null);
   useEffect(() => {
     let live = true;
-    if (!file || !backend) return undefined;
-    if (urls.has(file.id)) { setUrl(urls.get(file.id)); return undefined; }
-    backend.get(file).then((blob) => {
-      if (!blob || !live) return;
-      const u = URL.createObjectURL(blob);
-      urls.set(file.id, u);
-      setUrl(u);
-    }).catch(() => {});
+    setUrl(null);
+    if (file && backend) imageUrl(backend, file).then((u) => live && u && setUrl(u));
     return () => { live = false; };
-  }, [file, backend]);
+  }, [file?.id, backend]); // eslint-disable-line react-hooks/exhaustive-deps
   return url;
 }
 
@@ -130,7 +124,6 @@ function useCompanyFiles(org) {
     try { await backend.remove(file); } catch { /* already gone */ }
     if (backend.index) await backend.index.removeFile(file.id).catch(() => {});
     dispatch({ type: 'file/delete', id: file.id });
-    urls.delete(file.id);
   };
   const patch = (p, note) => dispatch({ type: 'record/update', id: org.id, patch: p, where: 'Розвідка · Компанії', label: org.name, note });
   return { upload, remove, patch, folderId: folderId(org) };

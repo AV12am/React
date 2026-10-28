@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useStore, fmtDate, fmtAgo, canSeeFile } from '../store.jsx';
 import { Panel, Drawer, ClassBadge, Avatar } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
-import { DIVISIONS, ROLES, CLEARANCE } from '../data/seed.js';
+import { DIVISIONS, CLEARANCE } from '../data/seed.js';
 import { WORKSPACES, registersOf, registerOf, viewsOf } from '../data/workspaces.js';
 import { Attachments, Cover, CoverInput } from '../components/Attachments.jsx';
 import { ask } from '../components/Dialog.jsx';
@@ -439,7 +439,7 @@ function RecordPage({ d, reg, record, access, go }) {
         <div className="rp-hero__side rp-cover">
           {coverField && (access.canEdit
             ? <CoverInput value={record.cover} onChange={(c) => patch({ cover: c }, c ? 'фото обкладинки' : 'прибрано обкладинку')} clearance={record.clearance} division={d.id} record={record.id} />
-            : record.cover && <Cover cover={record.cover} alt={title} />)}
+            : record.cover && <Cover cover={record.cover} alt={title} full />)}
           {access.canEdit && <button className="vx-btn" onClick={() => setEditing(true)}><Icon name="file" /> Редагувати опис</button>}
         </div>
       </section>
@@ -582,7 +582,6 @@ function RegisterView({ d, reg, access, go, openId }) {
 function Overview({ d, go, setTab }) {
   const { state, me } = useStore();
   const regs = registersOf(d.id);
-  const members = state.users.filter((u) => u.division === d.id);
   const folders = state.folders.filter((f) => f.division === d.id);
   const recs = (state.records || []).filter((r) => r.div === d.id);
   return (
@@ -604,18 +603,6 @@ function Overview({ d, go, setTab }) {
         })}
       </div>
       <div className="grid grid--2">
-        <Panel title="Люди" bodyClass="list">
-          {members.map((u) => (
-            <div className="list__row list__row--top" key={u.id}>
-              <Avatar name={u.name} />
-              <div className="list__text">
-                <div>{u.name} {u.id === d.lead && <span className="vx-tag">керівник</span>}</div>
-                <div className="vx-hint">{u.title} · {ROLES.find((r) => r.id === u.role)?.name} · {fmtAgo(u.lastSeen)}</div>
-              </div>
-            </div>
-          ))}
-          {!members.length && <div className="list__row vx-hint">У напрямі ще немає людей. Призначте їх у «Доступи».</div>}
-        </Panel>
         <Panel title="Папки напряму" bodyClass="list" action={<button className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => go('vault')}>Сховище <Icon name="chevron" /></button>}>
           {folders.map((f) => (
             <div className="list__row" key={f.id}>

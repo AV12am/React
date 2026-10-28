@@ -5,6 +5,7 @@ import { useStore, fmtBytes, canSeeFile } from '../store.jsx';
 import { Icon } from './Icon.jsx';
 import { Loader } from '../brand/Mark.jsx';
 import { upload, bodyOf, remove, kindOf, cardForRecord } from '../lib/attach.js';
+import { imageUrl } from '../lib/imgurl.js';
 import { ask } from './Dialog.jsx';
 
 const LABEL = { pdf: 'PDF', docx: 'Word', doc: 'Word (.doc)', xlsx: 'Excel', video: 'Відео', audio: 'Аудіо', text: 'Текст', other: 'Файл', image: 'Фото' };
@@ -21,9 +22,25 @@ function useUrl(f) {
   return state;
 }
 
+// A picture for <img>: its preview made at upload (instant), and — when `full` — the picture itself after it.
+function useImage(f, full = false) {
+  const { backend } = useStore();
+  const [src, setSrc] = useState(f?.thumb || null);
+  useEffect(() => {
+    let live = true;
+    setSrc(f?.thumb || null);
+    if (f && backend && (full || !f.thumb)) imageUrl(backend, f).then((u) => live && u && setSrc(u));
+    return () => { live = false; };
+  }, [f?.id, f?.thumb, backend, full]); // eslint-disable-line react-hooks/exhaustive-deps
+  return src;
+}
+
+// The index card (no preview: it stays light) merged over the record's own copy (which has it).
+const merge = (x, files) => (typeof x === 'string' ? files.find((f) => f.id === x) : (x && { ...x, ...(files.find((f) => f.id === x.id) || {}) }));
+
 function Thumb({ f, onOpen, onRemove }) {
   const k = kindOf(f);
-  const { url } = useUrl(k === 'image' ? f : null);
+  const url = useImage(k === 'image' ? f : null);
   return (
     <div className={`att-tile att-tile--${k}`}>
       <button type="button" className="att-tile__open" onClick={onOpen} title={`Відкрити «${f.name}»`}>
@@ -186,7 +203,7 @@ export function Attachments({ value, onChange, canEdit, clearance = 0, division 
   // Each item is the file's card itself (kept in the record, so it never depends on the Vault index
   // having caught up), or — in older records — just its id in the Vault.
   const items = Array.isArray(value) ? value : [];
-  const files = items.map((x) => (typeof x === 'string' ? state.files.find((f) => f.id === x) : (state.files.find((f) => f.id === x?.id) || x))).filter((f) => f && f.id && canSeeFile(me, f));
+  const files = items.map((x) => merge(x, state.files)).filter((f) => f && f.id && canSeeFile(me, f));
   const hidden = items.length - files.length;
   const images = files.filter((f) => kindOf(f) === 'image');
   const docs = files.filter((f) => kindOf(f) !== 'image');
@@ -231,14 +248,13 @@ export function Attachments({ value, onChange, canEdit, clearance = 0, division 
 }
 
 /** A record's cover photo: its own card (the `cover` field), or else the first photo among `ids`. */
-export function Cover({ ids, cover, alt = '' }) {
+export function Cover({ ids, cover, alt = '', full = false }) {
   const { state, me } = useStore();
-  const resolve = (x) => (typeof x === 'string' ? state.files.find((f) => f.id === x) : (x && (state.files.find((f) => f.id === x.id) || x)));
-  const own = cover && resolve(cover);
+  const own = cover && merge(cover, state.files);
   const f = (own && canSeeFile(me, own) ? own : null)
-    || (Array.isArray(ids) ? ids : []).map(resolve).find((x) => x && canSeeFile(me, x) && kindOf(x) === 'image');
-  const { url } = useUrl(f || null);
-  return url ? <img src={url} alt={alt} loading="lazy" /> : null;
+    || (Array.isArray(ids) ? ids : []).map((x) => merge(x, state.files)).find((x) => x && canSeeFile(me, x) && kindOf(x) === 'image');
+  const url = useImage(f || null, full);
+  return url ? <img src={url} alt={alt} loading="lazy" decoding="async" /> : null;
 }
 
 /** The cover photo of a record — one picture, kept apart from its files (the `image` field). */
@@ -258,7 +274,7 @@ export function CoverInput({ value, onChange, clearance = 0, division = 'int', r
   };
   return (
     <div className="cover-in">
-      {value && <span className="cover-in__img"><Cover cover={value} /></span>}
+      {value && <span className="cover-in__img"><Cover cover={value} full /></span>}
       <input ref={input} type="file" accept="image/*" hidden onChange={(e) => { pick(e.target.files[0]); e.target.value = ''; }} />
       <div className="toolbar">
         <button type="button" className="vx-btn vx-btn--sm" disabled={busy} onClick={() => input.current.click()}>

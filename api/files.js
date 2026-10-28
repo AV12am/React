@@ -135,7 +135,9 @@ export async function POST(req) {
       return json(200, {
         files: files.map((r) => r.doc).filter((f) => f && (+f.clearance || 0) <= level(m))
           // A sealed card is listed, but its text only for its owner or someone with a basis for it.
-          .map((f) => (f.sealed && f.owner !== m.id && !mine.includes(f.id) ? { ...f, text: undefined } : f)),
+          .map((f) => (f.sealed && f.owner !== m.id && !mine.includes(f.id) ? { ...f, text: undefined } : f))
+          // The small preview stays in the records that show it; the index is polled and stays light.
+          .map((f) => (f.thumb ? { ...f, thumb: undefined, hasThumb: true } : f)),
         folders: folders.map((r) => r.doc).filter(Boolean),
       });
     }
@@ -164,6 +166,20 @@ export async function POST(req) {
       await db('vault_folders?on_conflict=id', { method: 'POST', prefer: 'resolution=ignore-duplicates,return=minimal', body: { id: folder, doc: { id: folder, name: FOLDER[division] || 'Вкладення', clearance: 0, division, group: 'attachments' } } });
       await db('vault_files?on_conflict=id', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: { id: card.id, doc: card } });
       return json(200, { ok: true, meta: card });
+    }
+
+    // Many pictures at once (a page of cards): one call, signed addresses for those the caller may read.
+    if (body.op === 'urls') {
+      const ids = [...new Set((Array.isArray(body.ids) ? body.ids : []).map(String).filter(okId))].slice(0, 100);
+      if (!ids.length) return json(200, { urls: {} });
+      const rows = await db(`vault_files?id=in.(${ids.map((i) => `"${i}"`).join(',')})&select=doc`);
+      const urls = {};
+      await Promise.all(rows.map((r) => r.doc).filter((f) => f?.ref && mayRead(m, f)).map(async (f) => {
+        if (f.store === 'r2') { urls[f.id] = presign('GET', f.ref, { expires: 3600 }); return; }
+        const r = await storage(`object/sign/${BUCKET}/${enc(f.ref)}`, { expiresIn: 3600 }).catch(() => ({}));
+        if (r.signedURL || r.signedUrl) urls[f.id] = `${SB_URL}/storage/v1${r.signedURL || r.signedUrl}`;
+      }));
+      return json(200, { urls, ttl: 3600 });
     }
 
     if (body.op === 'url' || body.op === 'remove') {

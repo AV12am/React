@@ -47,7 +47,8 @@ test('actions are checked against the person', () => {
   assert.ok(checkAction({ type: 'entry', text: 'x' }, { ...opts, route: { view: 'vault' } }).error);
   const rec = checkAction({ type: 'record', division: 'res', register: 'studies', title: 'Нове', about: 'Про що' }, opts);
   assert.equal(rec.record.col, 'studies'); assert.equal(rec.record.title, 'Нове'); assert.equal(rec.record.about, 'Про що');
-  assert.ok(checkAction({ type: 'record', division: 'ana', register: 'products', title: 'Чуже' }, opts).error); // not a member of Аналітика
+  assert.equal(checkAction({ type: 'record', division: 'ana', register: 'products', title: 'Продукт' }, opts).kind, 'record'); // any division (people are not tied to one)
+  assert.ok(checkAction({ type: 'record', division: 'ana', register: 'products', title: 'Чуже' }, { ...opts, me: { ...me, role: 'guest' }, perms: { divisions: 1 } }).error); // a guest adds nothing
   assert.ok(checkAction({ type: 'delete', id: 'r1' }, opts).error);
 });
 

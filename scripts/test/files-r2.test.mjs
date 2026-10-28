@@ -25,6 +25,7 @@ test('files API with R2', async () => {
     if (opts.method === 'POST' && u.includes('vault_folders')) return ok(null);
     if (opts.method === 'POST' && u.includes('vault_files')) { const r = JSON.parse(opts.body); files.set(r.id, r.doc); return ok(null); }
     if (opts.method === 'DELETE' && u.includes('vault_files?id=eq.')) { files.delete(u.split('id=eq.')[1]); return ok(null); }
+    if (u.includes('vault_files?id=in.(')) { const ids = u.split('id=in.(')[1].split(')')[0].split(',').map((x) => x.replace(/"/g, '')); return ok(ids.filter((i) => files.has(i)).map((i) => ({ doc: files.get(i) }))); }
     if (u.includes('vault_files?id=eq.')) { const id = u.split('id=eq.')[1].split('&')[0]; return ok(files.has(id) ? [{ doc: files.get(id) }] : []); }
     throw new Error(`unexpected ${opts.method || 'GET'} ${u}`);
   };
@@ -56,6 +57,13 @@ test('files API with R2', async () => {
     files.delete('x-big'); stored = 100;
     const [, r] = await call({ op: 'url', id: sign.id });
     assert.match(r.url, /^https:\/\/acc\.r2\.cloudflarestorage\.com\/reaction\/att\/prj\/.*X-Amz-Expires=600/);
+    // a page of pictures: one call, signed addresses only for what the caller may read
+    files.set('x-nox', { id: 'x-nox', ref: 'att/int/x-nox/n.png', store: 'r2', clearance: 2, owner: 'u9' });
+    const [, batch] = await call({ op: 'urls', ids: [sign.id, 'x-old', 'x-nox', '../bad'] });
+    assert.match(batch.urls[sign.id], /^https:\/\/acc\.r2\.cloudflarestorage\.com\/reaction\/.*X-Amz-Expires=3600/);
+    assert.match(batch.urls['x-old'], /^https:\/\/sb\.test\/storage\/v1\/object\/sign\//);
+    assert.equal(batch.urls['x-nox'], undefined);
+    files.delete('x-nox');
     // earlier files stay in Supabase
     const [, old] = await call({ op: 'url', id: 'x-old' });
     assert.match(old.url, /^https:\/\/sb\.test\/storage\/v1\/object\/sign\//);
