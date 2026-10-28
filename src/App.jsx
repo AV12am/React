@@ -18,6 +18,7 @@ import { useSwipe, useHidden, isTouch, buzz } from './lib/mobile.js';
 import { registerOf } from './data/workspaces.js';
 import { titleOfRecord } from './lib/brief.js';
 import { snippet } from './lib/textract.js';
+import { LOCALE } from './lib/locale.js';
 
 // The map ships its own geography (~1 MB), so it loads only when opened.
 // Every section but the overview loads when first opened: the first screen comes up faster, on phones especially.
@@ -355,7 +356,7 @@ function Clock() {
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 15000); return () => clearInterval(t); }, []);
   return (
     <span className="topbar__clock vx-mono">
-      {now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })} · Київ
+      {now.toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' })} · Київ
     </span>
   );
 }

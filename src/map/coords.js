@@ -1,5 +1,6 @@
 import * as mgrsModule from 'mgrs';
 import { geoDistance, geoInterpolate } from 'd3-geo';
+import { LOCALE } from '../lib/locale.js';
 
 // The package ships ESM (named exports) for bundlers and CommonJS (default export) for Node.
 const mgrs = mgrsModule.forward ? mgrsModule : mgrsModule.default;
@@ -78,7 +79,7 @@ export function bearing(a, b) {
   return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }
 
-export const fmtKm = (km) => (km < 1 ? `${Math.round(km * 1000)} м` : `${km.toLocaleString('uk-UA', { maximumFractionDigits: km < 100 ? 1 : 0 })} км`);
+export const fmtKm = (km) => (km < 1 ? `${Math.round(km * 1000)} м` : `${km.toLocaleString(LOCALE, { maximumFractionDigits: km < 100 ? 1 : 0 })} км`);
 
 /* ---------- Track simulation ---------- */
 

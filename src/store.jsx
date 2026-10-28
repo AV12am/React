@@ -7,6 +7,7 @@ import { createSync, isRlsError } from './lib/sync.js';
 import { status as passkeyStatus } from './lib/passkey.js';
 import { notify } from './lib/notify.js';
 import { supabaseOn, signedIn, onSession, signOut, currentEmail, rest } from './lib/supabase.js';
+import { LOCALE } from './lib/locale.js';
 
 // v3: LUMEN · UMBRA · NOX scale. v2 state (old four-step scale) is migrated on load.
 const KEY = 'reaction-core/v3';
@@ -439,14 +440,14 @@ export function fmtBytes(n) {
   const u = ['КБ', 'МБ', 'ГБ', 'ТБ'];
   let i = -1;
   do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1);
-  return `${n.toLocaleString('uk-UA', { maximumFractionDigits: n < 10 ? 1 : 0 })} ${u[i]}`;
+  return `${n.toLocaleString(LOCALE, { maximumFractionDigits: n < 10 ? 1 : 0 })} ${u[i]}`;
 }
 
 export function fmtDate(iso, withTime = true) {
   if (!iso) return '—';
   const t = new Date(iso);
-  const date = t.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  return withTime ? `${date}, ${t.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}` : date;
+  const date = t.toLocaleDateString(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return withTime ? `${date}, ${t.toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' })}` : date;
 }
 
 export function fmtAgo(iso) {

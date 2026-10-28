@@ -6,6 +6,7 @@ import { Icon } from '../components/Icon.jsx';
 import { STORAGE_QUOTA, VISIBLE_DIVISIONS as DIVISIONS } from '../data/seed.js';
 import { BriefPanel } from './Brief.jsx';
 import { TasksPanel } from './Team.jsx';
+import { LOCALE } from '../lib/locale.js';
 
 const TYPE_LABEL = { auth: 'Вхід', access: 'Доступ', vault: 'Сховище', map: 'Карта', work: 'Напрями', security: 'Безпека', system: 'Система' };
 
@@ -57,7 +58,7 @@ export function Dashboard({ go }) {
     <div className="page">
       <header className="page__head">
         <div>
-          <div className="vx-eyebrow">Зведення на {new Date().toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+          <div className="vx-eyebrow">Зведення на {new Date().toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' })}</div>
           <h1 className="vx-h1">Оперативна обстановка</h1>
         </div>
         <Status kind={checks.every((c) => c.status === 'ok') ? 'ok' : 'warn'}>

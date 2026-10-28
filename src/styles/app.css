@@ -429,7 +429,6 @@ kbd {
 @media (max-width: 900px) { .grid--3l { grid-template-columns: 1fr; } }
 
 /* ---------- Division workspaces ---------- */
-.division.is-mine { border-color: var(--line-control); }
 .division__regs { margin-top: -4px; }
 .ws-back { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 0; cursor: pointer; }
 .ws-back__icon { transform: rotate(180deg); }
@@ -967,3 +966,8 @@ kbd {
   .topbar__ai-text { display: none; }
 }
 @media (min-width: 1101px) { .shell.has-ai ~ .vx-toasts { right: 396px; } }
+.date-in { position: relative; display: flex; align-items: center; min-width: 0; }
+.date-in > .vx-input { flex: 1; min-width: 0; padding-right: 40px; }
+.date-in > .vx-input.is-bad { border-color: var(--danger, #e5484d); }
+.date-in__native { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
+.date-in__btn { position: absolute; right: 4px; }

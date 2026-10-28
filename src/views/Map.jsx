@@ -20,6 +20,7 @@ import { useLiveConflicts, ageHours } from '../map/live.js';
 import { buildStyle, palette, zonesGeoJSON, eventsGeoJSON } from '../map/style.js';
 import { degreeGrid, mgrsGrid } from '../map/grid.js';
 import { useInstalledTiles, elevationAt } from '../map/tiles.js';
+import { LOCALE } from '../lib/locale.js';
 
 /* ---------- geography ---------- */
 
@@ -845,7 +846,7 @@ export function MapView({ focus }) {
               <div><span>{touch ? 'Центр' : 'Курсор'}</span> {fmtDD(readout.lat, readout.lon)}</div>
               <div><span>DMS</span> {fmtDMS(readout.lat, readout.lon)}</div>
               <div><span>MGRS</span> {fmtMGRS(readout.lat, readout.lon)}</div>
-              {tiles.terrain && <div><span>Висота</span> {elevation == null ? '—' : `${elevation.toLocaleString('uk-UA')} м`}</div>}
+              {tiles.terrain && <div><span>Висота</span> {elevation == null ? '—' : `${elevation.toLocaleString(LOCALE)} м`}</div>}
               {!touch && <div><span>Країна</span> {readout.country?.properties.uk ?? 'Відкрите море'}</div>}
               {!touch && layers.conflicts && (() => { const z = zoneAt(zones, readout.lon, readout.lat, readout.country); return z && <div className="map-readout__zone"><span>Зона</span> {z.name}</div>; })()}
             </> : <div className="vx-hint">Наведіть курсор на карту</div>}

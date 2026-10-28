@@ -8,6 +8,8 @@ import { STORAGE_QUOTA, CLEARANCE } from '../data/seed.js';
 import { SEAL, DOWNGRADE_KINDS, levelOf, docNumber, nextSerial, hasBasis, canExport, exportName, downgradeState } from '../data/clearance.js';
 import { storageError } from '../lib/storage.js';
 import { extractText } from '../lib/textract.js';
+import { LOCALE } from '../lib/locale.js';
+import { DateInput } from '../components/DateInput.jsx';
 
 const STORE_LABEL = { local: 'Цей пристрій (IndexedDB)', artifact: 'Сховище Reaction (claude.ai)', supabase: 'Supabase Storage' };
 
@@ -182,7 +184,7 @@ function RuleFields({ level, rule, setRule, idp }) {
           <button type="button" key={k.id} className={rule.kind === k.id ? 'is-active' : ''} onClick={() => setRule({ ...rule, kind: k.id })}>{k.name}</button>
         ))}
       </div>
-      {rule.kind === 'date' && <input id={`${idp}-date`} type="date" className="vx-input" value={rule.at || ''} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setRule({ ...rule, at: e.target.value })} aria-label="Дата зниження" />}
+      {rule.kind === 'date' && <DateInput id={`${idp}-date`} value={rule.at || ''} min={new Date().toISOString().slice(0, 10)} onChange={(v) => setRule({ ...rule, at: v })} label="Дата зниження" />}
       {rule.kind === 'event' && <input id={`${idp}-event`} className="vx-input" placeholder="Напр.: публікація звіту замовником" value={rule.text || ''} onChange={(e) => setRule({ ...rule, text: e.target.value })} aria-label="Подія, після якої гриф знижується" />}
       <div className="vx-hint">Коли умова настане, документ буде позначено «до зниження»; знижує людина, на один крок.</div>
     </div>
@@ -337,7 +339,7 @@ function Lowering({ f }) {
     return true;
   };
   const lower = async () => {
-    const reason = st.due ? `настав строк ${new Date(`${f.downgrade.at}T00:00:00`).toLocaleDateString('uk-UA')}` : `подія настала: ${why.trim()}`;
+    const reason = st.due ? `настав строк ${new Date(`${f.downgrade.at}T00:00:00`).toLocaleDateString(LOCALE)}` : `подія настала: ${why.trim()}`;
     const next = lowerFile(f, st.to, me.id, reason);
     if (await write(next)) { dispatch({ type: 'file/level', file: next, why: reason }); toast(`Гриф знижено до ${levelOf(st.to).name}`); }
   };
@@ -377,7 +379,7 @@ function Lowering({ f }) {
 // Who is looking, and when — repeated across the preview, so a photo of the screen carries it.
 function Watermark({ strong }) {
   const { me } = useStore();
-  const stamp = `${me.name} · ${me.code} · ${new Date().toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+  const stamp = `${me.name} · ${me.code} · ${new Date().toLocaleString(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
   const esc = stamp.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='360' height='180'><text x='0' y='120' transform='rotate(-24 0 120)' font-family='Georgia,serif' font-size='15' fill='${strong ? 'rgba(192,90,105,.30)' : 'rgba(160,160,160,.18)'}'>${esc}</text></svg>`;
   return <div className="watermark" aria-hidden="true" style={{ backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")` }} />;

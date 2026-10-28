@@ -6,6 +6,7 @@ import { useStore, fmtAgo, fmtDate } from '../store.jsx';
 import { Avatar } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { notify } from '../lib/notify.js';
+import { DateInput } from '../components/DateInput.jsx';
 
 const today = () => new Date().toISOString().slice(0, 10);
 export const isMine = (t, me) => t.assignee === me.id && t.status !== 'done';
@@ -150,7 +151,7 @@ export function TaskForm({ target, label, level = 0, link, onDone }) {
       <select className="vx-select" value={assignee} onChange={(e) => setAssignee(e.target.value)} aria-label="Виконавець">
         {people.map((u) => <option key={u.id} value={u.id}>{u.id === me.id ? `${u.name} (я)` : u.name}</option>)}
       </select>
-      <input className="vx-input" type="date" value={due} onChange={(e) => setDue(e.target.value)} aria-label="Термін" />
+      <DateInput value={due} onChange={setDue} label="Термін" />
       <button className="vx-btn vx-btn--sm" disabled={!title.trim()}><Icon name="plus" /> Завдання</button>
     </form>
   );

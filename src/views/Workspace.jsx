@@ -7,6 +7,7 @@ import { WORKSPACES, registersOf, registerOf, viewsOf } from '../data/workspaces
 import { Attachments, Cover, CoverInput } from '../components/Attachments.jsx';
 import { ask } from '../components/Dialog.jsx';
 import { workspaceAccess } from '../lib/access.js';
+import { DateInput } from '../components/DateInput.jsx';
 import { needsReview } from '../lib/provenance.js';
 import { wordFor } from '../lib/forecast.js';
 import { RecordExtras, ReportButtons, ReviewView, ForecastsView, reviewCount } from './Analysis.jsx';
@@ -150,7 +151,7 @@ function FieldInput({ field, value, set, look, me }) {
       </div>
     );
     case 'links': return <LinksInput field={field} value={value} set={set} look={look} />;
-    case 'date': return <input {...common} type="date" />;
+    case 'date': return <DateInput id={id} value={value} onChange={set} />;
     case 'url': return <input {...common} type="url" placeholder="https://" />;
     case 'select': return (
       <select {...common} className="vx-select">

@@ -1,3 +1,4 @@
+import { LOCALE } from '../lib/locale.js';
 // Reaction classification system — the single source of truth.
 //
 // Three levels on one scale (how much light falls on a document) plus one category
@@ -121,7 +122,7 @@ export function downgradeState(file, now = Date.now()) {
   const to = file.clearance - 1;
   if (d.kind === 'date') {
     const due = new Date(`${d.at}T00:00:00`).getTime() <= now;
-    return { to, due, label: `після ${new Date(`${d.at}T00:00:00`).toLocaleDateString('uk-UA')}` };
+    return { to, due, label: `після ${new Date(`${d.at}T00:00:00`).toLocaleDateString(LOCALE)}` };
   }
   return { to, due: null, label: `після події: ${d.text}` };
 }
