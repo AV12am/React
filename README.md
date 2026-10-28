@@ -18,6 +18,11 @@
   **Вкладення** (поле `files`): файли завантажуються прямо в запис і переглядаються на місці — PDF сторінками (pdf.js), Word .docx (docx-preview),
   Excel .xlsx таблицею, текст, фото, відео й аудіо. З Supabase браузер не пише таблиць Сховища сам: `api/files.js` перевіряє людину й допуск,
   видає разове підписане посилання на завантаження, реєструє картку файлу й підписує посилання на читання (потрібен `SUPABASE_SERVICE_ROLE_KEY`).
+  **Друге сховище — Cloudflare R2** (10 ГБ безкоштовно, `api/_r2.js`): коли в Vercel задано `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
+  `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, нові вкладення йдуть у R2 (картка пам’ятає `store: 'r2'`), старі відкриваються із Supabase як раніше.
+  Ключі лише на сервері; браузер отримує разові підписані адреси. Налаштування: Cloudflare → R2 → Create bucket (наприклад `reaction-files`) →
+  Settings → CORS policy: `[{"AllowedOrigins":["https://<ваш-домен>.vercel.app"],"AllowedMethods":["GET","PUT"],"AllowedHeaders":["content-type"],"MaxAgeSeconds":3600}]`;
+  R2 → Manage API tokens → Create API token (Object Read & Write, лише цей бакет) → Access Key ID і Secret у змінні Vercel; Account ID — на сторінці R2.
   Схеми реєстрів — `src/data/workspaces.js`: нове поле чи реєстр додається там, без змін в інтерфейсі.
 - **Адміністрування** — вкладки «Доступи» й «Журнал аудиту».
 - **Доступи** — люди (роль, напрям, рівень допуску, MFA, статус), запити на доступ зі схваленням, матриця ролей і прав, рівні допуску.

@@ -11,8 +11,12 @@
 // makes for the Vault is made here too: nobody files, reads or removes a card above their own clearance;
 // a NON OCULIS card is read only by its owner or someone granted a basis for it.
 // The service key stays on the server.
+//
+// Where bodies go: Cloudflare R2 when it is configured (api/_r2.js, 10 ГБ free), otherwise Supabase
+// Storage. The card remembers its store (`store: 'r2'`), so files filed earlier keep opening from Supabase.
 import crypto from 'node:crypto';
 import { json, db, caller, SB_URL, SERVICE, env } from './_core.js';
+import { r2On, presign, r2Delete } from './_r2.js';
 
 export const config = { maxDuration: 20 };
 
@@ -54,9 +58,10 @@ export async function POST(req) {
       const division = DIVS.includes(body.division) ? body.division : 'int';
       const id = `x-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
       const ref = `att/${division}/${id}/${safe(body.name)}`;
+      if (r2On) return json(200, { id, ref, store: 'r2', uploadUrl: presign('PUT', ref, { expires: 900 }), headers: {} });
       const r = await storage(`object/upload/sign/${BUCKET}/${enc(ref)}`, {});
       if (!r.url) throw new Error('storage: no upload url');
-      return json(200, { id, ref, uploadUrl: `${SB_URL}/storage/v1${r.url}` });
+      return json(200, { id, ref, store: 'supabase', uploadUrl: `${SB_URL}/storage/v1${r.url}`, headers: { 'x-upsert': 'false' } });
     }
 
     if (body.op === 'commit') {
@@ -66,7 +71,7 @@ export async function POST(req) {
       if ((+f.clearance || 0) > level(m)) return json(403, { error: 'level', message: 'Гриф вищий за ваш допуск' });
       const folder = `f-att-${division}`;
       const card = {
-        ...f, folder, division, clearance: Math.max(0, Math.min(2, +f.clearance || 0)), sealed: false,
+        ...f, folder, division, clearance: Math.max(0, Math.min(2, +f.clearance || 0)), sealed: false, store: f.store === 'r2' && r2On ? 'r2' : 'supabase',
         owner: m.id, ownerName: m.doc?.name || '', at: new Date().toISOString(), stored: true, backend: 'supabase',
       };
       await db('vault_folders?on_conflict=id', { method: 'POST', prefer: 'resolution=ignore-duplicates,return=minimal', body: { id: folder, doc: { id: folder, name: FOLDER[division] || 'Вкладення', clearance: 0, division, group: 'attachments' } } });
@@ -79,11 +84,13 @@ export async function POST(req) {
       if (!f || !f.ref) return json(404, { error: 'missing', message: 'Файл не знайдено' });
       if (!mayRead(m, f)) return json(403, { error: 'level', message: 'Гриф вищий за ваш допуск' });
       if (body.op === 'url') {
+        if (f.store === 'r2') return json(200, { url: presign('GET', f.ref, { expires: 600 }) });
         const r = await storage(`object/sign/${BUCKET}/${enc(f.ref)}`, { expiresIn: 600 });
         return json(200, { url: `${SB_URL}/storage/v1${r.signedURL || r.signedUrl}` });
       }
       if (f.owner !== m.id && !['admin', 'lead'].includes(m.doc?.role)) return json(403, { error: 'owner', message: 'Видалити може автор файлу або керівник' });
-      await storage(`object/${BUCKET}`, { prefixes: [f.ref] }, 'DELETE');
+      if (f.store === 'r2') await r2Delete(f.ref);
+      else await storage(`object/${BUCKET}`, { prefixes: [f.ref] }, 'DELETE');
       await db(`vault_files?id=eq.${encodeURIComponent(f.id)}`, { method: 'DELETE', prefer: 'return=minimal' });
       return json(200, { ok: true });
     }

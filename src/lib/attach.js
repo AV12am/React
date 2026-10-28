@@ -53,9 +53,11 @@ export async function upload(ctx, list, { clearance = 0, division = 'int', recor
     let card;
     if (supabaseOn && backend.kind === 'supabase') {
       const s = await api({ op: 'sign', name: file.name, type: meta.type, size: file.size, clearance, division });
-      const put = await fetch(s.uploadUrl, { method: 'PUT', headers: { 'Content-Type': meta.type, 'x-upsert': 'false' }, body: file });
+      // Supabase Storage or Cloudflare R2 — api/files.js decides and signs the address.
+      const put = await fetch(s.uploadUrl, { method: 'PUT', headers: { 'Content-Type': meta.type, ...(s.headers || { 'x-upsert': 'false' }) }, body: file })
+        .catch(() => { throw new Error(`«${file.name}»: сховище недоступне${s.store === 'r2' ? ' (перевірте CORS у бакеті R2)' : ''}`); });
       if (!put.ok) throw new Error(`«${file.name}»: сховище не прийняло файл (${put.status})`);
-      card = (await api({ op: 'commit', meta: { ...meta, id: s.id, ref: s.ref } })).meta;
+      card = (await api({ op: 'commit', meta: { ...meta, id: s.id, ref: s.ref, store: s.store } })).meta;
     } else {
       const id = `x-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
       const folder = `f-att-${division}`;
@@ -76,7 +78,7 @@ export async function upload(ctx, list, { clearance = 0, division = 'int', recor
 
 /** What a record keeps of a file: enough to show, open and report it without the Vault index. */
 export const cardForRecord = (c) => ({
-  id: c.id, name: c.name, type: c.type, size: c.size, ref: c.ref, wrap: c.wrap, number: c.number, clearance: c.clearance,
+  id: c.id, name: c.name, type: c.type, size: c.size, ref: c.ref, wrap: c.wrap, number: c.number, clearance: c.clearance, store: c.store,
   folder: c.folder, owner: c.owner, at: c.at, backend: c.backend, ...(c.text ? { text: String(c.text).slice(0, 20000) } : {}),
 });
 
