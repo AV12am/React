@@ -30,7 +30,21 @@ export function Loader({ size = 40, label = 'Завантаження', still = 
   );
 }
 
-export function Wordmark({ tagline = true }) {
+// The large background mark of the sign-in screen: it turns slowly while its outline is drawn
+// petal by petal, fills in, holds and fades — then draws itself again.
+export function DrawnMark({ size = 720, className = '' }) {
+  return (
+    <svg className={`drawn-mark ${className}`} width={size} height={size} viewBox="-100 -100 200 200" aria-hidden="true">
+      <g className="drawn-mark__spin" fillRule="evenodd">
+        {[...paths.petals, paths.core].map((d, i) => (
+          <path key={i} d={d} pathLength="1" style={{ animationDelay: `${i * 0.35}s` }} />
+        ))}
+      </g>
+    </svg>
+  );
+}
+
+export function Wordmark({ tagline = false }) {
   return (
     <div className="brand-lockup">
       <Mark size={28} />

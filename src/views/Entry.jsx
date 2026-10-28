@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Mark, Loader } from '../brand/Mark.jsx';
+import { Mark, Loader, DrawnMark } from '../brand/Mark.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { Avatar } from '../components/ui.jsx';
 import { useStore } from '../store.jsx';
@@ -106,7 +106,6 @@ export function Splash({ onDone }) {
     <div className="splash" onClick={onDone}>
       <Loader size={180} label="Reaction · завантаження" />
       <div className="splash__word vx-wordmark">Reaction</div>
-      <div className="vx-tagline splash__tag">Tradecraft for intelligence</div>
       <div className="splash__status vx-mono">{BOOT[step]}{step < 3 ? '…' : ''}</div>
     </div>
   );
@@ -142,13 +141,11 @@ export function Login() {
   return (
     <div className="login">
       <div className="login__brand">
-        <Mark className="login__ghost" size={720} />
+        <DrawnMark className="login__ghost" size={720} />
         <div className="login__lockup">
           <Mark size={64} />
           <div className="vx-wordmark login__word">Reaction</div>
-          <div className="vx-tagline">Tradecraft for intelligence</div>
         </div>
-        <p className="login__motto">Багато джерел. Один центр. Єдине рішення.</p>
       </div>
 
       <div className="login__panel">

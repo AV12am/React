@@ -19,11 +19,10 @@ kbd {
   cursor: pointer; text-align: center; padding: 24px;
 }
 .splash__word { font-size: 24px; opacity: 0; animation: fade-in 0.6s 0.3s forwards; margin-top: 12px; }
-.splash__tag { opacity: 0; animation: fade-in 0.6s 0.5s forwards; }
 .splash__status { color: var(--ink-3); min-height: 16px; margin-top: 24px; }
 @keyframes fade-in { to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
-  .splash__word, .splash__tag { animation-duration: 0.01s; animation-delay: 0s; }
+  .splash__word { animation-duration: 0.01s; animation-delay: 0s; }
 }
 
 /* ---------- Login ---------- */
@@ -33,10 +32,22 @@ kbd {
   display: flex; flex-direction: column; justify-content: space-between; padding: 48px;
   background: var(--surface);
 }
-.login__ghost { position: absolute; right: -200px; bottom: -220px; color: var(--surface-3); pointer-events: none; }
+.login__ghost { position: absolute; right: -200px; bottom: -220px; color: var(--ink); opacity: 0.09; pointer-events: none; }
+.drawn-mark__spin { transform-origin: 0 0; animation: mark-spin 160s linear infinite; }
+.drawn-mark path { fill: currentColor; fill-opacity: 0; stroke: currentColor; stroke-width: 0.8; stroke-dasharray: 1; stroke-dashoffset: 1; animation: mark-draw 18s ease-in-out infinite; }
+@keyframes mark-spin { to { transform: rotate(360deg); } }
+@keyframes mark-draw {
+  0% { stroke-dashoffset: 1; fill-opacity: 0; stroke-opacity: 1; }
+  35% { stroke-dashoffset: 0; fill-opacity: 0; }
+  50%, 80% { stroke-dashoffset: 0; fill-opacity: 1; stroke-opacity: 1; }
+  95%, 100% { stroke-dashoffset: 0; fill-opacity: 0; stroke-opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .drawn-mark__spin { animation: none; }
+  .drawn-mark path { animation: none; stroke-dashoffset: 0; fill-opacity: 1; }
+}
 .login__lockup { position: relative; display: grid; gap: 14px; color: var(--mark); justify-items: start; }
 .login__word { font-size: 28px; margin-top: 10px; }
-.login__motto { position: relative; font: italic 500 26px/32px var(--font-display); letter-spacing: 0.01em; color: var(--ink-2); max-width: 340px; margin: 0; }
 .login__panel { display: flex; flex-direction: column; justify-content: center; gap: 18px; padding: 48px clamp(24px, 6vw, 88px); max-width: 560px; }
 .login__mobile-brand { display: none; align-items: center; gap: 12px; color: var(--mark); margin-bottom: 12px; }
 .login__form { display: grid; gap: 16px; margin-top: 8px; }
