@@ -909,3 +909,12 @@ kbd {
 .rp-entry__who { display: grid; flex: 1; min-width: 0; }
 .rp-entry__text { white-space: pre-wrap; margin: 0; line-height: 1.6; }
 @media (max-width: 1000px) { .rp-cols { grid-template-columns: 1fr; } .rp-hero { flex-direction: column; } }
+.dlg { display: grid; gap: 10px; min-width: min(420px, 80vw); }
+.dlg__text { margin: 0; white-space: pre-wrap; line-height: 1.55; }
+.cover-in { display: grid; gap: 8px; }
+.cover-in__img img { display: block; width: 100%; max-height: 220px; object-fit: cover; border-radius: var(--radius-md); }
+.rp-cover { flex: 0 0 340px; max-width: 40%; }
+.rp-cover img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius-md); border: 1px solid var(--line); }
+.ws-cover-mini img { display: block; width: 120px; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius-sm); }
+.rp-hero__side { display: grid; gap: 10px; justify-items: stretch; }
+@media (max-width: 1000px) { .rp-cover { flex: none; max-width: 100%; width: 100%; } }

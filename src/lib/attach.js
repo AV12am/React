@@ -74,6 +74,12 @@ export async function upload(ctx, list, { clearance = 0, division = 'int', recor
   return out;
 }
 
+/** What a record keeps of a file: enough to show, open and report it without the Vault index. */
+export const cardForRecord = (c) => ({
+  id: c.id, name: c.name, type: c.type, size: c.size, ref: c.ref, wrap: c.wrap, number: c.number, clearance: c.clearance,
+  folder: c.folder, owner: c.owner, at: c.at, backend: c.backend, ...(c.text ? { text: String(c.text).slice(0, 20000) } : {}),
+});
+
 const cache = new Map(); // file id → { url, blob }
 /**
  * The body of a card: { url, blob } (cached for the session). Viewers read `blob` directly — the page's

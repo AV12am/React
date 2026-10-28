@@ -4,10 +4,11 @@ import { Panel, Drawer, ClassBadge, Avatar } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { DIVISIONS, ROLES, CLEARANCE } from '../data/seed.js';
 import { WORKSPACES, registersOf, registerOf, viewsOf } from '../data/workspaces.js';
-import { Attachments, Cover } from '../components/Attachments.jsx';
+import { Attachments, Cover, CoverInput } from '../components/Attachments.jsx';
+import { ask } from '../components/Dialog.jsx';
 import { needsReview } from '../lib/provenance.js';
 import { wordFor } from '../lib/forecast.js';
-import { RecordExtras, ReviewView, ForecastsView, reviewCount } from './Analysis.jsx';
+import { RecordExtras, ReportButtons, ReviewView, ForecastsView, reviewCount } from './Analysis.jsx';
 import { WatchView } from './Watch.jsx';
 import { CompaniesView } from './Companies.jsx';
 import { Discussion, RecordTasks } from './Team.jsx';
@@ -101,6 +102,7 @@ function FieldValue({ field, value, look, go, compact = false }) {
       );
     }
     case 'files': return Array.isArray(value) && value.length ? <span className="vx-num">{value.length} файл.</span> : <span className="vx-hint">—</span>;
+    case 'image': return <span className="ws-cover-mini"><Cover cover={value} /></span>;
     case 'longtext': return <span className="ws-long">{value}</span>;
     default: return <span>{String(value)}</span>;
   }
@@ -270,6 +272,8 @@ function RecordDrawer({ d, reg, record, access, onClose, go, onCreated, startEdi
               <label className="vx-label" htmlFor={`f-${f.id}`}>{f.label}{f.required && ' *'}</label>
               {f.type === 'files'
                 ? <Attachments value={draft[f.id]} onChange={set(f.id)} canEdit clearance={draft.clearance ?? 0} division={d.id} record={record?.id || null} />
+                : f.type === 'image'
+                ? <CoverInput value={draft[f.id]} onChange={set(f.id)} clearance={draft.clearance ?? 0} division={d.id} record={record?.id || null} />
                 : <FieldInput field={f} value={draft[f.id]} set={set(f.id)} look={look} me={me} />}
               {f.hint && <div className="vx-hint">{f.hint}</div>}
             </div>
@@ -354,7 +358,7 @@ function Tile({ reg, r, look, locked, onOpen, go }) {
   const files = filesField && Array.isArray(r[filesField.id]) ? r[filesField.id] : [];
   return (
     <button className={`vx-panel ws-tile ${locked ? 'is-locked' : ''}`} onClick={() => !locked && onOpen(r)}>
-      <span className="ws-tile__cover">{!locked && <Cover ids={files} alt={titleOf(reg, r)} />}{(locked || !files.length) && <Icon name={reg.icon} size={32} />}</span>
+      <span className="ws-tile__cover">{!locked && <Cover cover={r.cover} ids={files} alt={titleOf(reg, r)} />}{(locked || (!files.length && !r.cover)) && <Icon name={reg.icon} size={32} />}</span>
       <span className="ws-tile__body">
         <span className="ws-card__top"><ClassBadge level={r.clearance} />{reg.stages && !locked && <span className="vx-tag">{r.stage || reg.stages[0]}</span>}</span>
         <span className="ws-tile__title">{locked ? <span className="vx-redacted">{'█'.repeat(14)}</span> : titleOf(reg, r)}</span>
@@ -380,23 +384,21 @@ const isPage = (reg) => reg.page ?? reg.id !== 'orgs';
 const createFields = (reg) => (reg.fields.some((f) => f.create) ? reg.fields.filter((f) => f.create) : reg.fields.filter((f) => f.type !== 'files'));
 
 /** One entry of the study: what was done or found, with its own files. */
-function EntryForm({ d, record, onAdd, label }) {
+function EntryForm({ onAdd, label }) {
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
-  const [files, setFiles] = useState([]);
-  const ready = text.trim() || files.length;
+  const ready = text.trim();
   const add = (e) => {
     e.preventDefault();
     if (!ready) return;
-    onAdd({ title: title.trim(), text: text.trim(), files });
-    setTitle(''); setText(''); setFiles([]);
+    onAdd({ title: title.trim(), text: text.trim() });
+    setTitle(''); setText('');
   };
   return (
     <form className="vx-panel rp-form" onSubmit={add}>
       <div className="vx-eyebrow">Новий запис</div>
       <input className="vx-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Заголовок (необов’язково): етап, подія, знахідка" aria-label="Заголовок запису" />
       <textarea className="vx-input ws-textarea" rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder={`Що зроблено чи з’ясовано — ${label.toLowerCase()}`} aria-label="Текст запису" />
-      <Attachments value={files} onChange={setFiles} canEdit clearance={record.clearance} division={d.id} record={record.id} hint="Фото, PDF, Word, Excel — прикріпляться до цього запису." />
       <div className="toolbar"><button className="vx-btn vx-btn--primary" disabled={!ready}><Icon name="plus" /> Додати запис</button></div>
     </form>
   );
@@ -415,12 +417,11 @@ function RecordPage({ d, reg, record, access, go }) {
     patch({ entries: [entry, ...entries] }, `новий запис${e.title ? ` «${e.title}»` : ''}`);
     toast('Запис додано');
   };
-  const setEntry = (id, p) => patch({ entries: entries.map((x) => (x.id === id ? { ...x, ...p } : x)) }, 'змінено запис');
-  const dropEntry = (x) => { if (window.confirm('Видалити цей запис? Файли запису лишаться у Сховищі.')) patch({ entries: entries.filter((y) => y.id !== x.id) }, 'видалено запис'); };
+  const dropEntry = async (x) => { if (await ask('Видалити цей запис?', { ok: 'Видалити', danger: true })) patch({ entries: entries.filter((y) => y.id !== x.id) }, 'видалено запис'); };
   const about = reg.fields.find((f) => f.id === reg.about);
   const filesField = reg.fields.find((f) => f.type === 'files');
-  const facts = reg.fields.filter((f) => !f.hidden && f.type !== 'files' && f.id !== reg.title && f.id !== reg.about && record[f.id] != null && record[f.id] !== '');
-  const allFiles = [...(filesField ? record[filesField.id] || [] : []), ...entries.flatMap((x) => x.files || [])];
+  const facts = reg.fields.filter((f) => !f.hidden && f.type !== 'files' && f.type !== 'image' && f.id !== reg.title && f.id !== reg.about && record[f.id] != null && record[f.id] !== '');
+  const coverField = reg.fields.find((f) => f.type === 'image');
   const link = `#/divisions/${d.id}/${reg.id}:${record.id}`;
   return (
     <div className="stack rp">
@@ -437,15 +438,28 @@ function RecordPage({ d, reg, record, access, go }) {
           )}
           <div className="vx-hint">Створив {look.user(record.owner)?.name || '—'} · {fmtDate(record.at)} · змінено {fmtAgo(record.updated)}</div>
           <RecordExtras reg={reg} record={record} canEdit={access.canEdit} go={go} />
+          <ReportButtons reg={reg} record={record} facts={facts} look={look} />
         </div>
-        {access.canEdit && <button className="vx-btn" onClick={() => setEditing(true)}><Icon name="file" /> Редагувати опис</button>}
+        <div className="rp-hero__side rp-cover">
+          {coverField && (access.canEdit
+            ? <CoverInput value={record.cover} onChange={(c) => patch({ cover: c }, c ? 'фото обкладинки' : 'прибрано обкладинку')} clearance={record.clearance} division={d.id} record={record.id} />
+            : record.cover && <Cover cover={record.cover} alt={title} />)}
+          {access.canEdit && <button className="vx-btn" onClick={() => setEditing(true)}><Icon name="file" /> Редагувати опис</button>}
+        </div>
       </section>
 
       <div className="rp-cols">
         <div className="stack">
-          {access.canEdit && <EntryForm d={d} record={record} onAdd={addEntry} label={reg.entryLabel || 'Робочі записи'} />}
+          {filesField && (
+            <Panel title={`${filesField.label} · ${(record[filesField.id] || []).length}`}>
+              <Attachments value={record[filesField.id]} onChange={(ids) => patch({ [filesField.id]: ids }, 'файли')} canEdit={access.canEdit}
+                clearance={record.clearance} division={d.id} record={record.id}
+                hint="Або перетягніть сюди. Фото, PDF, Word, Excel, текст — усе автоматично потрапляє у звіт як додатки." />
+            </Panel>
+          )}
+          {access.canEdit && <EntryForm onAdd={addEntry} label={reg.entryLabel || 'Робочі записи'} />}
           <h2 className="vx-h2">{reg.entryLabel || 'Робочі записи'} · {entries.length}</h2>
-          {!entries.length && <div className="vx-hint">Записів ще немає.{access.canEdit ? ' Додайте перший — що зроблено, що з’ясовано, фото й документи.' : ''}</div>}
+          {!entries.length && <div className="vx-hint">Записів ще немає.{access.canEdit ? ' Додайте перший — що зроблено, що з’ясовано.' : ''}</div>}
           {entries.map((x) => {
             const mine = x.author === me.id || me.role === 'admin';
             return (
@@ -456,22 +470,12 @@ function RecordPage({ d, reg, record, access, go }) {
                   {access.canEdit && mine && <button className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" onClick={() => dropEntry(x)} aria-label="Видалити запис"><Icon name="trash" /></button>}
                 </header>
                 {x.text && <p className="rp-entry__text">{x.text}</p>}
-                {(x.files?.length > 0 || (access.canEdit && mine)) && (
-                  <Attachments value={x.files || []} onChange={(ids) => setEntry(x.id, { files: ids })} canEdit={access.canEdit && mine}
-                    clearance={record.clearance} division={d.id} record={record.id} hint="Додати файли до цього запису." />
-                )}
+                {x.files?.length > 0 && <Attachments value={x.files} canEdit={false} />}
               </article>
             );
           })}
         </div>
         <aside className="stack">
-          {filesField && (
-            <Panel title={filesField.label}>
-              <Attachments value={record[filesField.id]} onChange={(ids) => patch({ [filesField.id]: ids }, 'файли')} canEdit={access.canEdit}
-                clearance={record.clearance} division={d.id} record={record.id} hint="Обкладинка — перше фото." />
-            </Panel>
-          )}
-          {allFiles.length > 0 && <div className="vx-hint">Усього файлів у дослідженні: {allFiles.length}</div>}
           <RecordTasks target={record.id} label={title} level={record.clearance} link={link} go={go} />
           <Discussion target={record.id} label={title} level={record.clearance} link={link} />
         </aside>

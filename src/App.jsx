@@ -10,6 +10,7 @@ import { supabaseOn, signOut } from './lib/supabase.js';
 import { Dashboard } from './views/Dashboard.jsx';
 import { COURSES } from './data/academy/meta.js';
 import { ROLES, VISIBLE_DIVISIONS } from './data/seed.js';
+import { DialogHost } from './components/Dialog.jsx';
 import { TRACKS } from './data/geo.js';
 import { canSeeFile, fmtAgo, requestLabel } from './store.jsx';
 import { useSwipe, useHidden, isTouch, buzz } from './lib/mobile.js';
@@ -264,6 +265,7 @@ function Shell() {
       </nav>
 
       {palette && <Palette onClose={() => setPalette(false)} go={go} allowed={allowed} lock={lock} />}
+      <DialogHost />
       {veiled && <div className="veil" aria-hidden="true"><Mark size={64} /></div>}
     </div>
   );

@@ -22,7 +22,12 @@ export function reportNumber(product, { records = [], files = [], now = new Date
   return docNumber({ level: product.clearance || 0, sealed: false, year, serial });
 }
 
-export function reportModel(product, { records = [], users = [], number, now = new Date() }) {
+/**
+ * The report of a record. Products carry key judgments and the chain of grounds; every record carries its
+ * description, its data, the working entries and its files as appendices (photos as pictures, documents as
+ * their text), with the cover photo on top. `extra` comes from the record page (reportExtra in Analysis.jsx).
+ */
+export function reportModel(product, { records = [], users = [], number, now = new Date(), extra = null }) {
   const lvl = product.clearance || 0;
   const level = levelOf(lvl);
   const userName = (id) => users.find((u) => u.id === id)?.name || '';
@@ -45,20 +50,32 @@ export function reportModel(product, { records = [], users = [], number, now = n
       url: b.url || '',
     };
   });
+  const isProduct = !product.col || product.col === 'products';
   return {
     number,
     level: { code: level.code, name: level.name, gloss: level.gloss },
-    title: product.title || 'Без назви',
-    meta: [
+    title: extra?.title || product.title || 'Без назви',
+    kind: extra?.kind || 'Аналітичний продукт',
+    meta: extra?.facts || [
       ['Тип', product.kind], ['Замовник', product.customer], ['Аналітик', userName(product.analyst)],
       ['Рівень упевненості', product.confidence], ['Термін', product.due ? day(product.due) : ''], ['Етап', product.stage],
     ].filter(([, v]) => v),
+    about: extra?.about ?? product.about ?? '',
     questions: product.questions || '',
-    judgments,
-    basis,
+    isProduct,
+    judgments: isProduct ? judgments : [],
+    basis: isProduct ? basis : [],
+    entries: (extra?.entries || []).map((e) => ({ ...e, date: e.at ? day(e.at) : '' })),
+    cover: extra?.cover || null,
+    attachments: extra?.attachments || [],
     issued: day(now.toISOString()),
   };
 }
+
+const KIND_UK = { image: 'Фото', pdf: 'PDF', docx: 'Word', doc: 'Word', xlsx: 'Excel', text: 'Текст', video: 'Відео', audio: 'Аудіо', other: 'Файл' };
+const sizeOf = (n) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} МБ` : `${Math.max(1, Math.round(n / 1024))} КБ`);
+const appxHead = (a, i) => `Додаток ${i + 1}. ${a.name}`;
+const appxSub = (a) => [a.number, KIND_UK[a.kind] || 'Файл', a.size ? sizeOf(a.size) : ''].filter(Boolean).join(' · ');
 
 /* ---------- PDF: a print-ready page, printed through a hidden frame ---------- */
 
@@ -89,16 +106,27 @@ export function reportHtml(m) {
   th { color: #666; font-weight: 600; } .c { text-align: center; }
   .questions { white-space: pre-wrap; }
   .foot { margin-top: 10mm; font-size: 9pt; color: #666; }
+  .cover { display: block; max-width: 100%; max-height: 110mm; margin: 4mm 0; object-fit: contain; }
+  .entry { margin: 0 0 4mm; break-inside: avoid; }
+  .appx { break-before: page; } .appx h3 { font: 400 15pt Georgia, serif; margin: 0 0 1mm; }
+  .appx img { display: block; max-width: 100%; max-height: 220mm; margin-top: 4mm; object-fit: contain; }
+  .appx__text { white-space: pre-wrap; font-size: 10pt; margin-top: 4mm; }
+  .appx-list li { margin: 0 0 1mm; }
 </style></head><body>
   <div class="band band--top">${band}</div><div class="band band--bottom">${band}</div>
-  <div class="mark">REACTION CORE</div>
+  <div class="mark">REACTION CORE · ${esc(m.kind.toUpperCase())}</div>
   <h1>${esc(m.title)}</h1>
+  ${m.cover ? `<img class="cover" src="${m.cover.dataUrl}" alt="">` : ''}
   <dl class="meta"><dt>Номер</dt><dd>${esc(m.number)}</dd><dt>Гриф</dt><dd>${esc(m.level.name)} · ${esc(m.level.gloss)}</dd>${m.meta.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}<dt>Дата видачі</dt><dd>${esc(m.issued)}</dd></dl>
+  ${m.about ? `<h2>Опис</h2><div class="questions">${esc(m.about)}</div>` : ''}
   ${m.questions ? `<h2>Ключові питання</h2><div class="questions">${esc(m.questions)}</div>` : ''}
-  <h2>Ключові судження</h2>${m.judgments.length ? `<ol>${js}</ol>` : '<p class="muted">Суджень не додано.</p>'}
+  ${m.isProduct ? `<h2>Ключові судження</h2>${m.judgments.length ? `<ol>${js}</ol>` : '<p class="muted">Суджень не додано.</p>'}
   <h2>Звідки ми це знаємо</h2>${m.basis.length ? `<table><thead><tr><th>№</th><th>Підстава</th><th>Тип</th><th>Джерело</th><th class="c">Оцінка</th></tr></thead><tbody>${bs}</tbody></table>
-  <p class="sub">Оцінка — надійність джерела (A–F) і достовірність інформації (1–6).</p>` : '<p class="muted">Підстав не вказано.</p>'}
-  <p class="foot">Документ ${esc(m.number)} сформовано в Reaction Core ${esc(m.issued)} · ймовірності — за шкалою оцінних термінів платформи</p>
+  <p class="sub">Оцінка — надійність джерела (A–F) і достовірність інформації (1–6).</p>` : '<p class="muted">Підстав не вказано.</p>'}` : ''}
+  ${m.entries.length ? `<h2>Робочі записи</h2>${m.entries.map((e) => `<div class="entry"><b>${esc(e.title || 'Запис')}</b><div class="sub">${esc([e.author, e.date].filter(Boolean).join(' · '))}</div>${e.text ? `<div class="questions">${esc(e.text)}</div>` : ''}</div>`).join('')}` : ''}
+  ${m.attachments.length ? `<h2>Додатки</h2><ol class="appx-list">${m.attachments.map((a, i) => `<li>${esc(appxHead(a, i))} <span class="sub">${esc(appxSub(a))}</span></li>`).join('')}</ol>
+  ${m.attachments.map((a, i) => `<section class="appx"><h3>${esc(appxHead(a, i))}</h3><div class="sub">${esc(appxSub(a))}</div>${a.image ? `<img src="${a.image.dataUrl}" alt="">` : a.table ? `<table><thead><tr>${a.table.head.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${a.table.rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>${a.table.more ? `<p class="sub">…ще рядків: ${a.table.more} — повна таблиця у Сховищі.</p>` : ''}` : a.text ? `<div class="appx__text">${esc(a.text)}</div>` : `<p class="muted">Вміст цього файлу не відтворюється в звіті — файл у Сховищі під номером ${esc(a.number || '')}.</p>`}</section>`).join('')}` : ''}
+  <p class="foot">Документ ${esc(m.number)} сформовано в Reaction Core ${esc(m.issued)}${m.isProduct ? " · ймовірності — за шкалою оцінних термінів платформи" : ""}</p>
 </body></html>`;
 }
 
@@ -121,31 +149,42 @@ export const printReport = (m) => printHtml(reportHtml(m));
 
 export async function reportDocx(m) {
   const d = await import('docx');
-  const { Document, Packer, Paragraph, TextRun, Header, Footer, AlignmentType, PageNumber, Table, TableRow, TableCell, WidthType, BorderStyle } = d;
+  const { Document, Packer, Paragraph, TextRun, Header, Footer, AlignmentType, PageNumber, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun } = d;
+  // A picture fitted into the text width (≈ 600 px wide, at most 800 px tall).
+  const picture = (img, maxH = 800) => {
+    const k = Math.min(1, 600 / img.w, maxH / img.h);
+    return new Paragraph({ spacing: { before: 120, after: 120 }, children: [new ImageRun({ type: 'png', data: img.bytes, transformation: { width: Math.round(img.w * k), height: Math.round(img.h * k) } })] });
+  };
   const FONT = 'Georgia';
   const RED = '8C1C32';
   const band = (extra = []) => new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `${m.level.name} · ${m.number}`, bold: true, color: RED, size: 16, font: FONT, characterSpacing: 40 }), ...extra] });
   const h2 = (t) => new Paragraph({ spacing: { before: 320, after: 120 }, border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'BBBBBB', space: 4 } }, children: [new TextRun({ text: t.toUpperCase(), bold: true, color: RED, size: 19, font: FONT, characterSpacing: 20 })] });
   const p = (t, o = {}) => new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: t, font: FONT, size: 22, ...o })] });
   const cell = (t, o = {}) => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: String(t ?? ''), font: FONT, size: 18, ...o })] })], borders: { top: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.SINGLE, size: 2, color: 'DDDDDD' } } });
+  const grid = ([head, ...rows]) => new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [
+    new TableRow({ tableHeader: true, children: head.map((t) => cell(t, { bold: true, color: '666666' })) }),
+    ...rows.map((r) => new TableRow({ children: r.map((t) => cell(t)) })),
+  ] });
 
   const children = [
-    p('REACTION CORE', { bold: true, color: '555555', size: 18, characterSpacing: 60 }),
+    p(`REACTION CORE · ${m.kind.toUpperCase()}`, { bold: true, color: '555555', size: 18, characterSpacing: 60 }),
     new Paragraph({ spacing: { before: 200, after: 160 }, children: [new TextRun({ text: m.title, font: FONT, size: 44 })] }),
+    ...(m.cover ? [picture(m.cover, 420)] : []),
     ...[['Номер', m.number], ['Гриф', `${m.level.name} · ${m.level.gloss}`], ...m.meta, ['Дата видачі', m.issued]]
       .map(([k, v]) => new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: `${k}: `, color: '666666', font: FONT, size: 21 }), new TextRun({ text: String(v), font: FONT, size: 21 })] })),
   ];
+  if (m.about) children.push(h2('Опис'), ...m.about.split('\n').map((l) => p(l)));
   if (m.questions) children.push(h2('Ключові питання'), ...m.questions.split('\n').map((l) => p(l)));
-  children.push(h2('Ключові судження'));
-  if (!m.judgments.length) children.push(p('Суджень не додано.', { italics: true, color: '888888' }));
+  if (m.isProduct) children.push(h2('Ключові судження'));
+  if (m.isProduct && !m.judgments.length) children.push(p('Суджень не додано.', { italics: true, color: '888888' }));
   m.judgments.forEach((j, i) => {
     if (j.hidden) { children.push(p('Судження вищого грифа — не розкривається.', { italics: true, color: '888888' })); return; }
     children.push(new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: `${i + 1}. `, bold: true, font: FONT, size: 22 }), new TextRun({ text: j.text, font: FONT, size: 22 })] }));
     const sub = [j.kind, j.probability != null && j.probability !== '' ? `${j.probability}% — ${j.words}` : '', j.confidence && `упевненість: ${j.confidence.toLowerCase()}`, j.due && `перевірка ${j.due}`, j.outcome && j.outcome !== 'Відкрито' ? `результат: ${j.outcome.toLowerCase()}` : ''].filter(Boolean).join(' · ');
     children.push(p(sub, { color: '555555', size: 19 }));
   });
-  children.push(h2('Звідки ми це знаємо'));
-  if (!m.basis.length) children.push(p('Підстав не вказано.', { italics: true, color: '888888' }));
+  if (m.isProduct) children.push(h2('Звідки ми це знаємо'));
+  if (!m.isProduct) { /* no grounds section for other records */ } else if (!m.basis.length) children.push(p('Підстав не вказано.', { italics: true, color: '888888' }));
   else {
     const head = new TableRow({ tableHeader: true, children: ['№', 'Підстава', 'Тип', 'Джерело', 'Оцінка'].map((t) => cell(t, { bold: true, color: '666666' })) });
     const rows = m.basis.map((b, i) => new TableRow({
@@ -155,6 +194,28 @@ export async function reportDocx(m) {
     }));
     children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [head, ...rows] }));
     children.push(p('Оцінка — надійність джерела (A–F) і достовірність інформації (1–6).', { color: '666666', size: 18 }));
+  }
+  if (m.entries.length) {
+    children.push(h2('Робочі записи'));
+    for (const e of m.entries) {
+      children.push(new Paragraph({ spacing: { before: 120, after: 20 }, children: [new TextRun({ text: e.title || 'Запис', bold: true, font: FONT, size: 22 })] }));
+      children.push(p([e.author, e.date].filter(Boolean).join(' · '), { color: '666666', size: 18 }));
+      if (e.text) children.push(...e.text.split('\n').map((l) => p(l)));
+    }
+  }
+  if (m.attachments.length) {
+    children.push(h2('Додатки'));
+    m.attachments.forEach((a, i) => children.push(p(`${appxHead(a, i)} — ${appxSub(a)}`, { size: 20 })));
+    m.attachments.forEach((a, i) => {
+      children.push(new Paragraph({ pageBreakBefore: true, spacing: { after: 40 }, children: [new TextRun({ text: appxHead(a, i), font: FONT, size: 30 })] }));
+      children.push(p(appxSub(a), { color: '666666', size: 18 }));
+      if (a.image) children.push(picture(a.image));
+      else if (a.table) {
+        children.push(grid([a.table.head, ...a.table.rows]));
+        if (a.table.more) children.push(p(`…ще рядків: ${a.table.more} — повна таблиця у Сховищі.`, { color: '666666', size: 18 }));
+      } else if (a.text) children.push(...a.text.split('\n').map((l) => p(l, { size: 20 })));
+      else children.push(p(`Вміст цього файлу не відтворюється в звіті — файл у Сховищі під номером ${a.number || ''}.`, { italics: true, color: '888888' }));
+    });
   }
   children.push(new Paragraph({ spacing: { before: 400 }, children: [new TextRun({ text: `Документ ${m.number} сформовано в Reaction Core ${m.issued}`, color: '666666', font: FONT, size: 18 })] }));
 

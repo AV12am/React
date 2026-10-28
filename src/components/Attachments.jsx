@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore, fmtBytes, canSeeFile } from '../store.jsx';
 import { Icon } from './Icon.jsx';
 import { Loader } from '../brand/Mark.jsx';
-import { upload, bodyOf, remove, kindOf } from '../lib/attach.js';
+import { upload, bodyOf, remove, kindOf, cardForRecord } from '../lib/attach.js';
+import { ask } from './Dialog.jsx';
 
 const LABEL = { pdf: 'PDF', docx: 'Word', doc: 'Word (.doc)', xlsx: 'Excel', video: 'Відео', audio: 'Аудіо', text: 'Текст', other: 'Файл', image: 'Фото' };
 
@@ -182,9 +183,11 @@ export function Attachments({ value, onChange, canEdit, clearance = 0, division 
   const [busy, setBusy] = useState(false);
   const [view, setView] = useState(null);
   const [drag, setDrag] = useState(false);
-  const ids = Array.isArray(value) ? value : [];
-  const files = ids.map((id) => state.files.find((f) => f.id === id)).filter((f) => f && canSeeFile(me, f));
-  const hidden = ids.length - files.length;
+  // Each item is the file's card itself (kept in the record, so it never depends on the Vault index
+  // having caught up), or — in older records — just its id in the Vault.
+  const items = Array.isArray(value) ? value : [];
+  const files = items.map((x) => (typeof x === 'string' ? state.files.find((f) => f.id === x) : (state.files.find((f) => f.id === x?.id) || x))).filter((f) => f && f.id && canSeeFile(me, f));
+  const hidden = items.length - files.length;
   const images = files.filter((f) => kindOf(f) === 'image');
   const docs = files.filter((f) => kindOf(f) !== 'image');
   const ordered = [...images, ...docs];
@@ -194,13 +197,14 @@ export function Attachments({ value, onChange, canEdit, clearance = 0, division 
     setBusy(true);
     try {
       const cards = await upload(ctx, list, { clearance, division, record });
-      onChange([...ids, ...cards.map((c) => c.id)]);
+      onChange([...items, ...cards.map(cardForRecord)]);
       toast(`Додано файлів: ${cards.length}`);
     } catch (e) { toast(refused ? await refused(e) : e.message, 'error'); } finally { setBusy(false); }
   };
   const drop = async (f) => {
-    if (!window.confirm(`Видалити «${f.name}» із запису й сховища?`)) return;
-    try { await remove(ctx, f); onChange(ids.filter((x) => x !== f.id)); } catch (e) { toast(e.message, 'error'); }
+    if (!(await ask(`Видалити «${f.name}» із запису й сховища?`, { ok: 'Видалити', danger: true }))) return;
+    try { await remove(ctx, f); } catch (e) { toast(e.message, 'error'); }
+    onChange(items.filter((x) => (typeof x === 'string' ? x : x?.id) !== f.id));
   };
 
   return (
@@ -211,7 +215,7 @@ export function Attachments({ value, onChange, canEdit, clearance = 0, division 
       {!!images.length && <div className="att-grid att-grid--img">{images.map((f) => <Thumb key={f.id} f={f} onOpen={() => setView(ordered.indexOf(f))} onRemove={canEdit ? () => drop(f) : null} />)}</div>}
       {!!docs.length && <div className="att-grid">{docs.map((f) => <Thumb key={f.id} f={f} onOpen={() => setView(ordered.indexOf(f))} onRemove={canEdit ? () => drop(f) : null} />)}</div>}
       {!files.length && !canEdit && <span className="vx-hint">Файлів немає</span>}
-      {hidden > 0 && <div className="vx-hint">Ще {hidden} — гриф вищий за ваш допуск</div>}
+      {hidden > 0 && <div className="vx-hint">Ще файлів: {hidden} — недоступні вам або видалені зі Сховища</div>}
       {canEdit && (
         <div className="att-add">
           <input ref={input} type="file" multiple hidden onChange={(e) => { add(Array.from(e.target.files)); e.target.value = ''; }} />
@@ -226,10 +230,42 @@ export function Attachments({ value, onChange, canEdit, clearance = 0, division 
   );
 }
 
-/** The first photo among the cards, for a record's cover (nothing when there is none). */
-export function Cover({ ids, alt = '' }) {
+/** A record's cover photo: its own card (the `cover` field), or else the first photo among `ids`. */
+export function Cover({ ids, cover, alt = '' }) {
   const { state, me } = useStore();
-  const f = (Array.isArray(ids) ? ids : []).map((id) => state.files.find((x) => x.id === id)).find((x) => x && canSeeFile(me, x) && kindOf(x) === 'image');
+  const resolve = (x) => (typeof x === 'string' ? state.files.find((f) => f.id === x) : (x && (state.files.find((f) => f.id === x.id) || x)));
+  const own = cover && resolve(cover);
+  const f = (own && canSeeFile(me, own) ? own : null)
+    || (Array.isArray(ids) ? ids : []).map(resolve).find((x) => x && canSeeFile(me, x) && kindOf(x) === 'image');
   const { url } = useUrl(f || null);
   return url ? <img src={url} alt={alt} loading="lazy" /> : null;
+}
+
+/** The cover photo of a record — one picture, kept apart from its files (the `image` field). */
+export function CoverInput({ value, onChange, clearance = 0, division = 'int', record = null }) {
+  const ctx = useStore();
+  const { toast, refused } = ctx;
+  const input = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const pick = async (file) => {
+    if (!file) return;
+    if (kindOf(file) !== 'image') { toast('Обкладинка — це фото (JPG, PNG, WebP)', 'error'); return; }
+    setBusy(true);
+    try {
+      const [card] = await upload(ctx, [file], { clearance, division, record });
+      onChange(cardForRecord(card));
+    } catch (e) { toast(refused ? await refused(e) : e.message, 'error'); } finally { setBusy(false); }
+  };
+  return (
+    <div className="cover-in">
+      {value && <span className="cover-in__img"><Cover cover={value} /></span>}
+      <input ref={input} type="file" accept="image/*" hidden onChange={(e) => { pick(e.target.files[0]); e.target.value = ''; }} />
+      <div className="toolbar">
+        <button type="button" className="vx-btn vx-btn--sm" disabled={busy} onClick={() => input.current.click()}>
+          {busy ? <><Loader size={16} /> Завантажую…</> : <><Icon name="upload" /> {value ? 'Змінити фото' : 'Додати фото обкладинки'}</>}
+        </button>
+        {value && !busy && <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => onChange(null)}>Прибрати</button>}
+      </div>
+    </div>
+  );
 }

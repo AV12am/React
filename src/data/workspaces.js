@@ -165,7 +165,8 @@ export const WORKSPACES = {
         fields: [
           { id: 'title', label: 'Назва', type: 'text', required: true, create: true },
           { id: 'about', label: 'Опис', type: 'longtext', create: true },
-          { id: 'files', label: 'Файли продукту', type: 'files' },
+          { id: 'cover', label: 'Фото обкладинки', type: 'image', create: true },
+          { id: 'files', label: 'Файли', type: 'files' },
           { id: 'kind', label: 'Тип', type: 'select', list: true, create: true, options: ['Оцінка', 'Довідка', 'Прогноз', 'Бриф', 'Звіт'] },
           { id: 'customer', label: 'Замовник', type: 'text', list: true, create: true },
           { id: 'confidence', label: 'Рівень упевненості', type: 'select', list: true, options: ['Низький', 'Помірний', 'Високий'] },
@@ -343,12 +344,13 @@ export const WORKSPACES = {
         fields: [
           { id: 'title', label: 'Назва', type: 'text', required: true, create: true },
           { id: 'about', label: 'Опис', type: 'longtext', create: true },
+          { id: 'cover', label: 'Фото обкладинки', type: 'image', create: true },
           { id: 'state', label: 'Стан', type: 'select', list: true, create: true, options: ['Планується', 'Триває', 'Завершено', 'Призупинено'] },
           { id: 'lead', label: 'Керівник', type: 'user', list: true, create: true },
           { id: 'hypothesis', label: 'Гіпотеза чи питання', type: 'longtext' },
           { id: 'method', label: 'Метод', type: 'text' },
           { id: 'results', label: 'Результати', type: 'longtext' },
-          { id: 'files', label: 'Основні фото й документи', type: 'files' },
+          { id: 'files', label: 'Файли', type: 'files' },
           { id: 'entries', type: 'hidden', hidden: true }, // [{ id, at, author, title, text, files }] — added on the study's page
           { id: 'file', label: 'Звіт', type: 'file', hidden: true }, // earlier single report from the Vault
         ],
@@ -364,13 +366,14 @@ export const WORKSPACES = {
         fields: [
           { id: 'name', label: 'Назва', type: 'text', required: true, create: true },
           { id: 'about', label: 'Опис', type: 'longtext', create: true },
+          { id: 'cover', label: 'Фото обкладинки', type: 'image', create: true },
           { id: 'state', label: 'Стан', type: 'select', list: true, create: true, options: ['Планується', 'Триває', 'На паузі', 'Завершено'] },
           { id: 'lead', label: 'Керівник проєкту', type: 'user', list: true, create: true },
           { id: 'team', label: 'Команда', type: 'text' },
           { id: 'start', label: 'Початок', type: 'date' },
           { id: 'deadline', label: 'Термін', type: 'date' },
           { id: 'goals', label: 'Цілі й результати', type: 'longtext' },
-          { id: 'files', label: 'Файли проєкту', type: 'files' },
+          { id: 'files', label: 'Файли', type: 'files' },
         ],
       },
     ],
