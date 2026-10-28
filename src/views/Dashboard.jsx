@@ -25,8 +25,12 @@ export function Dashboard({ go }) {
   }, [me?.role, state.users.length]);
   const hasFactor = (u) => (supabaseOn ? withKeys?.has(u.id) : u.mfa);
   const mfa = active.length ? Math.round((active.filter(hasFactor).length / active.length) * 100) : 0;
-  const used = state.files.reduce((s, f) => s + f.size, 0);
-  const quota = backend?.quota || STORAGE_QUOTA;
+  // Where new files go and the room there, as the server reports it (Cloudflare R2: 9,75 ГБ).
+  const [usage, setUsage] = useState(null);
+  useEffect(() => { backend?.usage?.().then(setUsage).catch(() => {}); }, [backend, state.files.length]);
+  const used = usage?.bytes ?? state.files.reduce((s, f) => s + f.size, 0);
+  const quota = usage?.maxBytes || backend?.quota || STORAGE_QUOTA;
+  const where = usage?.label || backend?.label;
   const since = (iso, weeks = 1) => iso && now - new Date(iso).getTime() < weeks * WEEK;
   const newFiles = state.files.filter((f) => since(f.at)).length;
   const events = state.audit.filter((e) => since(e.at)).length;
@@ -44,7 +48,7 @@ export function Dashboard({ go }) {
   const shared = state.files.filter((f) => !state.folders.find((x) => x.id === f.folder)?.division).length;
 
   const checks = [
-    { name: 'Сховище файлів', status: backend ? 'ok' : 'idle', note: backend ? backend.label : 'Підключення…' },
+    { name: 'Сховище файлів', status: backend ? 'ok' : 'idle', note: backend ? where : 'Підключення…' },
     { name: 'З’єднання', status: location.protocol === 'https:' ? 'ok' : 'warn', note: location.protocol === 'https:' ? 'HTTPS' : 'Без шифрування — увімкніть HTTPS' },
     { name: 'Мережа', status: navigator.onLine ? 'ok' : 'warn', note: navigator.onLine ? 'Онлайн' : 'Офлайн' },
   ];
@@ -72,7 +76,7 @@ export function Dashboard({ go }) {
             delta={pending ? <><b>Очікують рішення</b> · відкрити</> : 'Черга порожня'} />
         </button>
         <StatTile label="Сховище" value={fmtBytes(used)} unit={`/ ${fmtBytes(quota)}`}
-          meter={(used / quota) * 100} delta={`${backend ? backend.label : '…'} · ${state.files.length} файлів у ${state.folders.length} папках`} />
+          meter={(used / quota) * 100} delta={`${backend ? where : '…'} · ${state.files.length} файлів у ${state.folders.length} папках`} />
         <StatTile label={supabaseOn ? 'Ключі доступу' : 'Покриття MFA'} value={supabaseOn && !withKeys ? '—' : mfa} unit={supabaseOn && !withKeys ? '' : '%'} meter={mfa} meterBrass={mfa < 100}
           delta={supabaseOn ? (withKeys ? `${active.filter((u) => !withKeys.has(u.id)).length} активних без ключа` : 'бачить адміністратор') : `${active.filter((u) => !u.mfa).length} активних без MFA`} sensitive={false} />
         <StatTile label="Активні користувачі" value={active.length} delta={`${state.users.filter((u) => u.status === 'invited').length} запрошено`} sensitive={false} />

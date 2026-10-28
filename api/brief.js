@@ -1,6 +1,6 @@
 // Vercel Function: the morning brief by e-mail (src/lib/brief.js).
 //
-// GET  /api/brief   Authorization: Bearer <CRON_SECRET>   (Vercel Cron, daily ≈ 08:00 Kyiv — see vercel.json)
+// GET  /api/brief   Authorization: Bearer <CRON_SECRET>   (Vercel Cron, 06:00 UTC: 08:00 Kyiv in winter, 09:00 in summer — see vercel.json)
 //   For every active member who has not switched the brief off: builds their brief within their clearance
 //   and sends it through Resend. Titles above LUMEN never go into the letter — they are counted only.
 //   An empty brief (nothing new, nothing waiting) is not sent.
