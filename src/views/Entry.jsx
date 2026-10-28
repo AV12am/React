@@ -9,7 +9,7 @@ import { status as passkeyStatus, confirm as passkeyConfirm, passkeyError } from
 import { PasskeyStep } from './Passkey.jsx';
 
 const AUTH_MESSAGES = {
-  invalid_credentials: 'Невірна пошта або пароль.',
+  invalid_credentials: 'Невірне ім’я або пароль.',
   email_not_confirmed: 'Пошту ще не підтверджено. Перевірте лист від Supabase.',
   over_request_rate_limit: 'Забагато спроб. Зачекайте хвилину.',
 };
@@ -18,7 +18,7 @@ const AUTH_MESSAGES = {
 // on a new installation becomes the administrator (core_claim_first_admin in deploy/supabase.sql).
 function SupabaseLogin() {
   const { dispatch } = useStore();
-  const [email, setEmail] = useState('');
+  const [login, setLogin] = useState('');
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -45,7 +45,7 @@ function SupabaseLogin() {
     setErr('');
     setBusy(true);
     try {
-      await signIn(email, pass);
+      await signIn(login, pass);
       const addr = currentEmail();
       if (!(await rpc('core_initialised', {}))) {
         const id = `u-${Date.now().toString(36)}`;
@@ -72,8 +72,8 @@ function SupabaseLogin() {
   return (
     <form className="login__form" onSubmit={submit}>
       <div className="vx-field">
-        <label className="vx-label" htmlFor="email">Робоча пошта</label>
-        <input id="email" type="email" className="vx-input" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" autoFocus required />
+        <label className="vx-label" htmlFor="login">Ім’я</label>
+        <input id="login" className="vx-input" value={login} onChange={(e) => setLogin(e.target.value)} autoComplete="username" autoCapitalize="none" spellCheck={false} autoFocus required />
       </div>
       <div className="vx-field">
         <label className="vx-label" htmlFor="pass">Пароль</label>
@@ -83,16 +83,16 @@ function SupabaseLogin() {
       <button className="vx-btn vx-btn--primary login__submit" disabled={busy}>
         {busy ? <Loader size={18} label="Вхід" /> : <>Увійти <Icon name="lock" /></>}
       </button>
-      <div className="vx-hint">Після пароля — підтвердження ключем доступу (Face ID, Touch ID, Windows Hello). Облікові записи створює адміністратор.</div>
     </form>
   );
 }
 
+// The boot screen is in English, like the sign-in.
 const BOOT = [
-  'Встановлення захищеного з’єднання',
-  'Перевірка цілісності клієнта',
-  'Синхронізація ключів',
-  'Готово',
+  'Establishing a secure connection',
+  'Checking client integrity',
+  'Synchronising keys',
+  'Ready',
 ];
 
 // The boot splash shows the same cornflower loader as the rest of the app, only larger.
@@ -103,8 +103,8 @@ export function Splash({ onDone }) {
     return () => t.forEach(clearTimeout);
   }, [onDone]);
   return (
-    <div className="splash" onClick={onDone}>
-      <Loader size={180} label="Reaction · завантаження" />
+    <div className="splash" data-lang="en" onClick={onDone}>
+      <Loader size={180} label="Reaction · loading" />
       <div className="splash__word vx-wordmark">Reaction</div>
       <div className="splash__status vx-mono">{BOOT[step]}{step < 3 ? '…' : ''}</div>
     </div>
@@ -139,7 +139,7 @@ export function Login() {
   };
 
   return (
-    <div className="login">
+    <div className="login" data-lang="en">
       <div className="login__brand">
         <DrawnMark className="login__ghost" size={720} />
         <div className="login__lockup">
@@ -150,7 +150,6 @@ export function Login() {
 
       <div className="login__panel">
         <div className="login__mobile-brand"><Mark size={40} /><div className="vx-wordmark">Reaction</div></div>
-        <div className="vx-eyebrow">Core · внутрішня платформа</div>
         <h1 className="vx-h1">{supabaseOn || stage === 'id' ? 'Вхід' : 'Підтвердження'}</h1>
 
         {supabaseOn ? <SupabaseLogin /> : stage === 'id' ? (
@@ -197,7 +196,6 @@ export function Login() {
             <div className="vx-hint">Ідентифікатор <span className="vx-mono">{state.users[0].code}</span>. Після входу змініть ім’я в «Доступ» і запросіть команду.</div>
           </div>
         )}
-        <div className="login__foot vx-hint">Доступ лише для персоналу. Усі дії фіксуються в журналі аудиту.</div>
       </div>
     </div>
   );

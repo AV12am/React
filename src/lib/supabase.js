@@ -39,8 +39,17 @@ async function authCall(path, body) {
   return data;
 }
 
-export async function signIn(email, password) {
-  const s = await authCall('token?grant_type=password', { email: email.trim(), password });
+/** Sign in with an e-mail, or with a name (api/signin.js finds the person's e-mail on the server). */
+export async function signIn(login, password) {
+  const who = String(login || '').trim();
+  let s;
+  if (who.includes('@')) s = await authCall('token?grant_type=password', { email: who, password });
+  else {
+    const res = await fetch(new URL('api/signin', document.baseURI), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: who, password }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(data.message || `HTTP ${res.status}`), { status: res.status, code: data.error });
+    s = data;
+  }
   keep(withExpiry(s));
   return s.user;
 }

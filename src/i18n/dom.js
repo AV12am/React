@@ -65,15 +65,21 @@ export function createTranslator({ EXACT, TEMPLATES }) {
   return translate;
 }
 
+// `only`: a selector — then just the parts of the page inside it are translated (the sign-in screens are
+// always in English, whatever the interface language).
+let only = null;
 const skipped = (node) => {
-  for (let el = node.nodeType === 1 ? node : node.parentElement; el; el = el.parentElement) {
+  const start = node.nodeType === 1 ? node : node.parentElement;
+  if (only && !start?.closest?.(only)) return true;
+  for (let el = start; el; el = el.parentElement) {
     if (SKIP.has(el.tagName) || el.isContentEditable || el.hasAttribute?.('data-no-i18n')) return true;
   }
   return false;
 };
 
 /** Translate the page now and keep translating whatever the app renders next. */
-export function startTranslator(translate, root = document.body) {
+export function startTranslator(translate, root = document.body, { scope = null } = {}) {
+  only = scope;
   const text = (n) => {
     const t = translate(n.nodeValue);
     if (t != null && t !== n.nodeValue && !skipped(n)) n.nodeValue = t;
@@ -81,7 +87,7 @@ export function startTranslator(translate, root = document.body) {
   const attrs = (el) => {
     for (const a of ATTRS) {
       const v = el.getAttribute?.(a);
-      if (v && CYR.test(v)) { const t = translate(v); if (t != null && t !== v) el.setAttribute(a, t); }
+      if (v && CYR.test(v) && !(only && !el.closest(only))) { const t = translate(v); if (t != null && t !== v) el.setAttribute(a, t); }
     }
   };
   const walk = (node) => {
@@ -93,7 +99,7 @@ export function startTranslator(translate, root = document.body) {
     for (let n = w.nextNode(); n; n = w.nextNode()) { if (n.nodeType === 3) text(n); else attrs(n); }
   };
   walk(root);
-  const titleOf = () => { const t = translate(document.title); if (t) document.title = t; };
+  const titleOf = () => { if (only) return; const t = translate(document.title); if (t) document.title = t; };
   titleOf();
   const obs = new MutationObserver((list) => {
     for (const m of list) {
@@ -104,6 +110,7 @@ export function startTranslator(translate, root = document.body) {
     titleOf();
   });
   obs.observe(root, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+  if (only) return () => obs.disconnect();
   // Dialogs the browser draws itself.
   const { confirm, alert, prompt } = window;
   window.confirm = (msg) => confirm.call(window, translate(String(msg)) ?? msg);
