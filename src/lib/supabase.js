@@ -93,10 +93,16 @@ export async function rest(path, { method = 'GET', body, prefer } = {}) {
 
 export const rpc = (fn, args) => rest(`rpc/${fn}`, { method: 'POST', body: args });
 
-/** The Vault's server function (api/files.js): it checks the person and clearance and signs file addresses. */
-export async function filesApi(body) {
-  const res = await fetch(new URL('api/files', document.baseURI), { method: 'POST', headers: await authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
+/** A server function (api/<name>.js) as the signed-in person. */
+export async function callApi(name, body) {
+  const res = await fetch(new URL(`api/${name}`, document.baseURI), { method: 'POST', headers: await authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error(data.message || (res.status === 404 ? 'Серверна функція недоступна (працює лише на Vercel)' : `HTTP ${res.status}`)), { status: res.status, code: data.error });
   return data;
 }
+
+/** The Vault's server function (api/files.js): it checks the person and clearance and signs file addresses. */
+export const filesApi = (body) => callApi('files', body);
+
+/** An administrator sets a person's password (api/users.js); their Supabase sign-in is created if missing. */
+export const setPassword = (memberId, password) => callApi('users', { op: 'password', memberId, password });

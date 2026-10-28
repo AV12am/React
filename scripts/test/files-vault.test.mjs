@@ -14,6 +14,7 @@ test('Vault through the files API', async () => {
   globalThis.fetch = async (url, opts = {}) => {
     const u = decodeURIComponent(String(url));
     const ok = (b) => new Response(b == null ? null : JSON.stringify(b), { status: b == null ? 204 : 200 });
+    if (u.includes('vault_files?select=size')) return new Response(JSON.stringify([...files.values()].map((d) => ({ size: d.size, store: d.store }))));
     if (u.includes('/auth/v1/user')) return ok({ email: 'me@x.test' });
     if (u.includes('core_members?email=eq')) return ok([{ id: 'u1', email: 'me@x.test', doc: { name: 'Анна', status: 'active', role: 'analyst', clearance: 1 } }]);
     if (u.includes('core_settings')) return ok([{ value: false }]);

@@ -932,3 +932,5 @@ kbd {
 .ip-add { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
 .ip-add .vx-btn { justify-self: start; }
 @media (max-width: 600px) { .ip-add { grid-template-columns: 1fr; } }
+.pw-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pw-row .vx-input { flex: 1 1 220px; min-width: 0; }

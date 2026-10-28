@@ -36,6 +36,13 @@ export function presign(method, key, { expires = 600, now = new Date(), host = `
   return `https://${host}${path}?${query}&X-Amz-Signature=${hmac(kSign, toSign).toString('hex')}`;
 }
 
+/** The stored size of an object in bytes, or null when it is not there. */
+export async function r2Size(key) {
+  const res = await fetch(presign('HEAD', key, { expires: 60 }), { method: 'HEAD' });
+  if (!res.ok) return null;
+  return Number(res.headers.get('content-length')) || 0;
+}
+
 export async function r2Delete(key) {
   const res = await fetch(presign('DELETE', key, { expires: 60 }), { method: 'DELETE' });
   if (!res.ok && res.status !== 404) throw new Error(`r2 ${res.status}`);

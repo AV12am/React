@@ -24,7 +24,7 @@
 // Storage. The card remembers its store (`store: 'r2'`), so files filed earlier keep opening from Supabase.
 import crypto from 'node:crypto';
 import { json, db, caller, SB_URL, SERVICE, env } from './_core.js';
-import { r2On, presign, r2Delete } from './_r2.js';
+import { r2On, presign, r2Delete, r2Size } from './_r2.js';
 
 export const config = { maxDuration: 20 };
 
@@ -35,6 +35,26 @@ const FOLDER = { int: 'Розвідка · вкладення', ana: 'Аналі
 
 const level = (m) => Math.max(0, Math.min(2, +m.doc?.clearance || 0));
 const GiB = 1024 * 1024 * 1024;
+// The free plan of R2 is 10 ГБ; uploads stop short of it (R2_QUOTA_GB, 9.75 by default) so it never bills.
+const R2_QUOTA = (+env.R2_QUOTA_GB || 9.75) * GiB;
+const SB_QUOTA = (+env.STORAGE_QUOTA_GB || 1) * GiB;
+const FULL = { error: 'full', message: 'Сховище заповнене: ліміт 9,75 ГБ. Видаліть непотрібні файли.' };
+async function usedBytes(store) {
+  const rows = await db('vault_files?select=size:doc->>size,store:doc->>store');
+  return rows.filter((r) => (r.store === 'r2') === (store === 'r2')).reduce((s, r) => s + (+r.size || 0), 0);
+}
+// Before a body is stored: is there room for it in the store new files go to?
+async function roomFor(size) {
+  return (await usedBytes(r2On ? 'r2' : 'supabase')) + size <= (r2On ? R2_QUOTA : SB_QUOTA);
+}
+// After: the size the store actually holds (not what the browser said); over the limit — the body goes.
+async function realSize(card) {
+  if (card.store !== 'r2') return card.size;
+  const size = await r2Size(card.ref);
+  if (size == null) throw Object.assign(new Error('Файл не дійшов до сховища — завантажте ще раз'), { status: 409 });
+  if ((await usedBytes('r2')) + size > R2_QUOTA) { await r2Delete(card.ref).catch(() => {}); throw Object.assign(new Error(FULL.message), { status: 507 }); }
+  return size;
+}
 const okId = (id) => /^[\w-]{1,80}$/.test(id || '');
 const cleanDir = (d) => String(d || 'vault').split('/').filter((x) => x && x !== '..' && x !== '.').map((x) => x.replace(/[^\w-]+/g, '_')).join('/').slice(0, 120) || 'vault';
 // A card's address must be its own: <dir>/<id>/<name>, nothing climbing out.
@@ -83,6 +103,7 @@ export async function POST(req) {
       const vault = body.dir != null || body.id != null;
       const id = vault && okId(body.id) ? body.id : `x-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
       if (vault && await cardOf(id)) return json(409, { error: 'exists', message: 'Файл з таким номером уже є' });
+      if (!(await roomFor(+body.size))) return json(507, FULL);
       const ref = vault ? `${cleanDir(body.dir)}/${id}/${safe(body.name)}` : `att/${DIVS.includes(body.division) ? body.division : 'int'}/${id}/${safe(body.name)}`;
       return json(200, { id, ref, ...(await signUpload(ref)) });
     }
@@ -102,6 +123,8 @@ export async function POST(req) {
         ? { ref: old.ref, store: old.store, owner: old.owner, ownerName: old.ownerName, at: old.at }
         : { owner: m.id, ownerName: m.doc?.name || '', at: new Date().toISOString(), store: f.store === 'r2' && r2On ? 'r2' : 'supabase' };
       const card = { ...f, clearance, sealed: !!f.sealed, stored: true, backend: 'supabase', ...fixed };
+      if (!old) card.size = await realSize(card);
+      else card.size = old.size;
       await db('vault_files?on_conflict=id', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: { id: card.id, doc: card } });
       return json(200, { ok: true, meta: card });
     }
@@ -125,7 +148,7 @@ export async function POST(req) {
       return json(200, { ok: true });
     }
 
-    if (body.op === 'info') return json(200, { store: r2On ? 'r2' : 'supabase', quota: (r2On ? 10 : 0) * GiB + (+env.STORAGE_QUOTA_GB || 1) * GiB });
+    if (body.op === 'info') return json(200, { store: r2On ? 'r2' : 'supabase', quota: r2On ? R2_QUOTA : SB_QUOTA, used: await usedBytes(r2On ? 'r2' : 'supabase') });
 
     if (body.op === 'commit') {
       const f = body.meta || {};
@@ -137,6 +160,7 @@ export async function POST(req) {
         ...f, folder, division, clearance: Math.max(0, Math.min(2, +f.clearance || 0)), sealed: false, store: f.store === 'r2' && r2On ? 'r2' : 'supabase',
         owner: m.id, ownerName: m.doc?.name || '', at: new Date().toISOString(), stored: true, backend: 'supabase',
       };
+      card.size = await realSize(card);
       await db('vault_folders?on_conflict=id', { method: 'POST', prefer: 'resolution=ignore-duplicates,return=minimal', body: { id: folder, doc: { id: folder, name: FOLDER[division] || 'Вкладення', clearance: 0, division, group: 'attachments' } } });
       await db('vault_files?on_conflict=id', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: { id: card.id, doc: card } });
       return json(200, { ok: true, meta: card });
@@ -160,6 +184,6 @@ export async function POST(req) {
 
     return json(400, { error: 'op', message: 'Невідома дія' });
   } catch (e) {
-    return json(500, { error: 'error', message: e.message });
+    return json(e.status || 500, { error: e.status === 507 ? 'full' : 'error', message: e.message });
   }
 }

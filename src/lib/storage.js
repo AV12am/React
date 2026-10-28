@@ -98,8 +98,8 @@ function supabaseBackend() {
   const poll = (fn, ms) => { fn(); const t = setInterval(fn, ms); return () => clearInterval(t); };
   const upsert = (table, row) => rest(`${table}?on_conflict=${table === 'core_docs' ? 'kind,id' : 'id'}`, { method: 'POST', body: row, prefer: 'resolution=merge-duplicates,return=minimal' });
   const gone = (e) => { if (e?.status !== 404) throw e; };
-  let info = null;
-  const where = () => (info ||= filesApi({ op: 'info' }).catch(() => (info = null)));
+  // Asked afresh each time the Vault changes (Vault.jsx), so the meter follows uploads.
+  const where = () => filesApi({ op: 'info' }).catch(() => null);
   return {
     kind: 'supabase',
     label: 'Supabase',
@@ -108,10 +108,10 @@ function supabaseBackend() {
     needsSignIn: true,
     maxFile: 50 * MiB,
     quota: (Number(import.meta.env?.VITE_STORAGE_QUOTA_GB || import.meta.env?.NEXT_PUBLIC_STORAGE_QUOTA_GB) || 1) * 1024 * MiB,
-    // Where new files go and the room there (Cloudflare R2 10 ГБ + Supabase 1 ГБ when R2 is set up).
+    // Where new files go, what is used there and the limit (Cloudflare R2: 9,75 ГБ of the free 10 ГБ).
     async usage() {
       const i = await where();
-      return i ? { maxBytes: i.quota, label: i.store === 'r2' ? 'Cloudflare R2 + Supabase' : 'Supabase' } : null;
+      return i ? { bytes: i.used, maxBytes: i.quota, label: i.store === 'r2' ? 'Cloudflare R2' : 'Supabase' } : null;
     },
     // `dir` keeps related files together, e.g. companies/20077720/<id>/logo.png. The card is filed after
     // the body (index.addFile), with the same id; `opts.clearance` is checked before anything is stored.

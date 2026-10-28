@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { useStore, fmtAgo, fmtDate } from '../store.jsx';
 import { SealBadge, Panel, Status, Avatar, Drawer, ClassBadge, Switch } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
+import { Loader } from '../brand/Mark.jsx';
 import { DIVISIONS, ROLES, CLEARANCE, MODULES, PERMISSIONS } from '../data/seed.js';
 
 // Hidden divisions are offered only to someone already in one (so their record still reads right).
 const divOptions = (cur) => DIVISIONS.filter((d) => !d.hidden || d.id === cur);
 import { LEVELS, SEAL, CUSTOS } from '../data/clearance.js';
-import { supabaseOn, rpc } from '../lib/supabase.js';
+import { supabaseOn, rpc, setPassword } from '../lib/supabase.js';
 import { issueCode, status as passkeyStatus } from '../lib/passkey.js';
 import { validRule, rulesOf, ipAllowed } from '../lib/ip.js';
 import { missingFor } from '../data/academy/meta.js';
@@ -183,6 +184,72 @@ function IpList({ value, onChange, readOnly, self }) {
   );
 }
 
+// The same rules as api/users.js.
+const passwordProblem = (p) => {
+  if (p.length < 10) return 'Щонайменше 10 символів';
+  if (p.length > 72) return 'Не довше 72 символів';
+  if (!/[a-zа-яіїєґ]/i.test(p) || !/\d/.test(p)) return 'Потрібні літери й цифри';
+  return null;
+};
+// 16 characters without look-alikes (0/O, 1/l/I), always with letters and digits.
+function newPassword() {
+  const abc = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  for (;;) {
+    const p = Array.from(crypto.getRandomValues(new Uint32Array(16)), (n) => abc[n % abc.length]).join('');
+    if (!passwordProblem(p)) return p;
+  }
+}
+
+function PasswordField({ value, onChange, id = 'pw' }) {
+  const [show, setShow] = useState(false);
+  const bad = value ? passwordProblem(value) : null;
+  return (
+    <div className="vx-field">
+      <label className="vx-label" htmlFor={id}>Пароль</label>
+      <div className="pw-row">
+        <input id={id} className="vx-input vx-input--mono" type={show ? 'text' : 'password'} value={value} onChange={(e) => onChange(e.target.value)} autoComplete="new-password" spellCheck={false} placeholder="Щонайменше 10 символів, літери й цифри" />
+        <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => setShow(!show)}>{show ? 'Сховати' : 'Показати'}</button>
+        <button type="button" className="vx-btn vx-btn--sm" onClick={() => { onChange(newPassword()); setShow(true); }}><Icon name="key" /> Згенерувати</button>
+        {value && <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => copyText(value)} aria-label="Скопіювати пароль"><Icon name="copy" /></button>}
+      </div>
+      {bad && <div className="vx-hint ws-bad">{bad}</div>}
+    </div>
+  );
+}
+
+/** «Пароль»: an administrator sets or replaces a person's password; their sign-in is created if missing. */
+function PasswordAdmin({ u }) {
+  const { toast } = useStore();
+  const [pw, setPw] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [done, setDone] = useState(false);
+  const save = async () => {
+    setBusy(true); setErr('');
+    try {
+      const r = await setPassword(u.id, pw);
+      setDone(true);
+      toast(r.created ? `Вхід для ${u.name} створено` : `Пароль для ${u.name} змінено`);
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+  return (
+    <div className="stack">
+      <div className="vx-eyebrow">Пароль для входу</div>
+      {done ? <>
+        <div className="vx-hint">Пароль встановлено. Передайте його особисто, не в месенджері. Старий пароль і відкриті сеанси цієї людини більше не діють; ключ доступу (Face ID / Touch ID) лишається.</div>
+        <button type="button" className="vx-btn vx-btn--sm" onClick={() => { setPw(''); setDone(false); }}>Змінити ще раз</button>
+      </> : <>
+        <PasswordField value={pw} onChange={setPw} id={`pw-${u.id}`} />
+        <div className="toolbar">
+          <button type="button" className="vx-btn vx-btn--primary vx-btn--sm" disabled={busy || !!passwordProblem(pw)} onClick={save}>{busy ? <Loader size={16} /> : <><Icon name="check" /> {u.email ? 'Встановити пароль' : 'Немає пошти'}</>}</button>
+        </div>
+        <div className="vx-hint">{`Вхід — за ім’ям, кодом (${u.code}) або поштою${u.email ? ` (${u.email})` : ''} з цим паролем, далі ключ доступу. Пароль ніде не зберігається у відкритому вигляді.`}</div>
+      </>}
+      {err && <div className="vx-error">{err}</div>}
+    </div>
+  );
+}
+
 function KeyAccess({ u }) {
   const [busy, setBusy] = useState(false);
   const [code, setCode] = useState(null);
@@ -276,6 +343,7 @@ function EditUser({ id, onClose, readOnly: ro }) {
       <IpList value={draft.ips} onChange={(v) => { setIpErr(''); set('ips')(v); }} readOnly={readOnly || !['admin', 'lead'].includes(me.role)} self={u.id === me.id} />
       {ipErr && <div className="vx-error">{ipErr}</div>}
       {!readOnly && !supabaseOn && <Switch checked={draft.mfa} onChange={set('mfa')} label="Двофакторна автентифікація обов'язкова" />}
+      {supabaseOn && me.role === 'admin' && u.email && !(u.custos && u.id !== me.id) && <PasswordAdmin u={u} />}
       {supabaseOn && me.custos && u.id !== me.id && <KeyAccess u={u} />}
       <div>
         <div className="vx-eyebrow">Остання активність у журналі</div>
@@ -295,18 +363,33 @@ function Invite({ onClose }) {
   const { me, dispatch, toast } = useStore();
   const { state } = useStore();
   const [f, setF] = useState({ name: '', email: '', title: '', role: 'analyst', division: 'int', clearance: 0 });
+  const [pw, setPw] = useState('');
+  const [busy, setBusy] = useState(false);
+  const withPassword = supabaseOn && me.role === 'admin';
   const set = (k) => (e) => setF({ ...f, [k]: k === 'clearance' ? +e.target.value : e.target.value });
   const email = f.email.trim().toLowerCase();
   const taken = email && state.users.some((u) => u.email === email);
-  const ok = f.name.trim().split(/\s+/).length >= 2 && (!supabaseOn || (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) && !taken));
-  const send = () => {
-    dispatch({ type: 'user/invite', user: { ...f, name: f.name.trim() } });
-    toast(`Запрошення для ${f.name.trim()} створено`);
+  const ok = f.name.trim().split(/\s+/).length >= 2 && (!supabaseOn || (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) && !taken)) && (!pw || !passwordProblem(pw));
+  const send = async () => {
+    const id = `u-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+    dispatch({ type: 'user/invite', user: { ...f, id, name: f.name.trim() } });
+    if (withPassword && pw) {
+      // The card reaches the server with the next sync; the sign-in is created once it is there.
+      setBusy(true);
+      let last;
+      for (let i = 0; i < 8; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        try { await setPassword(id, pw); last = null; break; } catch (e) { last = e; if (e.code !== 'member') break; }
+      }
+      setBusy(false);
+      if (last) { toast(`Співробітника додано, але пароль не встановлено: ${last.message}. Встановіть його в картці.`, 'error'); onClose(); return; }
+      toast(`${f.name.trim()}: вхід створено — передайте пароль особисто`);
+    } else toast(`Запрошення для ${f.name.trim()} створено`);
     onClose();
   };
   return (
     <Drawer title="Новий співробітник" onClose={onClose}
-      footer={<><button className="vx-btn vx-btn--ghost" onClick={onClose}>Скасувати</button><button className="vx-btn vx-btn--primary" disabled={!ok} onClick={send}>Надіслати запрошення</button></>}>
+      footer={<><button className="vx-btn vx-btn--ghost" onClick={onClose}>Скасувати</button><button className="vx-btn vx-btn--primary" disabled={!ok || busy} onClick={send}>{busy ? <><Loader size={16} /> Створюю вхід…</> : withPassword && pw ? 'Додати з паролем' : 'Надіслати запрошення'}</button></>}>
       <div className="vx-field"><label className="vx-label" htmlFor="n">Ім'я та прізвище</label><input id="n" className="vx-input" value={f.name} onChange={set('name')} autoFocus /></div>
       <div className="vx-field"><label className="vx-label" htmlFor="e">Робоча пошта{supabaseOn && ' *'}</label>
         <input id="e" type="email" className="vx-input" value={f.email} onChange={set('email')} />
@@ -321,8 +404,9 @@ function Invite({ onClose }) {
         <div className="vx-field"><label className="vx-label" htmlFor="c">Допуск</label>
           <select id="c" className="vx-select" value={f.clearance} onChange={set('clearance')}>{CLEARANCE.filter((c) => c.id <= me.clearance).map((c) => <option key={c.id} value={c.id}>{c.full}</option>)}</select></div>
       </div>
+      {withPassword && <PasswordField value={pw} onChange={setPw} id="pw-new" />}
       {supabaseOn
-        ? <p className="vx-hint">Створіть цій пошті вхід у Supabase: Authentication → Users → Add user (пароль) або Invite user (лист). Людина увійде саме з цією поштою; права й допуск задаються тут.</p>
+        ? <p className="vx-hint">{withPassword ? 'З паролем вхід створюється одразу: людина входить за ім’ям, кодом або поштою, а потім прив’язує ключ доступу за кодом від CUSTOS.' : 'Пароль для входу встановлює адміністратор у картці співробітника.'}</p>
         : <p className="vx-hint">Запрошений отримає одноразове посилання. Обліковий запис стане активним після налаштування MFA.</p>}
     </Drawer>
   );
