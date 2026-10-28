@@ -11,6 +11,7 @@ import { Dashboard } from './views/Dashboard.jsx';
 import { COURSES } from './data/academy/meta.js';
 import { ROLES, VISIBLE_DIVISIONS } from './data/seed.js';
 import { DialogHost } from './components/Dialog.jsx';
+import { Assistant } from './components/Assistant.jsx';
 import { TRACKS } from './data/geo.js';
 import { canSeeFile, fmtAgo, requestLabel } from './store.jsx';
 import { useSwipe, useHidden, isTouch, buzz } from './lib/mobile.js';
@@ -114,6 +115,7 @@ function Shell() {
   const [menu, setMenu] = useState(false);
   const [palette, setPalette] = useState(false);
   const [bell, setBell] = useState(false);
+  const [ai, setAi] = useState(false);
   const locked = !!state.session?.locked;
 
   const allowed = NAV.filter((n) => n.always || perms[n.id] > 0);
@@ -152,6 +154,7 @@ function Shell() {
       if (!(e.ctrlKey || e.metaKey)) return;
       if (e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette((p) => !p); }
       if (e.key.toLowerCase() === 'l') { e.preventDefault(); lock(); }
+      if (e.key.toLowerCase() === 'j') { e.preventDefault(); setAi((x) => !x); }
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
@@ -204,7 +207,7 @@ function Shell() {
   }[current];
 
   return (
-    <div className="shell">
+    <div className={`shell ${ai ? 'has-ai' : ''}`}>
       <aside className={`sidebar ${menu ? 'is-open' : ''}`} ref={sideRef}>
         <div className="sidebar__brand"><Wordmark /></div>
         <div className="sidebar__product vx-eyebrow">Core · внутрішня платформа</div>
@@ -242,6 +245,9 @@ function Shell() {
             <Icon name="search" size={16} /> <span className="topbar__search-long">Пошук і команди</span><span className="topbar__search-short">Пошук</span> <kbd>Ctrl K</kbd>
           </button>
           <span className="grow" />
+          <button className={`vx-btn vx-btn--ghost vx-btn--sm topbar__ai ${ai ? 'is-active' : ''}`} onClick={() => setAi(!ai)} aria-expanded={ai} title="Помічник (Ctrl+J)">
+            <Icon name="spark" /> <span className="topbar__ai-text">Помічник</span>
+          </button>
           <Bell open={bell} setOpen={setBell} go={go} />
           <Clock />
           <span className="topbar__secure vx-hint"><Icon name="shield" size={14} /> Захищено</span>
@@ -265,6 +271,7 @@ function Shell() {
       </nav>
 
       {palette && <Palette onClose={() => setPalette(false)} go={go} allowed={allowed} lock={lock} />}
+      {ai && <Assistant onClose={() => setAi(false)} go={go} route={{ view: current, sub, id }} allowed={allowed.map((n) => n.id)} />}
       <DialogHost />
       {veiled && <div className="veil" aria-hidden="true"><Mark size={64} /></div>}
     </div>

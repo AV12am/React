@@ -6,6 +6,7 @@ import { DIVISIONS, ROLES, CLEARANCE } from '../data/seed.js';
 import { WORKSPACES, registersOf, registerOf, viewsOf } from '../data/workspaces.js';
 import { Attachments, Cover, CoverInput } from '../components/Attachments.jsx';
 import { ask } from '../components/Dialog.jsx';
+import { workspaceAccess } from '../lib/access.js';
 import { needsReview } from '../lib/provenance.js';
 import { wordFor } from '../lib/forecast.js';
 import { RecordExtras, ReportButtons, ReviewView, ForecastsView, reviewCount } from './Analysis.jsx';
@@ -24,13 +25,7 @@ import { parseCoords, fmtDD, fmtMGRS, distanceKm, fmtKm } from '../map/coords.js
 
 // Members of the division and admins work in it; everyone else with access to Divisions may look.
 // Records above a person's clearance stay masked, as in the Vault.
-export function workspaceAccess(me, perms, d) {
-  const member = me.division === d.id;
-  // An open division (Проєкти) is a shared space: anyone who works with divisions may add to it.
-  const canEdit = me.role === 'admin' || ((member || d.open) && me.role !== 'guest' && perms.divisions >= 1) || (me.role === 'lead' && d.lead === me.id);
-  const canManage = me.role === 'admin' || (me.role === 'lead' && member);
-  return { member, canEdit, canManage };
-}
+export { workspaceAccess };
 
 const titleOf = (reg, r) => {
   const v = r[reg.title];
