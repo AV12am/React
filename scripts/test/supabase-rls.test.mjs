@@ -133,6 +133,31 @@ ok('codes are unreadable from the browser', !r.ok || r.rows[0].n === 0);
 r = await as('ann@x.ua', () => tryq(`select count(*)::int n from core_docs`), '11111111-1111-4111-8111-111111111111');
 ok('another (unconfirmed) session of the same person reads nothing', r.ok && r.rows[0].n === 0);
 
+// 8b. allowed IP addresses: the card's `ips` list, checked against Cloudflare's cf-connecting-ip
+const headers = (ip) => db.exec(`select set_config('request.headers', '${ip ? JSON.stringify({ 'cf-connecting-ip': ip, 'x-forwarded-for': '6.6.6.6' }) : ''}', false)`);
+await db.exec(`update core_members set doc = doc || '{"ips":[{"ip":"203.0.113.0/24","note":"офіс"},"2001:db8::7"]}' where id='u04'`);
+await headers('203.0.113.50');
+r = await as('low@x.ua', () => tryq(`select count(*)::int n from core_members`));
+ok('allowed network gets in', r.ok && r.rows[0].n > 0);
+await headers('2001:db8::7');
+r = await as('low@x.ua', () => tryq(`select count(*)::int n from core_members`));
+ok('allowed IPv6 gets in', r.ok && r.rows[0].n > 0);
+await headers('198.51.100.9');
+r = await as('low@x.ua', () => tryq(`select count(*)::int n from core_members`));
+ok('other address reads nothing', r.ok && r.rows[0].n === 0, JSON.stringify(r.rows));
+r = await as('low@x.ua', () => tryq(`select public.core_my_ip() as ip`));
+ok('my address as the database sees it', r.ok && r.rows[0].ip === '198.51.100.9', JSON.stringify(r.rows || r.err));
+r = await as('lead@x.ua', () => tryq(`select count(*)::int n from core_members`));
+ok('people without a list are not limited', r.ok && r.rows[0].n > 0);
+await headers('203.0.113.50');
+r = await as('low@x.ua', () => tryq(`update core_members set doc = doc - 'ips' where id='u04'`));
+ok('nobody lifts their own IP limit', !r.ok, r.err);
+await db.exec(`update core_members set doc = doc || '{"ips":["not-an-ip"]}' where id='u04'`);
+r = await as('low@x.ua', () => tryq(`select count(*)::int n from core_members`));
+ok('an unreadable entry lets nobody in', r.ok && r.rows[0].n === 0);
+await db.exec(`update core_members set doc = doc - 'ips' where id='u04'`);
+await headers(null);
+
 // 9. suspended member loses everything
 await as('boss@x.ua', () => tryq(`update core_members set doc = jsonb_set(doc, '{status}', '"suspended"') where id='u03'`));
 r = await as('ann@x.ua', () => tryq(`select count(*)::int n from core_docs`));

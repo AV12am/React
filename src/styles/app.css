@@ -929,3 +929,6 @@ kbd {
 .ws-cover-mini img { display: block; width: 120px; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius-sm); }
 .rp-hero__side { display: grid; gap: 10px; justify-items: stretch; }
 @media (max-width: 1000px) { .rp-cover { flex: none; max-width: 100%; width: 100%; } }
+.ip-add { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.ip-add .vx-btn { justify-self: start; }
+@media (max-width: 600px) { .ip-add { grid-template-columns: 1fr; } }

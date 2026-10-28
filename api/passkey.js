@@ -18,6 +18,7 @@ import {
   generateRegistrationOptions, verifyRegistrationResponse,
   generateAuthenticationOptions, verifyAuthenticationResponse,
 } from '@simplewebauthn/server';
+import { ipAllowed, clientIp } from '../src/lib/ip.js';
 
 const env = process.env;
 const SB_URL = (env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
@@ -149,6 +150,7 @@ async function status(ctx) {
     custosName: custos?.doc?.name || null,
     keys: keys.length,
     verified: await isVerified(sessionId, me.id),
+    ip: ctx.ip || null, // this device's address, for «Дозволені IP»
     // CUSTOS's very first key needs no code; afterwards (lost keys) only a recovery code will do.
     enrollFree: !!me.custos && !keys.length && !me.keysEver,
   };
@@ -328,6 +330,12 @@ export async function POST(req) {
     const op = OPS[body.op];
     if (!op) throw new Fail(400, 'op');
     const ctx = await whoami(req);
+    // Дозволені IP: a person whose card lists addresses comes in only from those — no key, no session.
+    ctx.ip = clientIp(req);
+    if (ctx.member && !ipAllowed(ctx.member, ctx.ip)) {
+      if (body.op === 'status') return json(200, { member: true, ipDenied: true, ip: ctx.ip });
+      throw new Fail(403, 'ip', `Вхід з адреси ${ctx.ip || 'невідомої'} для цього доступу не дозволено`);
+    }
     return json(200, await op(ctx, body, req));
   } catch (e) {
     const status = e instanceof Fail ? e.status : 500;

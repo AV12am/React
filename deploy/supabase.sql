@@ -90,12 +90,53 @@ language sql stable as $$ select lower(coalesce(auth.jwt() ->> 'email', '')) $$;
 create or replace function public.core_session() returns uuid
 language sql stable as $$ select nullif(auth.jwt() ->> 'session_id', '')::uuid $$;
 
--- The caller's member record, or null: not signed in, not a member, suspended, or — while
+-- Дозволені IP. The address of the caller as Supabase's edge (Cloudflare) reports it in cf-connecting-ip,
+-- which a browser cannot set. X-Forwarded-For is not used: its first entry is whatever the client sent.
+-- Without the header (a self-hosted Supabase) the database check is skipped; the server functions still
+-- check the address before any sign-in is confirmed with a passkey (api/passkey.js), so no session is
+-- confirmed from elsewhere.
+create or replace function public.core_client_ip() returns inet
+language plpgsql stable as $$
+declare v text;
+begin
+  v := nullif(trim(coalesce(current_setting('request.headers', true), '{}')::json ->> 'cf-connecting-ip'), '');
+  return v::inet;
+exception when others then return null;
+end $$;
+
+-- What the database sees as my address (for «Дозволені IP» → «Додати адреси цього пристрою»).
+create or replace function public.core_my_ip() returns text
+language sql stable as $$ select host(public.core_client_ip()) $$;
+
+-- A card with a non-empty `ips` list ([{ ip: '1.2.3.4' | '10.0.0.0/24' | '2001:db8::/48', note }]) is let in
+-- only from those addresses.
+create or replace function public.core_ip_ok(d jsonb) returns boolean
+language plpgsql stable as $$
+declare
+  ip inet := public.core_client_ip();
+  r jsonb;
+  rule text;
+begin
+  if jsonb_typeof(d -> 'ips') is distinct from 'array' or jsonb_array_length(d -> 'ips') = 0 then return true; end if;
+  if ip is null then return true; end if;
+  for r in select * from jsonb_array_elements(d -> 'ips') loop
+    rule := case when jsonb_typeof(r) = 'string' then r #>> '{}' else r ->> 'ip' end;
+    begin
+      if family(rule::inet) = family(ip) and ip <<= rule::inet then return true; end if;
+    exception when others then null; -- an unreadable entry never lets anyone in
+    end;
+  end loop;
+  return false;
+end $$;
+
+-- The caller's member record, or null: not signed in, not a member, suspended, coming from an address
+-- their card does not allow, or — while
 -- require_passkey is on — this sign-in session has not been confirmed with a passkey.
 create or replace function public.core_me() returns jsonb
 language sql stable security definer set search_path = public as $$
   select m.doc || jsonb_build_object('id', m.id) from public.core_members m
   where m.email = public.core_email() and coalesce(m.doc ->> 'status', 'active') <> 'suspended'
+    and public.core_ip_ok(m.doc)
     and (
       coalesce((select (value #>> '{}')::boolean from public.core_settings where key = 'require_passkey'), true) = false
       or exists (select 1 from public.core_verified v
@@ -145,7 +186,7 @@ declare
   me jsonb := public.core_me();
   role text := coalesce(me ->> 'role', '');
   lvl int := coalesce((me ->> 'clearance')::int, -1);
-  keys text[] := array['role', 'clearance', 'status', 'division', 'grants', 'basis'];
+  keys text[] := array['role', 'clearance', 'status', 'division', 'grants', 'basis', 'ips'];
   k text;
 begin
   if current_setting('core.bootstrap', true) = 'on' then return new; end if;

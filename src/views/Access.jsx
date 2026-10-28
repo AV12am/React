@@ -7,8 +7,9 @@ import { DIVISIONS, ROLES, CLEARANCE, MODULES, PERMISSIONS } from '../data/seed.
 // Hidden divisions are offered only to someone already in one (so their record still reads right).
 const divOptions = (cur) => DIVISIONS.filter((d) => !d.hidden || d.id === cur);
 import { LEVELS, SEAL, CUSTOS } from '../data/clearance.js';
-import { supabaseOn } from '../lib/supabase.js';
-import { issueCode } from '../lib/passkey.js';
+import { supabaseOn, rpc } from '../lib/supabase.js';
+import { issueCode, status as passkeyStatus } from '../lib/passkey.js';
+import { validRule, rulesOf, ipAllowed } from '../lib/ip.js';
 import { missingFor } from '../data/academy/meta.js';
 import { copyText } from '../lib/io.js';
 
@@ -115,6 +116,73 @@ function People({ focus, setFocus }) {
 }
 
 // CUSTOS only: bind a new device for someone, or reset lost keys. The code is shown once.
+// This device's addresses as the server functions and the database see them (they can differ: IPv6 to one,
+// IPv4 to the other). Both must be on a list for the person to work from here.
+async function myAddresses() {
+  const out = [];
+  const st = await passkeyStatus().catch(() => null);
+  if (st?.ip) out.push(st.ip);
+  const db = await rpc('core_my_ip', {}).catch(() => null);
+  if (typeof db === 'string' && db && !out.includes(db)) out.push(db);
+  return out;
+}
+
+/** «Дозволені IP»: the addresses or networks of the person's devices; empty — from anywhere. */
+function IpList({ value, onChange, readOnly, self }) {
+  const rules = rulesOf({ ips: value });
+  const [ip, setIp] = useState('');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const add = (list) => {
+    const fresh = list.filter((x) => !rules.some((r) => r.ip === x.ip));
+    if (fresh.length) onChange([...rules, ...fresh]);
+  };
+  const submit = (e) => {
+    e.preventDefault();
+    const v = ip.trim();
+    if (!validRule(v)) { setErr('Не схоже на IP-адресу: 203.0.113.7, мережа 203.0.113.0/24 або IPv6 2001:db8::/48'); return; }
+    setErr(''); add([{ ip: v, note: note.trim() }]); setIp(''); setNote('');
+  };
+  const addMine = async () => {
+    setBusy(true); setErr('');
+    try {
+      const mine = await myAddresses();
+      if (!mine.length) throw new Error('Не вдалося визначити адресу цього пристрою');
+      add(mine.map((x) => ({ ip: x, note: note.trim() || 'Цей пристрій' })));
+      setNote('');
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+  return (
+    <div className="stack">
+      <div className="vx-eyebrow">Дозволені IP-адреси пристроїв</div>
+      <div className="vx-hint">
+        {rules.length ? 'Вхід і робота з цим доступом — лише з цих адрес. Інші адреси відхиляє сервер і база, навіть з правильним паролем і ключем.' : 'Список порожній — вхід з будь-якої адреси. Додайте адреси пристроїв, щоб обмежити доступ.'}
+        {!supabaseOn && ' Діє, коли платформа працює із сервером (Supabase).'}
+      </div>
+      {!!rules.length && (
+        <div className="list">
+          {rules.map((r) => (
+            <div className="list__row" key={r.ip}>
+              <div className="list__text"><div className="vx-mono">{r.ip}</div>{r.note && <div className="vx-hint">{r.note}</div>}</div>
+              {!readOnly && <button type="button" className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" aria-label={`Прибрати ${r.ip}`} onClick={() => onChange(rules.filter((x) => x.ip !== r.ip))}><Icon name="trash" /></button>}
+            </div>
+          ))}
+        </div>
+      )}
+      {!readOnly && (
+        <form className="ip-add" onSubmit={submit}>
+          <input className="vx-input vx-input--mono" value={ip} onChange={(e) => setIp(e.target.value)} placeholder="203.0.113.7" aria-label="IP-адреса" />
+          <input className="vx-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Пристрій: ноутбук, офіс" aria-label="Пристрій" />
+          <button className="vx-btn vx-btn--sm"><Icon name="plus" /> Додати</button>
+          {supabaseOn && self && <button type="button" className="vx-btn vx-btn--sm" disabled={busy} onClick={addMine}><Icon name="key" /> Адреси цього пристрою</button>}
+        </form>
+      )}
+      {err && <div className="vx-error">{err}</div>}
+    </div>
+  );
+}
+
 function KeyAccess({ u }) {
   const [busy, setBusy] = useState(false);
   const [code, setCode] = useState(null);
@@ -149,9 +217,16 @@ function EditUser({ id, onClose, readOnly: ro }) {
   const u = state.users.find((x) => x.id === id);
   // The CUSTOS card is changed only by CUSTOS (the server enforces it too).
   const readOnly = ro || (u.custos && u.id !== me.id);
-  const [draft, setDraft] = useState({ role: u.role, division: u.division, clearance: u.clearance, status: u.status, mfa: u.mfa });
+  const [draft, setDraft] = useState({ role: u.role, division: u.division, clearance: u.clearance, status: u.status, mfa: u.mfa, ips: rulesOf(u) });
   const set = (k) => (v) => setDraft((d) => ({ ...d, [k]: v }));
-  const save = () => {
+  const [ipErr, setIpErr] = useState('');
+  const save = async () => {
+    // Your own list must keep this device, or the next request would lock you out.
+    if (supabaseOn && u.id === me.id && draft.ips.length) {
+      const mine = await myAddresses();
+      const out = mine.filter((x) => !ipAllowed({ ips: draft.ips }, x));
+      if (!mine.length || out.length) { setIpErr(`Цей пристрій (${out.join(', ') || 'адресу не визначено'}) не входить у ваш список — збереження заблокувало б вам доступ. Додайте «Адреси цього пристрою».`); return; }
+    }
     dispatch({ type: 'user/update', id, patch: draft });
     toast(`Зміни для ${u.name} збережено й записано в журнал`);
     onClose();
@@ -198,6 +273,8 @@ function EditUser({ id, onClose, readOnly: ro }) {
           </select>
         </div>
       </div>
+      <IpList value={draft.ips} onChange={(v) => { setIpErr(''); set('ips')(v); }} readOnly={readOnly || !['admin', 'lead'].includes(me.role)} self={u.id === me.id} />
+      {ipErr && <div className="vx-error">{ipErr}</div>}
       {!readOnly && !supabaseOn && <Switch checked={draft.mfa} onChange={set('mfa')} label="Двофакторна автентифікація обов'язкова" />}
       {supabaseOn && me.custos && u.id !== me.id && <KeyAccess u={u} />}
       <div>

@@ -47,7 +47,7 @@ export async function signIn(login, password) {
   else {
     const res = await fetch(new URL('api/signin', document.baseURI), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: who, password }) });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw Object.assign(new Error(data.message || `HTTP ${res.status}`), { status: res.status, code: data.error });
+    if (!res.ok) throw Object.assign(new Error(data.message || `HTTP ${res.status}`), { status: res.status, code: data.error, ip: data.ip });
     s = data;
   }
   keep(withExpiry(s));

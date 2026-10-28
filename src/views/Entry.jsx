@@ -52,6 +52,11 @@ function SupabaseLogin() {
         await rpc('core_claim_first_admin', { p_id: id, p_doc: { name: addr.split('@')[0], code: 'V-001', title: 'Адміністратор платформи', division: 'it', mfa: false, lastSeen: null } });
       }
       const st = await passkeyStatus();
+      if (st.ipDenied) {
+        await signOut();
+        setErr(`Вхід з адреси ${st.ip || 'невідомої'} для цього доступу не дозволено. Зверніться до адміністратора.`);
+        return;
+      }
       if (!st.member || st.suspended) {
         await signOut();
         setErr(st.suspended ? 'Обліковий запис призупинено. Зверніться до служби безпеки.' : `Вас ще не додано до команди. Попросіть адміністратора додати ${addr} у «Доступи».`);
@@ -59,7 +64,8 @@ function SupabaseLogin() {
       }
       if (st.verified) await finish(); else setPk(st);
     } catch (x) {
-      setErr(x.code === 'not_configured' ? 'Сервер ключів доступу не налаштовано (SUPABASE_SERVICE_ROLE_KEY).'
+      setErr(x.code === 'ip' ? `Вхід з адреси ${x.ip || 'невідомої'} для цього доступу не дозволено. Зверніться до адміністратора.`
+        : x.code === 'not_configured' ? 'Сервер ключів доступу не налаштовано (SUPABASE_SERVICE_ROLE_KEY).'
         : AUTH_MESSAGES[x.code] || (x.status === 400 ? AUTH_MESSAGES.invalid_credentials : `Не вдалося увійти: ${x.message}`));
       if (currentEmail()) await signOut();
     } finally {

@@ -102,13 +102,14 @@ function reducer(state, a) {
       const before = state.users.find((u) => u.id === a.id);
       const users = state.users.map((u) => (u.id === a.id ? { ...u, ...a.patch } : u));
       const changes = Object.keys(a.patch)
-        .filter((k) => before[k] !== a.patch[k])
+        .filter((k) => JSON.stringify(before[k] ?? null) !== JSON.stringify(a.patch[k] ?? null))
         .map((k) => {
           if (k === 'clearance') return `допуск → «${CLEARANCE[a.patch[k]].short}»`;
           if (k === 'status') return `статус → ${a.patch[k] === 'suspended' ? 'призупинено' : 'активний'}`;
           if (k === 'role') return `роль → ${a.patch[k]}`;
           if (k === 'division') return `напрям → ${a.patch[k]}`;
           if (k === 'mfa') return a.patch[k] ? 'MFA увімкнено' : 'MFA вимкнено';
+          if (k === 'ips') return a.patch[k].length ? `дозволені IP → ${a.patch[k].map((x) => x.ip).join(', ')}` : 'обмеження за IP знято';
           if (k === 'brief') return a.patch[k] ? 'ранковий бриф увімкнено' : 'ранковий бриф вимкнено';
           return k;
         });

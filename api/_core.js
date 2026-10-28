@@ -1,5 +1,6 @@
 // Shared by the server functions: environment, the service-key database call and the signed-in caller.
 // Files starting with «_» are not routes on Vercel.
+import { ipAllowed, clientIp } from '../src/lib/ip.js';
 
 export const env = process.env;
 export const SB_URL = (env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
@@ -27,6 +28,7 @@ export async function caller(req) {
   const sid = JSON.parse(Buffer.from(token.split('.')[1] || '', 'base64url').toString() || '{}').session_id;
   const [m] = await db(`core_members?email=eq.${encodeURIComponent(email)}&select=id,email,doc`);
   if (!m || m.doc?.status === 'suspended') return null;
+  if (!ipAllowed(m.doc, clientIp(req))) return null; // the person's access is limited to their devices' addresses
   const [need] = await db('core_settings?key=eq.require_passkey&select=value').catch(() => []);
   if (need?.value !== false && need?.value !== 'false') {
     const ok = await db(`core_verified?session_id=eq.${encodeURIComponent(sid || '')}&member_id=eq.${encodeURIComponent(m.id)}&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=session_id`).catch(() => []);

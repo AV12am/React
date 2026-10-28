@@ -7,6 +7,7 @@
 // or ambiguous name gets the same answer as a wrong password, so the form does not reveal who is on the team.
 // The password is checked by Supabase Auth itself, and the passkey step still follows as before.
 import { json, db, SB_URL, ANON, SERVICE } from './_core.js';
+import { ipAllowed, clientIp } from '../src/lib/ip.js';
 
 export const config = { maxDuration: 10 };
 
@@ -35,6 +36,14 @@ export async function POST(req) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return json(res.status === 429 ? 429 : 400, res.status === 429 ? { error: 'over_request_rate_limit', message: 'Too many attempts' } : WRONG);
+    // Only after the right password: is this device's address allowed for the person? If not, the new
+    // session is ended at once and never handed out.
+    const ip = clientIp(req);
+    const [m] = await db(`core_members?email=eq.${encodeURIComponent(email)}&select=doc`);
+    if (m && !ipAllowed(m.doc, ip)) {
+      await fetch(`${SB_URL}/auth/v1/logout`, { method: 'POST', headers: { apikey: ANON, Authorization: `Bearer ${data.access_token}` } }).catch(() => {});
+      return json(403, { error: 'ip', message: `Вхід з адреси ${ip || 'невідомої'} для цього доступу не дозволено`, ip });
+    }
     return json(200, data);
   } catch (e) {
     return json(500, { error: 'error', message: e.message });
