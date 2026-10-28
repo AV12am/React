@@ -1,14 +1,14 @@
 import { useStore } from '../store.jsx';
 import { Status } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
-import { DIVISIONS } from '../data/seed.js';
+import { VISIBLE_DIVISIONS } from '../data/seed.js';
 import { WORKSPACES, registersOf } from '../data/workspaces.js';
 import { Workspace } from './Workspace.jsx';
 
 // The company's divisions; each card opens that division's own workspace.
 export function Divisions({ focus, tab, go }) {
   const { state, me, userById } = useStore();
-  if (focus && DIVISIONS.some((d) => d.id === focus)) return <Workspace divId={focus} tab={tab} go={go} />;
+  if (focus && VISIBLE_DIVISIONS.some((d) => d.id === focus)) return <Workspace divId={focus} tab={tab} go={go} />;
 
   return (
     <div className="page">
@@ -20,7 +20,7 @@ export function Divisions({ focus, tab, go }) {
       </header>
 
       <div className="grid grid--3">
-        {DIVISIONS.map((d) => {
+        {VISIBLE_DIVISIONS.map((d) => {
           const members = state.users.filter((u) => u.division === d.id);
           const lead = userById(d.lead);
           const records = (state.records || []).filter((r) => r.div === d.id).length;

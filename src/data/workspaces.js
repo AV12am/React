@@ -2,12 +2,14 @@
 // Pure data — the Workspace view builds boards, tables and forms from it.
 //
 // Field types: text · longtext · select · date · number · percent · url · user · file (from the Vault)
+//              · files (attachments uploaded right into the record: photos, PDF, Word, Excel… — viewed in place)
 //              · ref (a record of another register in the same division) · coords (lat, lon or MGRS)
 //              · links (several records of the registers in `refs`, any division — the «звідки ми це знаємо» chain).
 // `hidden` fields are kept on the record but not shown in forms (set by the system).
 // `views` add tabs with their own screens (see Workspace.jsx VIEWS).
 // A register with `stages` is shown as a board (a column per stage); without — as a table.
 // `title` names the field used as the record's heading; `list` fields show on cards and in tables.
+// `layout: 'cards'` shows the register as cards with a cover photo and the start of the `about` field.
 
 const PRIORITY = { id: 'priority', label: 'Пріоритет', type: 'select', list: true, options: ['Критичний', 'Високий', 'Середній', 'Низький'] };
 
@@ -153,13 +155,15 @@ export const WORKSPACES = {
   },
 
   ana: {
-    tagline: 'Аналітичні продукти від чернетки до видачі',
+    tagline: 'Аналітичні продукти: документи, звіти й матеріали — з переглядом просто на платформі',
     registers: [
       {
-        id: 'products', name: 'Продукти', one: 'продукт', icon: 'chart', title: 'title', level: 1,
+        id: 'products', name: 'Продукти', one: 'продукт', icon: 'chart', title: 'title', level: 1, layout: 'cards', about: 'about',
         stages: ['Чернетка', 'Рецензія', 'Затверджено', 'Видано'],
         fields: [
           { id: 'title', label: 'Назва', type: 'text', required: true },
+          { id: 'about', label: 'Опис', type: 'longtext' },
+          { id: 'files', label: 'Файли продукту', type: 'files' },
           { id: 'kind', label: 'Тип', type: 'select', list: true, options: ['Оцінка', 'Довідка', 'Прогноз', 'Бриф', 'Звіт'] },
           { id: 'customer', label: 'Замовник', type: 'text', list: true },
           { id: 'confidence', label: 'Рівень упевненості', type: 'select', list: true, options: ['Низький', 'Помірний', 'Високий'] },
@@ -167,12 +171,12 @@ export const WORKSPACES = {
           { id: 'due', label: 'Термін', type: 'date', list: true },
           { id: 'questions', label: 'Ключові питання', type: 'longtext' },
           { id: 'basis', label: 'Підстави — звідки ми це знаємо', type: 'links', refs: [['int', 'intake'], ['int', 'sources'], ['int', 'orgs']] },
-          { id: 'file', label: 'Документ', type: 'file' },
+          { id: 'file', label: 'Документ', type: 'file', hidden: true }, // earlier single document from the Vault
         ],
       },
       {
-        // Key judgments: each with a probability and its basis. A «Прогноз» is checked on its date — that feeds calibration.
-        id: 'judgments', name: 'Судження', one: 'судження', icon: 'target', title: 'statement', level: 1,
+        // Hidden for now (kept with their data): key judgments: each with a probability and its basis. A «Прогноз» is checked on its date — that feeds calibration.
+        id: 'judgments', name: 'Судження', one: 'судження', icon: 'target', title: 'statement', level: 1, hidden: true,
         fields: [
           { id: 'statement', label: 'Судження', type: 'text', required: true, hint: 'Одне речення, яке можна перевірити: що, де, до коли.' },
           { id: 'product', label: 'Продукт', type: 'ref', ref: 'products', list: true },
@@ -191,7 +195,7 @@ export const WORKSPACES = {
       },
       {
         // Signposts: when one is observed, the judgment it belongs to is flagged for review.
-        id: 'indicators', name: 'Індикатори', one: 'індикатор', icon: 'bell', title: 'name', level: 1,
+        id: 'indicators', name: 'Індикатори', one: 'індикатор', icon: 'bell', title: 'name', level: 1, hidden: true,
         fields: [
           { id: 'name', label: 'Індикатор', type: 'text', required: true, hint: 'Спостережувана подія: «оголошено тендер на …», «порт закрито понад 3 доби».' },
           { id: 'judgment', label: 'Судження', type: 'ref', ref: 'judgments', list: true, required: true },
@@ -203,7 +207,7 @@ export const WORKSPACES = {
         ],
       },
     ],
-    views: [{ id: 'review', name: 'Перегляд' }, { id: 'forecasts', name: 'Прогнози й калібрування' }],
+    views: [],
   },
 
   sec: {
@@ -327,25 +331,47 @@ export const WORKSPACES = {
   },
 
   res: {
-    tagline: 'Гіпотези, експерименти, впровадження',
+    tagline: 'Дослідження: опис, фото й документи в одній картці',
     registers: [
       {
-        id: 'studies', name: 'Дослідження', one: 'дослідження', icon: 'atom', title: 'title', level: 1,
-        stages: ['Гіпотеза', 'Дизайн', 'Експеримент', 'Висновки', 'Впроваджено'],
+        id: 'studies', name: 'Дослідження', one: 'дослідження', icon: 'atom', title: 'title', level: 1, layout: 'cards', about: 'about',
         fields: [
           { id: 'title', label: 'Назва', type: 'text', required: true },
-          { id: 'hypothesis', label: 'Гіпотеза', type: 'longtext' },
-          { id: 'method', label: 'Метод', type: 'text', list: true },
+          { id: 'about', label: 'Опис', type: 'longtext' },
+          { id: 'state', label: 'Стан', type: 'select', list: true, options: ['Планується', 'Триває', 'Завершено', 'Призупинено'] },
           { id: 'lead', label: 'Керівник', type: 'user', list: true },
-          { id: 'forDiv', label: 'Для напряму', type: 'select', list: true, options: ['Розвідка', 'Аналітика', 'ІТ', 'Кібербезпека', 'Операції', 'Академія'] },
+          { id: 'hypothesis', label: 'Гіпотеза чи питання', type: 'longtext' },
+          { id: 'method', label: 'Метод', type: 'text' },
           { id: 'results', label: 'Результати', type: 'longtext' },
-          { id: 'file', label: 'Звіт', type: 'file' },
+          { id: 'files', label: 'Фото й документи', type: 'files' },
+          { id: 'file', label: 'Звіт', type: 'file', hidden: true }, // earlier single report from the Vault
+        ],
+      },
+    ],
+  },
+
+  prj: {
+    tagline: 'Окремі проєкти: опис, команда, документи й матеріали',
+    registers: [
+      {
+        id: 'projects', name: 'Проєкти', one: 'проєкт', icon: 'layers', title: 'name', level: 1, layout: 'cards', about: 'about',
+        fields: [
+          { id: 'name', label: 'Назва', type: 'text', required: true },
+          { id: 'about', label: 'Опис', type: 'longtext' },
+          { id: 'state', label: 'Стан', type: 'select', list: true, options: ['Планується', 'Триває', 'На паузі', 'Завершено'] },
+          { id: 'lead', label: 'Керівник проєкту', type: 'user', list: true },
+          { id: 'team', label: 'Команда', type: 'text' },
+          { id: 'start', label: 'Початок', type: 'date' },
+          { id: 'deadline', label: 'Термін', type: 'date' },
+          { id: 'goals', label: 'Цілі й результати', type: 'longtext' },
+          { id: 'files', label: 'Файли проєкту', type: 'files' },
         ],
       },
     ],
   },
 };
 
-export const registersOf = (div) => WORKSPACES[div]?.registers || [];
-export const registerOf = (div, id) => registersOf(div).find((r) => r.id === id);
+// Hidden registers keep their records (and links to them) but get no tab.
+export const registersOf = (div) => (WORKSPACES[div]?.registers || []).filter((r) => !r.hidden);
+export const registerOf = (div, id) => (WORKSPACES[div]?.registers || []).find((r) => r.id === id);
 export const viewsOf = (div) => WORKSPACES[div]?.views || [];

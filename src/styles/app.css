@@ -849,3 +849,50 @@ kbd {
 .pdf-preview__pages { display: grid; gap: 8px; justify-items: center; width: 100%; }
 .pdf-preview canvas { max-width: 100%; height: auto; background: #fff; box-shadow: 0 2px 10px rgba(0, 0, 0, .3); }
 @media print { .app-root { display: none !important; } }
+
+/* ---------- attachments & the file viewer ---------- */
+.att { display: grid; gap: 10px; border-radius: var(--radius-md); }
+.att.is-drag { outline: 2px dashed var(--brass); outline-offset: 4px; }
+.att-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.att-grid--img { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+.att-tile { position: relative; min-width: 0; }
+.att-tile__open { display: grid; gap: 4px; width: 100%; padding: 6px; text-align: left; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-md); color: var(--ink); cursor: pointer; }
+.att-tile__open:hover, .att-tile__open:focus-visible { border-color: var(--brass); }
+.att-tile__open img, .att-tile__ph { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius-sm); background: var(--surface-3, #222); }
+.att-tile__ph { display: grid; place-items: center; align-content: center; gap: 4px; color: var(--ink-2); font-size: 12px; }
+.att-tile__name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.att-tile__size { font-size: 11px; }
+.att-tile__x { position: absolute; top: 2px; right: 2px; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: rgba(0, 0, 0, .65); color: #fff; border: 0; cursor: pointer; }
+.att-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+
+.fv { position: fixed; inset: 0; z-index: 90; display: grid; grid-template-rows: auto 1fr; background: var(--bg); }
+.fv__bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.fv__title { display: grid; min-width: 0; flex: 1; }
+.fv__title b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fv__body { overflow: auto; padding: 16px; display: grid; justify-items: center; align-content: start; gap: 12px; }
+.fv__wait { padding: 48px; }
+.fv-img { max-width: 100%; max-height: calc(100vh - 110px); object-fit: contain; }
+.fv-pdf { display: grid; gap: 12px; justify-items: center; width: 100%; }
+.fv-page { max-width: 100%; height: auto; background: #fff; box-shadow: 0 2px 12px rgba(0, 0, 0, .35); }
+.fv-info { justify-self: stretch; text-align: center; }
+.fv-docx { width: 100%; max-width: 1000px; }
+.fv-docx .docx-wrapper { background: transparent; padding: 0; }
+.fv-docx .docx-wrapper > section.docx { box-shadow: 0 2px 12px rgba(0, 0, 0, .35); margin-bottom: 16px; max-width: 100%; }
+.fv-table { width: 100%; max-width: 1200px; }
+.fv-text { width: 100%; max-width: 1000px; white-space: pre-wrap; word-break: break-word; font: 13px/1.55 var(--font-mono); background: var(--surface); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--line); }
+.fv-media { max-width: 100%; max-height: calc(100vh - 120px); }
+.fv-none { display: grid; justify-items: center; gap: 12px; max-width: 640px; text-align: center; color: var(--ink-2); padding: 32px 0; }
+@media (max-width: 600px) { .fv__bar { flex-wrap: wrap; padding: 8px 12px; } .fv__body { padding: 8px; } }
+
+/* ---------- register as cards ---------- */
+.ws-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.ws-tile { display: grid; grid-template-rows: auto 1fr; text-align: left; padding: 0; overflow: hidden; cursor: pointer; color: var(--ink); }
+.ws-tile:hover, .ws-tile:focus-visible { border-color: var(--brass); }
+.ws-tile__cover { aspect-ratio: 16 / 9; background: var(--surface-2); display: grid; place-items: center; color: var(--ink-3); }
+.ws-tile__cover img { width: 100%; height: 100%; object-fit: cover; }
+.ws-tile__body { display: grid; gap: 6px; padding: 12px 14px 14px; align-content: start; }
+.ws-tile__title { font-family: var(--font-display); font-size: 18px; line-height: 1.25; }
+.ws-tile__about { color: var(--ink-2); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ws-tile__meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
+.admin-tabs { display: grid; gap: 6px; max-width: 1360px; margin-bottom: 20px; }
+.admin-tabs .vx-tab { display: inline-flex; align-items: center; gap: 6px; }

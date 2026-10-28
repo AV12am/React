@@ -4,6 +4,7 @@ import { Panel, Drawer, ClassBadge, Avatar } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { DIVISIONS, ROLES, CLEARANCE } from '../data/seed.js';
 import { WORKSPACES, registersOf, registerOf, viewsOf } from '../data/workspaces.js';
+import { Attachments, Cover } from '../components/Attachments.jsx';
 import { needsReview } from '../lib/provenance.js';
 import { wordFor } from '../lib/forecast.js';
 import { RecordExtras, ReviewView, ForecastsView, reviewCount } from './Analysis.jsx';
@@ -24,7 +25,8 @@ import { parseCoords, fmtDD, fmtMGRS, distanceKm, fmtKm } from '../map/coords.js
 // Records above a person's clearance stay masked, as in the Vault.
 export function workspaceAccess(me, perms, d) {
   const member = me.division === d.id;
-  const canEdit = me.role === 'admin' || (member && me.role !== 'guest' && perms.divisions >= 1) || (me.role === 'lead' && d.lead === me.id);
+  // An open division (Проєкти) is a shared space: anyone who works with divisions may add to it.
+  const canEdit = me.role === 'admin' || ((member || d.open) && me.role !== 'guest' && perms.divisions >= 1) || (me.role === 'lead' && d.lead === me.id);
   const canManage = me.role === 'admin' || (me.role === 'lead' && member);
   return { member, canEdit, canManage };
 }
@@ -98,6 +100,7 @@ function FieldValue({ field, value, look, go, compact = false }) {
         </span>
       );
     }
+    case 'files': return Array.isArray(value) && value.length ? <span className="vx-num">{value.length} файл.</span> : <span className="vx-hint">—</span>;
     case 'longtext': return <span className="ws-long">{value}</span>;
     default: return <span>{String(value)}</span>;
   }
@@ -262,7 +265,9 @@ function RecordDrawer({ d, reg, record, access, onClose, go }) {
           {reg.fields.filter((f) => !f.hidden).map((f) => (
             <div className="vx-field" key={f.id}>
               <label className="vx-label" htmlFor={`f-${f.id}`}>{f.label}{f.required && ' *'}</label>
-              <FieldInput field={f} value={draft[f.id]} set={set(f.id)} look={look} me={me} />
+              {f.type === 'files'
+                ? <Attachments value={draft[f.id]} onChange={set(f.id)} canEdit clearance={draft.clearance ?? 0} division={d.id} record={record?.id || null} />
+                : <FieldInput field={f} value={draft[f.id]} set={set(f.id)} look={look} me={me} />}
               {f.hint && <div className="vx-hint">{f.hint}</div>}
             </div>
           ))}
@@ -283,11 +288,18 @@ function RecordDrawer({ d, reg, record, access, onClose, go }) {
             {grade && <span className="vx-tag vx-mono" title="Надійність джерела + достовірність інформації">{grade}</span>}
           </div>
           <dl className="meta">
-            {reg.fields.filter((f) => !f.hidden).map((f) => <FieldRow key={f.id} f={f} record={record} look={look} go={go} />)}
+            {reg.fields.filter((f) => !f.hidden && f.type !== 'files').map((f) => <FieldRow key={f.id} f={f} record={record} look={look} go={go} />)}
             {a && b && <><dt>Відстань</dt><dd className="vx-num">{fmtKm(distanceKm(a, b))} по прямій</dd></>}
             <dt>Створив</dt><dd>{owner?.name ?? '—'} · {fmtDate(record.at)}</dd>
             <dt>Змінено</dt><dd>{fmtAgo(record.updated)}</dd>
           </dl>
+          {reg.fields.filter((f) => f.type === 'files').map((f) => (
+            <section key={f.id} className="stack ws-files">
+              <div className="vx-eyebrow">{f.label}</div>
+              <Attachments value={record[f.id]} canEdit={access.canEdit} clearance={record.clearance} division={d.id} record={record.id}
+                onChange={(ids) => dispatch({ type: 'record/update', id: record.id, patch: { [f.id]: ids }, where, label: titleOf(reg, record), note: 'файли' })} />
+            </section>
+          ))}
           <RecordExtras reg={reg} record={record} canEdit={access.canEdit} go={go} />
           <RecordTasks target={record.id} label={titleOf(reg, record)} level={record.clearance} link={`#/divisions/${record.div}/${record.col}:${record.id}`} go={go} />
           <Discussion target={record.id} label={titleOf(reg, record)} level={record.clearance} link={`#/divisions/${record.div}/${record.col}:${record.id}`} />
@@ -332,6 +344,29 @@ function Card({ reg, r, look, locked, onOpen, draggable, go }) {
   );
 }
 
+/** A record as a card with a cover photo and the start of its description (registers with `layout: 'cards'`). */
+function Tile({ reg, r, look, locked, onOpen, go }) {
+  const filesField = reg.fields.find((f) => f.type === 'files');
+  const about = reg.fields.find((f) => f.id === reg.about);
+  const files = filesField && Array.isArray(r[filesField.id]) ? r[filesField.id] : [];
+  return (
+    <button className={`vx-panel ws-tile ${locked ? 'is-locked' : ''}`} onClick={() => !locked && onOpen(r)}>
+      <span className="ws-tile__cover">{!locked && <Cover ids={files} alt={titleOf(reg, r)} />}{(locked || !files.length) && <Icon name={reg.icon} size={32} />}</span>
+      <span className="ws-tile__body">
+        <span className="ws-card__top"><ClassBadge level={r.clearance} />{reg.stages && !locked && <span className="vx-tag">{r.stage || reg.stages[0]}</span>}</span>
+        <span className="ws-tile__title">{locked ? <span className="vx-redacted">{'█'.repeat(14)}</span> : titleOf(reg, r)}</span>
+        {!locked && about && r[about.id] && <span className="ws-tile__about">{r[about.id]}</span>}
+        {!locked && (
+          <span className="ws-tile__meta vx-hint">
+            {mainCols(reg).map((f) => (r[f.id] != null && r[f.id] !== '') && <span key={f.id}><FieldValue field={f} value={r[f.id]} look={look} go={go} compact /></span>)}
+            {files.length > 0 && <span><Icon name="file" size={12} /> {files.length}</span>}
+          </span>
+        )}
+      </span>
+    </button>
+  );
+}
+
 function RegisterView({ d, reg, access, go, openId }) {
   const { state, me, dispatch } = useStore();
   const look = useLookups(d.id);
@@ -364,7 +399,14 @@ function RegisterView({ d, reg, access, go, openId }) {
         {access.canEdit && <button className="vx-btn vx-btn--primary" onClick={() => setOpen('new')}><Icon name="plus" /> Додати {reg.one}</button>}
       </div>
 
-      {reg.stages ? (
+      {reg.layout === 'cards' ? (
+        <>
+          <div className="ws-cards">
+            {rows.map((r) => <Tile key={r.id} reg={reg} r={r} look={look} locked={locked(r)} onOpen={setOpen} go={go} />)}
+          </div>
+          {!rows.length && <Panel><div className="vx-empty"><Icon name={reg.icon} /><div>{q ? 'Нічого не знайдено' : `Ще немає записів у «${reg.name}». Натисніть «Додати ${reg.one}».`}</div></div></Panel>}
+        </>
+      ) : reg.stages ? (
         <div className="ws-board">
           {reg.stages.map((s) => {
             const col = rows.filter((r) => (r.stage || reg.stages[0]) === s);
@@ -471,7 +513,7 @@ function Overview({ d, go, setTab }) {
 /* ---------- workspace ---------- */
 
 // Main tabs per division (others go under «Ще»); a division not listed shows its first three.
-const PRIMARY_TABS = { int: ['intake', 'companies', 'sources'], ana: ['products', 'judgments', 'review'] };
+const PRIMARY_TABS = { int: ['intake', 'companies', 'sources'] };
 
 const VIEWS = { review: ReviewView, forecasts: ForecastsView, watch: WatchView, companies: CompaniesView };
 
@@ -483,7 +525,9 @@ export function Workspace({ divId, tab, go }) {
   // «intake:w-123» opens that record (links from the «звідки ми це знаємо» chain).
   const [tabId, ...rest] = (tab || '').split(':');
   const openId = rest.join(':') || undefined; // e.g. «graph:org-…» keeps its own colon
-  const current = regs.find((r) => r.id === tabId) || views.find((v) => v.id === tabId) ? tabId : 'overview';
+  // A division with one register and no screens of its own opens straight into it, without tabs.
+  const single = regs.length === 1 && !views.length && divId !== 'acad';
+  const current = regs.find((r) => r.id === tabId) || views.find((v) => v.id === tabId) ? tabId : single ? regs[0].id : 'overview';
   const access = workspaceAccess(me, perms, d);
   const setTab = (t) => go('divisions', divId, t === 'overview' ? null : t);
   const reg = registerOf(divId, current);
@@ -513,7 +557,7 @@ export function Workspace({ divId, tab, go }) {
         </div>
         <span className="vx-hint">{access.canEdit ? (access.member ? 'Ваш напрям' : 'Повний доступ') : 'Лише перегляд'}</span>
       </header>
-      <nav className="vx-tabs" role="tablist">
+      {!single && <nav className="vx-tabs" role="tablist">
         <button role="tab" aria-selected={current === 'overview'} className={`vx-tab ${current === 'overview' ? 'is-active' : ''}`} onClick={() => setTab('overview')}>Огляд</button>
         {main.map((t) => (
           <button key={t.id} role="tab" aria-selected={current === t.id} className={`vx-tab ${current === t.id ? 'is-active' : ''}`} onClick={() => setTab(t.id)}>
@@ -537,7 +581,7 @@ export function Workspace({ divId, tab, go }) {
           </span>
         )}
         {divId === 'acad' && <button role="tab" aria-selected="false" className="vx-tab" onClick={() => go('learn')}>Навчання й тести</button>}
-      </nav>
+      </nav>}
       {reg ? <RegisterView key={`${reg.id}:${openId || ''}`} d={d} reg={reg} access={access} go={go} openId={openId} />
         : View ? <View d={d} access={access} go={go} openId={openId} /> : <Overview d={d} go={go} setTab={setTab} />}
     </div>

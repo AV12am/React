@@ -3,7 +3,7 @@ import { useStore, fmtBytes, fmtAgo } from '../store.jsx';
 import { supabaseOn, rest } from '../lib/supabase.js';
 import { Panel, StatTile, Status, BarList, Trend, Avatar } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
-import { STORAGE_QUOTA, DIVISIONS } from '../data/seed.js';
+import { STORAGE_QUOTA, VISIBLE_DIVISIONS as DIVISIONS } from '../data/seed.js';
 import { BriefPanel } from './Brief.jsx';
 import { TasksPanel } from './Team.jsx';
 

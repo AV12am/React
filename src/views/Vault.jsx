@@ -45,7 +45,7 @@ export function Vault({ focus, setFocus }) {
     const locked = f.clearance > me.clearance && !(me.grants || []).includes(f.id);
     return (
       <button key={f.id} className={`vx-nav-item ${folder === f.id ? 'is-active' : ''}`} onClick={() => setFolder(f.id)}>
-        <Icon name={locked ? 'lock' : 'folder'} /> <span className="vault__fname">{f.group ? f.name.replace(/^Компанії \/ /, '') : f.name}</span>
+        <Icon name={locked ? 'lock' : 'folder'} /> <span className="vault__fname">{f.group === 'companies' ? f.name.replace(/^Компанії \/ /, '') : f.name}</span>
         <span className="vault__count">{state.files.filter((x) => x.folder === f.id).length}</span>
       </button>
     );
@@ -86,7 +86,7 @@ export function Vault({ focus, setFocus }) {
           <button className={`vx-nav-item ${folder === 'all' ? 'is-active' : ''}`} onClick={() => setFolder('all')}>
             <Icon name="vault" /> Усі файли <span className="vault__count">{state.files.length}</span>
           </button>
-          {state.folders.filter((f) => !f.group).map(folderButton)}
+          {state.folders.filter((f) => !f.group || f.group === 'attachments').map(folderButton)}
           {companies.length > 0 && <>
             <button className="vx-nav-item" onClick={() => setCoOpen(!coOpen)} aria-expanded={coOpen}>
               <Icon name="chevron" className={`vault__chev ${coOpen ? 'is-open' : ''}`} /> <span className="vault__fname">Компанії</span>

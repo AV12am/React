@@ -3,6 +3,9 @@ import { useStore, fmtAgo, fmtDate } from '../store.jsx';
 import { SealBadge, Panel, Status, Avatar, Drawer, ClassBadge, Switch } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { DIVISIONS, ROLES, CLEARANCE, MODULES, PERMISSIONS } from '../data/seed.js';
+
+// Hidden divisions are offered only to someone already in one (so their record still reads right).
+const divOptions = (cur) => DIVISIONS.filter((d) => !d.hidden || d.id === cur);
 import { LEVELS, SEAL, CUSTOS } from '../data/clearance.js';
 import { supabaseOn } from '../lib/supabase.js';
 import { issueCode } from '../lib/passkey.js';
@@ -69,7 +72,7 @@ function People({ focus, setFocus }) {
         </div>
         <select className="vx-select toolbar__sel" value={div} onChange={(e) => setDiv(e.target.value)} aria-label="Напрям">
           <option value="all">Усі напрями</option>
-          {DIVISIONS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          {divOptions(div).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
         <select className="vx-select toolbar__sel" value={st} onChange={(e) => setSt(e.target.value)} aria-label="Статус">
           <option value="all">Будь-який статус</option>
@@ -176,7 +179,7 @@ function EditUser({ id, onClose, readOnly: ro }) {
         <div className="vx-field">
           <label className="vx-label" htmlFor="division">Напрям</label>
           <select id="division" className="vx-select" value={draft.division} disabled={readOnly || me.role !== 'admin'} onChange={(e) => set('division')(e.target.value)}>
-            {DIVISIONS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            {divOptions(draft.division).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </div>
         <div className="vx-field">
@@ -237,7 +240,7 @@ function Invite({ onClose }) {
         <div className="vx-field"><label className="vx-label" htmlFor="r">Роль</label>
           <select id="r" className="vx-select" value={f.role} onChange={set('role')}>{ROLES.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
         <div className="vx-field"><label className="vx-label" htmlFor="d">Напрям</label>
-          <select id="d" className="vx-select" value={f.division} onChange={set('division')}>{DIVISIONS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
+          <select id="d" className="vx-select" value={f.division} onChange={set('division')}>{divOptions(f.division).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
         <div className="vx-field"><label className="vx-label" htmlFor="c">Допуск</label>
           <select id="c" className="vx-select" value={f.clearance} onChange={set('clearance')}>{CLEARANCE.filter((c) => c.id <= me.clearance).map((c) => <option key={c.id} value={c.id}>{c.full}</option>)}</select></div>
       </div>

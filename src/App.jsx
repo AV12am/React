@@ -9,7 +9,7 @@ import { status as passkeyStatus } from './lib/passkey.js';
 import { supabaseOn, signOut } from './lib/supabase.js';
 import { Dashboard } from './views/Dashboard.jsx';
 import { COURSES } from './data/academy/meta.js';
-import { ROLES } from './data/seed.js';
+import { ROLES, VISIBLE_DIVISIONS } from './data/seed.js';
 import { TRACKS } from './data/geo.js';
 import { canSeeFile, fmtAgo, requestLabel } from './store.jsx';
 import { useSwipe, useHidden, isTouch, buzz } from './lib/mobile.js';
@@ -31,16 +31,19 @@ const Learn = section(() => import('./views/Academy.jsx'), 'Learn');
 // v0 sandbox — dev server only; dropped from production builds.
 const V0Sandbox = import.meta.env.DEV ? lazy(() => import('./v0/Sandbox.jsx')) : null;
 
+// `side: false` — a section that has its own address (and is in search) but no item in the side menu:
+// «Доступи» and «Журнал аудиту» sit under «Адміністрування»; «Навчання» opens from the Academy.
 const NAV = [
   { id: 'overview', label: 'Огляд', icon: 'overview' },
   { id: 'divisions', label: 'Напрями', icon: 'divisions' },
-  { id: 'access', label: 'Доступи', icon: 'access' },
   { id: 'vault', label: 'Сховище', icon: 'vault' },
   { id: 'map', label: 'Карта', icon: 'map' },
-  { id: 'audit', label: 'Журнал аудиту', icon: 'audit' },
-  { id: 'learn', label: 'Навчання', icon: 'book', always: true },
+  { id: 'access', label: 'Доступи', icon: 'access', side: false, admin: true },
+  { id: 'audit', label: 'Журнал аудиту', icon: 'audit', side: false, admin: true },
+  { id: 'learn', label: 'Навчання', icon: 'book', always: true, side: false },
   { id: 'settings', label: 'Налаштування', icon: 'settings', always: true },
 ];
+const ADMIN = ['access', 'audit'];
 // Phone: the bottom bar holds the four most used sections; everything else is under «Ще».
 const TABS = ['overview', 'divisions', 'vault', 'map'];
 const SHORT = { overview: 'Огляд', divisions: 'Напрями', vault: 'Сховище', map: 'Карта' };
@@ -113,7 +116,16 @@ function Shell() {
   const locked = !!state.session?.locked;
 
   const allowed = NAV.filter((n) => n.always || perms[n.id] > 0);
-  const current = V0Sandbox && view === 'v0' ? 'v0' : allowed.find((n) => n.id === view) ? view : allowed[0].id;
+  const adminTabs = allowed.filter((n) => n.admin);
+  // «Адміністрування» opens its first section the person may see.
+  const asked = view === 'admin' ? adminTabs[0]?.id : view;
+  const current = V0Sandbox && asked === 'v0' ? 'v0' : allowed.find((n) => n.id === asked) ? asked : allowed[0].id;
+  const side = [
+    ...allowed.filter((n) => n.side !== false && n.id !== 'settings'),
+    ...(adminTabs.length ? [{ id: 'admin', label: 'Адміністрування', icon: 'access', to: adminTabs[0].id }] : []),
+    ...allowed.filter((n) => n.id === 'settings'),
+  ];
+  const isActive = (n) => (n.id === 'admin' ? ADMIN.includes(current) : current === n.id);
   const pending = state.requests.filter((r) => r.status === 'pending').length;
 
   const go = useCallback((v, s = null, i = null) => {
@@ -181,10 +193,10 @@ function Shell() {
   const page = {
     overview: <Dashboard go={go} />,
     divisions: <Divisions key={sub || 'all'} focus={sub} tab={id} go={go} />,
-    access: <Access tab={sub || 'people'} setTab={(t) => go('access', t)} focus={id} setFocus={(u) => go('access', 'people', u)} />,
+    access: <><AdminTabs tabs={adminTabs} current={current} go={go} /><Access tab={sub || 'people'} setTab={(t) => go('access', t)} focus={id} setFocus={(u) => go('access', 'people', u)} /></>,
     vault: <Vault focus={sub} setFocus={(f) => go('vault', f)} />,
     map: <MapView key={sub || 'map'} focus={sub} go={go} />,
-    audit: <Audit />,
+    audit: <><AdminTabs tabs={adminTabs} current={current} go={go} /><Audit /></>,
     learn: <Learn key={sub || 'all'} focus={sub} go={go} />,
     settings: <Settings go={go} />,
     v0: V0Sandbox && <Suspense fallback={null}><V0Sandbox /></Suspense>,
@@ -196,10 +208,10 @@ function Shell() {
         <div className="sidebar__brand"><Wordmark /></div>
         <div className="sidebar__product vx-eyebrow">Core · внутрішня платформа</div>
         <nav className="sidebar__nav" aria-label="Головне меню">
-          {allowed.map((n) => (
-            <button key={n.id} className={`vx-nav-item ${current === n.id ? 'is-active' : ''}`} onClick={() => go(n.id)} aria-current={current === n.id ? 'page' : undefined}>
+          {side.map((n) => (
+            <button key={n.id} className={`vx-nav-item ${isActive(n) ? 'is-active' : ''}`} onClick={() => go(n.to || n.id)} aria-current={isActive(n) ? 'page' : undefined}>
               <Icon name={n.icon} /> {n.label}
-              {n.id === 'access' && pending > 0 && perms.access >= 2 && <span className="vx-nav-item__count">{pending}</span>}
+              {n.id === 'admin' && pending > 0 && perms.access >= 2 && <span className="vx-nav-item__count">{pending}</span>}
             </button>
           ))}
         </nav>
@@ -339,6 +351,23 @@ function Clock() {
   );
 }
 
+/** «Адміністрування»: one section with «Доступи» and «Журнал аудиту» as its tabs. */
+function AdminTabs({ tabs, current, go }) {
+  if (tabs.length < 2) return null;
+  return (
+    <div className="admin-tabs">
+      <div className="vx-eyebrow">Адміністрування</div>
+      <nav className="vx-tabs" role="tablist">
+        {tabs.map((t) => (
+          <button key={t.id} role="tab" aria-selected={current === t.id} className={`vx-tab ${current === t.id ? 'is-active' : ''}`} onClick={() => go(t.id)}>
+            <Icon name={t.icon} size={16} /> {t.label}
+          </button>
+        ))}
+      </nav>
+    </div>
+  );
+}
+
 function Palette({ onClose, go, allowed, lock }) {
   const { state, me, dispatch } = useStore();
   const [q, setQ] = useState('');
@@ -356,7 +385,7 @@ function Palette({ onClose, go, allowed, lock }) {
     // Records of every division (all their fields) and the text inside files.
     const regName = (r) => registerOf(r.div, r.col)?.one || 'запис';
     const records = allowed.some((n) => n.id === 'divisions')
-      ? (state.records || []).filter((r) => r.clearance <= me.clearance).map((r) => ({
+      ? (state.records || []).filter((r) => r.clearance <= me.clearance && VISIBLE_DIVISIONS.some((d) => d.id === r.div)).map((r) => ({
         id: `r-${r.id}`, icon: 'layers', label: titleOfRecord(r), hint: regName(r),
         text: Object.entries(r).filter(([k, v]) => typeof v === 'string' && !['id', 'div', 'col', 'owner', 'at', 'updated', 'fingerprint', 'logo'].includes(k)).map(([, v]) => v).join(' \n '),
         run: () => go('divisions', r.div, `${r.col}:${r.id}`),

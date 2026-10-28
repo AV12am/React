@@ -39,13 +39,13 @@ export const DIVISIONS = [
   { id: 'ana', name: 'Аналітика', icon: 'chart', lead: null, status: 'ok',
     about: 'Синтез даних в оцінки та рекомендації. Багато джерел — один центр — єдине рішення.',
     projects: [] },
-  { id: 'it', name: 'ІТ та інфраструктура', icon: 'cpu', lead: null, status: 'ok',
+  { id: 'it', name: 'ІТ та інфраструктура', icon: 'cpu', lead: null, status: 'ok', hidden: true,
     about: 'Внутрішні системи, сховище, мережа, робочі місця та розробка продуктів компанії.',
     projects: [] },
-  { id: 'sec', name: 'Кібербезпека', icon: 'shield', lead: null, status: 'ok',
+  { id: 'sec', name: 'Кібербезпека', icon: 'shield', lead: null, status: 'ok', hidden: true,
     about: 'Захист периметра, моніторинг загроз, реагування на інциденти, аудит доступів.',
     projects: [] },
-  { id: 'ops', name: 'Операції та логістика', icon: 'truck', lead: null, status: 'ok',
+  { id: 'ops', name: 'Операції та логістика', icon: 'truck', lead: null, status: 'ok', hidden: true,
     about: 'Планування і забезпечення польової роботи, транспорт, обладнання, зв’язок.',
     projects: [] },
   { id: 'acad', name: 'Академія', icon: 'book', lead: null, status: 'ok',
@@ -54,7 +54,12 @@ export const DIVISIONS = [
   { id: 'res', name: 'Дослідження', icon: 'atom', lead: null, status: 'ok',
     about: 'Пошуковий напрям: нові методи верифікації, робота з відкритими даними, інструменти OSINT і моделі довіри до джерел. Те, що завтра стане робочим для інших напрямів.',
     projects: [] },
+  { id: 'prj', name: 'Проєкти', icon: 'layers', lead: null, status: 'ok', open: true,
+    about: 'Окремі проєкти компанії: опис, учасники, документи й матеріали.',
+    projects: [] },
 ];
+// Hidden divisions keep their data and people, but are not shown among «Напрями».
+export const VISIBLE_DIVISIONS = DIVISIONS.filter((d) => !d.hidden);
 
 // First-run account. Change the name and code in «Доступ», then invite the team.
 export const USERS = [
