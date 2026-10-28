@@ -2,8 +2,9 @@
 //
 //   supabase — self-hosted or supabase.com free tier (1 ГБ). Set VITE_SUPABASE_URL,
 //              VITE_SUPABASE_ANON_KEY and optionally VITE_SUPABASE_BUCKET at build time.
-//              Real sign-in; file bodies in Storage, the shared index and the team's
-//              records in Postgres, all behind row-level security (deploy/supabase.sql).
+//              Real sign-in; the Vault through api/files.js (bodies in Cloudflare R2 when set
+//              up, else Supabase Storage), the team's records in Postgres behind row-level
+//              security (deploy/supabase.sql).
 //   artifact — when the app runs as a claude.ai artifact: bodies in the artifact's
 //              asset store, the shared index in its document store. Free, shared by
 //              everyone the artifact is shared with.
@@ -12,7 +13,7 @@
 // Every backend exposes the same calls; Vault never knows which one it is talking to.
 
 import { putBlob, getBlob, deleteBlob } from '../vaultdb.js';
-import { SB_URL, SB_BUCKET, supabaseOn, authHeaders, rest, signedIn, onSession } from './supabase.js';
+import { supabaseOn, rest, signedIn, onSession, filesApi } from './supabase.js';
 
 const MiB = 1024 * 1024;
 
@@ -87,55 +88,64 @@ function artifactBackend(assets, db) {
   };
 }
 
-// ---------- Supabase (Storage + PostgREST, plain fetch — no SDK) ----------
-// Every call carries the signed-in person's token: the database's row-level security
-// (deploy/supabase.sql) decides what comes back. Nothing is read before sign-in.
+// ---------- Supabase (+ Cloudflare R2) ----------
+// The Vault goes through the server function api/files.js: it checks the person and their clearance,
+// files and lists the cards, and hands out one-off signed addresses for file bodies — in Cloudflare R2 when
+// it is configured, otherwise in Supabase Storage. The browser never touches the Vault tables or the bucket.
+// The team's shared state (people, records…) is read and written with the person's own token under
+// row-level security (deploy/supabase.sql).
 function supabaseBackend() {
-  const obj = (ref) => `${SB_URL}/storage/v1/object/${SB_BUCKET}/${ref.split('/').map(encodeURIComponent).join('/')}`;
-  const ok = async (res) => { if (!res.ok) throw new Error(`${res.status} ${await res.text().catch(() => '')}`); return res; };
   const poll = (fn, ms) => { fn(); const t = setInterval(fn, ms); return () => clearInterval(t); };
   const upsert = (table, row) => rest(`${table}?on_conflict=${table === 'core_docs' ? 'kind,id' : 'id'}`, { method: 'POST', body: row, prefer: 'resolution=merge-duplicates,return=minimal' });
+  const gone = (e) => { if (e?.status !== 404) throw e; };
+  let info = null;
+  const where = () => (info ||= filesApi({ op: 'info' }).catch(() => (info = null)));
   return {
     kind: 'supabase',
     label: 'Supabase',
     shared: true,
     writable: true,
     needsSignIn: true,
-    maxFile: 50 * MiB, // free-tier per-file limit
-    // Free plan: 1 GB of files. On a paid plan set VITE_STORAGE_QUOTA_GB (or NEXT_PUBLIC_STORAGE_QUOTA_GB), e.g. 100.
+    maxFile: 50 * MiB,
     quota: (Number(import.meta.env?.VITE_STORAGE_QUOTA_GB || import.meta.env?.NEXT_PUBLIC_STORAGE_QUOTA_GB) || 1) * 1024 * MiB,
-    // `dir` keeps related files together in the bucket, e.g. companies/20077720/<id>/logo.png.
-    async put(id, file, { dir } = {}) {
-      const ref = `${dir ? `${dir.replace(/[^\w/-]+/g, '_')}/` : ''}${id}/${file.name.replace(/[^\w.-]+/g, '_')}`;
-      await ok(await fetch(obj(ref), { method: 'POST', headers: await authHeaders({ 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'false' }), body: file }));
-      return { ref };
+    // Where new files go and the room there (Cloudflare R2 10 ГБ + Supabase 1 ГБ when R2 is set up).
+    async usage() {
+      const i = await where();
+      return i ? { maxBytes: i.quota, label: i.store === 'r2' ? 'Cloudflare R2 + Supabase' : 'Supabase' } : null;
+    },
+    // `dir` keeps related files together, e.g. companies/20077720/<id>/logo.png. The card is filed after
+    // the body (index.addFile), with the same id; `opts.clearance` is checked before anything is stored.
+    async put(id, file, { dir, clearance = 0 } = {}) {
+      const s = await filesApi({ op: 'sign', id, dir: dir || 'vault', name: file.name, type: file.type, size: file.size, clearance });
+      const res = await fetch(s.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream', ...(s.headers || {}) }, body: file })
+        .catch(() => { throw new Error(`сховище недоступне${s.store === 'r2' ? ' (перевірте CORS у бакеті R2)' : ''}`); });
+      if (!res.ok) throw new Error(`сховище не прийняло файл (${res.status})`);
+      return { ref: s.ref, store: s.store };
     },
     async get(f) {
-      const res = await fetch(`${SB_URL}/storage/v1/object/authenticated/${SB_BUCKET}/${f.ref.split('/').map(encodeURIComponent).join('/')}`, { headers: await authHeaders() });
+      const { url } = await filesApi({ op: 'url', id: f.id });
+      const res = await fetch(url);
       return res.ok ? res.blob() : null;
     },
-    async remove(f) {
-      await ok(await fetch(`${SB_URL}/storage/v1/object/${SB_BUCKET}`, { method: 'DELETE', headers: await authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ prefixes: [f.ref] }) }));
-    },
+    async remove(f) { await filesApi({ op: 'remove', id: f.id }).catch(gone); },
     index: {
       watch(onFiles, onFolders) {
         const load = async () => {
           if (!signedIn()) return;
           try {
-            const [a, b] = await Promise.all([rest('vault_files?select=doc'), rest('vault_folders?select=doc')]);
-            onFiles(a.map((r) => r.doc));
-            onFolders(b.map((r) => r.doc));
+            const r = await filesApi({ op: 'list' });
+            onFiles(r.files || []);
+            onFolders(r.folders || []);
           } catch { /* offline or signed out: keep last known index */ }
         };
         const stop = poll(load, 20000);
         const off = onSession(() => load());
         return () => { stop(); off(); };
       },
-      addFile: (f) => upsert('vault_files', { id: f.id, doc: f }),
-      removeFile: (id) => rest(`vault_files?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' }),
-      // Folders never change once made, and the database allows only inserting them: a folder that already
-      // exists (made on another device, or before this one synced) is kept as is — ON CONFLICT DO NOTHING.
-      addFolder: (f) => rest('vault_folders?on_conflict=id', { method: 'POST', body: { id: f.id, doc: f }, prefer: 'resolution=ignore-duplicates,return=minimal' }),
+      addFile: (f) => filesApi({ op: 'index', meta: f }),
+      // The body and the card go together (api/files.js remove).
+      removeFile: (id) => filesApi({ op: 'remove', id }).catch(gone),
+      addFolder: (f) => filesApi({ op: 'folder', folder: f }),
     },
     // Shared app state for the whole team (see src/lib/sync.js): people, records, requests, audit.
     docs: {
@@ -206,5 +216,5 @@ export function storageError(e) {
   if (code === 'quota_or_state') return 'Сховище заповнене';
   if (code === 'rate_limited') return 'Забагато завантажень — спробуйте за хвилину';
   if (code === 'not_granted' || code === 'upstream_auth') return 'Немає дозволу на запис у сховище';
-  return 'Не вдалося зберегти файл';
+  return e?.message || 'Не вдалося зберегти файл';
 }

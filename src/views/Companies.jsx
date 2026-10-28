@@ -78,9 +78,9 @@ async function fileForCompany(ctx, org, list, kind, numbers = []) {
     if (kind !== 'doc' && !isImage(file)) { toast(`«${file.name}» — не зображення`); continue; }
     if (file.size > backend.maxFile) { toast(`«${file.name}» більший за ${fmtBytes(backend.maxFile)}`); continue; }
     const fid = `x-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-    let put;
-    try { put = await backend.put(fid, file, { dir: `companies/${org.code || org.id}` }); } catch (e) { toast(`«${file.name}»: ${storageError(e)}`); continue; }
     const level = Math.max(folder.clearance, org.clearance || 0);
+    let put;
+    try { put = await backend.put(fid, file, { dir: `companies/${org.code || org.id}`, clearance: level }); } catch (e) { toast(`«${file.name}»: ${storageError(e)}`); continue; }
     const serial = nextSerial([...state.files.map((f) => f.number), ...numbers], year);
     const meta = {
       id: fid, number: docNumber({ level, sealed: false, year, serial }), folder: folder.id, name: file.name, size: file.size,

@@ -77,7 +77,7 @@ export function Vault({ focus, setFocus }) {
         <div className="quota">
           <div className="vx-hint vx-num">{fmtBytes(used)} з {fmtBytes(quota)}</div>
           <div className="vx-meter"><span style={{ width: `${Math.min(100, (used / quota) * 100)}%` }} /></div>
-          <div className="vx-hint quota__where"><Icon name="vault" size={12} /> {backend ? backend.label : 'Підключення…'}</div>
+          <div className="vx-hint quota__where"><Icon name="vault" size={12} /> {backend ? usage?.label || backend.label : 'Підключення…'}</div>
         </div>
       </header>
 
@@ -109,7 +109,7 @@ export function Vault({ focus, setFocus }) {
             {current && <ClassBadge level={current.clearance} />}
             <input ref={input} type="file" multiple hidden onChange={(e) => { choose(e.target.files); e.target.value = ''; }} />
             <button className="vx-btn vx-btn--primary" disabled={!canWrite || folder === 'all'} title={folder === 'all' ? 'Оберіть папку' : ''} onClick={() => input.current.click()}>
-              <Icon name="upload" /> Завантажити
+              <Icon name="upload" /> Додати файли
             </button>
             {/* Phone: photograph a paper document straight into the folder (rear camera). */}
             <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { choose(e.target.files); e.target.value = ''; }} />
@@ -155,7 +155,7 @@ export function Vault({ focus, setFocus }) {
                 <div className="vx-empty">
                   <Icon name="folder" />
                   <div>{q ? 'Нічого не знайдено' : 'Папка порожня'}</div>
-                  {canWrite && folder !== 'all' && <div className="vx-hint">Перетягніть файли сюди або натисніть «Завантажити».</div>}
+                  {canWrite && folder !== 'all' && <div className="vx-hint">Перетягніть файли сюди або натисніть «Додати файли».</div>}
                 </div>
               )}
             </Panel>
@@ -236,7 +236,7 @@ function UploadModal({ files, folder, onClose }) {
       if (file.size > backend.maxFile) { toast(`«${file.name}» більший за ${fmtBytes(backend.maxFile)} — ліміт сховища`); continue; }
       const id = `x-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
       let put;
-      try { put = await backend.put(id, file); } catch (e) { toast(`«${file.name}»: ${storageError(e)}`); continue; }
+      try { put = await backend.put(id, file, { clearance: level }); } catch (e) { toast(`«${file.name}»: ${storageError(e)}`); continue; }
       const meta = {
         id, number: docNumber({ level, sealed, year, serial }), folder: folder.id, name: file.name, size: file.size,
         type: file.type || 'application/octet-stream', clearance: level, sealed, downgrade: ruleOut(level, rule),
@@ -283,7 +283,7 @@ function UploadModal({ files, folder, onClose }) {
       </div>
       <div className="vx-drawer__foot">
         <button className="vx-btn vx-btn--ghost" onClick={onClose}>Скасувати</button>
-        <button className="vx-btn vx-btn--primary" onClick={upload} disabled={busy || !ruleValid(level, rule)}>{busy ? <Loader size={18} /> : <><Icon name="upload" /> Завантажити</>}</button>
+        <button className="vx-btn vx-btn--primary" onClick={upload} disabled={busy || !ruleValid(level, rule)}>{busy ? <Loader size={18} /> : <><Icon name="upload" /> Додати у Сховище</>}</button>
       </div>
     </Modal>
   );

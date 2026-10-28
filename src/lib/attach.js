@@ -3,19 +3,12 @@
 // With Supabase the browser never writes the Vault tables itself: api/files.js checks the person and their
 // clearance, hands out a one-off signed upload address, files the card and signs read addresses.
 // The other stores (this browser, claude.ai) go through the ordinary backend calls.
-import { supabaseOn, authHeaders } from './supabase.js';
+import { supabaseOn, filesApi as api } from './supabase.js';
 import { extractText } from './textract.js';
 import { docNumber, nextSerial } from '../data/clearance.js';
 import { DIVISIONS } from '../data/seed.js';
 
 const MiB = 1024 * 1024;
-
-async function api(body) {
-  const res = await fetch(new URL('api/files', document.baseURI), { method: 'POST', headers: await authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || (res.status === 404 ? 'Серверна функція недоступна (працює лише на Vercel)' : `HTTP ${res.status}`));
-  return data;
-}
 
 export const kindOf = (f) => {
   const n = (f?.name || '').toLowerCase();
@@ -90,14 +83,7 @@ const cache = new Map(); // file id → { url, blob }
 export async function bodyOf(backend, f) {
   if (cache.has(f.id)) return cache.get(f.id);
   let blob;
-  if (supabaseOn && backend?.kind === 'supabase' && String(f.ref || '').startsWith('att/')) {
-    const { url } = await api({ op: 'url', id: f.id });
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Файл недоступний (${res.status})`);
-    blob = await res.blob();
-  } else {
-    blob = await backend.get(f);
-  }
+  blob = await backend.get(f);
   if (!blob) throw new Error('Файл недоступний');
   const typed = f.type && blob.type !== f.type ? new Blob([blob], { type: f.type }) : blob;
   const body = { url: URL.createObjectURL(typed), blob: typed };
@@ -107,7 +93,7 @@ export async function bodyOf(backend, f) {
 
 export async function remove(ctx, f) {
   const { backend, dispatch } = ctx;
-  if (supabaseOn && backend?.kind === 'supabase' && String(f.ref || '').startsWith('att/')) await api({ op: 'remove', id: f.id });
+  if (supabaseOn && backend?.kind === 'supabase') await api({ op: 'remove', id: f.id });
   else {
     try { await backend.remove(f); } catch { /* already gone */ }
     if (backend.index) await backend.index.removeFile(f.id).catch(() => {});

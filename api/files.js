@@ -7,6 +7,14 @@
 //   { op: 'url', id }               → { url }  a signed address to read the body, valid 10 minutes
 //   { op: 'remove', id }            → { ok }
 //
+// The whole Vault goes through here too (src/lib/storage.js, Supabase backend), so the browser never reads
+// or writes the Vault tables or the bucket itself:
+//   { op: 'sign', id, dir, name, type, size, clearance } → { id, ref, store, uploadUrl, headers }  a Vault body
+//   { op: 'index', meta }           → { ok, meta }  file or update a card (a new one is filed under the caller)
+//   { op: 'list' }                  → { files, folders }  the cards up to my clearance, and the folders
+//   { op: 'folder', folder }        → { ok }  a new folder (never above my clearance; an existing one is kept)
+//   { op: 'info' }                  → { store, quota }  where new bodies go and how much room there is
+//
 // The caller must be a member with a passkey-confirmed session (_core.caller), and every check the database
 // makes for the Vault is made here too: nobody files, reads or removes a card above their own clearance;
 // a NON OCULIS card is read only by its owner or someone granted a basis for it.
@@ -26,6 +34,22 @@ const DIVS = ['int', 'ana', 'it', 'sec', 'ops', 'acad', 'res', 'prj'];
 const FOLDER = { int: 'Розвідка · вкладення', ana: 'Аналітика · вкладення', res: 'Дослідження · вкладення', prj: 'Проєкти · вкладення', acad: 'Академія · вкладення' };
 
 const level = (m) => Math.max(0, Math.min(2, +m.doc?.clearance || 0));
+const GiB = 1024 * 1024 * 1024;
+const okId = (id) => /^[\w-]{1,80}$/.test(id || '');
+const cleanDir = (d) => String(d || 'vault').split('/').filter((x) => x && x !== '..' && x !== '.').map((x) => x.replace(/[^\w-]+/g, '_')).join('/').slice(0, 120) || 'vault';
+// A card's address must be its own: <dir>/<id>/<name>, nothing climbing out.
+const ownRef = (ref, id) => typeof ref === 'string' && !ref.includes('..') && ref.split('/').slice(-2, -1)[0] === id && ref.split('/').length >= 3;
+const mayFolder = (m, folder) => !folder || (+folder.clearance || 0) <= level(m) || (m.doc?.basis || []).includes(folder.id) || (m.doc?.grants || []).includes(folder.id);
+async function folderOf(id) {
+  const [row] = await db(`vault_folders?id=eq.${encodeURIComponent(id)}&select=doc`);
+  return row?.doc || null;
+}
+async function signUpload(ref) {
+  if (r2On) return { store: 'r2', uploadUrl: presign('PUT', ref, { expires: 900 }), headers: {} };
+  const r = await storage(`object/upload/sign/${BUCKET}/${enc(ref)}`, {});
+  if (!r.url) throw new Error('storage: no upload url');
+  return { store: 'supabase', uploadUrl: `${SB_URL}/storage/v1${r.url}`, headers: { 'x-upsert': 'false' } };
+}
 const safe = (s) => String(s || 'file').normalize('NFKD').replace(/[^\w.-]+/g, '_').slice(-120) || 'file';
 const enc = (ref) => ref.split('/').map(encodeURIComponent).join('/');
 
@@ -55,14 +79,53 @@ export async function POST(req) {
       const clearance = Math.max(0, Math.min(2, +body.clearance || 0));
       if (clearance > level(m)) return json(403, { error: 'level', message: 'Гриф вищий за ваш допуск' });
       if (!(+body.size > 0) || +body.size > MAX) return json(413, { error: 'size', message: 'Файл порожній або більший за 50 МБ' });
-      const division = DIVS.includes(body.division) ? body.division : 'int';
-      const id = `x-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
-      const ref = `att/${division}/${id}/${safe(body.name)}`;
-      if (r2On) return json(200, { id, ref, store: 'r2', uploadUrl: presign('PUT', ref, { expires: 900 }), headers: {} });
-      const r = await storage(`object/upload/sign/${BUCKET}/${enc(ref)}`, {});
-      if (!r.url) throw new Error('storage: no upload url');
-      return json(200, { id, ref, store: 'supabase', uploadUrl: `${SB_URL}/storage/v1${r.url}`, headers: { 'x-upsert': 'false' } });
+      // A Vault body (the card is filed afterwards with op 'index') or a record's attachment.
+      const vault = body.dir != null || body.id != null;
+      const id = vault && okId(body.id) ? body.id : `x-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
+      if (vault && await cardOf(id)) return json(409, { error: 'exists', message: 'Файл з таким номером уже є' });
+      const ref = vault ? `${cleanDir(body.dir)}/${id}/${safe(body.name)}` : `att/${DIVS.includes(body.division) ? body.division : 'int'}/${id}/${safe(body.name)}`;
+      return json(200, { id, ref, ...(await signUpload(ref)) });
     }
+
+    if (body.op === 'index') {
+      const f = body.meta || {};
+      if (!okId(f.id) || !ownRef(f.ref, f.id)) return json(400, { error: 'meta', message: 'Неправильна картка файлу' });
+      const clearance = Math.max(0, Math.min(2, +f.clearance || 0));
+      if (clearance > level(m)) return json(403, { error: 'level', message: 'Гриф вищий за ваш допуск' });
+      const old = await cardOf(f.id);
+      if (old && !mayRead(m, old)) return json(403, { error: 'level', message: 'Гриф вищий за ваш допуск' });
+      const folder = f.folder ? await folderOf(f.folder) : null;
+      if (f.folder && !folder) return json(404, { error: 'folder', message: 'Папку не знайдено' });
+      if (!mayFolder(m, folder)) return json(403, { error: 'level', message: 'Гриф папки вищий за ваш допуск' });
+      // Who filed it, where its body is and when are fixed; a new card is filed under the caller.
+      const fixed = old
+        ? { ref: old.ref, store: old.store, owner: old.owner, ownerName: old.ownerName, at: old.at }
+        : { owner: m.id, ownerName: m.doc?.name || '', at: new Date().toISOString(), store: f.store === 'r2' && r2On ? 'r2' : 'supabase' };
+      const card = { ...f, clearance, sealed: !!f.sealed, stored: true, backend: 'supabase', ...fixed };
+      await db('vault_files?on_conflict=id', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: { id: card.id, doc: card } });
+      return json(200, { ok: true, meta: card });
+    }
+
+    if (body.op === 'list') {
+      const [files, folders] = await Promise.all([db('vault_files?select=doc'), db('vault_folders?select=doc')]);
+      const mine = (m.doc?.basis || []);
+      return json(200, {
+        files: files.map((r) => r.doc).filter((f) => f && (+f.clearance || 0) <= level(m))
+          // A sealed card is listed, but its text only for its owner or someone with a basis for it.
+          .map((f) => (f.sealed && f.owner !== m.id && !mine.includes(f.id) ? { ...f, text: undefined } : f)),
+        folders: folders.map((r) => r.doc).filter(Boolean),
+      });
+    }
+
+    if (body.op === 'folder') {
+      const f = body.folder || {};
+      if (!okId(f.id) || !String(f.name || '').trim()) return json(400, { error: 'folder', message: 'Неправильна папка' });
+      if ((+f.clearance || 0) > level(m)) return json(403, { error: 'level', message: 'Гриф папки вищий за ваш допуск' });
+      await db('vault_folders?on_conflict=id', { method: 'POST', prefer: 'resolution=ignore-duplicates,return=minimal', body: { id: f.id, doc: { ...f, clearance: Math.max(0, Math.min(2, +f.clearance || 0)) } } });
+      return json(200, { ok: true });
+    }
+
+    if (body.op === 'info') return json(200, { store: r2On ? 'r2' : 'supabase', quota: (r2On ? 10 : 0) * GiB + (+env.STORAGE_QUOTA_GB || 1) * GiB });
 
     if (body.op === 'commit') {
       const f = body.meta || {};
