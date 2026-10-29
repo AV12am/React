@@ -130,13 +130,15 @@ begin
 end $$;
 
 -- The caller's member record, or null: not signed in, not a member, suspended, coming from an address
--- their card does not allow, or — while
+-- their card does not allow (unless this session is confirmed with their passkey), or — while
 -- require_passkey is on — this sign-in session has not been confirmed with a passkey.
 create or replace function public.core_me() returns jsonb
 language sql stable security definer set search_path = public as $$
   select m.doc || jsonb_build_object('id', m.id) from public.core_members m
   where m.email = public.core_email() and coalesce(m.doc ->> 'status', 'active') <> 'suspended'
-    and public.core_ip_ok(m.doc)
+    and (public.core_ip_ok(m.doc)
+         or exists (select 1 from public.core_verified v
+                    where v.session_id = public.core_session() and v.member_id = m.id and v.expires_at > now()))
     and (
       coalesce((select (value #>> '{}')::boolean from public.core_settings where key = 'require_passkey'), true) = false
       or exists (select 1 from public.core_verified v

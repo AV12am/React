@@ -21,7 +21,8 @@ export async function db(path, { method = 'GET', body, prefer } = {}) {
 // A signed-in member whose session is confirmed with a passkey (same rule as the database's).
 // Two round trips instead of four: who the token is, then the member, the passkey setting and the session's
 // confirmation together. A warm function remembers the answer for a token for 30 seconds — the IP check runs
-// every time, and a suspension or an ended session takes effect within that half-minute.
+// every time, and a suspension or an ended session takes effect within that half-minute. A session confirmed
+// with the person's passkey is let in from any address: the key, not the address, proves the device.
 const seen = new Map(); // token → { m, at }
 const FRESH = 30000;
 export async function caller(req) {
@@ -31,7 +32,7 @@ export async function caller(req) {
   const m = hit && Date.now() - hit.at < FRESH ? hit.m : await lookup(token);
   if (!hit || hit.m !== m) { if (seen.size > 500) seen.clear(); if (m) seen.set(token, { m, at: Date.now() }); }
   if (!m) return null;
-  if (!ipAllowed(m.doc, clientIp(req))) return null; // the person's access is limited to their devices' addresses
+  if (!m.viaKey && !ipAllowed(m.doc, clientIp(req))) return null; // the person's access is limited to their devices' addresses
   return m;
 }
 async function lookup(token) {
@@ -45,7 +46,8 @@ async function lookup(token) {
     db(`core_verified?session_id=eq.${encodeURIComponent(sid || '')}&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=member_id`).catch(() => []),
   ]);
   if (!m || m.doc?.status === 'suspended') return null;
-  if (need?.value !== false && need?.value !== 'false' && !(ok || []).some((r) => r.member_id === m.id)) return null;
-  return m;
+  const viaKey = (ok || []).some((r) => r.member_id === m.id);
+  if (need?.value !== false && need?.value !== 'false' && !viaKey) return null;
+  return { ...m, viaKey };
 }
 

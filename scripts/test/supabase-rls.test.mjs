@@ -143,8 +143,13 @@ await headers('2001:db8::7');
 r = await as('low@x.ua', () => tryq(`select count(*)::int n from core_members`));
 ok('allowed IPv6 gets in', r.ok && r.rows[0].n > 0);
 await headers('198.51.100.9');
-r = await as('low@x.ua', () => tryq(`select count(*)::int n from core_members`));
+await db.exec(`insert into core_settings (key, value) values ('require_passkey', 'false') on conflict (key) do update set value = excluded.value`);
+const fresh = '00000000-0000-4000-8000-0000000000ff'; // a sign-in not confirmed with a passkey
+r = await as('low@x.ua', () => tryq(`select count(*)::int n from core_members`), fresh);
 ok('other address reads nothing', r.ok && r.rows[0].n === 0, JSON.stringify(r.rows));
+r = await as('low@x.ua', () => tryq(`select count(*)::int n from core_members`));
+ok('other address with a passkey-confirmed session gets in', r.ok && r.rows[0].n > 0, JSON.stringify(r.rows));
+await db.exec(`delete from core_settings where key = 'require_passkey'`);
 r = await as('low@x.ua', () => tryq(`select public.core_my_ip() as ip`));
 ok('my address as the database sees it', r.ok && r.rows[0].ip === '198.51.100.9', JSON.stringify(r.rows || r.err));
 r = await as('lead@x.ua', () => tryq(`select count(*)::int n from core_members`));
@@ -153,8 +158,10 @@ await headers('203.0.113.50');
 r = await as('low@x.ua', () => tryq(`update core_members set doc = doc - 'ips' where id='u04'`));
 ok('nobody lifts their own IP limit', !r.ok, r.err);
 await db.exec(`update core_members set doc = doc || '{"ips":["not-an-ip"]}' where id='u04'`);
-r = await as('low@x.ua', () => tryq(`select count(*)::int n from core_members`));
+await db.exec(`insert into core_settings (key, value) values ('require_passkey', 'false') on conflict (key) do update set value = excluded.value`);
+r = await as('low@x.ua', () => tryq(`select count(*)::int n from core_members`), fresh);
 ok('an unreadable entry lets nobody in', r.ok && r.rows[0].n === 0);
+await db.exec(`delete from core_settings where key = 'require_passkey'`);
 await db.exec(`update core_members set doc = doc - 'ips' where id='u04'`);
 await headers(null);
 

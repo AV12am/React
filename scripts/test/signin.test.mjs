@@ -11,12 +11,14 @@ test('signin by name', async () => {
     { email: 'ivan2@x.test', doc: { name: 'Іван', code: 'V-003', status: 'active' } },
     { email: 'old@x.test', doc: { name: 'Олег', code: 'V-004', status: 'suspended' } },
     { email: 'ira@x.test', doc: { name: 'Ірина', code: 'V-005', status: 'active', ips: [{ ip: '203.0.113.0/24' }] } },
+    { id: 'u-lina', email: 'lina@x.test', doc: { name: 'Ліна', code: 'V-006', status: 'active', ips: [{ ip: '203.0.113.0/24' }] } },
   ];
   const tried = [];
   const real = globalThis.fetch;
   globalThis.fetch = async (url, opts = {}) => {
     const u = String(url);
     if (u.includes('core_members?email=eq.')) return new Response(JSON.stringify(members.filter((m) => m.email === decodeURIComponent(u.split('email=eq.')[1].split('&')[0]))));
+    if (u.includes('core_passkeys?member_id=eq.')) return new Response(JSON.stringify(u.includes('u-lina') ? [{ id: 'k1' }] : []));
     if (u.includes('core_members')) return new Response(JSON.stringify(members));
     if (u.includes('/auth/v1/logout')) { tried.push('logout'); return new Response(null, { status: 204 }); }
     if (u.includes('/auth/v1/token')) {
@@ -33,6 +35,8 @@ test('signin by name', async () => {
     const [st, denied] = await call('Ірина', 'right', '198.51.100.1');
     assert.equal(st, 403); assert.equal(denied.error, 'ip'); assert.ok(!denied.access_token); assert.equal(tried.at(-1), 'logout');
     assert.equal((await call('Ірина', 'wrong', '198.51.100.1'))[1].error, 'invalid_credentials');
+    // with a passkey the session is handed out from another address too: the key step confirms it
+    assert.equal((await call('Ліна', 'right', '198.51.100.1'))[1].user.email, 'lina@x.test');
     assert.equal((await call('  анна   коваль '))[1].user.email, 'anna@x.test');
     assert.equal((await call('v-001'))[1].user.email, 'anna@x.test');
     assert.equal((await call('anna'))[1].user.email, 'anna@x.test');

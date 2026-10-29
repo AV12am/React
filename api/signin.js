@@ -36,11 +36,12 @@ export async function POST(req) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return json(res.status === 429 ? 429 : 400, res.status === 429 ? { error: 'over_request_rate_limit', message: 'Too many attempts' } : WRONG);
-    // Only after the right password: is this device's address allowed for the person? If not, the new
-    // session is ended at once and never handed out.
+    // Only after the right password: is this device's address allowed for the person? If not, and they have
+    // no passkey to confirm the sign-in with, the new session is ended at once and never handed out.
     const ip = clientIp(req);
-    const [m] = await db(`core_members?email=eq.${encodeURIComponent(email)}&select=doc`);
-    if (m && !ipAllowed(m.doc, ip)) {
+    const [m] = await db(`core_members?email=eq.${encodeURIComponent(email)}&select=id,doc`);
+    const keyed = async () => ((await db(`core_passkeys?member_id=eq.${encodeURIComponent(m.id)}&select=id&limit=1`).catch(() => [])) || []).length > 0;
+    if (m && !ipAllowed(m.doc, ip) && !(await keyed())) {
       await fetch(`${SB_URL}/auth/v1/logout`, { method: 'POST', headers: { apikey: ANON, Authorization: `Bearer ${data.access_token}` } }).catch(() => {});
       return json(403, { error: 'ip', message: `Вхід з адреси ${ip || 'невідомої'} для цього доступу не дозволено`, ip });
     }
