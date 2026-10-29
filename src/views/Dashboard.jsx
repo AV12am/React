@@ -7,6 +7,7 @@ import { STORAGE_QUOTA, VISIBLE_DIVISIONS as DIVISIONS } from '../data/seed.js';
 import { BriefPanel } from './Brief.jsx';
 import { TasksPanel } from './Team.jsx';
 import { LOCALE } from '../lib/locale.js';
+import { Pulse } from '../components/Pulse.jsx';
 
 const TYPE_LABEL = { auth: 'Вхід', access: 'Доступ', vault: 'Сховище', map: 'Карта', work: 'Напрями', security: 'Безпека', system: 'Система' };
 
@@ -66,6 +67,7 @@ export function Dashboard({ go }) {
         </Status>
       </header>
 
+      <Pulse go={go} />
       <BriefPanel go={go} />
       <TasksPanel go={go} />
 
