@@ -178,15 +178,16 @@ export const WORKSPACES = {
         ],
       },
       {
-        // Hidden for now (kept with their data): key judgments: each with a probability and its basis. A «Прогноз» is checked on its date — that feeds calibration.
-        id: 'judgments', name: 'Судження', one: 'судження', icon: 'target', title: 'statement', level: 1, hidden: true,
+        // «Форсайти»: forecasts and key judgments, each with a probability and its basis. A «Прогноз» is checked on
+        // its date — that feeds calibration — and stands on the anxiety index's time line on the overview.
+        id: 'judgments', name: 'Форсайти', one: 'форсайт', icon: 'target', title: 'statement', level: 1,
         fields: [
-          { id: 'statement', label: 'Судження', type: 'text', required: true, hint: 'Одне речення, яке можна перевірити: що, де, до коли.' },
+          { id: 'statement', label: 'Що очікуємо', type: 'text', required: true, create: true, hint: 'Одне речення, яке можна перевірити: що, де, до коли.' },
           { id: 'product', label: 'Продукт', type: 'ref', ref: 'products', list: true },
-          { id: 'kind', label: 'Тип', type: 'select', list: true, required: true, options: ['Оцінка', 'Прогноз'] },
-          { id: 'probability', label: 'Ймовірність', type: 'percent', list: true, required: true },
+          { id: 'kind', label: 'Тип', type: 'select', list: true, required: true, create: true, options: ['Прогноз', 'Оцінка'] },
+          { id: 'probability', label: 'Ймовірність', type: 'percent', list: true, required: true, create: true },
           { id: 'confidence', label: 'Упевненість', type: 'select', list: true, options: ['Низька', 'Помірна', 'Висока'] },
-          { id: 'due', label: 'Дата перевірки', type: 'date', list: true, hint: 'Для прогнозу: коли стане відомо, чи справдився.' },
+          { id: 'due', label: 'Дата перевірки', type: 'date', list: true, create: true, hint: 'Для прогнозу: коли стане відомо, чи справдився. На головній — позначка на шкалі тривожності.' },
           { id: 'outcome', label: 'Результат', type: 'select', list: true, options: OUTCOMES },
           { id: 'analyst', label: 'Аналітик', type: 'user', list: true },
           { id: 'basis', label: 'Підстави — звідки ми це знаємо', type: 'links', refs: [['int', 'intake'], ['int', 'sources'], ['int', 'orgs']] },

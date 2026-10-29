@@ -198,7 +198,7 @@ function RecordDrawer({ d, reg, record, access, onClose, go, onCreated, startEdi
   const [editing, setEditing] = useState(isNew || startEditing);
   const [draft, setDraft] = useState(() => (record ? { ...record } : {
     stage: reg.stages?.[0] ?? null, clearance: Math.min(reg.level, me.clearance),
-    ...(reg.id === 'judgments' ? { probability: 50, outcome: 'Відкрито', analyst: me.id } : {}),
+    ...(reg.id === 'judgments' ? { kind: 'Прогноз', probability: 50, outcome: 'Відкрито', analyst: me.id } : {}),
     ...(reg.id === 'watchlists' ? { state: 'Активний', owner: me.id } : {}),
   }));
   const [armed, setArmed] = useState(false);
