@@ -8,6 +8,7 @@ import { upload, bodyOf, remove, kindOf, cardForRecord } from '../lib/attach.js'
 import { imageUrl } from '../lib/imgurl.js';
 import { ask } from './Dialog.jsx';
 import { canExport } from '../data/clearance.js';
+import { saveFile } from '../lib/io.js';
 import { Watermark } from './Watermark.jsx';
 
 const LABEL = { pdf: 'PDF', docx: 'Word', doc: 'Word (.doc)', xlsx: 'Excel', video: 'Відео', audio: 'Аудіо', text: 'Текст', other: 'Файл', image: 'Фото' };
@@ -158,6 +159,8 @@ export function FileViewer({ files, start = 0, onClose }) {
     return () => window.removeEventListener('keydown', h);
   }, [files.length]);
   if (!f) return null;
+  // Saving goes through the system's own sheet on phones (a plain download link does nothing in an installed app).
+  const save = async () => { const r = await saveFile(f.name, blob); if (r !== 'saved' && r !== 'declined') window.open(url, '_blank'); };
   return (
     <div className="fv" role="dialog" aria-modal="true" aria-label={`Перегляд: ${f.name}`}>
       <header className="fv__bar">
@@ -167,8 +170,8 @@ export function FileViewer({ files, start = 0, onClose }) {
           <button className="vx-btn vx-btn--ghost vx-btn--sm" disabled={i === files.length - 1} onClick={() => setI(i + 1)} aria-label="Наступний">›</button>
         </>}
         {/* NOX and sealed documents never leave the system: viewing only. */}
-        {url && canExport(f) && <a className="vx-btn vx-btn--sm" href={url} download={f.name}><Icon name="download" /> Завантажити</a>}
-        <button className="vx-btn vx-btn--ghost vx-btn--icon" onClick={onClose} aria-label="Закрити"><Icon name="close" /></button>
+        {url && canExport(f) && <button className="vx-btn vx-btn--sm fv__wide" onClick={save}><Icon name="download" /> Завантажити</button>}
+        <button className="vx-btn vx-btn--ghost vx-btn--icon fv__wide" onClick={onClose} aria-label="Закрити"><Icon name="close" /></button>
       </header>
       {url && f.clearance > 0 && <Watermark strong={f.clearance > 1 || f.sealed} />}
       <div className="fv__body" key={f.id}>
@@ -189,6 +192,13 @@ export function FileViewer({ files, start = 0, onClose }) {
                             </div>
                           )}
       </div>
+      {/* Phone: the controls under the thumb, clear of the status bar. */}
+      <footer className="fv__dock">
+        {files.length > 1 && <button className="vx-btn vx-btn--ghost" disabled={i === 0} onClick={() => setI(i - 1)} aria-label="Попередній">‹</button>}
+        {url && canExport(f) && <button className="vx-btn" onClick={save}><Icon name="download" /> Завантажити</button>}
+        {files.length > 1 && <button className="vx-btn vx-btn--ghost" disabled={i === files.length - 1} onClick={() => setI(i + 1)} aria-label="Наступний">›</button>}
+        <button className="vx-btn vx-btn--primary" onClick={onClose}><Icon name="close" /> Закрити</button>
+      </footer>
     </div>
   );
 }

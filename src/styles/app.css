@@ -880,7 +880,13 @@ kbd {
 .att-tile__x { position: absolute; top: 2px; right: 2px; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: rgba(0, 0, 0, .65); color: #fff; border: 0; cursor: pointer; }
 .att-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 
-.fv { position: fixed; inset: 0; z-index: 90; display: grid; grid-template-rows: auto 1fr; background: var(--bg); }
+.fv { position: fixed; inset: 0; z-index: 90; display: grid; grid-template-rows: auto 1fr auto; background: var(--bg); padding-top: env(safe-area-inset-top, 0px); }
+.fv__dock { display: none; }
+@media (max-width: 700px) {
+  .fv__wide { display: none; }
+  .fv__dock { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); background: var(--surface); }
+  .fv__dock .vx-btn--primary { flex: 1; }
+}
 .fv__bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
 .fv__title { display: grid; min-width: 0; flex: 1; }
 .fv__title b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
