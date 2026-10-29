@@ -86,7 +86,10 @@ function Root() {
   const done = useCallback(() => setBooted(true), []);
 
   useEffect(() => {
-    document.body.style.background = state.settings.theme === 'paper' ? '#ffffff' : '#0a0a0a';
+    const bg = state.settings.theme === 'paper' ? '#ffffff' : '#0a0a0a';
+    document.body.style.background = bg;
+    // The phone's status bar takes the page's colour (a dark bar over a light page reads as a curtain).
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg);
   }, [state.settings.theme]);
 
   // A remembered confirmation is re-checked with the server once per load.

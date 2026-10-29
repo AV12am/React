@@ -10,6 +10,9 @@ import { storageError } from '../lib/storage.js';
 import { extractText } from '../lib/textract.js';
 import { LOCALE } from '../lib/locale.js';
 import { DateInput } from '../components/DateInput.jsx';
+import { DocxView, XlsxView, FileViewer } from '../components/Attachments.jsx';
+import { Watermark } from '../components/Watermark.jsx';
+import { kindOf } from '../lib/attach.js';
 
 const STORE_LABEL = { local: 'Цей пристрій (IndexedDB)', artifact: 'Сховище Reaction (claude.ai)', supabase: 'Supabase Storage' };
 
@@ -376,13 +379,6 @@ function Lowering({ f }) {
 }
 
 // Who is looking, and when — repeated across the preview, so a photo of the screen carries it.
-function Watermark({ strong }) {
-  const { me } = useStore();
-  const stamp = `${me.name} · ${me.code} · ${new Date().toLocaleString(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
-  const esc = stamp.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='360' height='180'><text x='0' y='120' transform='rotate(-24 0 120)' font-family='Georgia,serif' font-size='15' fill='${strong ? 'rgba(192,90,105,.30)' : 'rgba(160,160,160,.18)'}'>${esc}</text></svg>`;
-  return <div className="watermark" aria-hidden="true" style={{ backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")` }} />;
-}
 
 // PDF pages drawn in the platform (first pages), so a document can be read without leaving it.
 function PdfPreview({ blob }) {
@@ -431,6 +427,7 @@ function FileDrawer({ id, onClose }) {
   const [url, setUrl] = useState(null);
   const [armed, setArmed] = useState(false);
   const [ready, setReady] = useState(false); // keep the loader on screen long enough to be seen
+  const [full, setFull] = useState(false);
 
   useEffect(() => {
     if (!opened) return undefined;
@@ -452,6 +449,9 @@ function FileDrawer({ id, onClose }) {
   if (!f) return null;
   const canDelete = perms.vault >= 3 || (perms.vault >= 2 && f.owner === me.id);
   const exportable = canExport(f);
+  // What can be read right here, before (or instead of) downloading.
+  const kind = kindOf(f);
+  const shown = !!blob && (/^image\//.test(blob.type) || kind === 'pdf' || kind === 'docx' || kind === 'xlsx' || kind === 'video' || kind === 'audio' || text != null);
 
   const download = async () => {
     if (!blob || !exportable) return;
@@ -484,12 +484,18 @@ function FileDrawer({ id, onClose }) {
         ) : <>
           {blob && url && /^image\//.test(blob.type) && <img src={url} alt={f.name} draggable={!gated} />}
           {blob && (blob.type === 'application/pdf' || /\.pdf$/i.test(f.name)) && <PdfPreview blob={blob} />}
+          {blob && kind === 'docx' && <div className="preview__doc"><DocxView blob={blob} /></div>}
+          {blob && kind === 'xlsx' && <div className="preview__doc"><XlsxView blob={blob} name={f.name} /></div>}
+          {blob && url && kind === 'video' && <video className="preview__media" src={url} controls controlsList={exportable ? undefined : 'nodownload'} />}
+          {blob && url && kind === 'audio' && <audio src={url} controls controlsList={exportable ? undefined : 'nodownload'} />}
           {text != null && <pre className="vx-mono">{text}</pre>}
           {blob && <Watermark strong={gated || f.clearance > 0} />}
-          {blob && !text && !/^image\//.test(blob.type) && !(blob.type === 'application/pdf' || /\.pdf$/i.test(f.name)) && <div className="vx-empty"><Loader still size={56} label={f.name} /><div>Попередній перегляд недоступний для цього формату</div>{!exportable && <div className="vx-hint">Файл цього рівня не виноситься з системи.</div>}</div>}
+          {blob && !shown && <div className="vx-empty"><Loader still size={56} label={f.name} /><div>Попередній перегляд недоступний для цього формату</div>{!exportable && <div className="vx-hint">Файл цього рівня не виноситься з системи.</div>}</div>}
           {blob === null && <div className="vx-empty"><Loader still size={56} label={f.name} /><div>Вміст недоступний</div><div className="vx-hint">Файл не знайдено в сховищі «{backend?.label}». Можливо, його видалили або він зберігався на іншому пристрої.</div></div>}
         </>}
       </div>
+      {opened && blob && shown && <button className="vx-btn vx-btn--sm" onClick={() => setFull(true)}><Icon name="expand" /> На весь екран</button>}
+      {full && <FileViewer files={[f]} onClose={() => setFull(false)} />}
       <dl className="meta">
         <dt>Номер</dt><dd className="vx-mono">{f.number ?? '—'}</dd>
         <dt>Гриф</dt><dd><ClassBadge level={f.clearance} sealed={f.sealed} /></dd>

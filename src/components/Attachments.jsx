@@ -7,6 +7,8 @@ import { Loader } from '../brand/Mark.jsx';
 import { upload, bodyOf, remove, kindOf, cardForRecord } from '../lib/attach.js';
 import { imageUrl } from '../lib/imgurl.js';
 import { ask } from './Dialog.jsx';
+import { canExport } from '../data/clearance.js';
+import { Watermark } from './Watermark.jsx';
 
 const LABEL = { pdf: 'PDF', docx: 'Word', doc: 'Word (.doc)', xlsx: 'Excel', video: 'Відео', audio: 'Аудіо', text: 'Текст', other: 'Файл', image: 'Фото' };
 
@@ -87,7 +89,7 @@ function PdfView({ blob }) {
   return <><div className="vx-hint fv-info">{info || 'Відкриваю…'}</div><div ref={box} className="fv-pdf" /></>;
 }
 
-function DocxView({ blob }) {
+export function DocxView({ blob }) {
   const box = useRef(null);
   const [err, setErr] = useState('');
   useEffect(() => {
@@ -102,7 +104,7 @@ function DocxView({ blob }) {
   return <>{err && <div className="vx-error">{err}</div>}<div ref={box} className="fv-docx" /></>;
 }
 
-function XlsxView({ blob, name }) {
+export function XlsxView({ blob, name }) {
   const [t, setT] = useState(null);
   const [err, setErr] = useState('');
   useEffect(() => {
@@ -162,9 +164,11 @@ export function FileViewer({ files, start = 0, onClose }) {
           <button className="vx-btn vx-btn--ghost vx-btn--sm" disabled={i === 0} onClick={() => setI(i - 1)} aria-label="Попередній">‹</button>
           <button className="vx-btn vx-btn--ghost vx-btn--sm" disabled={i === files.length - 1} onClick={() => setI(i + 1)} aria-label="Наступний">›</button>
         </>}
-        {url && <a className="vx-btn vx-btn--sm" href={url} download={f.name}><Icon name="download" /> Завантажити</a>}
+        {/* NOX and sealed documents never leave the system: viewing only. */}
+        {url && canExport(f) && <a className="vx-btn vx-btn--sm" href={url} download={f.name}><Icon name="download" /> Завантажити</a>}
         <button className="vx-btn vx-btn--ghost vx-btn--icon" onClick={onClose} aria-label="Закрити"><Icon name="close" /></button>
       </header>
+      {url && f.clearance > 0 && <Watermark strong={f.clearance > 1 || f.sealed} />}
       <div className="fv__body" key={f.id}>
         {error ? <div className="vx-error">{error}</div>
           : !url ? <div className="fv__wait"><Loader size={28} /></div>
