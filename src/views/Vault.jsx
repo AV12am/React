@@ -189,7 +189,6 @@ function RuleFields({ level, rule, setRule, idp }) {
       </div>
       {rule.kind === 'date' && <DateInput id={`${idp}-date`} value={rule.at || ''} min={new Date().toISOString().slice(0, 10)} onChange={(v) => setRule({ ...rule, at: v })} label="Дата зниження" />}
       {rule.kind === 'event' && <input id={`${idp}-event`} className="vx-input" placeholder="Напр.: публікація звіту замовником" value={rule.text || ''} onChange={(e) => setRule({ ...rule, text: e.target.value })} aria-label="Подія, після якої гриф знижується" />}
-      <div className="vx-hint">Коли умова настане, документ буде позначено «до зниження»; знижує людина, на один крок.</div>
     </div>
   );
 }
@@ -259,7 +258,6 @@ function UploadModal({ files, folder, onClose }) {
     if (done) toast(`Завантажено: ${done} ${done === 1 ? 'файл' : 'файли'}`);
     onClose();
   };
-  const l = levelOf(level);
   return (
     <Modal onClose={onClose} label="Завантаження файлів">
       <div className="vx-drawer__head"><h2 className="vx-h2">Завантаження в «{folder.name}»</h2></div>
@@ -277,14 +275,12 @@ function UploadModal({ files, folder, onClose }) {
           <select id="lvl" className="vx-select" value={level} onChange={(e) => { setLevel(+e.target.value); setRule({ kind: 'none' }); }}>
             {CLEARANCE.filter((c) => c.id >= folder.clearance && c.id <= me.clearance).map((c) => <option key={c.id} value={c.id}>{c.full}</option>)}
           </select>
-          <div className="vx-hint"><b>{l.name}:</b> {l.rule} Гриф не нижчий за гриф папки й не вищий за ваш допуск.</div>
         </div>
         <label className="vx-check">
           <input type="checkbox" checked={sealed} onChange={(e) => setSealed(e.target.checked)} />
-          <span><SealBadge /> <span className="vx-hint">{SEAL.gloss}. {SEAL.rule} Інша категорія, не ступінь: про придатність змісту до сприйняття.</span></span>
+          <span><SealBadge /></span>
         </label>
         <RuleFields level={level} rule={rule} setRule={setRule} idp="up" />
-        <div className="vx-hint">Позначка рівня входить у номер документа — вона не загубиться при пересиланні.</div>
       </div>
       <div className="vx-drawer__foot">
         <button className="vx-btn vx-btn--ghost" onClick={onClose}>Скасувати</button>

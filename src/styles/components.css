@@ -26,16 +26,14 @@
 }
 .vx-h1 { font: 600 40px/44px var(--font-display); letter-spacing: 0.005em; margin: 0; text-wrap: balance; }
 .vx-h2 { font: 600 26px/30px var(--font-display); letter-spacing: 0.005em; margin: 0; text-wrap: balance; }
-/* Small-caps label with the rhombus from the mark — the house style for section eyebrows. */
+/* Small-caps label for section eyebrows (plain: no rhombus). */
 .vx-eyebrow {
   font: 600 15px/20px var(--font-text);
   font-variant-caps: small-caps; letter-spacing: 0.03em;
   color: var(--ink-3);
 }
-.vx-eyebrow::before {
-  content: ""; display: inline-block; width: 5px; height: 5px; margin: 0 10px 3px 1px;
-  transform: rotate(45deg); background: var(--rhomb); vertical-align: middle;
-}
+/* Forms stay plain: the explanatory grey line under a field is not shown (errors still are). */
+.vx-field .vx-hint:not(.ws-bad):not(.vx-error) { display: none; }
 .vx-muted { color: var(--ink-3); }
 .vx-mono { font-family: var(--font-mono); font-size: 12.5px; letter-spacing: 0; }
 .vx-num { font-variant-numeric: lining-nums tabular-nums; }

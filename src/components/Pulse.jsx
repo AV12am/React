@@ -60,7 +60,7 @@ function Chart({ index, ahead, marks, months, go }) {
   const near = hover ? shown.filter((m) => Math.abs(ts(m.date) - ts(hover.date)) <= 1.5 * DAY) : [];
   return (
     <div className="pulse__chart" ref={box}>
-      <svg width={W} height={H + LANE} role="img" aria-label={`Індекс тривожності: зараз ${last?.value ?? '—'} зі 100`}>
+      <svg width={W} height={H + LANE} role="img" aria-label={`Геополітичний ризик: зараз ${last?.value ?? '—'} зі 100`}>
         {[0, 25, 50, 75, 100].map((v) => (
           <g key={v}>
             <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} className={v === 50 ? 'pulse__mid' : 'pulse__grid'} />
@@ -143,7 +143,7 @@ export function Pulse({ go }) {
   const delta = now && week ? Math.round(now.value - week.value) : null;
 
   return (
-    <Panel className="pulse" title="Індекс тривожності · світ"
+    <Panel className="pulse" title="Геополітичний ризик · GPR"
       action={<div className="toolbar">
         <div className="segmented" role="group" aria-label="Період">
           {[[1, '1 міс'], [3, '3 міс']].map(([m, l]) => <button key={m} className={months === m ? 'is-active' : ''} onClick={() => setMonths(m)}>{l}</button>)}

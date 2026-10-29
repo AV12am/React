@@ -209,7 +209,7 @@ export function FileViewer({ files, start = 0, onClose }) {
  * value: card ids; onChange(ids) saves the new list. Uploading files them right away (in `division`'s
  * attachment folder, at `clearance`); removing one also deletes it from the store.
  */
-export function Attachments({ value, onChange, canEdit, clearance = 0, division = 'int', record = null, hint }) {
+export function Attachments({ value, onChange, canEdit, clearance = 0, division = 'int', record = null }) {
   const ctx = useStore();
   const { state, me, toast, refused } = ctx;
   const input = useRef(null);
@@ -255,7 +255,6 @@ export function Attachments({ value, onChange, canEdit, clearance = 0, division 
           <button type="button" className="vx-btn vx-btn--sm" disabled={busy} onClick={() => input.current.click()}>
             {busy ? <><Loader size={16} /> Завантажую…</> : <><Icon name="upload" /> Додати фото чи документи</>}
           </button>
-          <span className="vx-hint">{hint || 'Або перетягніть файли сюди. PDF, Word, Excel, фото, відео — до 50 МБ.'}</span>
         </div>
       )}
       {view != null && <FileViewer files={ordered} start={view} onClose={() => setView(null)} />}

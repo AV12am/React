@@ -149,10 +149,6 @@ function IpList({ value, onChange, readOnly, self }) {
   return (
     <div className="stack">
       <div className="vx-eyebrow">Дозволені IP-адреси пристроїв</div>
-      <div className="vx-hint">
-        {rules.length ? 'Вхід і робота з цим доступом — лише з цих адрес. Інші адреси відхиляє сервер і база, навіть з правильним паролем і ключем.' : 'Список порожній — вхід з будь-якої адреси. Додайте адреси пристроїв, щоб обмежити доступ.'}
-        {!supabaseOn && ' Діє, коли платформа працює із сервером (Supabase).'}
-      </div>
       {!!rules.length && (
         <div className="list">
           {rules.map((r) => (
@@ -235,7 +231,6 @@ function PasswordAdmin({ u }) {
         <div className="toolbar">
           <button type="button" className="vx-btn vx-btn--primary vx-btn--sm" disabled={busy || !!passwordProblem(pw)} onClick={save}>{busy ? <Loader size={16} /> : <><Icon name="check" /> {u.email ? 'Встановити пароль' : 'Немає пошти'}</>}</button>
         </div>
-        <div className="vx-hint">{`Вхід — за ім’ям, кодом (${u.code}) або поштою${u.email ? ` (${u.email})` : ''} з цим паролем, далі ключ доступу. Пароль ніде не зберігається у відкритому вигляді.`}</div>
       </>}
       {err && <div className="vx-error">{err}</div>}
     </div>
@@ -260,7 +255,6 @@ function KeyAccess({ u }) {
         <div className="vx-hint">Передайте код особисто. Діє {code.expiresHours} год, один раз. Людина вводить його після пароля й прив’язує свій пристрій Face ID / Touch ID / Windows Hello.</div>
         <button className="vx-btn vx-btn--sm" onClick={() => copyText(code.code)}><Icon name="copy" /> Скопіювати</button>
       </> : <>
-        <div className="vx-hint">Лише ви можете видати код прив’язки або скинути ключі, якщо пристрій втрачено.</div>
         <div className="toolbar">
           <button className="vx-btn vx-btn--sm" disabled={busy} onClick={() => run(false)}><Icon name="key" /> Видати код прив’язки</button>
           <button className="vx-btn vx-btn--sm vx-btn--danger" disabled={busy} onClick={() => run(true)} onBlur={() => setArmed(false)}>{armed ? 'Точно скинути всі ключі?' : 'Скинути ключі й видати код'}</button>
@@ -315,7 +309,6 @@ function EditUser({ id, onClose, readOnly: ro }) {
           <select id="clearance" className="vx-select" value={draft.clearance} disabled={readOnly} onChange={(e) => set('clearance')(+e.target.value)}>
             {CLEARANCE.filter((c) => c.id <= me.clearance).map((c) => <option key={c.id} value={c.id}>{c.full}</option>)}
           </select>
-          {!readOnly && <div className="vx-hint">Можна надати допуск не вищий за власний.</div>}
         </div>
         <div className="vx-field">
           <label className="vx-label" htmlFor="status">Статус</label>
@@ -389,9 +382,6 @@ function Invite({ onClose }) {
           <select id="c" className="vx-select" value={f.clearance} onChange={set('clearance')}>{CLEARANCE.filter((c) => c.id <= me.clearance).map((c) => <option key={c.id} value={c.id}>{c.full}</option>)}</select></div>
       </div>
       {withPassword && <PasswordField value={pw} onChange={setPw} id="pw-new" />}
-      {supabaseOn
-        ? <p className="vx-hint">{withPassword ? 'З паролем вхід створюється одразу: людина входить за ім’ям, кодом або поштою, а потім прив’язує ключ доступу за кодом від CUSTOS.' : 'Пароль для входу встановлює адміністратор у картці співробітника.'}</p>
-        : <p className="vx-hint">Запрошений отримає одноразове посилання. Обліковий запис стане активним після налаштування MFA.</p>}
     </Drawer>
   );
 }

@@ -262,7 +262,6 @@ function RecordDrawer({ d, reg, record, access, onClose, go, onCreated, startEdi
               </div>
             </div>
           )}
-          {isNew && isPage(reg) && <div className="vx-hint">Спершу — картка опису. Після створення {reg.one} відкриється окремою сторінкою: там додаватимете записи, фото й документи.</div>}
           {(isNew && isPage(reg) ? createFields(reg) : reg.fields).filter((f) => !f.hidden && !(isPage(reg) && f.type === 'files')).map((f) => (
             <div className="vx-field" key={f.id}>
               <label className="vx-label" htmlFor={`f-${f.id}`}>{f.label}{f.required && ' *'}</label>

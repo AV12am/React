@@ -1470,6 +1470,7 @@ export const EXACT = {"— не імпортувати —":"— do not import �
 " Оновлюється щогодини. Пунктир — лише продовження тренду, а не прогноз; позначки внизу — прогнози платформи.":" Updated hourly. The dashed line only continues the trend, it is not a forecast; the marks below are the platform's forecasts.",
 "Оновлюється щогодини. Пунктир — лише продовження тренду, а не прогноз; позначки внизу — прогнози платформи.":"Updated hourly. The dashed line only continues the trend, it is not a forecast; the marks below are the platform's forecasts.",
 "Індекс геополітичного ризику (Geopolitical Risk Index, D. Caldara і M. Iacoviello, Федеральна резервна система США): частка газетних матеріалів про війни, загрози, теракти й напругу. 50 на шкалі — середній рівень 1985–2019 років, кожне подвоєння ризику — плюс 25. Ковзне середнє за 7 днів; дані оновлюються щопонеділка, тож останній тиждень може бути ще без значень.":"Geopolitical Risk Index (D. Caldara and M. Iacoviello, US Federal Reserve): the share of newspaper articles about wars, threats, terrorism and tensions. 50 on the scale is the 1985–2019 average, each doubling of risk adds 25. Seven-day moving average; the data is updated every Monday, so the last week may not have values yet.",
+"Геополітичний ризик · GPR":"Geopolitical risk · GPR",
 "Усього файлів у дослідженні:":"Files in the study in total:",
 "Фото обкладинки":"Cover photo",
 "Додати фото обкладинки":"Add a cover photo",
@@ -1488,7 +1489,8 @@ export const EXACT = {"— не імпортувати —":"— do not import �
 "Збираю звіт із файлами…":"Building the report with its files…",
 "фото обкладинки":"cover photo",
 "прибрано обкладинку":"cover removed"};
-export const TEMPLATES = [["GPR {} (100 — середнє 1985–2019)", "GPR {} (100 — the 1985–2019 average)"],
+export const TEMPLATES = [["Геополітичний ризик: зараз {} зі 100", "Geopolitical risk: now {} out of 100"],
+["GPR {} (100 — середнє 1985–2019)", "GPR {} (100 — the 1985–2019 average)"],
 ["Історія накопичується: днів {} із 7", "History is building up: {} of 7 days"],
 ["Частка матеріалів про війни, конфлікти, кризи, атаки й санкції у стрічках світових редакцій (BBC, Al Jazeera, DW, The Guardian, NPR, France 24, Sky News, ООН) — власне вимірювання платформи, днів в історії: {}. Поки зібрано менше тижня, значення попереднє.", "The share of items about wars, conflicts, crises, attacks and sanctions in world newsroom feeds (BBC, Al Jazeera, DW, The Guardian, NPR, France 24, Sky News, the UN) — the platform's own measurement, days in history: {}. Until a week is collected, the value is provisional."],
 ["Частка матеріалів про війни, конфлікти, кризи, атаки й санкції у стрічках світових редакцій (BBC, Al Jazeera, DW, The Guardian, NPR, France 24, Sky News, ООН) — власне вимірювання платформи, днів в історії: {}. 50 — звичайний рівень зібраної історії.", "The share of items about wars, conflicts, crises, attacks and sanctions in world newsroom feeds (BBC, Al Jazeera, DW, The Guardian, NPR, France 24, Sky News, the UN) — the platform's own measurement, days in history: {}. 50 is the usual level of the collected history."],
