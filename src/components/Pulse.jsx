@@ -6,7 +6,7 @@ import { Panel, Status } from './ui.jsx';
 import { Icon } from './Icon.jsx';
 import { Loader } from '../brand/Mark.jsx';
 import { supabaseOn, authHeaders } from '../lib/supabase.js';
-import { levelOf, project, foresight, fetchPulse } from '../lib/pulse.js';
+import { levelOf, project, foresight } from '../lib/pulse.js';
 import { recordRoute } from '../lib/assistant.js';
 import { LOCALE } from '../lib/locale.js';
 
@@ -121,16 +121,10 @@ export function Pulse({ go }) {
       try {
         const res = await fetch(api, { headers: await authHeaders() });
         const j = await res.json().catch(() => ({}));
-        if (j.index?.length && live) { setData(j); setErr(''); }
-        if (j.need === 'browser') {
-          // GDELT refuses the server (shared addresses): this browser asks it and hands the result to the team.
-          if (!j.index?.length && live) setErr('Збираю дані GDELT… (до 20 секунд)');
-          const fresh = await fetchPulse();
-          if (!fresh.index.length) throw new Error('GDELT не повернув даних');
-          if (live) { setData(fresh); setErr(''); }
-          fetch(api, { method: 'POST', headers: await authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ index: fresh.index, headlines: fresh.headlines }) }).catch(() => {});
-        } else if (!res.ok) throw new Error(j.message || `HTTP ${res.status}`);
-      } catch (e) { if (live) setErr(`Немає даних від GDELT: ${e.message}`); }
+        if (!res.ok) throw new Error(j.message || `HTTP ${res.status}`);
+        if (!live) return;
+        if (j.index?.length) { setData(j); setErr(''); } else setErr('Перше вимірювання ще збирається — спробуйте за хвилину.');
+      } catch (e) { if (live) setErr(`Індекс недоступний: ${e.message}`); }
     };
     load();
     const t = setInterval(load, 30 * 60000);
@@ -188,7 +182,12 @@ export function Pulse({ go }) {
               </div>
             </div>
           )}
-          <div className="vx-hint">Тон і частка світових новин про війни, конфлікти, кризи, атаки й санкції (GDELT Project, відкриті дані; оновлюється щогодини). 50 — звичайний рівень останніх трьох місяців. Пунктир — лише продовження тренду, а не прогноз; позначки внизу — прогнози платформи.</div>
+          <div className="vx-hint">
+            {data.source === 'gdelt'
+              ? 'Тон і частка світових новин про війни, конфлікти, кризи, атаки й санкції (GDELT Project, відкриті дані). 50 — звичайний рівень останніх трьох місяців.'
+              : `Частка матеріалів про війни, конфлікти, кризи, атаки й санкції у стрічках світових редакцій (BBC, Al Jazeera, DW, The Guardian, NPR, France 24, Sky News, ООН) — власне вимірювання платформи, днів в історії: ${data.days}.${data.provisional ? ' Поки зібрано менше тижня, значення попереднє.' : ' 50 — звичайний рівень зібраної історії.'}`}
+            {' Оновлюється щогодини. Пунктир — лише продовження тренду, а не прогноз; позначки внизу — прогнози платформи.'}
+          </div>
         </div>
       )}
     </Panel>

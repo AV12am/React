@@ -88,37 +88,59 @@ export function foresight(records, me) {
 /* ---------- GDELT ---------- */
 
 export const QUERY = '(war OR conflict OR crisis OR attack OR sanctions OR terrorism OR recession OR cyberattack OR "state of emergency") sourcelang:english';
-const GDELT = 'https://api.gdeltproject.org/api/v2/doc/doc';
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-
-async function askGdelt(params, headers = {}) {
-  for (let attempt = 0; ; attempt++) {
-    const res = await fetch(`${GDELT}?${new URLSearchParams({ query: QUERY, format: 'json', ...params })}`, { headers });
-    const text = await res.text();
-    // GDELT allows one request every five seconds per address: wait and ask once more.
-    if ((res.status === 429 || /limit requests/i.test(text)) && attempt < 1) { await wait(6000); continue; }
-    if (!res.ok) throw new Error(`GDELT ${res.status}`);
-    try { return JSON.parse(text); } catch { throw new Error(`GDELT: ${text.slice(0, 120)}`); }
-  }
-}
-
-/** The index and the day's articles from GDELT: three questions, five seconds apart. */
-export async function fetchPulse(headers = {}) {
-  const tone = timeline(await askGdelt({ mode: 'timelinetone', timespan: '3months', TIMELINESMOOTH: '3' }, headers));
-  await wait(5500);
-  const volume = timeline(await askGdelt({ mode: 'timelinevol', timespan: '3months', TIMELINESMOOTH: '3' }, headers));
-  await wait(5500);
-  const arts = await askGdelt({ mode: 'artlist', timespan: '24h', maxrecords: '8', sort: 'hybridrel' }, headers).catch(() => ({}));
-  return { at: new Date().toISOString(), index: anxiety(tone, volume), headlines: cleanHeadlines(arts.articles), source: 'GDELT Project' };
-}
-
 export const cleanHeadlines = (list) => (Array.isArray(list) ? list : []).slice(0, 8)
   .map((a) => ({ title: String(a.title || '').slice(0, 200), url: String(a.url || ''), domain: String(a.domain || '').slice(0, 80), country: String(a.sourcecountry || a.country || '').slice(0, 40), at: String(a.seendate || a.at || '').slice(0, 20) }))
   .filter((a) => /^https?:\/\/[^\s]+$/.test(a.url) && a.title);
 
-/** An index sent by a browser, checked before it is kept for the team: dates and values 0–100 only. */
-export function cleanIndex(list) {
-  if (!Array.isArray(list)) return [];
-  return list.slice(-200).filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p?.date) && Number.isFinite(+p.value) && +p.value >= 0 && +p.value <= 100)
-    .map((p) => ({ date: p.date, value: Math.round(+p.value * 10) / 10 }));
+/* ---------- own measurement: world news feeds ---------- */
+// Open RSS of world newsrooms, read by the server: the share of recent items about war, conflict, attacks,
+// crises, sanctions… is measured each time and kept per day — the platform's own record, with no limits of
+// anyone else's service. It becomes an index once a week of days is collected (z-scores against its own past).
+
+export const FEEDS = [
+  'https://feeds.bbci.co.uk/news/world/rss.xml',
+  'https://www.aljazeera.com/xml/rss/all.xml',
+  'https://rss.dw.com/rdf/rss-en-world',
+  'https://www.theguardian.com/world/rss',
+  'https://feeds.npr.org/1004/rss.xml',
+  'https://www.france24.com/en/rss',
+  'https://feeds.skynews.com/feeds/rss/world.xml',
+  'https://news.un.org/feed/subscribe/en/news/all/rss.xml',
+];
+const CRISIS = /\b(war|wars|warfare|conflict|attack(s|ed)?|strike(s)?|air ?strikes?|missile(s)?|drone(s)?|bomb(s|ing|ed)?|explosion|shelling|killed|kills|dead|deaths?|casualt\w*|invasion|invade\w*|troops|military|offensive|sanction(s|ed)?|crisis|crises|terror\w*|hostages?|coup|riots?|clash(es)?|ceasefire|truce|escalat\w*|nuclear|threat(s|en\w*)?|emergency|famine|outbreak|epidemic|pandemic|recession|default|cyber ?attack\w*|hack(ed|ers?)?|evacuat\w*|refugees?|massacre|genocide|insurgen\w*|militants?)\b/i;
+
+const unesc = (s) => String(s || '').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/<[^>]+>/g, ' ')
+  .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/\s+/g, ' ').trim();
+const tag = (block, name) => unesc((new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, 'i').exec(block) || [])[1]);
+
+/** RSS 2.0 / RDF / Atom items → [{ title, text, url, at }]. */
+export function parseFeed(xml, source = '') {
+  const blocks = String(xml || '').match(/<(item|entry)[\s>][\s\S]*?<\/(item|entry)>/gi) || [];
+  return blocks.map((b) => {
+    const href = (/<link[^>]+href="([^"]+)"/i.exec(b) || [])[1];
+    const url = href || tag(b, 'link') || tag(b, 'guid');
+    const when = tag(b, 'pubDate') || tag(b, 'dc:date') || tag(b, 'updated') || tag(b, 'published');
+    const t = Date.parse(when);
+    return { title: tag(b, 'title').slice(0, 200), text: tag(b, 'description') || tag(b, 'summary'), url, domain: source, at: Number.isFinite(t) ? new Date(t).toISOString() : null };
+  }).filter((x) => x.title && /^https?:\/\//.test(x.url || ''));
+}
+
+/** Items of the last two days → { share, n, crisis: matching items, newest first }. */
+export function crisisShare(items, now = Date.now()) {
+  const recent = items.filter((x) => !x.at || now - Date.parse(x.at) < 2 * 86400000);
+  const crisis = recent.filter((x) => CRISIS.test(`${x.title} ${x.text}`));
+  return { share: recent.length ? crisis.length / recent.length : null, n: recent.length, crisis: crisis.sort((a, b) => String(b.at).localeCompare(String(a.at))) };
+}
+
+/** Per-day shares ({ date: { share, n } }) → the own index; a provisional value while fewer than 7 days exist. */
+export function ownIndex(days) {
+  const list = Object.entries(days || {}).filter(([, d]) => Number.isFinite(d?.share)).sort(([a], [b]) => a.localeCompare(b)).slice(-120);
+  if (!list.length) return [];
+  if (list.length < 7) {
+    // Until a week is collected: a share of about a third of world news is the usual level → 50.
+    return list.map(([date, d]) => ({ date, value: Math.max(0, Math.min(100, Math.round((50 + (d.share - 0.33) * 150) * 10) / 10)), provisional: true }));
+  }
+  const v = list.map(([, d]) => d.share);
+  const [m, s] = [mean(v), sd(v)];
+  return list.map(([date, d]) => ({ date, value: Math.max(0, Math.min(100, Math.round((50 + 14 * ((d.share - m) / s)) * 10) / 10)) }));
 }

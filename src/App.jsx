@@ -12,6 +12,7 @@ import { COURSES } from './data/academy/meta.js';
 import { ROLES, VISIBLE_DIVISIONS } from './data/seed.js';
 import { DialogHost } from './components/Dialog.jsx';
 import { Assistant } from './components/Assistant.jsx';
+import { NewVersion } from './components/NewVersion.jsx';
 import { TRACKS } from './data/geo.js';
 import { canSeeFile, fmtAgo, requestLabel } from './store.jsx';
 import { useSwipe, useHidden, isTouch, buzz } from './lib/mobile.js';
@@ -277,6 +278,7 @@ function Shell() {
       {palette && <Palette onClose={() => setPalette(false)} go={go} allowed={allowed} lock={lock} />}
       {ai && <Assistant onClose={() => setAi(false)} go={go} route={{ view: current, sub, id }} allowed={allowed.map((n) => n.id)} />}
       <DialogHost />
+      <NewVersion />
       {veiled && <div className="veil" aria-hidden="true"><Mark size={64} /></div>}
     </div>
   );

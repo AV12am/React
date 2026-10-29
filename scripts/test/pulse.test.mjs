@@ -2,7 +2,7 @@
 // the platform's forecasts on the time line (within clearance), and the server's hourly cache.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { timeline, anxiety, project, levelOf, foresight } from '../../src/lib/pulse.js';
+import { timeline, anxiety, project, levelOf, foresight, parseFeed, crisisShare, ownIndex, FEEDS } from '../../src/lib/pulse.js';
 
 const days = (n, f) => Array.from({ length: n }, (_, i) => {
   const d = new Date(Date.UTC(2026, 7, 1) + i * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
@@ -45,14 +45,32 @@ test('foresight: open forecasts ahead, resolved ones behind, nothing above clear
   assert.deepEqual(m.map((x) => [x.id, x.kind, x.date]), [['j2', 'resolved', '2026-10-02'], ['p1', 'due', '2026-11-05'], ['j1', 'risk', '2026-11-20']]);
 });
 
-test('server: GDELT asked once an hour for the team, last known index if GDELT fails', async () => {
+test('own measurement: feeds parsed, crisis share, index after a week', () => {
+  const xml = `<rss><channel>
+    <item><title><![CDATA[Missile strike kills five]]></title><link>https://n.test/1</link><pubDate>Wed, 28 Oct 2026 10:00:00 GMT</pubDate></item>
+    <item><title>Central bank holds rates</title><link>https://n.test/2</link><pubDate>Wed, 28 Oct 2026 09:00:00 GMT</pubDate></item>
+    <item><title>Old war story</title><link>https://n.test/3</link><pubDate>Mon, 01 Jan 2024 09:00:00 GMT</pubDate></item>
+    <item><title>No link</title></item></channel></rss>`;
+  const items = parseFeed(xml, 'n.test');
+  assert.equal(items.length, 3);
+  const m = crisisShare(items, Date.parse('2026-10-28T12:00:00Z'));
+  assert.equal(m.n, 2); assert.equal(m.share, 0.5); assert.equal(m.crisis[0].url, 'https://n.test/1');
+  const atom = parseFeed('<feed><entry><title>Ceasefire talks</title><link href="https://a.test/x"/><updated>2026-10-28T08:00:00Z</updated></entry></feed>', 'a.test');
+  assert.equal(atom[0].url, 'https://a.test/x');
+  const few = ownIndex({ '2026-10-27': { share: 0.33 }, '2026-10-28': { share: 0.5 } });
+  assert.equal(few.length, 2); assert.equal(few[0].value, 50); assert.ok(few[1].value > 70); assert.ok(few[0].provisional);
+  const days = Object.fromEntries(Array.from({ length: 10 }, (_, i) => [`2026-10-${String(i + 10).padStart(2, '0')}`, { share: i < 9 ? 0.3 + (i % 2) * 0.02 : 0.5 }]));
+  const idx = ownIndex(days);
+  assert.equal(idx.length, 10); assert.ok(!idx[0].provisional); assert.ok(idx.at(-1).value > 75);
+});
+
+test('server: own feeds always, GDELT one question at a time, kept between calls', async () => {
   Object.assign(process.env, { SUPABASE_URL: 'https://sb.test', SUPABASE_SERVICE_ROLE_KEY: 'svc' });
-  let cache = null;
-  let gdelt = 0;
-  let down = false;
+  const docs = {};
+  const asked = [];
+  let gdeltDown = true;
   const real = globalThis.fetch;
-  const realTimeout = globalThis.setTimeout;
-  globalThis.setTimeout = (fn) => realTimeout(fn, 0); // no 5-second pauses in the test
+  const rss = `<rss><item><title>Air strikes hit city</title><link>https://bbc.test/1</link><pubDate>${new Date().toUTCString()}</pubDate></item><item><title>Football results</title><link>https://bbc.test/2</link><pubDate>${new Date().toUTCString()}</pubDate></item></rss>`;
   globalThis.fetch = async (url, opts = {}) => {
     const u = decodeURIComponent(String(url));
     const ok = (b) => new Response(b == null ? null : JSON.stringify(b), { status: b == null ? 204 : 200 });
@@ -60,43 +78,37 @@ test('server: GDELT asked once an hour for the team, last known index if GDELT f
     if (u.includes('core_members?email=eq')) return ok([{ id: 'u1', email: 'me@x.test', doc: { status: 'active', clearance: 0 } }]);
     if (u.includes('core_settings')) return ok([{ value: false }]);
     if (u.includes('core_verified')) return ok([]);
-    if (u.includes('kind=eq.pulse')) return ok(cache ? [{ doc: cache }] : []);
-    if (u.includes('core_docs?on_conflict')) { cache = JSON.parse(opts.body).doc; return ok(null); }
+    if (u.includes('kind=eq.pulse&id=eq.')) { const id = u.split('id=eq.')[1].split('&')[0]; return ok(docs[id] ? [{ doc: docs[id] }] : []); }
+    if (u.includes('core_docs?on_conflict')) { const b = JSON.parse(opts.body); docs[b.id] = b.doc; return ok(null); }
     if (u.startsWith('https://api.gdeltproject.org/')) {
-      gdelt++;
-      if (down) return new Response('Please limit requests', { status: 429 });
-      if (u.includes('mode=artlist')) return ok({ articles: [{ title: 'Headline', url: 'https://news.test/a', domain: 'news.test', sourcecountry: 'UK' }] });
-      return ok({ timeline: [{ data: days(30, (i) => (u.includes('timelinetone') ? -3 - (i % 5) * 0.2 : 1 + (i % 3) * 0.1)) }] });
+      asked.push(u.match(/mode=(\w+)/)[1]);
+      if (gdeltDown) return new Response('Please limit requests to one every 5 seconds', { status: 429 });
+      if (u.includes('artlist')) return ok({ articles: [{ title: 'G headline', url: 'https://g.test/a', domain: 'g.test' }] });
+      return ok({ timeline: [{ data: Array.from({ length: 30 }, (_, i) => ({ date: new Date(Date.now() - (30 - i) * 86400000).toISOString().slice(0, 10).replace(/-/g, '') + 'T000000Z', value: u.includes('tone') ? -3 - (i % 4) * 0.3 : 1 + (i % 3) * 0.1 })) }] });
     }
+    if (FEEDS.some((f) => u === f)) return new Response(rss, { status: 200 });
     throw new Error(`unexpected ${u}`);
   };
   const token = `x.${Buffer.from(JSON.stringify({ session_id: 's' })).toString('base64url')}.y`;
   try {
-    const { GET } = await import('../../api/pulse.js');
+    const { GET, refresh } = await import('../../api/pulse.js');
     const call = async () => { const r = await GET(new Request('https://app.test/api/pulse', { headers: { authorization: `Bearer ${token}` } })); return [r.status, await r.json()]; };
+    // GDELT refuses: the own measurement answers, provisional
     const [s1, d1] = await call();
-    assert.equal(s1, 200); assert.equal(d1.index.length, 30); assert.equal(d1.headlines[0].domain, 'news.test');
-    assert.equal(gdelt, 3);
+    assert.equal(s1, 200); assert.equal(d1.source, 'feeds'); assert.equal(d1.index.length, 1); assert.ok(d1.provisional);
+    assert.equal(d1.headlines[0].url, 'https://bbc.test/1'); // only crisis items
+    assert.deepEqual(asked, ['timelinetone']);
+    // within ten minutes nobody asks GDELT again
     await call();
-    assert.equal(gdelt, 3); // from the hour's cache
-    cache.at = new Date(Date.now() - 2 * 3600000).toISOString();
-    down = true;
-    const [s3, d3] = await call();
-    assert.equal(s3, 200); assert.equal(d3.stale, true); assert.equal(d3.index.length, 30);
-    assert.equal(d3.need, 'browser');
-    // nothing cached and GDELT refusing this server: the browser is asked to fetch it
-    cache = null;
-    const [s4, d4] = await call();
-    assert.equal(s4, 503); assert.equal(d4.need, 'browser');
-    // the browser's result is checked and kept for the team
-    const { POST } = await import('../../api/pulse.js');
-    const post = async (body) => { const r = await POST(new Request('https://app.test/api/pulse', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: JSON.stringify(body) })); return [r.status, await r.json()]; };
-    const idx = Array.from({ length: 10 }, (_, i) => ({ date: `2026-10-${String(i + 10).padStart(2, '0')}`, value: 50 + i }));
-    assert.equal((await post({ index: idx.slice(0, 3) }))[0], 400);
-    const [s5, d5] = await post({ index: [...idx, { date: 'bad', value: 1 }, { date: '2026-10-30', value: 500 }], headlines: [{ title: 'x', url: 'javascript:alert(1)' }, { title: 'ok', url: 'https://n.test/a' }] });
-    assert.equal(s5, 200); assert.equal(d5.index.length, 10); assert.deepEqual(d5.headlines.map((h) => h.url), ['https://n.test/a']);
-    assert.equal(cache.via, 'browser');
-    const [s6, d6] = await call();
-    assert.equal(s6, 200); assert.equal(d6.index.length, 10);
-  } finally { globalThis.fetch = real; globalThis.setTimeout = realTimeout; }
+    assert.equal(asked.length, 1);
+    // later, GDELT answers one question per refresh; once tone and volume are in, its three months are shown
+    gdeltDown = false;
+    docs.gdelt.nextTry = null;
+    let t = Date.now();
+    for (let i = 0; i < 3; i++) { t += 7000; docs.gdelt.nextTry = null; await refresh(t); }
+    assert.deepEqual(asked, ['timelinetone', 'timelinetone', 'timelinevol', 'artlist']);
+    const done = await refresh(t + 7000);
+    assert.equal(done.source, 'gdelt'); assert.equal(done.index.length, 30); assert.equal(done.headlines[0].url, 'https://g.test/a');
+    assert.equal(asked.length, 4); // all fresh: nothing more asked
+  } finally { globalThis.fetch = real; }
 });
