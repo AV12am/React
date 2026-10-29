@@ -6,7 +6,7 @@ import { Panel, Status } from './ui.jsx';
 import { Icon } from './Icon.jsx';
 import { Loader } from '../brand/Mark.jsx';
 import { supabaseOn, authHeaders } from '../lib/supabase.js';
-import { levelOf, project, foresight } from '../lib/pulse.js';
+import { levelOf, project, foresight, fetchPulse } from '../lib/pulse.js';
 import { recordRoute } from '../lib/assistant.js';
 import { LOCALE } from '../lib/locale.js';
 
@@ -116,13 +116,21 @@ export function Pulse({ go }) {
     // (In development the request goes out anyway, so the chart can be tried against a stand-in server.)
     if (!supabaseOn && !import.meta.env.DEV) { setErr('Індекс працює на сайті із сервером (Vercel + Supabase).'); return undefined; }
     let live = true;
+    const api = new URL('api/pulse', document.baseURI);
     const load = async () => {
       try {
-        const res = await fetch(new URL('api/pulse', document.baseURI), { headers: await authHeaders() });
+        const res = await fetch(api, { headers: await authHeaders() });
         const j = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(j.message || `HTTP ${res.status}`);
-        if (live) { setData(j); setErr(''); }
-      } catch (e) { if (live) setErr(e.message); }
+        if (j.index?.length && live) { setData(j); setErr(''); }
+        if (j.need === 'browser') {
+          // GDELT refuses the server (shared addresses): this browser asks it and hands the result to the team.
+          if (!j.index?.length && live) setErr('Збираю дані GDELT… (до 20 секунд)');
+          const fresh = await fetchPulse();
+          if (!fresh.index.length) throw new Error('GDELT не повернув даних');
+          if (live) { setData(fresh); setErr(''); }
+          fetch(api, { method: 'POST', headers: await authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ index: fresh.index, headlines: fresh.headlines }) }).catch(() => {});
+        } else if (!res.ok) throw new Error(j.message || `HTTP ${res.status}`);
+      } catch (e) { if (live) setErr(`Немає даних від GDELT: ${e.message}`); }
     };
     load();
     const t = setInterval(load, 30 * 60000);

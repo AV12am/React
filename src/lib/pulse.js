@@ -84,3 +84,41 @@ export function foresight(records, me) {
   }
   return out.filter((m) => /^\d{4}-\d{2}-\d{2}$/.test(m.date)).sort((a, b) => a.date.localeCompare(b.date));
 }
+
+/* ---------- GDELT ---------- */
+
+export const QUERY = '(war OR conflict OR crisis OR attack OR sanctions OR terrorism OR recession OR cyberattack OR "state of emergency") sourcelang:english';
+const GDELT = 'https://api.gdeltproject.org/api/v2/doc/doc';
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function askGdelt(params, headers = {}) {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(`${GDELT}?${new URLSearchParams({ query: QUERY, format: 'json', ...params })}`, { headers });
+    const text = await res.text();
+    // GDELT allows one request every five seconds per address: wait and ask once more.
+    if ((res.status === 429 || /limit requests/i.test(text)) && attempt < 1) { await wait(6000); continue; }
+    if (!res.ok) throw new Error(`GDELT ${res.status}`);
+    try { return JSON.parse(text); } catch { throw new Error(`GDELT: ${text.slice(0, 120)}`); }
+  }
+}
+
+/** The index and the day's articles from GDELT: three questions, five seconds apart. */
+export async function fetchPulse(headers = {}) {
+  const tone = timeline(await askGdelt({ mode: 'timelinetone', timespan: '3months', TIMELINESMOOTH: '3' }, headers));
+  await wait(5500);
+  const volume = timeline(await askGdelt({ mode: 'timelinevol', timespan: '3months', TIMELINESMOOTH: '3' }, headers));
+  await wait(5500);
+  const arts = await askGdelt({ mode: 'artlist', timespan: '24h', maxrecords: '8', sort: 'hybridrel' }, headers).catch(() => ({}));
+  return { at: new Date().toISOString(), index: anxiety(tone, volume), headlines: cleanHeadlines(arts.articles), source: 'GDELT Project' };
+}
+
+export const cleanHeadlines = (list) => (Array.isArray(list) ? list : []).slice(0, 8)
+  .map((a) => ({ title: String(a.title || '').slice(0, 200), url: String(a.url || ''), domain: String(a.domain || '').slice(0, 80), country: String(a.sourcecountry || a.country || '').slice(0, 40), at: String(a.seendate || a.at || '').slice(0, 20) }))
+  .filter((a) => /^https?:\/\/[^\s]+$/.test(a.url) && a.title);
+
+/** An index sent by a browser, checked before it is kept for the team: dates and values 0–100 only. */
+export function cleanIndex(list) {
+  if (!Array.isArray(list)) return [];
+  return list.slice(-200).filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p?.date) && Number.isFinite(+p.value) && +p.value >= 0 && +p.value <= 100)
+    .map((p) => ({ date: p.date, value: Math.round(+p.value * 10) / 10 }));
+}

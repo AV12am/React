@@ -83,5 +83,20 @@ test('server: GDELT asked once an hour for the team, last known index if GDELT f
     down = true;
     const [s3, d3] = await call();
     assert.equal(s3, 200); assert.equal(d3.stale, true); assert.equal(d3.index.length, 30);
+    assert.equal(d3.need, 'browser');
+    // nothing cached and GDELT refusing this server: the browser is asked to fetch it
+    cache = null;
+    const [s4, d4] = await call();
+    assert.equal(s4, 503); assert.equal(d4.need, 'browser');
+    // the browser's result is checked and kept for the team
+    const { POST } = await import('../../api/pulse.js');
+    const post = async (body) => { const r = await POST(new Request('https://app.test/api/pulse', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: JSON.stringify(body) })); return [r.status, await r.json()]; };
+    const idx = Array.from({ length: 10 }, (_, i) => ({ date: `2026-10-${String(i + 10).padStart(2, '0')}`, value: 50 + i }));
+    assert.equal((await post({ index: idx.slice(0, 3) }))[0], 400);
+    const [s5, d5] = await post({ index: [...idx, { date: 'bad', value: 1 }, { date: '2026-10-30', value: 500 }], headlines: [{ title: 'x', url: 'javascript:alert(1)' }, { title: 'ok', url: 'https://n.test/a' }] });
+    assert.equal(s5, 200); assert.equal(d5.index.length, 10); assert.deepEqual(d5.headlines.map((h) => h.url), ['https://n.test/a']);
+    assert.equal(cache.via, 'browser');
+    const [s6, d6] = await call();
+    assert.equal(s6, 200); assert.equal(d6.index.length, 10);
   } finally { globalThis.fetch = real; globalThis.setTimeout = realTimeout; }
 });
