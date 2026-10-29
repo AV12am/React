@@ -1518,6 +1518,7 @@ export const TEMPLATES = [["Геополітичний ризик: зараз {}
 ["Прибрати {}", "Remove {}"],
 ["Вхід з адреси {} для цього доступу не дозволено. Зверніться до адміністратора.", "Sign-in from {} is not allowed for this access. Contact the administrator."],
 ["Вхід з адреси {} для цього доступу не дозволено", "Sign-in from {} is not allowed for this access"],
+["{} — адреса iCloud Private Relay, вона постійно змінюється. Вимкніть Private Relay (Налаштування → Apple ID → iCloud → Приватний ретранслятор) або для цієї мережі Wi‑Fi «Обмежувати відстеження IP», оновіть сторінку й додайте адресу знову.", "{} is an iCloud Private Relay address and keeps changing. Turn off Private Relay (Settings → Apple ID → iCloud → Private Relay) or, for this Wi‑Fi network, «Limit IP Address Tracking», reload the page and add the address again."],
 ["Цей пристрій ({}) не входить у ваш список — збереження заблокувало б вам доступ. Додайте «Адреси цього пристрою».", "This device ({}) is not on your list — saving would lock you out. Add «This device's addresses»."],
 ["дозволені IP → {}", "allowed IPs → {}"],
 [", перевірка {}",", check {}"],

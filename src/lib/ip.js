@@ -70,3 +70,8 @@ export function clientIp(req) {
   const h = (k) => req.headers.get(k) || '';
   return (h('x-real-ip') || h('x-vercel-forwarded-for') || h('x-forwarded-for')).split(',')[0].trim() || null;
 }
+
+// iCloud Private Relay and similar relays: the egress address changes from one connection to the next,
+// so binding a card to it locks the person out within minutes.
+const RELAYS = ['172.224.0.0/12', '104.28.0.0/16'];
+export const relayIp = (ip) => RELAYS.some((r) => ruleMatches(r, ip));

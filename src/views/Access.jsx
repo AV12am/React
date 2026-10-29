@@ -8,7 +8,7 @@ import { ROLES, CLEARANCE, MODULES, PERMISSIONS } from '../data/seed.js';
 import { LEVELS, SEAL, CUSTOS } from '../data/clearance.js';
 import { supabaseOn, rpc, setPassword } from '../lib/supabase.js';
 import { issueCode, status as passkeyStatus } from '../lib/passkey.js';
-import { validRule, rulesOf, ipAllowed } from '../lib/ip.js';
+import { validRule, rulesOf, ipAllowed, relayIp } from '../lib/ip.js';
 import { missingFor } from '../data/academy/meta.js';
 import { copyText } from '../lib/io.js';
 
@@ -128,6 +128,8 @@ function IpList({ value, onChange, readOnly, self }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const add = (list) => {
+    const relay = list.find((x) => relayIp(x.ip));
+    if (relay) { setErr(`${relay.ip} — адреса iCloud Private Relay, вона постійно змінюється. Вимкніть Private Relay (Налаштування → Apple ID → iCloud → Приватний ретранслятор) або для цієї мережі Wi‑Fi «Обмежувати відстеження IP», оновіть сторінку й додайте адресу знову.`); return false; }
     const fresh = list.filter((x) => !rules.some((r) => r.ip === x.ip));
     if (fresh.length) onChange([...rules, ...fresh]);
   };
@@ -135,15 +137,15 @@ function IpList({ value, onChange, readOnly, self }) {
     e.preventDefault();
     const v = ip.trim();
     if (!validRule(v)) { setErr('Не схоже на IP-адресу: 203.0.113.7, мережа 203.0.113.0/24 або IPv6 2001:db8::/48'); return; }
-    setErr(''); add([{ ip: v, note: note.trim() }]); setIp(''); setNote('');
+    setErr('');
+    if (add([{ ip: v, note: note.trim() }]) !== false) { setIp(''); setNote(''); }
   };
   const addMine = async () => {
     setBusy(true); setErr('');
     try {
       const mine = await myAddresses();
       if (!mine.length) throw new Error('Не вдалося визначити адресу цього пристрою');
-      add(mine.map((x) => ({ ip: x, note: note.trim() || 'Цей пристрій' })));
-      setNote('');
+      if (add(mine.map((x) => ({ ip: x, note: note.trim() || 'Цей пристрій' }))) !== false) setNote('');
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
   return (
