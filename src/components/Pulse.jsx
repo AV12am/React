@@ -41,10 +41,12 @@ function Chart({ index, ahead, marks, months, go }) {
   const band = ahead.length ? `${ahead.map((p, i) => `${i ? 'L' : 'M'}${x(p.date).toFixed(1)},${y(p.hi).toFixed(1)}`).join('')}${[...ahead].reverse().map((p) => `L${x(p.date).toFixed(1)},${y(p.lo).toFixed(1)}`).join('')}Z` : '';
   const last = past.at(-1);
   const bridge = last && ahead.length ? [last, ...ahead] : ahead;
+  // The first day of each month inside the range — one label each, kept off the y-axis labels.
   const ticks = [];
-  for (let d = new Date(start); d.getTime() <= end; d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1))) {
-    const first = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + (d.getUTCDate() === 1 ? 0 : 1), 1));
-    if (first.getTime() >= start && first.getTime() <= end) ticks.push(first.toISOString().slice(0, 10));
+  const s0 = new Date(start);
+  for (let d = new Date(Date.UTC(s0.getUTCFullYear(), s0.getUTCMonth() + 1, 1)); d.getTime() <= end; d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1))) {
+    const iso = d.toISOString().slice(0, 10);
+    if (x(iso) > L + 24 && x(iso) < W - R - 12) ticks.push(iso);
   }
   const shown = marks.filter((m) => ts(m.date) >= start && ts(m.date) <= end);
   const all = [...past, ...ahead];
@@ -73,6 +75,7 @@ function Chart({ index, ahead, marks, months, go }) {
         {bridge.length > 1 && <path d={line(bridge)} className="pulse__ahead" />}
         {past.length > 1 && <path d={line(past)} className="pulse__line" />}
         {last && <circle cx={x(last.date)} cy={y(last.value)} r={4.5} className="pulse__dot" />}
+        {past.length < 7 && <text x={L + 8} y={T + 16} className="pulse__tick">{`Історія накопичується: днів ${past.length} із 7`}</text>}
         {/* the foresight lane: forecasts and products on the same dates */}
         <line x1={L} x2={W - R} y1={H + LANE / 2} y2={H + LANE / 2} className="pulse__grid" />
         {shown.map((m) => (

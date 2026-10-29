@@ -129,7 +129,7 @@ export function parseFeed(xml, source = '') {
 export function crisisShare(items, now = Date.now()) {
   const recent = items.filter((x) => !x.at || now - Date.parse(x.at) < 2 * 86400000);
   const crisis = recent.filter((x) => CRISIS.test(`${x.title} ${x.text}`));
-  return { share: recent.length ? crisis.length / recent.length : null, n: recent.length, crisis: crisis.sort((a, b) => String(b.at).localeCompare(String(a.at))) };
+  return { share: recent.length ? crisis.length / recent.length : null, n: recent.length, crisis: crisis.sort((a, b) => String(b.at).localeCompare(String(a.at))), items };
 }
 
 /** Per-day shares ({ date: { share, n } }) → the own index; a provisional value while fewer than 7 days exist. */
@@ -143,4 +143,19 @@ export function ownIndex(days) {
   const v = list.map(([, d]) => d.share);
   const [m, s] = [mean(v), sd(v)];
   return list.map(([date, d]) => ({ date, value: Math.max(0, Math.min(100, Math.round((50 + 14 * ((d.share - m) / s)) * 10) / 10)) }));
+}
+
+/** Items grouped by the day they were published → { date: { share, n } } for days with enough items (feeds
+ *  hold a few days back: the record does not start empty). */
+export function sharesByDay(items, now = Date.now(), min = 15) {
+  const by = {};
+  for (const x of items) {
+    if (!x.at) continue;
+    const t = Date.parse(x.at);
+    if (!(now - t < 10 * 86400000) || t > now) continue;
+    const d = x.at.slice(0, 10);
+    (by[d] ||= { n: 0, c: 0 }).n++;
+    if (CRISIS.test(`${x.title} ${x.text}`)) by[d].c++;
+  }
+  return Object.fromEntries(Object.entries(by).filter(([, v]) => v.n >= min).map(([d, v]) => [d, { share: v.c / v.n, n: v.n }]));
 }

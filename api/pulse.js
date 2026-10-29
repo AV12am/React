@@ -10,7 +10,7 @@
 //
 // GET /api/pulse   Authorization: Bearer <Supabase access token>  → { at, index, headlines, source, provisional }
 import { json, db, caller } from './_core.js';
-import { timeline, anxiety, QUERY, FEEDS, parseFeed, crisisShare, ownIndex, cleanHeadlines } from '../src/lib/pulse.js';
+import { timeline, anxiety, QUERY, FEEDS, parseFeed, crisisShare, ownIndex, cleanHeadlines, sharesByDay } from '../src/lib/pulse.js';
 
 export const config = { maxDuration: 30 };
 
@@ -60,6 +60,8 @@ export async function refresh(now = Date.now()) {
   const [m, g] = await Promise.all([measureFeeds(now), stepGdelt(gdelt || {}, now)]);
   const days = { ...(feeds?.days || {}) };
   const today = new Date(now).toISOString().slice(0, 10);
+  // Earlier days still in the feeds fill gaps in the record (never overwrite a measured day).
+  for (const [d, v] of Object.entries(sharesByDay(m.items, now))) if (d < today && !days[d]) days[d] = { ...v, k: 0, back: true };
   if (m.share != null) {
     // Several measurements a day: their mean.
     const d = days[today];

@@ -2,7 +2,7 @@
 // the platform's forecasts on the time line (within clearance), and the server's hourly cache.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { timeline, anxiety, project, levelOf, foresight, parseFeed, crisisShare, ownIndex, FEEDS } from '../../src/lib/pulse.js';
+import { timeline, anxiety, project, levelOf, foresight, parseFeed, crisisShare, ownIndex, FEEDS, sharesByDay } from '../../src/lib/pulse.js';
 
 const days = (n, f) => Array.from({ length: n }, (_, i) => {
   const d = new Date(Date.UTC(2026, 7, 1) + i * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
@@ -57,6 +57,8 @@ test('own measurement: feeds parsed, crisis share, index after a week', () => {
   assert.equal(m.n, 2); assert.equal(m.share, 0.5); assert.equal(m.crisis[0].url, 'https://n.test/1');
   const atom = parseFeed('<feed><entry><title>Ceasefire talks</title><link href="https://a.test/x"/><updated>2026-10-28T08:00:00Z</updated></entry></feed>', 'a.test');
   assert.equal(atom[0].url, 'https://a.test/x');
+  const many = [...Array.from({ length: 20 }, (_, i) => ({ title: i < 5 ? 'War update' : 'Markets', text: '', url: 'https://x.test', at: '2026-10-26T10:00:00Z' })), { title: 'War', text: '', url: 'https://x.test', at: '2026-10-27T10:00:00Z' }];
+  assert.deepEqual(sharesByDay(many, Date.parse('2026-10-28T12:00:00Z')), { '2026-10-26': { share: 0.25, n: 20 } }); // days with too few items are left out
   const few = ownIndex({ '2026-10-27': { share: 0.33 }, '2026-10-28': { share: 0.5 } });
   assert.equal(few.length, 2); assert.equal(few[0].value, 50); assert.ok(few[1].value > 70); assert.ok(few[0].provisional);
   const days = Object.fromEntries(Array.from({ length: 10 }, (_, i) => [`2026-10-${String(i + 10).padStart(2, '0')}`, { share: i < 9 ? 0.3 + (i % 2) * 0.02 : 0.5 }]));
