@@ -118,8 +118,15 @@ export function ReportButtons({ reg, record, facts = [], look, factPairs, extraF
       });
       if (!extra.facts) delete extra.facts;
       const m = reportModel(record, { records, users: state.users, number, extra });
-      if (kind === 'pdf') printReport(m);
-      else {
+      if (kind === 'pdf') {
+        // A real PDF file (phones included); the print dialog only if the file cannot be made here.
+        let blob = null;
+        try { blob = await (await import('../lib/reportPdf.js')).reportPdf(m); } catch { printReport(m); }
+        if (blob) {
+          const res = await saveFile(reportFileName(m, 'pdf'), blob);
+          if (res !== 'saved') throw new Error(res === 'declined' ? 'Збереження скасовано' : 'Не вдалося зберегти файл');
+        }
+      } else {
         const res = await saveFile(reportFileName(m, 'docx'), await reportDocx(m));
         if (res !== 'saved') throw new Error(res === 'declined' ? 'Збереження скасовано' : 'Не вдалося зберегти файл');
       }

@@ -97,7 +97,9 @@ export function DocxView({ blob }) {
     (async () => {
       const { renderAsync } = await import('docx-preview');
       if (!live || !box.current) return;
-      await renderAsync(blob, box.current, null, { inWrapper: true, ignoreLastRenderedPageBreak: true, experimental: true });
+      // On a phone the page is not drawn at A4 width: the text flows to the width of the screen.
+      const narrow = box.current.clientWidth < 700;
+      await renderAsync(blob, box.current, null, { inWrapper: !narrow, ignoreWidth: narrow, ignoreHeight: narrow, breakPages: !narrow, ignoreLastRenderedPageBreak: true, experimental: true });
     })().catch((e) => live && setErr(`Не вдалося відкрити документ: ${e.message}`));
     return () => { live = false; if (box.current) box.current.innerHTML = ''; }; // eslint-disable-line react-hooks/exhaustive-deps
   }, [blob]);
