@@ -518,25 +518,35 @@ kbd {
     display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; height: var(--tabbar-h);
     padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
-    background: var(--bg); border-top: 1px solid var(--line-strong);
+    background: var(--bg); border-top: 1px solid var(--line);
   }
   .tabbar__item {
     position: relative; display: grid; justify-items: center; align-content: center; gap: 3px; min-width: 0;
-    background: none; border: 0; color: var(--ink-3); font: 600 11.5px/1 var(--font-text); letter-spacing: 0.02em;
+    background: none; border: 0; color: var(--ink-faint); font: 500 10.5px/1 var(--font-text); letter-spacing: 0.03em;
     -webkit-tap-highlight-color: transparent; cursor: pointer;
   }
-  .tabbar__item svg { width: 22px; height: 22px; }
+  .tabbar__item svg { width: 20px; height: 20px; stroke-width: 1.4; }
   .tabbar__item.is-active { color: var(--ink); }
-  .tabbar__item.is-active::before { content: ''; position: absolute; top: -1px; left: 30%; right: 30%; height: 2px; background: var(--brass); }
+  .tabbar__item.is-active::before { content: none; }
   .tabbar__dot { position: absolute; top: 9px; left: calc(50% + 8px); width: 8px; height: 8px; border-radius: 50%; background: var(--brass); }
   .vx-toasts { bottom: calc(var(--tabbar-h) + 12px); left: 16px; right: 16px; width: auto; }
 
   /* iOS zooms into any field under 16px — keep them at 16 */
-  .vx-input, .vx-select, textarea.vx-input { font-size: 16px; height: 46px; }
+  .vx-input, .vx-select, textarea.vx-input { font-size: 16px; height: 42px; }
   textarea.vx-input { height: auto; }
-  .vx-btn { min-height: 44px; }
-  .vx-btn--sm { min-height: 36px; }
-  .toolbar > .vx-btn { flex: 1 1 auto; }
+  /* Compact, quiet buttons on the phone: sized to their words, not stretched across the row. */
+  .vx-btn { height: 36px; min-height: 36px; padding: 0 14px; font-size: 14px; font-weight: 500; }
+  .vx-btn--sm { height: 30px; min-height: 30px; padding: 0 10px; font-size: 13px; }
+  .vx-btn--icon { width: 36px; padding: 0; }
+  .vx-btn--sm.vx-btn--icon { width: 30px; }
+  .vx-btn svg { width: 15px; height: 15px; }
+  /* Segmented switches and panel heads: small and on one line. */
+  .segmented { flex-wrap: nowrap; }
+  .segmented button { height: 28px; padding: 0 10px; font-size: 12.5px; font-weight: 500; white-space: nowrap; }
+  .vx-panel__head { flex-wrap: wrap; gap: 8px; padding: 14px 16px; min-height: 0; }
+  .vx-panel__title { font-size: 18px; line-height: 24px; }
+  .vx-panel__head .toolbar { gap: 6px; }
+  .vx-panel__body { padding: 16px; }
 
   /* Tabs and segmented controls scroll sideways instead of wrapping or clipping */
   .vx-tabs { scrollbar-width: none; margin-right: -16px; padding-right: 16px; }

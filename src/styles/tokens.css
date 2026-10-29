@@ -1,14 +1,15 @@
 /* REACTION — design tokens. Matte (dark) is the primary theme; Paper mirrors the white brand board. */
 :root,
 [data-theme="matte"] {
-  --bg: #0a0a0a;
-  --surface: #111111;
-  --surface-2: #181818;
-  --surface-3: #202020;
-  --line: #242424;
-  --line-strong: #333333;
-  --line-control: #666666;
-  --ink: #e5e5e5;
+  /* True black, with surfaces lifted only a breath above it and hairline borders. */
+  --bg: #000000;
+  --surface: #0a0a0a;
+  --surface-2: #121212;
+  --surface-3: #1a1a1a;
+  --line: #1a1a1a;
+  --line-strong: #262626;
+  --line-control: #383838;
+  --ink: #ededed;
   --ink-2: #a3a3a3;
   --ink-3: #8c8c8c;
   --ink-faint: #5a5a5a;
@@ -16,7 +17,7 @@
   --brass: #c05a69; /* burgundy accent (token name kept for compatibility) */
   --rhomb: #8c1c32; /* the rhombus from the mark: deep burgundy */
   --brass-dim: #3a1a20;
-  --on-brass: #0a0a0a;
+  --on-brass: #000000;
   --ok: #8fb89a;
   --warn: #d9c36a;
   --danger: #e5606b;

@@ -63,7 +63,7 @@
   transition: background 0.15s var(--ease), border-color 0.15s var(--ease), color 0.15s var(--ease);
   white-space: nowrap;
 }
-.vx-btn:hover { background: var(--surface-3); }
+.vx-btn:hover { background: var(--surface-2); border-color: var(--ink-faint); }
 .vx-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .vx-btn svg { width: 16px; height: 16px; flex: none; }
 .vx-btn--primary { background: var(--ink); border-color: var(--ink); color: var(--bg); }
@@ -96,7 +96,7 @@
   font: 400 15px/22px var(--font-text);
 }
 .vx-input::placeholder { color: var(--ink-3); }
-.vx-input:focus, .vx-select:focus { outline: none; border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass); }
+.vx-input:focus, .vx-select:focus { outline: none; border-color: var(--ink-3); box-shadow: none; }
 .vx-input--mono { font-family: var(--font-mono); letter-spacing: 0.08em; }
 .vx-hint { font-size: 13.5px; line-height: 20px; color: var(--ink-3); }
 .vx-error { font-size: 13.5px; line-height: 20px; color: var(--danger); }
