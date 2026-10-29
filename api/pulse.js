@@ -1,6 +1,8 @@
 // Vercel Function: the world anxiety index (src/lib/pulse.js).
 //
-// Two sources, so the index never hangs on one service:
+// Three sources, so the index never hangs on one service:
+//   · the Geopolitical Risk Index (Caldara & Iacoviello, Federal Reserve) — daily, from 1985, free, updated
+//     every Monday: read here at most once a day (id 'gpr') and shown first;
 //   · the platform's own measurement — open RSS of world newsrooms, read here, the share of items about war,
 //     conflict, attacks, crises and sanctions kept per day in core_docs (kind 'pulse', id 'feeds');
 //   · GDELT (open data, three months of history at once) — asked one question at a time and at most every
@@ -10,7 +12,8 @@
 //
 // GET /api/pulse   Authorization: Bearer <Supabase access token>  → { at, index, headlines, source, provisional }
 import { json, db, caller } from './_core.js';
-import { timeline, anxiety, QUERY, FEEDS, parseFeed, crisisShare, ownIndex, cleanHeadlines, sharesByDay } from '../src/lib/pulse.js';
+import * as XLSX from 'xlsx';
+import { timeline, anxiety, QUERY, FEEDS, parseFeed, crisisShare, ownIndex, cleanHeadlines, sharesByDay, GPR_URL, parseGpr, gprIndex } from '../src/lib/pulse.js';
 
 export const config = { maxDuration: 30 };
 
@@ -55,9 +58,26 @@ async function stepGdelt(g, now) {
   }
 }
 
+// The GPR file, if a day has passed since the last read (and not more often than every two hours after a failure).
+async function readGpr(gpr, now) {
+  if (gpr?.at && now - Date.parse(gpr.at) < 24 * HOUR) return gpr;
+  if (gpr?.failedAt && now - Date.parse(gpr.failedAt) < 2 * HOUR) return gpr;
+  try {
+    const res = await fetch(GPR_URL, { headers: { 'User-Agent': 'ReactionCore/1.0 (geopolitical risk panel)' }, signal: AbortSignal.timeout(15000) });
+    if (!res.ok) throw new Error(`GPR ${res.status}`);
+    const book = XLSX.read(new Uint8Array(await res.arrayBuffer()), { type: 'array', cellDates: true });
+    const rows = XLSX.utils.sheet_to_json(book.Sheets[book.SheetNames[0]], { header: 1, raw: true });
+    const series = parseGpr(rows).slice(-400);
+    if (series.length < 30) throw new Error('GPR: no daily series in the file');
+    return { at: new Date(now).toISOString(), series };
+  } catch (e) {
+    return { ...(gpr || {}), failedAt: new Date(now).toISOString(), error: e.message };
+  }
+}
+
 export async function refresh(now = Date.now()) {
-  const [feeds, gdelt] = await Promise.all([read('feeds'), read('gdelt')]);
-  const [m, g] = await Promise.all([measureFeeds(now), stepGdelt(gdelt || {}, now)]);
+  const [feeds, gdelt, gprOld] = await Promise.all([read('feeds'), read('gdelt'), read('gpr')]);
+  const [m, g, gpr] = await Promise.all([measureFeeds(now), stepGdelt(gdelt || {}, now), readGpr(gprOld, now)]);
   const days = { ...(feeds?.days || {}) };
   const today = new Date(now).toISOString().slice(0, 10);
   // Earlier days still in the feeds fill gaps in the record (never overwrite a measured day).
@@ -68,16 +88,17 @@ export async function refresh(now = Date.now()) {
     const k = (d?.k || 0) + 1;
     days[today] = { share: d ? d.share + (m.share - d.share) / k : m.share, n: m.n, k };
   }
-  await Promise.all([keep('feeds', { days, at: new Date(now).toISOString() }), keep('gdelt', g)]);
-  // GDELT's three months while fresh enough (a week), otherwise the platform's own record.
+  await Promise.all([keep('feeds', { days, at: new Date(now).toISOString() }), keep('gdelt', g), gpr !== gprOld && keep('gpr', gpr)]);
+  // The GPR first (while its last day is within three weeks), then GDELT's three months, then the own record.
+  const gprOk = gpr?.series?.length >= 30 && now - Date.parse(`${gpr.series.at(-1).date}T00:00:00Z`) < 21 * 24 * HOUR;
   const gOk = g.tone?.data?.length && g.vol?.data?.length && now - Date.parse(g.tone.at) < 7 * 24 * HOUR;
-  const index = gOk ? anxiety(g.tone.data, g.vol.data) : ownIndex(days);
+  const index = gprOk ? gprIndex(gpr.series) : gOk ? anxiety(g.tone.data, g.vol.data) : ownIndex(days);
   const own = m.crisis.slice(0, 8).map((x) => ({ title: x.title, url: x.url, domain: x.domain, at: x.at }));
   const headlines = g.arts?.data?.length && now - Date.parse(g.arts.at) < 6 * HOUR ? g.arts.data : own;
   return {
     at: new Date(now).toISOString(), index, headlines: cleanHeadlines(headlines),
-    source: gOk ? 'gdelt' : 'feeds', days: Object.keys(days).length, provisional: !gOk && Object.keys(days).length < 7,
-    pending: STEPS.some(([k]) => !g[k]?.at), // GDELT not complete yet: refresh sooner
+    source: gprOk ? 'gpr' : gOk ? 'gdelt' : 'feeds', days: Object.keys(days).length, provisional: !gprOk && !gOk && Object.keys(days).length < 7,
+    pending: !gprOk && STEPS.some(([k]) => !g[k]?.at), // nothing with history yet: refresh sooner
   };
 }
 

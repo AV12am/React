@@ -2,7 +2,7 @@
 // the platform's forecasts on the time line (within clearance), and the server's hourly cache.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { timeline, anxiety, project, levelOf, foresight, parseFeed, crisisShare, ownIndex, FEEDS, sharesByDay } from '../../src/lib/pulse.js';
+import { timeline, anxiety, project, levelOf, foresight, parseFeed, crisisShare, ownIndex, FEEDS, sharesByDay, parseGpr, gprIndex, GPR_URL } from '../../src/lib/pulse.js';
 
 const days = (n, f) => Array.from({ length: n }, (_, i) => {
   const d = new Date(Date.UTC(2026, 7, 1) + i * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
@@ -112,5 +112,49 @@ test('server: own feeds always, GDELT one question at a time, kept between calls
     const done = await refresh(t + 7000);
     assert.equal(done.source, 'gdelt'); assert.equal(done.index.length, 30); assert.equal(done.headlines[0].url, 'https://g.test/a');
     assert.equal(asked.length, 4); // all fresh: nothing more asked
+  } finally { globalThis.fetch = real; }
+});
+
+test('GPR: the daily series read in any date form, mapped to the panel scale', () => {
+  const head = ['DAY', 'N10D', 'GPRD', 'GPRD_ACT', 'GPRD_THREAT', 'date', 'GPRD_MA7'];
+  const rows = [['Geopolitical Risk Index'], head,
+    ...Array.from({ length: 20 }, (_, i) => [19850101 + i, 30, 100, 90, 110, new Date(Date.UTC(1985, 0, 1 + i)), 100])];
+  const a = parseGpr(rows);
+  assert.equal(a.length, 20); assert.equal(a[0].date, '1985-01-01'); assert.equal(a[0].value, 100);
+  const serial = parseGpr([['date', 'GPRD'], ...Array.from({ length: 12 }, (_, i) => [45000 + i, 200])]);
+  assert.equal(serial[0].date, '2023-03-15');
+  assert.deepEqual(parseGpr([['nothing']]), []);
+  const idx = gprIndex([...Array.from({ length: 7 }, (_, i) => ({ date: `2026-10-0${i + 1}`, value: 100 })), ...Array.from({ length: 7 }, (_, i) => ({ date: `2026-10-${10 + i}`, value: 200 }))]);
+  assert.equal(idx[6].value, 50); assert.equal(idx[6].raw, 100);
+  assert.equal(idx[13].value, 75); assert.equal(idx[13].raw, 200);
+});
+
+test('server: GPR first, read once a day from its .xls', async () => {
+  const XLSX = await import('xlsx');
+  const days = Array.from({ length: 60 }, (_, i) => new Date(Date.now() - (62 - i) * 86400000));
+  const sheet = XLSX.utils.aoa_to_sheet([['DAY', 'GPRD', 'date'], ...days.map((d, i) => [Number(d.toISOString().slice(0, 10).replace(/-/g, '')), 100 + i * 3, d])]);
+  const book = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(book, sheet, 'Sheet1');
+  const xls = XLSX.write(book, { type: 'buffer', bookType: 'biff8' });
+  Object.assign(process.env, { SUPABASE_URL: 'https://sb.test', SUPABASE_SERVICE_ROLE_KEY: 'svc' });
+  const docs = {};
+  let gprAsked = 0;
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url, opts = {}) => {
+    const u = decodeURIComponent(String(url));
+    const ok = (b) => new Response(b == null ? null : JSON.stringify(b), { status: b == null ? 204 : 200 });
+    if (u.includes('kind=eq.pulse&id=eq.')) { const id = u.split('id=eq.')[1].split('&')[0]; return ok(docs[id] ? [{ doc: docs[id] }] : []); }
+    if (u.includes('core_docs?on_conflict')) { const b = JSON.parse(opts.body); docs[b.id] = b.doc; return ok(null); }
+    if (u === GPR_URL) { gprAsked++; return new Response(xls, { status: 200 }); }
+    if (u.startsWith('https://api.gdeltproject.org/')) return new Response('Please limit requests', { status: 429 });
+    if (FEEDS.includes(u)) return new Response('<rss></rss>', { status: 200 });
+    throw new Error(`unexpected ${u}`);
+  };
+  try {
+    const { refresh } = await import(`../../api/pulse.js?gpr=${Date.now()}`);
+    const r = await refresh(Date.now());
+    assert.equal(r.source, 'gpr'); assert.equal(r.index.length, 60); assert.ok(!r.provisional);
+    assert.ok(r.index.at(-1).value > r.index[0].value); assert.ok(r.index.at(-1).raw > 200);
+    await refresh(Date.now() + 3600000);
+    assert.equal(gprAsked, 1); // once a day
   } finally { globalThis.fetch = real; }
 });

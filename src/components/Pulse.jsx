@@ -94,6 +94,7 @@ function Chart({ index, ahead, marks, months, go }) {
         <div className="pulse__tip" style={x(hover.date) > W / 2 ? { right: W - x(hover.date) + 12, top: T } : { left: x(hover.date) + 12, top: T }}>
           <div className="vx-hint">{fmtDate(hover.date, false)}{hover.lo != null ? ' · продовження тренду' : ''}</div>
           <div><b className="vx-num">{Math.round(hover.value)}</b> · {levelOf(hover.value).label}</div>
+          {hover.raw != null && <div className="vx-hint vx-num">{`GPR ${hover.raw} (100 — середнє 1985–2019)`}</div>}
           {hover.lo != null && <div className="vx-hint vx-num">{`межі: ${Math.round(hover.lo)}–${Math.round(hover.hi)}`}</div>}
           {near.map((m) => <div key={m.id} className="vx-hint">{KIND[m.kind]}: {m.title}{m.p != null ? ` · ${m.p}%` : ''}</div>)}
         </div>
@@ -186,7 +187,9 @@ export function Pulse({ go }) {
             </div>
           )}
           <div className="vx-hint">
-            {data.source === 'gdelt'
+            {data.source === 'gpr'
+              ? 'Індекс геополітичного ризику (Geopolitical Risk Index, D. Caldara і M. Iacoviello, Федеральна резервна система США): частка газетних матеріалів про війни, загрози, теракти й напругу. 50 на шкалі — середній рівень 1985–2019 років, кожне подвоєння ризику — плюс 25. Ковзне середнє за 7 днів; дані оновлюються щопонеділка, тож останній тиждень може бути ще без значень.'
+              : data.source === 'gdelt'
               ? 'Тон і частка світових новин про війни, конфлікти, кризи, атаки й санкції (GDELT Project, відкриті дані). 50 — звичайний рівень останніх трьох місяців.'
               : `Частка матеріалів про війни, конфлікти, кризи, атаки й санкції у стрічках світових редакцій (BBC, Al Jazeera, DW, The Guardian, NPR, France 24, Sky News, ООН) — власне вимірювання платформи, днів в історії: ${data.days}.${data.provisional ? ' Поки зібрано менше тижня, значення попереднє.' : ' 50 — звичайний рівень зібраної історії.'}`}
             {' Оновлюється щогодини. Пунктир — лише продовження тренду, а не прогноз; позначки внизу — прогнози платформи.'}

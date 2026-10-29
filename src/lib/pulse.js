@@ -159,3 +159,54 @@ export function sharesByDay(items, now = Date.now(), min = 15) {
   }
   return Object.fromEntries(Object.entries(by).filter(([, v]) => v.n >= min).map(([d, v]) => [d, { share: v.c / v.n, n: v.n }]));
 }
+
+/* ---------- Geopolitical Risk Index (Caldara & Iacoviello) ---------- */
+// A daily index of geopolitical risk from newspaper coverage (wars, threats, terrorism…), 1985 to date, published
+// free and updated every Monday: https://www.matteoiacoviello.com/gpr.htm. 100 is the 1985–2019 average.
+
+export const GPR_URL = 'https://www.matteoiacoviello.com/gpr_files/data_gpr_daily_recent.xls';
+
+// A date cell in any of the forms the file may use: a Date, an Excel serial, YYYYMMDD, or text.
+function cellDate(v) {
+  if (v instanceof Date && !Number.isNaN(v.getTime())) return v.toISOString().slice(0, 10);
+  if (typeof v === 'number') {
+    if (v > 19000101 && v < 21001231) { const s = String(Math.round(v)); return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`; }
+    if (v > 20000 && v < 80000) return new Date(Date.UTC(1899, 11, 30) + Math.round(v) * 86400000).toISOString().slice(0, 10);
+    return null;
+  }
+  const t = Date.parse(String(v || ''));
+  return Number.isFinite(t) ? new Date(t).toISOString().slice(0, 10) : null;
+}
+
+/** The sheet as rows of cells → [{ date, value }] of the daily GPR (column «GPRD»), oldest first. */
+export function parseGpr(rows) {
+  const h = rows.findIndex((r) => Array.isArray(r) && r.some((c) => String(c).trim().toUpperCase() === 'GPRD'));
+  if (h < 0) return [];
+  const head = rows[h].map((c) => String(c ?? '').trim().toLowerCase());
+  const vi = head.indexOf('gprd');
+  const body = rows.slice(h + 1).filter((r) => Array.isArray(r));
+  // The date column: the first one whose cells read as dates.
+  const candidates = [head.indexOf('date'), head.indexOf('day'), ...head.map((_, i) => i)].filter((i) => i >= 0 && i !== vi);
+  const di = candidates.find((i) => body.slice(0, 20).filter((r) => cellDate(r[i])).length >= 10);
+  if (di == null) return [];
+  const by = new Map();
+  for (const r of body) {
+    const date = cellDate(r[di]);
+    const v = +r[vi];
+    if (date && Number.isFinite(v) && v >= 0) by.set(date, v);
+  }
+  return [...by].sort(([a], [b]) => a.localeCompare(b)).map(([date, value]) => ({ date, value }));
+}
+
+/**
+ * GPR → the 0–100 scale of the panel: a seven-day mean (the daily series is noisy), then 50 at the 1985–2019
+ * average (100) and 25 points for each doubling or halving.
+ */
+export function gprIndex(series) {
+  return series.map((p, i) => {
+    const win = series.slice(Math.max(0, i - 6), i + 1).map((x) => x.value);
+    const raw = mean(win);
+    const value = Math.max(0, Math.min(100, 50 + 25 * Math.log2(Math.max(raw, 1) / 100)));
+    return { date: p.date, value: Math.round(value * 10) / 10, raw: Math.round(raw) };
+  });
+}
