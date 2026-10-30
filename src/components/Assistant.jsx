@@ -133,16 +133,16 @@ export function Assistant({ onClose, onBusy, go, route, allowed }) {
   const rec = openRecord(state, route);
   const outcome = (i) => (o) => setMsgs((list) => list.map((m, k) => (k === i ? { ...m, outcomes: [...(m.outcomes || []), o] } : m)));
   return (
-    <aside className="ai-panel" aria-label="Помічник">
+    <aside className="ai-panel" aria-label="CONTEXT — AI-асистент">
       <header className="ai-panel__head">
         <span className={`ai-panel__mark ${busy ? 'is-thinking' : ''}`}><Mark size={22} title="" /></span>
-        <div className="ai-panel__title"><span className="vx-wordmark">Reaction</span>{busy && <span className="vx-hint">думаю…</span>}</div>
+        <div className="ai-panel__title"><span className="vx-wordmark">Context</span>{busy && <span className="vx-hint">думаю…</span>}</div>
         <span className="grow" />
         {msgs.length > 0 && <button className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => setMsgs([])}>Нова розмова</button>}
         <button className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" onClick={onClose} aria-label="Закрити помічника"><Icon name="close" /></button>
       </header>
       <div className="ai-panel__body">
-        {!supabaseOn && <div className="vx-hint">Помічник працює на сайті із сервером (Vercel + Supabase).</div>}
+        {!supabaseOn && <div className="vx-hint">CONTEXT працює на сайті із сервером (Vercel + Supabase).</div>}
         {!msgs.length && (
           <div className="stack">
             <div className="ai-quick">

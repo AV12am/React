@@ -1,7 +1,7 @@
 // English for the interface: every Ukrainian text of the code (buttons, headings, fields, messages) and its translation.
 // EXACT — whole texts; TEMPLATES — texts with {} for the parts that change (numbers, names), filled in order. See dom.js.
 /* eslint-disable */
-export const EXACT = {"Чим можу допомогти?":"How can I help?","AI-асистент: чим можу допомогти? (Ctrl+J)":"AI assistant: how can I help? (Ctrl+J)","Ім’я та прізвище":"Full name","Вкажіть ім’я":"Enter a name","AI-асистент (Ctrl+J)":"AI assistant (Ctrl+J)","AI-асистент · Ctrl+J":"AI assistant · Ctrl+J","· попередній перегляд":"· preview"," · попередній перегляд":" · preview","Документи й правила":"Documents and rules",
+export const EXACT = {"CONTEXT — AI-асистент":"CONTEXT — AI assistant","CONTEXT · AI-асистент":"CONTEXT · AI assistant","CONTEXT — AI-асистент: чим можу допомогти? (Ctrl+J)":"CONTEXT — AI assistant: how can I help? (Ctrl+J)","Чим можу допомогти?":"How can I help?","AI-асистент: чим можу допомогти? (Ctrl+J)":"AI assistant: how can I help? (Ctrl+J)","Ім’я та прізвище":"Full name","Вкажіть ім’я":"Enter a name","AI-асистент (Ctrl+J)":"AI assistant (Ctrl+J)","AI-асистент · Ctrl+J":"AI assistant · Ctrl+J","· попередній перегляд":"· preview"," · попередній перегляд":" · preview","Документи й правила":"Documents and rules",
 "Інформація":"Information",
 "Документів ще немає":"No documents yet",
 "Документи й сертифікати":"Documents and certificates",
@@ -38,7 +38,7 @@ export const EXACT = {"Чим можу допомогти?":"How can I help?","A
 ". Зміни — лише після вашого «Підтвердити».":". Changes happen only after your «Confirm».",
 " — цей запис йому недоступний":" — this record is not available to it",
 "Нічого ще не змінено — дія виконається лише після «Підтвердити».":"Nothing has changed yet — the action runs only after «Confirm».",
-"Увага: жодної дії не виконано. Помічник лише відповів текстом — попросіть його ще раз або зробіть це вручну.":"Note: no action was taken. The assistant only replied in text — ask again or do it manually.",
+"Увага: жодної дії не виконано. CONTEXT лише відповів текстом — попросіть його ще раз або зробіть це вручну.":"Note: no action was taken. CONTEXT only replied in text — ask again or do it manually.",
 "загальні відомості про платформу":"general information about the platform",
 "— не імпортувати —":"— do not import —",
 "— санкційні списки РНБО (України), OFAC (США) і ЄС: збіг за назвою (з транслітерацією) або за кодом.":"— sanctions lists of the NSDC (Ukraine), OFAC (US) and the EU: match by name (with transliteration) or by code.",
@@ -1445,7 +1445,7 @@ export const EXACT = {"Чим можу допомогти?":"How can I help?","A
 "Помічник":"Assistant",
 "Нова розмова":"New conversation",
 "Закрити помічника":"Close the assistant",
-"Помічник працює на сайті із сервером (Vercel + Supabase).":"The assistant works on the site with the server (Vercel + Supabase).",
+"CONTEXT працює на сайті із сервером (Vercel + Supabase).":"CONTEXT works on the site with the server (Vercel + Supabase).",
 "Питайте про платформу, просіть перейти до розділу, знайти запис, створити завдання чи запис. Зміни — лише після вашого «Підтвердити».":"Ask about the platform, or ask it to open a section, find a record, create a task or a record. Changes happen only after your «Confirm».",
 "Помічник бачить лише відомості з грифом LUMEN":"The assistant sees LUMEN information only",
 "; вміст цього запису йому недоступний":"; this record's content is not available to it",
