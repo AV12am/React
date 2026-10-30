@@ -354,10 +354,9 @@ export function ForecastsView({ access, go }) {
       {!!due.length && <Panel title={`Настала дата перевірки · ${due.length}`} bodyClass="vx-table-wrap"><Table rows={due} resolve /></Panel>}
 
       <div className="grid grid--2">
-        <Panel title="Калібрування команди">
+        <Panel title="Калібрування команди" info="Точки на діагоналі — аналітики кажуть «70%», і справджується ~70%. Нижче діагоналі — надто впевнені, вище — надто обережні. Показово від ~20 вирішених прогнозів.">
           <div className="stack">
             {s.resolved ? <CalibrationChart bins={bins} /> : <div className="vx-empty"><Icon name="target" /><div>Ще немає вирішених прогнозів</div></div>}
-            <div className="vx-hint">Точки на діагоналі — аналітики кажуть «70%», і справджується ~70%. Нижче діагоналі — надто впевнені, вище — надто обережні. Показово від ~20 вирішених прогнозів.</div>
           </div>
         </Panel>
         <Panel title="Аналітики" bodyClass="vx-table-wrap">
@@ -376,7 +375,7 @@ export function ForecastsView({ access, go }) {
               ))}
             </tbody>
           </table>
-          {!people.length && <div className="vx-empty"><div>Прогнози з’являться, коли в «Судженнях» буде тип «Прогноз»</div></div>}
+          {!people.length && <div className="vx-empty"><div>Прогнозів ще немає</div></div>}
         </Panel>
       </div>
 

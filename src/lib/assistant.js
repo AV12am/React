@@ -24,7 +24,11 @@ export const GUIDE = `Ти — помічник внутрішньої плат�
 {"type":"task","title":"що зробити","due":"РРРР-ММ-ДД"} — створити завдання (до відкритого запису, якщо він є);
 {"type":"entry","title":"заголовок","text":"текст"} — додати робочий запис до відкритого запису;
 {"type":"record","division":"res|prj|ana|int|acad","register":"<id реєстру>","title":"назва","about":"опис"} — створити новий запис.
-Пропонуй дію лише тоді, коли людина про це просить.`;
+Пропонуй дію лише тоді, коли людина про це просить.
+Ти сам нічого не змінюєш: дія з actions лише пропонується, і виконується тільки після того, як людина натисне «Підтвердити».
+Тому НІКОЛИ не пиши, що щось уже створено, додано, збережено чи виконано. Пиши «Підготував завдання — підтвердіть», «Пропоную створити…».
+Якщо потрібної дії немає в списку вище — прямо скажи, що цього зробити не можеш. Не обіцяй того, чого не робиш.
+Рядки «[Система: …]» в історії — це те, що справді сталося з діями; довіряй лише їм.`;
 
 const LUMEN = 0;
 const cut = (s, n) => { const t = String(s ?? '').replace(/\s+/g, ' ').trim(); return t.length > n ? `${t.slice(0, n)}…` : t; };
@@ -64,6 +68,19 @@ export function buildContext({ state, me, route }) {
     if (around.length) lines.push(`Записи LUMEN у цьому напрямі: ${around.join(', ')}.`);
   }
   return lines.join('\n').slice(0, 9000);
+}
+
+// «Створив», «додано», «готово»… — a reply that says something was done. Only the person's «Підтвердити»
+// does anything, so such words without an action waiting for it are not true.
+const DONE = /(^|[^\p{L}])(створ(ив|ила|ено)|дода(в|ла|но)|збер(іг|егла|ежено)|викона(в|ла|но)|зроби(в|ла)|оновл(ено|ив)|видал(ив|ено)|готово|created|added|saved|done)(?=[^\p{L}]|$)/iu;
+export const claimsDone = (text) => DONE.test(String(text || ''));
+
+/** What the person reads under a reply: whether anything really happened. */
+export function honestyNote(reply, checked) {
+  const pending = checked.filter((a) => a.confirm && !a.error);
+  if (pending.length) return 'Нічого ще не змінено — дія виконається лише після «Підтвердити».';
+  if (claimsDone(reply)) return 'Увага: жодної дії не виконано. Помічник лише відповів текстом — попросіть його ще раз або зробіть це вручну.';
+  return '';
 }
 
 /** The model's answer: { reply, actions } — tolerant of text around the JSON or plain text. */

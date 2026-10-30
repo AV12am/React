@@ -90,7 +90,7 @@ export function Dashboard({ go }) {
           {state.files.length ? <>
             <BarList data={byDivision} unit="файлів" highlight={byDivision[0].value ? byDivision[0].id : null} />
             <p className="vx-hint chart-note">Ще {shared} у спільних папках.</p>
-          </> : <div className="vx-empty"><Icon name="vault" /><div>Файлів ще немає</div><div className="vx-hint">Завантажте перші документи в «Сховище».</div></div>}
+          </> : <div className="vx-empty"><Icon name="vault" /><div>Файлів ще немає</div></div>}
         </Panel>
         <Panel title="Активність платформи" action={<span className="vx-hint">12 тижнів</span>}>
           <Trend data={weekly} labels={weeks} unit="дій" />

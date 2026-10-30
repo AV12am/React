@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStore, fmtDate } from '../store.jsx';
-import { Panel, ClassBadge, Status, Avatar } from '../components/ui.jsx';
+import { Panel, ClassBadge, Status, Avatar, InfoTip, Skeleton } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { Loader } from '../brand/Mark.jsx';
 import { CLEARANCE } from '../data/seed.js';
@@ -59,11 +59,10 @@ function Review({ go }) {
       <header className="page__head">
         <div>
           <button className="vx-eyebrow ws-back" onClick={() => go('learn')}><Icon name="chevron" size={12} className="ws-back__icon" /> Навчання</button>
-          <h1 className="vx-h1">Повторення помилок</h1>
-          <div className="vx-hint">Питання, на які ви відповіли неправильно, повертаються через 2, 7 і 21 день — доки не закріпляться.</div>
+          <h1 className="vx-h1">Повторення помилок <InfoTip>Питання, на які ви відповіли неправильно, повертаються через 2, 7 і 21 день — доки не закріпляться.</InfoTip></h1>
         </div>
       </header>
-      {!items ? <div className="vx-empty"><Loader size={40} label="Завантаження" /></div> : !items.length ? (
+      {!items ? <Skeleton rows={5} /> : !items.length ? (
         <Panel><div className="vx-empty"><Icon name="check" /><div>На сьогодні повторювати нічого.</div></div></Panel>
       ) : <div className="quiz">
         {done && (

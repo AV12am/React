@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStore, fmtDate, fmtAgo, canSeeFile } from '../store.jsx';
-import { Panel, Drawer, ClassBadge, Avatar } from '../components/ui.jsx';
+import { Panel, Drawer, ClassBadge, Avatar, InfoTip } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { DIVISIONS, CLEARANCE } from '../data/seed.js';
 import { WORKSPACES, registersOf, registerOf, viewsOf } from '../data/workspaces.js';
@@ -264,13 +264,12 @@ function RecordDrawer({ d, reg, record, access, onClose, go, onCreated, startEdi
           )}
           {(isNew && isPage(reg) ? createFields(reg) : reg.fields).filter((f) => !f.hidden && !(isPage(reg) && f.type === 'files')).map((f) => (
             <div className="vx-field" key={f.id}>
-              <label className="vx-label" htmlFor={`f-${f.id}`}>{f.label}{f.required && ' *'}</label>
+              <label className="vx-label" htmlFor={`f-${f.id}`}>{f.label}{f.required && ' *'}{f.hint && <> <InfoTip label={`Підказка: ${f.label}`}>{f.hint}</InfoTip></>}</label>
               {f.type === 'files'
                 ? <Attachments value={draft[f.id]} onChange={set(f.id)} canEdit clearance={draft.clearance ?? 0} division={d.id} record={record?.id || null} />
                 : f.type === 'image'
                 ? <CoverInput value={draft[f.id]} onChange={set(f.id)} clearance={draft.clearance ?? 0} division={d.id} record={record?.id || null} />
                 : <FieldInput field={f} value={draft[f.id]} set={set(f.id)} look={look} me={me} />}
-              {f.hint && <div className="vx-hint">{f.hint}</div>}
             </div>
           ))}
           <div className="vx-field">
@@ -524,7 +523,7 @@ function RegisterView({ d, reg, access, go, openId }) {
           <div className="ws-cards">
             {rows.map((r) => <Tile key={r.id} reg={reg} r={r} look={look} locked={locked(r)} onOpen={isPage(reg) ? openPage : setOpen} go={go} />)}
           </div>
-          {!rows.length && <Panel><div className="vx-empty"><Icon name={reg.icon} /><div>{q ? 'Нічого не знайдено' : `Ще немає записів у «${reg.name}». Натисніть «Додати ${reg.one}».`}</div></div></Panel>}
+          {!rows.length && <Panel><div className="vx-empty"><Icon name={reg.icon} /><div>{q ? 'Нічого не знайдено' : `Ще немає записів у «${reg.name}»`}</div></div></Panel>}
         </>
       ) : reg.stages ? (
         <div className="ws-board">
@@ -659,8 +658,7 @@ export function Workspace({ divId, tab, go }) {
       <header className="page__head">
         <div>
           <button className="vx-eyebrow ws-back" onClick={() => go('divisions')}><Icon name="chevron" size={12} className="ws-back__icon" /> Напрями</button>
-          <h1 className="vx-h1 ws-title"><Icon name={d.icon} size={28} /> {d.name}</h1>
-          <div className="vx-muted">{WORKSPACES[divId]?.tagline}</div>
+          <h1 className="vx-h1 ws-title"><Icon name={d.icon} size={28} /> {d.name} <InfoTip title={d.name}>{WORKSPACES[divId]?.tagline}</InfoTip></h1>
         </div>
         <span className="vx-hint">{access.canEdit ? (access.member ? 'Ваш напрям' : 'Повний доступ') : 'Лише перегляд'}</span>
       </header>

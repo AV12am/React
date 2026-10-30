@@ -28,12 +28,42 @@ export function Status({ kind = 'ok', children }) {
   );
 }
 
-export function Panel({ title, action, children, className = '', bodyClass = 'vx-panel__body', ...rest }) {
+// Grey placeholder lines while a list is on its way.
+export function Skeleton({ rows = 4 }) {
+  return <div className="vx-skeleton" role="status" aria-label="Завантаження">{Array.from({ length: rows }, (_, i) => <i key={i} />)}</div>;
+}
+
+// ⓘ beside a title: what this place is and how to work in it, shown on hover (mouse) or on tap.
+export function InfoTip({ title, children, end = false, label = 'Що це' }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef(null);
+  const hover = useRef(typeof window !== 'undefined' && window.matchMedia?.('(hover: hover)').matches);
+  useEffect(() => {
+    if (!open) return undefined;
+    const away = (e) => { if (!box.current?.contains(e.target)) setOpen(false); };
+    const esc = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', away);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', esc); };
+  }, [open]);
+  if (!children) return null;
+  return (
+    <span className={`infotip ${end ? 'infotip--end' : ''}`} ref={box}
+      onMouseEnter={() => { if (hover.current) setOpen(true); }} onMouseLeave={() => { if (hover.current) setOpen(false); }}>
+      <button type="button" className="infotip__btn" aria-label={label} aria-expanded={open} onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o); }}>
+        <Icon name="info" />
+      </button>
+      {open && <span className="infotip__pop" role="tooltip">{title && <b>{title}</b>}{children}</span>}
+    </span>
+  );
+}
+
+export function Panel({ title, info, action, children, className = '', bodyClass = 'vx-panel__body', ...rest }) {
   return (
     <section className={`vx-panel ${className}`} {...rest}>
       {(title || action) && (
         <header className="vx-panel__head">
-          <h2 className="vx-panel__title">{title}</h2>
+          <h2 className="vx-panel__title">{title}{info && <> <InfoTip>{info}</InfoTip></>}</h2>
           {action}
         </header>
       )}

@@ -87,3 +87,13 @@ test('server: token stays on the server, daily limit, conversation passed on', a
     assert.equal((await call({ messages: [] }))[0], 400);
   } finally { globalThis.fetch = real; }
 });
+
+test('a reply that claims a change without a confirmed action is flagged', async () => {
+  const { claimsDone, honestyNote } = await import('../../src/lib/assistant.js');
+  assert.equal(claimsDone('Я створив завдання'), true);
+  assert.equal(claimsDone('Завдання створено.'), true);
+  assert.equal(claimsDone('Пропоную створити завдання — підтвердіть'), false);
+  assert.match(honestyNote('Готово, додав запис', []), /жодної дії не виконано/);
+  assert.match(honestyNote('Підготував завдання', [{ kind: 'task', confirm: true }]), /лише після «Підтвердити»/);
+  assert.equal(honestyNote('Ось розділ', [{ kind: 'go', confirm: false }]), '');
+});

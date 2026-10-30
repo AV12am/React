@@ -121,6 +121,7 @@ function Shell() {
   const [palette, setPalette] = useState(false);
   const [bell, setBell] = useState(false);
   const [ai, setAi] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
   const locked = !!state.session?.locked;
 
   const allowed = NAV.filter((n) => n.always || perms[n.id] > 0);
@@ -244,15 +245,13 @@ function Shell() {
 
       <div className="main">
         <header className="topbar">
-          <button className="vx-btn vx-btn--ghost vx-btn--icon topbar__menu" onClick={() => setMenu(true)} aria-label="Меню"><Icon name="menu" /></button>
-          <button className="topbar__mark" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Нагору"><Mark size={22} /></button>
-          <button className="topbar__search" onClick={() => setPalette(true)}>
-            <Icon name="search" size={16} /> <span className="topbar__search-long">Пошук і команди</span><span className="topbar__search-short">Пошук</span> <kbd>Ctrl K</kbd>
+          {/* The mark is the assistant: it opens it, and turns while the assistant is thinking. */}
+          <button className={`topbar__mark ${ai ? 'is-active' : ''} ${aiBusy ? 'is-thinking' : ''}`} onClick={() => setAi(!ai)} aria-expanded={ai} aria-label="Помічник" title="Помічник (Ctrl+J)"><Mark size={26} title="" /></button>
+          <span className="topbar__word" aria-hidden="true">REACTION</span>
+          <button className="topbar__search" onClick={() => setPalette(true)} aria-label="Пошук">
+            <Icon name="search" size={16} /> <span className="topbar__search-long">Пошук і команди</span> <kbd>Ctrl K</kbd>
           </button>
           <span className="grow" />
-          <button className={`vx-btn vx-btn--ghost vx-btn--sm topbar__ai ${ai ? 'is-active' : ''}`} onClick={() => setAi(!ai)} aria-expanded={ai} title="Помічник (Ctrl+J)">
-            <Icon name="spark" /> <span className="topbar__ai-text">Помічник</span>
-          </button>
           <Bell open={bell} setOpen={setBell} go={go} />
           <Clock />
           <span className="topbar__secure vx-hint"><Icon name="shield" size={14} /> Захищено</span>
@@ -276,7 +275,7 @@ function Shell() {
       </nav>
 
       {palette && <Palette onClose={() => setPalette(false)} go={go} allowed={allowed} lock={lock} />}
-      {ai && <Assistant onClose={() => setAi(false)} go={go} route={{ view: current, sub, id }} allowed={allowed.map((n) => n.id)} />}
+      {ai && <Assistant onClose={() => { setAi(false); setAiBusy(false); }} onBusy={setAiBusy} go={go} route={{ view: current, sub, id }} allowed={allowed.map((n) => n.id)} />}
       <DialogHost />
       <NewVersion />
       {veiled && <div className="veil" aria-hidden="true"><Mark size={64} /></div>}

@@ -5,7 +5,7 @@
 // stored by the active backend under companies/<ЄДРПОУ>/… — with a document number, grif and audit entry.
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, fmtDate, fmtBytes } from '../store.jsx';
-import { Panel, ClassBadge, Modal } from '../components/ui.jsx';
+import { Panel, ClassBadge, Modal, InfoTip } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { Loader } from '../brand/Mark.jsx';
 import { ORG_SECTORS, ORGS_UA } from '../data/orgs-ua.js';
@@ -306,12 +306,11 @@ function Editor({ org, onSave, onCancel }) {
       <div className="form-grid">
         {EDIT.map(([k, label, kind]) => (
           <div className={`vx-field ${kind === 'long' ? 'co-wide' : ''}`} key={k}>
-            <label className="vx-label" htmlFor={`co-${k}`}>{label}</label>
+            <label className="vx-label" htmlFor={`co-${k}`}>{label}{k === 'owners' && <> <InfoTip>Лише з державного реєстру, з датою. Про людей — тільки публічна ділова роль.</InfoTip></>}</label>
             {Array.isArray(kind)
               ? <select id={`co-${k}`} className="vx-select" value={d[k]} onChange={set(k)}><option value="">—</option>{kind.map((o) => <option key={o} value={o}>{o}</option>)}</select>
               : kind === 'long' ? <textarea id={`co-${k}`} className="vx-input ws-textarea" rows={k === 'about' ? 5 : 3} value={d[k]} onChange={set(k)} />
                 : <input id={`co-${k}`} className="vx-input" type={kind === 'num' ? 'number' : kind === 'url' ? 'url' : 'text'} value={d[k]} onChange={set(k)} />}
-            {k === 'owners' && <div className="vx-hint">Лише з державного реєстру, з датою. Про людей — тільки публічна ділова роль.</div>}
           </div>
         ))}
       </div>

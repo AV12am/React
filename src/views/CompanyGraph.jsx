@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide, forceX, forceY } from 'd3-force';
 import { useStore } from '../store.jsx';
 import { Icon } from '../components/Icon.jsx';
+import { InfoTip } from '../components/ui.jsx';
 import { buildGraph } from '../lib/orggraph.js';
 
 const W = 1000, H = 680;
@@ -142,8 +143,7 @@ export function CompanyGraph({ orgs, go, initial = null }) {
             </div>
           ) : (
             <div className="stack">
-              <div className="vx-eyebrow">Власники</div>
-              <div className="vx-hint">Оберіть власника — граф підсвітить усе, що йому належить. Другий клік по компанії відкриває її картку.</div>
+              <div className="vx-eyebrow">Власники <InfoTip>Оберіть власника — граф підсвітить усе, що йому належить. Другий клік по компанії відкриває її картку.</InfoTip></div>
               <div className="list">
                 {owners.map((n) => <button key={n.id} className="list__row list__row--btn" onClick={() => setFocus(n.id)}><span>{n.name}</span><span className="vx-hint vx-num">{n.deg}</span></button>)}
               </div>

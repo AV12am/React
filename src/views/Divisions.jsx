@@ -2,7 +2,7 @@ import { useStore } from '../store.jsx';
 import { Status } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { VISIBLE_DIVISIONS } from '../data/seed.js';
-import { WORKSPACES, registersOf } from '../data/workspaces.js';
+import { registersOf } from '../data/workspaces.js';
 import { Workspace } from './Workspace.jsx';
 
 // The company's divisions; each card opens that division's own workspace.
@@ -29,7 +29,6 @@ export function Divisions({ focus, tab, go }) {
                 <span className="division__icon"><Icon name={d.icon} /></span>
               </div>
               <h2 className="vx-h2">{d.name}</h2>
-              <p className="vx-muted division__about">{WORKSPACES[d.id]?.tagline || d.about}</p>
               <div className="division__regs vx-hint">{registersOf(d.id).map((r) => r.name).join(' · ')}</div>
               <div className="division__meta">
                 <span>{lead?.name ?? <span className="vx-hint">Керівника не призначено</span>}</span>

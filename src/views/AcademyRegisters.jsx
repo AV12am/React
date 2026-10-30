@@ -112,7 +112,7 @@ function Results({ go }) {
           ))}
         </tbody>
       </table>
-      {!rows.length && <div className="vx-empty"><Icon name="check" /><div>Тестів ще не проходили. Почніть у «Навчанні».</div></div>}
+      {!rows.length && <div className="vx-empty"><Icon name="check" /><div>Тестів ще не проходили</div></div>}
     </Panel>
   );
 }

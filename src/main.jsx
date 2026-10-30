@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
 import { labelTables } from './lib/mobile.js';
 // Fonts ship with the app (no third-party font host): Cyrillic and Latin subsets of the weights in use.
+import '@fontsource-variable/inter/wght.css';
 import '@fontsource-variable/source-serif-4/opsz.css';
 import '@fontsource-variable/source-serif-4/opsz-italic.css';
 import '@fontsource/cormorant-garamond/cyrillic-500.css';
@@ -17,6 +18,7 @@ import './styles/tokens.css';
 import './styles/components.css';
 import './styles/app.css';
 import './styles/v0-bridge.css';
+import './styles/refresh.css';
 
 // Interface language (Налаштування → Мова інтерфейсу). English swaps the texts as they appear (src/i18n/dom.js).
 let lang = 'uk';

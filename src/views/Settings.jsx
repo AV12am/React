@@ -79,9 +79,8 @@ function PushSettings() {
     } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
   };
   return (
-    <Panel title="Сповіщення на пристрій">
+    <Panel title="Сповіщення на пристрій" info="Згадки, нові завдання, запити на доступ, знахідки конвеєра й ранковий бриф — навіть коли платформу закрито. Текст сповіщення короткий; подробиці — лише після входу.">
       <div className="stack">
-        <div className="vx-hint">Згадки, нові завдання, запити на доступ, знахідки конвеєра й ранковий бриф — навіть коли платформу закрито. Текст сповіщення короткий; подробиці — лише після входу.</div>
         {!supported ? <div className="vx-hint">Цей браузер не підтримує push-сповіщення.</div>
           : ios ? <div className="vx-hint">На iPhone спершу додайте платформу на початковий екран (Поділитися → «На початковий екран»), відкрийте звідти — і ввімкніть тут.</div>
             : <button className="vx-btn vx-btn--sm" disabled={busy || on === null} onClick={on ? disable : enable}><Icon name="bell" /> {on ? 'Вимкнути на цьому пристрої' : 'Увімкнути на цьому пристрої'}</button>}
@@ -144,9 +143,8 @@ function BackupNow() {
     } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
   };
   return (
-    <Panel title="Резервні копії">
+    <Panel title="Резервні копії" info="Щопонеділка база (люди, записи, обговорення, індекс Сховища, налаштування) зберігається зашифрованою в Supabase Storage; зберігаються 8 останніх копій. Розшифрувати можна лише фразою BACKUP_KEY — зберігайте її окремо від платформи.">
       <div className="stack">
-        <div className="vx-hint">Щопонеділка база (люди, записи, обговорення, індекс Сховища, налаштування) зберігається зашифрованою в Supabase Storage; зберігаються 8 останніх копій. Розшифрувати можна лише фразою BACKUP_KEY — зберігайте її окремо від платформи.</div>
         <button className="vx-btn vx-btn--sm" disabled={busy} onClick={run}><Icon name="download" /> {busy ? 'Створюю…' : 'Створити й завантажити копію зараз'}</button>
       </div>
     </Panel>
@@ -205,9 +203,8 @@ function Keys() {
     try { await removeKey(id); toast('Ключ видалено'); await load(); } catch (e) { setErr(e.message); }
   };
   return (
-    <Panel title="Ключі доступу" action={me.custos ? <span className="vx-class vx-class--custos" title={CUSTOS.rule}>{CUSTOS.name}</span> : null}>
+    <Panel title="Ключі доступу" info="Вхід підтверджується Face ID, Touch ID, Windows Hello або ключем безпеки. Додайте другий пристрій, щоб не втратити доступ." action={me.custos ? <span className="vx-class vx-class--custos" title={CUSTOS.rule}>{CUSTOS.name}</span> : null}>
       <div className="stack">
-        <div className="vx-hint">Вхід підтверджується Face ID, Touch ID, Windows Hello або ключем безпеки. Додайте другий пристрій, щоб не втратити доступ.</div>
         {keys ? <div className="list">
           {keys.map((k) => (
             <div className="list__row" key={k.id}>
