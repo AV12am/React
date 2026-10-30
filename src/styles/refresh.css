@@ -315,5 +315,10 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 .map-readout > div > span, .map-frame .map-readout span { width: auto; white-space: nowrap; }
 @media (max-width: 900px) { .map-readout > div:not(.vx-hint) { grid-template-columns: 56px minmax(0, 1fr); column-gap: 6px; } }
 
-/* On the map (phone) the bottom corner holds the map's own controls: the mark waits mid-way up the right edge. */
-@media (max-width: 900px) { .shell.on-map .ai-fab { top: 50%; bottom: auto; transform: translateY(-50%) translateZ(0); } }
+/* On the map the corners hold the map's own controls: the mark waits mid-way up the right edge. */
+.shell.on-map .ai-fab { top: 50%; bottom: auto; transform: translateY(-50%) translateZ(0); }
+/* Map docks float over the map: their head and cards keep a solid surface. */
+.map-dock .vx-panel, .map-dock__head.vx-panel { background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-lg); }
+.map-dock--right .vx-panel__head { padding: 12px 16px 8px; }
+.map-dock--right .vx-panel__body, .map-dock--right .map-list { padding: 8px 16px 12px; }
+.map-dock--right .vx-panel .list__row { padding-left: 16px; padding-right: 16px; }

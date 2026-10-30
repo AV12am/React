@@ -21,7 +21,7 @@ export const GUIDE = `Ти — помічник внутрішньої плат�
 {"type":"go","to":"overview|divisions|vault|map|access|audit|info|settings","division":"int|ana|acad|res|prj","register":"<id реєстру>"} — перейти до розділу;
 {"type":"open","query":"назва запису"} — відкрити запис за назвою;
 {"type":"search","query":"слова"} — знайти записи;
-{"type":"task","title":"що зробити","due":"РРРР-ММ-ДД"} — створити завдання (до відкритого запису, якщо він є);
+{"type":"task","title":"що зробити","due":"РРРР-ММ-ДД"} — створити завдання (до відкритого запису, якщо він є). due — лише коли людина назвала строк; рахуй його від дати «Сьогодні» з контексту («завтра», «до п’ятниці», «наступного тижня» — від сьогодні) і ніколи не став дату в минулому. Строку не названо — не додавай due;
 {"type":"entry","title":"заголовок","text":"текст"} — додати робочий запис до відкритого запису;
 {"type":"record","division":"res|prj|ana|int|acad","register":"<id реєстру>","title":"назва","about":"опис"} — створити новий запис.
 Пропонуй дію лише тоді, коли людина про це просить.
@@ -42,9 +42,14 @@ export function openRecord(state, route) {
   return (state.records || []).find((r) => r.id === rid && r.div === route.sub) || null;
 }
 
+// Today in Kyiv as YYYY-MM-DD, and its weekday — the model has no clock of its own.
+export const todayKyiv = (now = Date.now()) => new Date(now).toLocaleDateString('sv-SE', { timeZone: 'Europe/Kyiv' });
+const weekday = (now) => new Date(now).toLocaleDateString('uk-UA', { timeZone: 'Europe/Kyiv', weekday: 'long' });
+const dmy = (iso) => iso.split('-').reverse().join('.');
+
 /** What the model may know: where the person is and the LUMEN records around them. */
-export function buildContext({ state, me, route }) {
-  const lines = [];
+export function buildContext({ state, me, route, now = Date.now() }) {
+  const lines = [`Сьогодні: ${todayKyiv(now)} (${weekday(now)}).`];
   const div = DIVISIONS.find((d) => d.id === route?.sub);
   lines.push(`Розділ: ${route?.view || 'overview'}${div ? ` · напрям «${div.name}» (${div.id})` : ''}. Роль користувача: ${me.role}.`);
   lines.push(`Напрями й реєстри: ${visibleDivs().map((d) => `${d.name} (${d.id}): ${registersOf(d.id).map((r) => `${r.name}=${r.id}`).join(', ')}`).join('; ')}.`);
@@ -127,7 +132,7 @@ const str = (v, n) => cut(v, n);
  * One proposed action, checked against the person's rights → { kind, label, confirm, ... } or { error }.
  * `allowed`: the sections this person may open (App.jsx).
  */
-export function checkAction(a, { state, me, perms, route, allowed = VIEWS }) {
+export function checkAction(a, { state, me, perms, route, allowed = VIEWS, now = Date.now() }) {
   const type = a?.type;
   if (type === 'go') {
     const to = VIEWS.includes(a.to) ? a.to : null;
@@ -145,8 +150,9 @@ export function checkAction(a, { state, me, perms, route, allowed = VIEWS }) {
   if (type === 'task') {
     const title = str(a.title, 140);
     if (!title) return { error: 'Немає назви завдання' };
-    const due = /^\d{4}-\d{2}-\d{2}$/.test(a.due || '') ? a.due : null;
-    return { kind: 'task', confirm: true, label: `Створити завдання «${title}»${due ? ` до ${due}` : ''}${rec ? ` у «${str(titleOf(rec), 60)}»` : ''}`,
+    // A date in the past is a mistake of the model, not the person's wish: the task goes without one.
+    const due = /^\d{4}-\d{2}-\d{2}$/.test(a.due || '') && a.due >= todayKyiv(now) ? a.due : null;
+    return { kind: 'task', confirm: true, label: `Створити завдання «${title}»${due ? ` до ${dmy(due)}` : ''}${rec ? ` у «${str(titleOf(rec), 60)}»` : ''}`,
       task: { title, assignee: me.id, due, target: rec?.id || null, clearance: rec ? +rec.clearance || 0 : 0 } };
   }
   if (type === 'entry') {

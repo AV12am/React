@@ -97,3 +97,15 @@ test('a reply that claims a change without a confirmed action is flagged', async
   assert.match(honestyNote('Підготував завдання', [{ kind: 'task', confirm: true }]), /лише після «Підтвердити»/);
   assert.equal(honestyNote('Ось розділ', [{ kind: 'go', confirm: false }]), '');
 });
+
+test('the model is told today’s date, and a task due in the past loses that date', async () => {
+  const { buildContext, checkAction, todayKyiv } = await import('../../src/lib/assistant.js');
+  const now = Date.parse('2026-10-30T09:00:00Z');
+  const me = { id: 'u1', role: 'admin', clearance: 2 };
+  assert.match(buildContext({ state: { records: [] }, me, route: { view: 'overview' }, now }), /^Сьогодні: 2026-10-30 \(/);
+  assert.equal(todayKyiv(now), '2026-10-30');
+  const old = checkAction({ type: 'task', title: 'Перевірити', due: '2024-01-08' }, { state: { records: [] }, me, perms: {}, route: {}, now });
+  assert.equal(old.task.due, null); assert.doesNotMatch(old.label, /2024/);
+  const ok = checkAction({ type: 'task', title: 'Перевірити', due: '2026-11-06' }, { state: { records: [] }, me, perms: {}, route: {}, now });
+  assert.equal(ok.task.due, '2026-11-06'); assert.match(ok.label, /до 06\.11\.2026/);
+});
