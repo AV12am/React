@@ -55,3 +55,19 @@ export function Wordmark({ tagline = false }) {
     </div>
   );
 }
+
+// CONTEXT, the assistant: one feather of the mark — the petal's vane with its diamond slit as the shaft,
+// notched like barbs, on a thin quill, laid at an angle like a pen.
+const FEATHER = 'M0 -100 L8 -88 L12.5 -74 L7.5 -69 L13.5 -61 L13.5 -49 L8 -44 L10 -36 L5.5 -27 L1.6 -21 L-1.6 -21 L-6.5 -29 L-11 -38 L-13.5 -51 L-8 -56 L-13 -63 L-12 -76 L-7 -80 L-8.5 -88 Z'
+  + 'M0 -93 L0.9 -70 L2.4 -60 L0.9 -50 L0.9 -30 L0 -24 L-0.9 -30 L-0.9 -50 L-2.4 -60 L-0.9 -70 Z';
+const QUILL = 'M-1.2 -22L1.2 -22L0.6 8L0 11L-0.6 8Z';
+export function ContextMark({ size = 32, className = '', title = 'CONTEXT' }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="-56 -101 112 112" role={title ? 'img' : undefined} aria-label={title || undefined} aria-hidden={title ? undefined : true}>
+      <g fill="currentColor" fillRule="evenodd" transform="rotate(35 0 -45)">
+        <path d={FEATHER} />
+        <path d={QUILL} />
+      </g>
+    </svg>
+  );
+}

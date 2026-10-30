@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StoreProvider, useStore } from './store.jsx';
-import { Wordmark, Mark, Loader } from './brand/Mark.jsx';
+import { Wordmark, Mark, Loader, ContextMark } from './brand/Mark.jsx';
 import { Icon } from './components/Icon.jsx';
 import { Avatar, Toasts, Modal, ClassBadge } from './components/ui.jsx';
 import { Splash, Login, Lock } from './views/Entry.jsx';
@@ -245,7 +245,7 @@ function Shell() {
         {/* The assistant: the mark in the free middle of the side panel, in the same place on every page. */}
         <div className="sidebar__ai">
           <button className={`ai-mark ${ai ? 'is-active' : ''} ${aiBusy ? 'is-thinking' : 'is-idle'}`} onClick={() => { setMenu(false); setAi(!ai); }} aria-expanded={ai}
-            aria-label="CONTEXT — AI-асистент: чим можу допомогти? (Ctrl+J)" data-tip="Чим можу допомогти?"><span className="mark-spin"><Mark size={72} title="" /></span></button>
+            aria-label="CONTEXT — AI-асистент: чим можу допомогти? (Ctrl+J)" data-tip="Чим можу допомогти?"><span className="mark-spin"><ContextMark size={72} title="" /></span></button>
         </div>
         <div className="sidebar__foot">
           <div className="sidebar__me">
@@ -297,7 +297,7 @@ function Shell() {
       {palette && <Palette onClose={() => setPalette(false)} go={go} allowed={allowed} lock={lock} />}
       {/* The assistant: the mark on the right edge of the screen — it turns slowly, faster while thinking,
           and says what it is on hover. */}
-      {!ai && <button className={`ai-fab ${aiBusy ? 'is-thinking' : 'is-idle'}`} onClick={() => setAi(true)} aria-label="CONTEXT — AI-асистент: чим можу допомогти? (Ctrl+J)" data-tip="Чим можу допомогти?"><span className="mark-spin"><Mark size={26} title="" /></span></button>}
+      {!ai && <button className={`ai-fab ${aiBusy ? 'is-thinking' : 'is-idle'}`} onClick={() => setAi(true)} aria-label="CONTEXT — AI-асистент: чим можу допомогти? (Ctrl+J)" data-tip="Чим можу допомогти?"><span className="mark-spin"><ContextMark size={26} title="" /></span></button>}
       {ai && <Assistant onClose={() => { setAi(false); setAiBusy(false); }} onBusy={setAiBusy} go={go} route={{ view: current, sub, id }} allowed={allowed.map((n) => n.id)} />}
       <DialogHost />
       <NewVersion />
