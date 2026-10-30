@@ -124,6 +124,14 @@ function Shell() {
   const [bell, setBell] = useState(false);
   const [ai, setAi] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
+  // While the page scrolls the assistant's mark holds still, so scrolling never stutters on slower machines.
+  useEffect(() => {
+    let t = null;
+    const root = document.documentElement;
+    const on = () => { root.classList.add('is-scrolling'); clearTimeout(t); t = setTimeout(() => root.classList.remove('is-scrolling'), 180); };
+    window.addEventListener('scroll', on, { passive: true });
+    return () => { window.removeEventListener('scroll', on); clearTimeout(t); root.classList.remove('is-scrolling'); };
+  }, []);
   const locked = !!state.session?.locked;
 
   const allowed = NAV.filter((n) => n.always || perms[n.id] > 0);
@@ -132,9 +140,10 @@ function Shell() {
   const asked = view === 'admin' ? adminTabs[0]?.id : view;
   const current = V0Sandbox && asked === 'v0' ? 'v0' : allowed.find((n) => n.id === asked) ? asked : allowed[0].id;
   const side = [
-    ...allowed.filter((n) => n.side !== false && n.id !== 'settings'),
+    ...allowed.filter((n) => n.side !== false && n.id !== 'settings' && n.id !== 'info'),
     ...(adminTabs.length ? [{ id: 'admin', label: 'Адміністрування', icon: 'access', to: adminTabs[0].id }] : []),
     ...allowed.filter((n) => n.id === 'settings'),
+    ...allowed.filter((n) => n.id === 'info'), // the last item: documents and rules
   ];
   const isActive = (n) => (n.id === 'admin' ? ADMIN.includes(current) : current === n.id);
   const pending = state.requests.filter((r) => r.status === 'pending').length;
@@ -278,7 +287,7 @@ function Shell() {
       {palette && <Palette onClose={() => setPalette(false)} go={go} allowed={allowed} lock={lock} />}
       {/* The assistant: the mark on the right edge of the screen — it turns slowly, faster while thinking,
           and says what it is on hover. */}
-      {!ai && <button className={`ai-fab ${aiBusy ? 'is-thinking' : 'is-idle'}`} onClick={() => setAi(true)} aria-label="AI-асистент (Ctrl+J)" data-tip="AI-асистент · Ctrl+J"><Mark size={26} title="" /></button>}
+      {!ai && <button className={`ai-fab ${aiBusy ? 'is-thinking' : 'is-idle'}`} onClick={() => setAi(true)} aria-label="AI-асистент: чим можу допомогти? (Ctrl+J)" data-tip="Чим можу допомогти?"><Mark size={26} title="" /></button>}
       {ai && <Assistant onClose={() => { setAi(false); setAiBusy(false); }} onBusy={setAiBusy} go={go} route={{ view: current, sub, id }} allowed={allowed.map((n) => n.id)} />}
       <DialogHost />
       <NewVersion />

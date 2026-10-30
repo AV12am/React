@@ -280,7 +280,9 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
   display: grid; place-items: center; width: 84px; height: 84px; padding: 0;
   background: none; border: 0; color: var(--ink-3); cursor: pointer; transition: color .3s var(--ease);
 }
-.ai-fab svg { width: 72px; height: 72px; will-change: transform; }
+.ai-fab { transform: translateZ(0); }
+.ai-fab svg { width: 72px; height: 72px; will-change: transform; backface-visibility: hidden; }
+.is-scrolling .ai-fab svg { animation-play-state: paused; }
 /* On hover only the colour changes: the turn keeps its pace, so it never jumps or restarts. */
 .ai-fab:hover, .ai-fab:focus-visible { color: var(--ink); outline: none; }
 .ai-fab.is-idle svg { animation: mark-spin 18s linear infinite; }

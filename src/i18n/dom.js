@@ -10,7 +10,7 @@
 // The language is chosen in «Налаштування»; switching reloads the page (src/main.jsx starts the translator).
 
 const CYR = /[А-ЯІЇЄҐа-яіїєґ]/;
-const ATTRS = ['placeholder', 'title', 'aria-label'];
+const ATTRS = ['placeholder', 'title', 'aria-label', 'data-tip'];
 const SKIP = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'CODE', 'PRE']);
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 

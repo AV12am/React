@@ -1,7 +1,7 @@
 // English for the interface: every Ukrainian text of the code (buttons, headings, fields, messages) and its translation.
 // EXACT — whole texts; TEMPLATES — texts with {} for the parts that change (numbers, names), filled in order. See dom.js.
 /* eslint-disable */
-export const EXACT = {"Ім’я та прізвище":"Full name","Вкажіть ім’я":"Enter a name","AI-асистент (Ctrl+J)":"AI assistant (Ctrl+J)","AI-асистент · Ctrl+J":"AI assistant · Ctrl+J","· попередній перегляд":"· preview"," · попередній перегляд":" · preview","Документи й правила":"Documents and rules",
+export const EXACT = {"Чим можу допомогти?":"How can I help?","AI-асистент: чим можу допомогти? (Ctrl+J)":"AI assistant: how can I help? (Ctrl+J)","Ім’я та прізвище":"Full name","Вкажіть ім’я":"Enter a name","AI-асистент (Ctrl+J)":"AI assistant (Ctrl+J)","AI-асистент · Ctrl+J":"AI assistant · Ctrl+J","· попередній перегляд":"· preview"," · попередній перегляд":" · preview","Документи й правила":"Documents and rules",
 "Інформація":"Information",
 "Документів ще немає":"No documents yet",
 "Документи й сертифікати":"Documents and certificates",
