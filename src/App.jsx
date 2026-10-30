@@ -237,6 +237,11 @@ function Shell() {
             </button>
           ))}
         </nav>
+        {/* The assistant: the mark in the free middle of the side panel, in the same place on every page. */}
+        <div className="sidebar__ai">
+          <button className={`ai-mark ${ai ? 'is-active' : ''} ${aiBusy ? 'is-thinking' : 'is-idle'}`} onClick={() => { setMenu(false); setAi(!ai); }} aria-expanded={ai}
+            aria-label="AI-асистент: чим можу допомогти? (Ctrl+J)" data-tip="Чим можу допомогти?"><Mark size={72} title="" /></button>
+        </div>
         <div className="sidebar__foot">
           <div className="sidebar__me">
             <Avatar name={me.name} />

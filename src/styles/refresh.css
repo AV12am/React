@@ -308,7 +308,7 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
   .ai-fab svg { width: 28px; height: 28px; }
 }
 /* A free lane on the right for the assistant's mark, so it never covers the page. */
-@media (min-width: 901px) { .shell:not(.has-ai):not(.on-map) .content { padding-right: 112px; } }
+
 
 /* Map readout: the label column fits its longest word («Висота», «Країна»), values line up after it. */
 .map-readout > div:not(.vx-hint) { display: grid; grid-template-columns: 64px minmax(0, 1fr); column-gap: 8px; align-items: baseline; }
@@ -317,9 +317,34 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 
 /* On the map the corners hold the map's own controls: the mark waits mid-way up the right edge. */
 .shell.on-map .ai-fab { top: 50%; bottom: auto; transform: translateY(-50%) translateZ(0); right: 20px; }
-@media (min-width: 901px) { .shell.on-map .ai-fab { top: calc(50% - 130px); right: 28px; } }
+
 /* Map docks float over the map: their head and cards keep a solid surface. */
 .map-dock .vx-panel, .map-dock__head.vx-panel { background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-lg); }
 .map-dock--right .vx-panel__head { padding: 12px 16px 8px; }
 .map-dock--right .vx-panel__body, .map-dock--right .map-list { padding: 8px 16px 12px; }
 .map-dock--right .vx-panel .list__row { padding-left: 16px; padding-right: 16px; }
+
+/* ---------- The assistant in the side panel (desktop): centred between the menu and the profile ---------- */
+.sidebar__ai { flex: 1; display: grid; place-items: center; min-height: 120px; }
+.sidebar__ai + .sidebar__foot { margin-top: 0; }
+.ai-mark {
+  position: relative; display: grid; place-items: center; width: 96px; height: 96px; padding: 0; border: 0; border-radius: 50%;
+  background: none; color: var(--ink-3); cursor: pointer; transition: color .3s var(--ease); transform: translateZ(0);
+}
+.ai-mark svg { width: 72px; height: 72px; will-change: transform; backface-visibility: hidden; }
+.ai-mark:hover, .ai-mark:focus-visible, .ai-mark.is-active { color: var(--ink); outline: none; }
+.ai-mark.is-idle svg { animation: mark-spin 18s linear infinite; }
+.ai-mark.is-thinking { color: var(--brass); }
+.ai-mark.is-thinking svg { animation: mark-spin 1.6s cubic-bezier(.55, .1, .45, .9) infinite; }
+.is-scrolling .ai-mark svg { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) { .ai-mark.is-idle svg { animation: none; } }
+.ai-mark::after {
+  content: attr(data-tip); position: absolute; left: 50%; top: calc(100% + 4px); transform: translate(-50%, -4px);
+  padding: 6px 10px; border-radius: 8px; background: var(--surface-3); border: 1px solid var(--line-strong);
+  font: 500 12.5px/1 var(--font-ui); color: var(--ink); white-space: nowrap; opacity: 0; pointer-events: none;
+  transition: opacity .15s var(--ease), transform .15s var(--ease);
+}
+@media (hover: hover) { .ai-mark:hover::after, .ai-mark:focus-visible::after { opacity: 1; transform: translate(-50%, 0); } }
+/* Desktop: the side panel holds it, so no floating mark; the phone keeps the floating one above the tab bar. */
+@media (min-width: 901px) { .ai-fab { display: none !important; } }
+@media (max-width: 900px) { .sidebar__ai { display: none; } }
