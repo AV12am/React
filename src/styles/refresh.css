@@ -271,32 +271,38 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 .info-rule__d b { color: var(--ink); font-weight: 600; }
 @media (max-width: 700px) { .info-rule { grid-template-columns: 1fr; gap: 6px; } }
 
-/* ---------- The assistant on the right of the top bar ---------- */
+/* ---------- The assistant: a mark on the right edge of the screen ---------- */
 .topbar__mark { display: none !important; }
-.topbar__ai-mark {
-  position: relative; display: inline-grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 1px solid transparent;
-  border-radius: 50%; background: none; color: var(--ink-2); cursor: pointer;
-  transition: color .2s var(--ease), background-color .2s var(--ease), border-color .2s var(--ease), box-shadow .2s var(--ease);
+.topbar__brand { display: none; align-items: center; gap: 10px; color: var(--ink); }
+.ai-fab {
+  position: fixed; right: 20px; top: 50%; transform: translateY(-50%); z-index: 40;
+  display: grid; place-items: center; width: 52px; height: 52px; padding: 0; border-radius: 50%;
+  background: var(--surface); border: 1px solid var(--line-strong); color: var(--ink); cursor: pointer;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .45);
+  transition: background-color .2s var(--ease), border-color .2s var(--ease), box-shadow .2s var(--ease), transform .2s var(--ease);
 }
-.topbar__ai-mark:hover, .topbar__ai-mark:focus-visible, .topbar__ai-mark.is-active {
-  color: var(--ink); background: var(--surface-2); border-color: var(--line-strong); box-shadow: 0 0 0 4px rgba(192, 90, 105, .14);
+.ai-fab:hover, .ai-fab:focus-visible {
+  background: var(--surface-2); border-color: var(--brass); outline: none;
+  box-shadow: 0 0 0 6px rgba(192, 90, 105, .16), 0 12px 34px rgba(0, 0, 0, .5); transform: translateY(-50%) scale(1.06);
 }
-.topbar__ai-mark:focus-visible { outline: none; }
-.topbar__ai-mark.is-idle svg { animation: mark-spin 14s linear infinite; }
-.topbar__ai-mark:hover.is-idle svg { animation-duration: 6s; }
-.topbar__ai-mark.is-thinking svg { animation: mark-spin 1.6s cubic-bezier(.55, .1, .45, .9) infinite; color: var(--brass); }
-@media (prefers-reduced-motion: reduce) { .topbar__ai-mark.is-idle svg { animation: none; } }
-/* What it is, on hover (mouse) — a small label under the mark. */
-.topbar__ai-mark::after {
-  content: attr(data-tip); position: absolute; top: calc(100% + 8px); right: 50%; transform: translate(50%, -2px);
-  padding: 5px 9px; border-radius: 8px; background: var(--surface-3); border: 1px solid var(--line-strong);
-  font: 500 12px/1 var(--font-ui); letter-spacing: 0; color: var(--ink); white-space: nowrap;
-  opacity: 0; pointer-events: none; transition: opacity .15s var(--ease), transform .15s var(--ease); z-index: 30;
+.ai-fab.is-idle svg { animation: mark-spin 16s linear infinite; }
+.ai-fab:hover.is-idle svg { animation-duration: 6s; }
+.ai-fab.is-thinking svg { animation: mark-spin 1.6s cubic-bezier(.55, .1, .45, .9) infinite; color: var(--brass); }
+@media (prefers-reduced-motion: reduce) { .ai-fab.is-idle svg { animation: none; } }
+/* What it is — a label to the left of the mark, on hover. */
+.ai-fab::after {
+  content: attr(data-tip); position: absolute; right: calc(100% + 12px); top: 50%; transform: translate(4px, -50%);
+  padding: 6px 10px; border-radius: 8px; background: var(--surface-3); border: 1px solid var(--line-strong);
+  font: 500 12.5px/1 var(--font-ui); color: var(--ink); white-space: nowrap; opacity: 0; pointer-events: none;
+  transition: opacity .15s var(--ease), transform .15s var(--ease);
 }
-@media (hover: hover) {
-  .topbar__ai-mark:hover::after, .topbar__ai-mark:focus-visible::after { opacity: 1; transform: translate(50%, 0); }
-}
+@media (hover: hover) { .ai-fab:hover::after, .ai-fab:focus-visible::after { opacity: 1; transform: translate(0, -50%); } }
 @media (max-width: 900px) {
-  .topbar__word { margin-left: 6px; }
-  .topbar__ai-mark { width: 40px; height: 40px; }
+  .topbar__brand { display: inline-flex; margin-left: 4px; }
+  .topbar__word { display: inline; margin: 0; }
+  /* On the phone: bottom right, above the tab bar, within reach of the thumb. */
+  .ai-fab { top: auto; bottom: calc(var(--tabbar-h) + 16px); right: 16px; transform: none; width: 48px; height: 48px; }
+  .ai-fab:hover, .ai-fab:focus-visible { transform: none; }
 }
+/* A free lane on the right for the assistant's mark, so it never covers the page. */
+@media (min-width: 901px) { .shell:not(.has-ai) .content { padding-right: 104px; } }

@@ -248,13 +248,11 @@ function Shell() {
 
       <div className="main">
         <header className="topbar">
-          <span className="topbar__word" aria-hidden="true">REACTION</span>
+          <span className="topbar__brand" aria-hidden="true"><Mark size={22} title="" /><span className="topbar__word">REACTION</span></span>
           <button className="topbar__search" onClick={() => setPalette(true)} aria-label="Пошук">
             <Icon name="search" size={16} /> <span className="topbar__search-long">Пошук і команди</span> <kbd>Ctrl K</kbd>
           </button>
           <span className="grow" />
-          {/* The assistant is the mark: it turns slowly, faster while thinking, and says what it is on hover. */}
-          <button className={`topbar__ai-mark ${ai ? 'is-active' : ''} ${aiBusy ? 'is-thinking' : 'is-idle'}`} onClick={() => setAi(!ai)} aria-expanded={ai} aria-label="AI-асистент (Ctrl+J)" data-tip="AI-асистент · Ctrl+J"><Mark size={22} title="" /></button>
           <Bell open={bell} setOpen={setBell} go={go} />
           <Clock />
           <span className="topbar__secure vx-hint"><Icon name="shield" size={14} /> Захищено</span>
@@ -278,6 +276,9 @@ function Shell() {
       </nav>
 
       {palette && <Palette onClose={() => setPalette(false)} go={go} allowed={allowed} lock={lock} />}
+      {/* The assistant: the mark on the right edge of the screen — it turns slowly, faster while thinking,
+          and says what it is on hover. */}
+      {!ai && <button className={`ai-fab ${aiBusy ? 'is-thinking' : 'is-idle'}`} onClick={() => setAi(true)} aria-label="AI-асистент (Ctrl+J)" data-tip="AI-асистент · Ctrl+J"><Mark size={26} title="" /></button>}
       {ai && <Assistant onClose={() => { setAi(false); setAiBusy(false); }} onBusy={setAiBusy} go={go} route={{ view: current, sub, id }} allowed={allowed.map((n) => n.id)} />}
       <DialogHost />
       <NewVersion />
