@@ -51,7 +51,8 @@ function Chart({ index, ahead, marks, months, go }) {
   const shown = marks.filter((m) => ts(m.date) >= start && ts(m.date) <= end);
   const all = [...past, ...ahead];
   const onMove = (e) => {
-    const r = e.currentTarget.getBoundingClientRect();
+    // Measured from the chart's own left edge (the hover area itself starts after the y-axis labels).
+    const r = (e.currentTarget.ownerSVGElement || e.currentTarget).getBoundingClientRect();
     const px = e.clientX - r.left;
     let best = null;
     for (const p of all) if (!best || Math.abs(x(p.date) - px) < Math.abs(x(best.date) - px)) best = p;

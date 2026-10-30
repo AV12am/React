@@ -72,7 +72,7 @@ export function buildBrief({ records = [], requests = [], tasks = [], comments =
   const myTasks = tasks.filter((t) => t.assignee === me.id && t.status !== 'done' && (t.clearance ?? 0) <= me.clearance
     && ((t.due && t.due <= in3) || (t.at || '') >= since))
     .sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999'))
-    .map((t) => ({ id: t.id, task: true, target: t.target || null, level: t.clearance ?? 0, title: (t.clearance ?? 0) <= top ? t.title : null, note: t.due ? (t.due < today ? `прострочено з ${t.due}` : t.due === today ? 'сьогодні' : `до ${t.due}`) : 'нове' }));
+    .map((t) => ({ id: t.id, task: true, target: t.target || null, level: t.clearance ?? 0, title: (t.clearance ?? 0) <= top ? t.title : null, note: t.due ? (t.due < today ? `прострочено з ${t.due}` : t.due === today ? 'сьогодні' : `строк ${t.due}`) : 'нове' }));
   const who = (id) => users.find((u) => u.id === id)?.name || 'колега';
   const mentions = comments.filter((c) => (c.mentions || []).includes(me.id) && c.author !== me.id && (c.at || '') >= since && (c.clearance ?? 0) <= me.clearance)
     .map((c) => { const r = byId.get(c.target); return { id: c.id, comment: true, target: c.target, div: r?.div, col: r?.col, level: c.clearance ?? 0, title: (c.clearance ?? 0) <= top ? `${who(c.author)}: ${c.text.slice(0, 140)}` : null, note: r && (r.clearance ?? 0) <= top ? titleOfRecord(r) : '' }; });
