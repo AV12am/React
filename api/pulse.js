@@ -13,7 +13,7 @@
 // GET /api/pulse   Authorization: Bearer <Supabase access token>  → { at, index, headlines, source, provisional }
 import { json, db, caller } from './_core.js';
 import * as XLSX from 'xlsx';
-import { timeline, anxiety, QUERY, FEEDS, parseFeed, crisisShare, ownIndex, cleanHeadlines, sharesByDay, GPR_URL, parseGpr, gprIndex, geoHeadline } from '../src/lib/pulse.js';
+import { timeline, anxiety, QUERY, FEEDS, parseFeed, crisisShare, ownIndex, cleanHeadlines, sharesByDay, GPR_URL, parseGpr, gprIndex, ANALYSIS_FEEDS, pickHeadlines } from '../src/lib/pulse.js';
 
 export const config = { maxDuration: 30 };
 
@@ -29,14 +29,17 @@ const STEPS = [
 const read = async (id) => (await db(`core_docs?kind=eq.pulse&id=eq.${id}&select=doc`).catch(() => []))[0]?.doc || null;
 const keep = (id, doc) => db('core_docs?on_conflict=kind,id', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: { kind: 'pulse', id, doc: { ...doc, id, clearance: 0 } } }).catch(() => {});
 
+const readFeed = async (url) => {
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'ReactionCore/1.0 (+news tone index)', Accept: 'application/rss+xml, application/xml, text/xml' }, signal: AbortSignal.timeout(8000) });
+    return res.ok ? parseFeed(await res.text(), new URL(url).hostname.replace(/^(www|feeds|rss|news)\./, '')) : [];
+  } catch { return []; }
+};
+
+// The newsrooms make the measurement; the analysis feeds only add headlines.
 async function measureFeeds(now) {
-  const all = await Promise.all(FEEDS.map(async (url) => {
-    try {
-      const res = await fetch(url, { headers: { 'User-Agent': 'ReactionCore/1.0 (+news tone index)', Accept: 'application/rss+xml, application/xml, text/xml' }, signal: AbortSignal.timeout(8000) });
-      return res.ok ? parseFeed(await res.text(), new URL(url).hostname.replace(/^(www|feeds|rss|news)\./, '')) : [];
-    } catch { return []; }
-  }));
-  return crisisShare(all.flat(), now);
+  const [news, analysis] = await Promise.all([Promise.all(FEEDS.map(readFeed)), Promise.all(ANALYSIS_FEEDS.map(readFeed))]);
+  return { ...crisisShare(news.flat(), now), analysis: analysis.flat() };
 }
 
 /** One GDELT question, if it is time to ask: the next missing (or stale) step. */
@@ -93,8 +96,8 @@ export async function refresh(now = Date.now()) {
   const gprOk = gpr?.series?.length >= 30 && now - Date.parse(`${gpr.series.at(-1).date}T00:00:00Z`) < 21 * 24 * HOUR;
   const gOk = g.tone?.data?.length && g.vol?.data?.length && now - Date.parse(g.tone.at) < 7 * 24 * HOUR;
   const index = gprOk ? gprIndex(gpr.series) : gOk ? anxiety(g.tone.data, g.vol.data) : ownIndex(days);
-  const own = m.crisis.filter(geoHeadline).slice(0, 8).map((x) => ({ title: x.title, url: x.url, domain: x.domain, at: x.at }));
-  const headlines = g.arts?.data?.length && now - Date.parse(g.arts.at) < 6 * HOUR ? g.arts.data.filter(geoHeadline) : own;
+  const own = pickHeadlines(m.crisis, m.analysis || [], now).map((x) => ({ title: x.title, url: x.url, domain: x.domain, at: x.at }));
+  const headlines = g.arts?.data?.length && now - Date.parse(g.arts.at) < 6 * HOUR ? pickHeadlines(g.arts.data, m.analysis || [], now) : own;
   return {
     at: new Date(now).toISOString(), index, headlines: cleanHeadlines(headlines),
     source: gprOk ? 'gpr' : gOk ? 'gdelt' : 'feeds', days: Object.keys(days).length, provisional: !gprOk && !gOk && Object.keys(days).length < 7,

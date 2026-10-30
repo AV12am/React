@@ -49,19 +49,29 @@ export function anxiety(tone, volume) {
  * A straight-line continuation of the last two weeks, `days` ahead, with a band that widens with distance:
  * the spread of the recent days around their own line, growing with the horizon. A guide, not a forecast.
  */
-export function project(series, days = 14) {
-  const last = series.slice(-14);
-  if (last.length < 7) return [];
-  const xs = last.map((_, i) => i);
-  const mx = mean(xs), my = mean(last.map((p) => p.value));
-  const slope = xs.reduce((s, x, i) => s + (x - mx) * (last[i].value - my), 0) / xs.reduce((s, x) => s + (x - mx) ** 2, 0);
-  const resid = sd(last.map((p, i) => p.value - (my + slope * (i - mx))));
+/**
+ * The probable course for the next `days`: the index drifts back toward its own usual level at the pace it
+ * has returned before (a first-order autoregression on the last ~90 days), with an 80% band that widens with
+ * the horizon. An estimate of where the line is likely to be — not a forecast of events.
+ */
+export function outlook(series, days = 14) {
+  const hist = series.slice(-90).map((p) => p.value);
+  if (hist.length < 14) return [];
+  const mu = mean(hist);
+  const dev = hist.map((v) => v - mu);
+  let num = 0, den = 0;
+  for (let i = 1; i < dev.length; i++) { num += dev[i] * dev[i - 1]; den += dev[i - 1] ** 2; }
+  const phi = Math.max(0, Math.min(0.995, den ? num / den : 0));
+  const resid = dev.slice(1).map((d, i) => d - phi * dev[i]);
+  const sigma = Math.sqrt(mean(resid.map((e) => e * e))) || 1;
+  const z = 1.2816; // 80%
   const start = new Date(`${series.at(-1).date}T00:00:00Z`);
+  const lastDev = hist.at(-1) - mu;
   return Array.from({ length: days }, (_, k) => {
     const h = k + 1;
     const date = new Date(start.getTime() + h * 86400000).toISOString().slice(0, 10);
-    const value = Math.max(0, Math.min(100, my + slope * (last.length - 1 + h - mx)));
-    const spread = resid * (1 + h / 7);
+    const value = Math.max(0, Math.min(100, mu + phi ** h * lastDev));
+    const spread = z * sigma * Math.sqrt(phi < 1 ? (1 - phi ** (2 * h)) / (1 - phi * phi) : h);
     return { date, value, lo: Math.max(0, value - spread), hi: Math.min(100, value + spread) };
   });
 }
@@ -96,6 +106,35 @@ export const cleanHeadlines = (list) => (Array.isArray(list) ? list : []).slice(
 // so crime, markets and domestic politics stay out even when their text mentions a «crisis» or «attack».
 const GEO = /\b(wars?|warfare|military|troops|soldiers|army|armed forces|missiles?|drones?|air ?strikes?|shelling|bombard\w*|invasion|invade\w*|occupation|annex\w*|ceasefire|truce|peace talks|sanctions?|nuclear|coup|terror\w*|hostages?|insurgen\w*|militants?|rebels?|frontline|front line|offensive|escalat\w*|conflict|geopolit\w*|nato|security council|kremlin|pentagon|ukrain\w*|russia\w*|gaza|israel\w*|iran\w*|taiwan\w*|syria\w*|sudan\w*|yemen\w*|houthis?|hezbollah|hamas|north korea\w*)\b/i;
 export const geoHeadline = (x) => GEO.test(String(x?.title || ''));
+
+// Analysis titles (The Economist, Foreign Affairs, McKinsey): for the headlines only — never part of the index,
+// whose baseline is the share of crisis items in the newsrooms' feeds. Besides war and security, the economics
+// of power counts here: trade wars, tariffs, sanctions, supply chains, energy and defence.
+export const ANALYSIS_FEEDS = [
+  'https://www.economist.com/international/rss.xml',
+  'https://www.economist.com/the-world-this-week/rss.xml',
+  'https://www.foreignaffairs.com/rss.xml',
+  'https://www.mckinsey.com/insights/rss',
+];
+const GEO_ECON = /\b(tariffs?|trade wars?|supply chains?|geoeconom\w*|energy security|defen[cs]e|great[- ]power|deterrence|rearm\w*|export controls?|world order|globali[sz]ation|china|europe|middle east)\b/i;
+export const analysisHeadline = (x) => GEO.test(String(x?.title || '')) || GEO_ECON.test(String(x?.title || ''));
+
+/** Up to two recent analysis pieces (a week) first, then the day's news — each source once at most twice. */
+export function pickHeadlines(news, analysis, now = Date.now(), limit = 8) {
+  const week = (x) => !x.at || now - Date.parse(x.at) < 7 * 86400000;
+  const recent = (a) => [...a].sort((p, q) => String(q.at).localeCompare(String(p.at)));
+  const deep = recent(analysis.filter((x) => week(x) && analysisHeadline(x))).slice(0, 2);
+  const out = [];
+  const per = {};
+  for (const x of [...deep, ...news.filter(geoHeadline)]) {
+    if (out.some((y) => y.url === x.url)) continue;
+    per[x.domain] = (per[x.domain] || 0) + 1;
+    if (per[x.domain] > 2) continue;
+    out.push(x);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
 
 /* ---------- own measurement: world news feeds ---------- */
 // Open RSS of world newsrooms, read by the server: the share of recent items about war, conflict, attacks,

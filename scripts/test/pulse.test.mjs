@@ -2,7 +2,7 @@
 // the platform's forecasts on the time line (within clearance), and the server's hourly cache.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { timeline, anxiety, project, levelOf, foresight, parseFeed, crisisShare, ownIndex, FEEDS, sharesByDay, parseGpr, gprIndex, GPR_URL } from '../../src/lib/pulse.js';
+import { timeline, anxiety, outlook, levelOf, foresight, parseFeed, crisisShare, ownIndex, FEEDS, sharesByDay, parseGpr, gprIndex, GPR_URL } from '../../src/lib/pulse.js';
 
 const days = (n, f) => Array.from({ length: n }, (_, i) => {
   const d = new Date(Date.UTC(2026, 7, 1) + i * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
@@ -23,14 +23,19 @@ test('index: tone and volume → 0–100, 50 is the usual level, worse news is h
   assert.deepEqual(anxiety([], []), []);
 });
 
-test('trend continuation: straight on, the band widens', () => {
-  const s = Array.from({ length: 20 }, (_, i) => ({ date: new Date(Date.UTC(2026, 9, 1) + i * 86400000).toISOString().slice(0, 10), value: 40 + i + (i % 2) }));
-  const a = project(s, 14);
+test('probable course: back toward the usual level, the 80% band widens', () => {
+  // A noisy series around 60 that ends high at 80: the course drifts down toward 60, never past it.
+  const vals = Array.from({ length: 60 }, (_, i) => 60 + 6 * Math.sin(i / 3) + (i % 5) - 2);
+  vals.push(70, 75, 80);
+  const s = vals.map((value, i) => ({ date: new Date(Date.UTC(2026, 7, 1) + i * 86400000).toISOString().slice(0, 10), value }));
+  const a = outlook(s, 14);
   assert.equal(a.length, 14);
-  assert.equal(a[0].date, '2026-10-21');
-  assert.ok(a[13].value > a[0].value);
+  assert.equal(a[0].date, new Date(Date.UTC(2026, 7, 1) + 63 * 86400000).toISOString().slice(0, 10));
+  assert.ok(a[0].value < 80 && a[13].value < a[0].value, `${a[0].value} → ${a[13].value}`);
+  assert.ok(a[13].value > 55);
   assert.ok(a[13].hi - a[13].lo > a[0].hi - a[0].lo);
-  assert.ok(a.every((p) => p.value <= 100 && p.lo >= 0));
+  assert.ok(a.every((p) => p.lo <= p.value && p.value <= p.hi && p.lo >= 0 && p.hi <= 100));
+  assert.deepEqual(outlook(s.slice(0, 10), 14), []); // too short a history: nothing drawn
 });
 
 test('foresight: open forecasts ahead, resolved ones behind, nothing above clearance', () => {
@@ -167,4 +172,19 @@ test('headlines under the index are about war and security, not crime or markets
   assert.equal(geoHeadline({ title: 'Erin Patterson to die in prison after losing appeal against mushroom murder convictions' }), false);
   assert.equal(geoHeadline({ title: 'Crypto giant Binance hit by $6.3bn hack suspected to be largest in history' }), false);
   assert.equal(geoHeadline({ title: 'Battle lines redrawn in Spain’s snap election after latest train disaster' }), false);
+});
+
+test('analysis pieces lead the headlines, only on war, security and the economics of power', async () => {
+  const { pickHeadlines, ANALYSIS_FEEDS } = await import('../../src/lib/pulse.js');
+  assert.ok(ANALYSIS_FEEDS.some((u) => u.includes('economist.com')) && ANALYSIS_FEEDS.some((u) => u.includes('foreignaffairs.com')) && ANALYSIS_FEEDS.some((u) => u.includes('mckinsey.com')));
+  const now = Date.parse('2026-10-30T10:00:00Z');
+  const analysis = [
+    { title: 'The new age of tariffs and supply chains', url: 'https://mckinsey.com/a', domain: 'mckinsey.com', at: '2026-10-28T10:00:00Z' },
+    { title: 'How to talk to your team about burnout', url: 'https://mckinsey.com/b', domain: 'mckinsey.com', at: '2026-10-29T10:00:00Z' },
+    { title: 'Russia’s war economy is running out of road', url: 'https://economist.com/c', domain: 'economist.com', at: '2026-10-29T08:00:00Z' },
+    { title: 'Deterrence in the Taiwan Strait', url: 'https://foreignaffairs.com/old', domain: 'foreignaffairs.com', at: '2026-09-01T08:00:00Z' },
+  ];
+  const news = [{ title: 'Missile strike on Kharkiv', url: 'https://bbc.co.uk/1', domain: 'bbc.co.uk', at: '2026-10-30T08:00:00Z' }, { title: 'Obesity plan doomed', url: 'https://bbc.co.uk/2', domain: 'bbc.co.uk', at: '2026-10-30T08:00:00Z' }];
+  const h = pickHeadlines(news, analysis, now);
+  assert.deepEqual(h.map((x) => x.url), ['https://economist.com/c', 'https://mckinsey.com/a', 'https://bbc.co.uk/1']);
 });

@@ -6,7 +6,7 @@ import { Panel, Status } from './ui.jsx';
 import { Icon } from './Icon.jsx';
 import { Loader } from '../brand/Mark.jsx';
 import { supabaseOn, authHeaders } from '../lib/supabase.js';
-import { levelOf, project, foresight } from '../lib/pulse.js';
+import { levelOf, outlook, foresight } from '../lib/pulse.js';
 import { recordRoute } from '../lib/assistant.js';
 import { LOCALE } from '../lib/locale.js';
 
@@ -93,16 +93,16 @@ function Chart({ index, ahead, marks, months, go }) {
       </svg>
       {hover && (
         <div className="pulse__tip" style={x(hover.date) > W / 2 ? { right: W - x(hover.date) + 12, top: T } : { left: x(hover.date) + 12, top: T }}>
-          <div className="vx-hint">{fmtDate(hover.date, false)}{hover.lo != null ? ' · продовження тренду' : ''}</div>
+          <div className="vx-hint">{fmtDate(hover.date, false)}{hover.lo != null ? ' · ймовірна тенденція' : ''}</div>
           <div><b className="vx-num">{Math.round(hover.value)}</b> · {levelOf(hover.value).label}</div>
           {hover.raw != null && <div className="vx-hint vx-num">{`GPR ${hover.raw} (100 — середнє 1985–2019)`}</div>}
-          {hover.lo != null && <div className="vx-hint vx-num">{`межі: ${Math.round(hover.lo)}–${Math.round(hover.hi)}`}</div>}
+          {hover.lo != null && <div className="vx-hint vx-num">{`80% ймовірності: ${Math.round(hover.lo)}–${Math.round(hover.hi)}`}</div>}
           {near.map((m) => <div key={m.id} className="vx-hint">{KIND[m.kind]}: {m.title}{m.p != null ? ` · ${m.p}%` : ''}</div>)}
         </div>
       )}
       <div className="pulse__legend vx-hint">
         <span><i className="pulse__key pulse__key--line" /> індекс</span>
-        <span><i className="pulse__key pulse__key--ahead" /> продовження тренду (не прогноз)</span>
+        <span><i className="pulse__key pulse__key--ahead" /> ймовірна тенденція · межі 80%</span>
         <span><i className="pulse__key pulse__key--risk" /> відкритий прогноз</span>
         <span><i className="pulse__key pulse__key--resolved" /> прогноз перевірено</span>
         <span><i className="pulse__key pulse__key--due" /> термін продукту</span>
@@ -139,7 +139,7 @@ export function Pulse({ go }) {
   }, []);
   const marks = useMemo(() => foresight(state.records, me), [state.records, me]);
   const index = data?.index || [];
-  const ahead = useMemo(() => project(index, 14), [index]);
+  const ahead = useMemo(() => outlook(index, 14), [index]);
   const now = index.at(-1);
   const week = index.at(-8);
   const lvl = now ? levelOf(now.value) : null;
@@ -151,7 +151,7 @@ export function Pulse({ go }) {
     : data.source === 'gdelt'
       ? 'Тон і частка світових новин про війни, конфлікти, кризи, атаки й санкції (GDELT Project, відкриті дані). 50 — звичайний рівень останніх трьох місяців.'
       : `Частка матеріалів про війни, конфлікти, кризи, атаки й санкції у стрічках світових редакцій (BBC, Al Jazeera, DW, The Guardian, NPR, France 24, Sky News, ООН) — власне вимірювання платформи, днів в історії: ${data.days}.${data.provisional ? ' Поки зібрано менше тижня, значення попереднє.' : ' 50 — звичайний рівень зібраної історії.'}`
-  } Оновлюється щогодини. Пунктир — лише продовження тренду, а не прогноз; позначки внизу — прогнози платформи.`;
+  } Оновлюється щогодини. Пунктир — ймовірна тенденція на два тижні: індекс повертається до свого звичайного рівня з тією швидкістю, з якою повертався раніше; затінена смуга — межі, у які він потрапить із ймовірністю 80%. Це оцінка руху лінії, а не прогноз подій. Позначки внизу — прогнози платформи.`;
   return (
     <Panel className="pulse" title="Геополітичний ризик · GPR" info={about}
       action={<div className="toolbar">
