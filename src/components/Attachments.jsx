@@ -60,7 +60,7 @@ function Thumb({ f, onOpen, onRemove }) {
 
 /* ---------- the viewer ---------- */
 
-function PdfView({ blob }) {
+export function PdfView({ blob }) {
   const box = useRef(null);
   const [info, setInfo] = useState('');
   useEffect(() => {

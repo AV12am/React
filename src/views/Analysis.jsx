@@ -1,8 +1,9 @@
 // Analytics screens: the «звідки ми це знаємо» chain in a record, the review queue, forecasts and calibration.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useStore, fmtDate, fmtAgo, canSeeFile } from '../store.jsx';
 import { Panel, ClassBadge, Status, Avatar } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
+import { PdfView, DocxView } from '../components/Attachments.jsx';
 import { registerOf, OUTCOMES } from '../data/workspaces.js';
 import { chainOf, reasonsFor, usedBy, reviewQueue, isOpen, attention } from '../lib/provenance.js';
 import { OrgExtras } from './Orgs.jsx';
@@ -92,9 +93,33 @@ function Resolve({ record, canEdit }) {
  * «Звіт»: a record page as a PDF (print dialog) or a Word document, with its grif and number — the
  * description, data and entries, the cover photo, and every attached file as an appendix.
  */
+// The made report, page by page, before it is saved: «Завантажити» or «Закрити».
+function ReportPreview({ p, onSave, onClose }) {
+  useEffect(() => {
+    const esc = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose(); } };
+    window.addEventListener('keydown', esc, true);
+    return () => window.removeEventListener('keydown', esc, true);
+  }, [onClose]);
+  return (
+    <div className="fv" role="dialog" aria-modal="true" aria-label={`Звіт: ${p.name}`}>
+      <header className="fv__bar">
+        <div className="fv__title"><b>{p.name}</b><span className="vx-hint">{p.kind === 'pdf' ? 'PDF' : 'Word'} · попередній перегляд</span></div>
+        <button className="vx-btn vx-btn--primary vx-btn--sm fv__wide" onClick={onSave}><Icon name="download" /> Завантажити</button>
+        <button className="vx-btn vx-btn--ghost vx-btn--icon fv__wide" onClick={onClose} aria-label="Закрити"><Icon name="close" /></button>
+      </header>
+      <div className="fv__body">{p.kind === 'pdf' ? <PdfView blob={p.blob} /> : <DocxView blob={p.blob} />}</div>
+      <footer className="fv__dock">
+        <button className="vx-btn vx-btn--primary" onClick={onSave}><Icon name="download" /> Завантажити</button>
+        <button className="vx-btn" onClick={onClose}><Icon name="close" /> Закрити</button>
+      </footer>
+    </div>
+  );
+}
+
 export function ReportButtons({ reg, record, facts = [], look, factPairs, extraFiles, about }) {
   const { state, me, backend, dispatch, toast } = useStore();
   const [busy, setBusy] = useState('');
+  const [preview, setPreview] = useState(null); // { kind, blob, name, number, title } — shown before it is saved
   if (!canReport(record)) return <div className="vx-hint">Гриф цього запису не дозволяє виносити його за межі системи — звіт лише в платформі.</div>;
   const make = async (kind) => {
     setBusy(kind);
@@ -118,20 +143,23 @@ export function ReportButtons({ reg, record, facts = [], look, factPairs, extraF
       });
       if (!extra.facts) delete extra.facts;
       const m = reportModel(record, { records, users: state.users, number, extra });
+      // The report opens in the platform first; it leaves the system only on «Завантажити».
       if (kind === 'pdf') {
-        // A real PDF file (phones included); the print dialog only if the file cannot be made here.
         let blob = null;
-        try { blob = await (await import('../lib/reportPdf.js')).reportPdf(m); } catch { printReport(m); }
-        if (blob) {
-          const res = await saveFile(reportFileName(m, 'pdf'), blob);
-          if (res !== 'saved') throw new Error(res === 'declined' ? 'Збереження скасовано' : 'Не вдалося зберегти файл');
-        }
+        try { blob = await (await import('../lib/reportPdf.js')).reportPdf(m); } catch { printReport(m); } // print dialog only if no PDF can be made here
+        if (blob) setPreview({ kind, blob, name: reportFileName(m, 'pdf'), number, title: m.title });
       } else {
-        const res = await saveFile(reportFileName(m, 'docx'), await reportDocx(m));
-        if (res !== 'saved') throw new Error(res === 'declined' ? 'Збереження скасовано' : 'Не вдалося зберегти файл');
+        setPreview({ kind, blob: await reportDocx(m), name: reportFileName(m, 'docx'), number, title: m.title });
       }
-      dispatch({ type: 'report/export', id: record.id, number, format: kind === 'pdf' ? 'PDF' : 'Word', label: m.title, level: record.clearance });
     } catch (e) { toast(e.message || 'Не вдалося сформувати звіт', 'error'); } finally { setBusy(''); }
+  };
+  const download = async () => {
+    try {
+      const res = await saveFile(preview.name, preview.blob);
+      if (res !== 'saved') throw new Error(res === 'declined' ? 'Збереження скасовано' : 'Не вдалося зберегти файл');
+      dispatch({ type: 'report/export', id: record.id, number: preview.number, format: preview.kind === 'pdf' ? 'PDF' : 'Word', label: preview.title, level: record.clearance });
+      setPreview(null);
+    } catch (e) { toast(e.message, 'error'); }
   };
   return (
     <div className="stack">
@@ -142,6 +170,7 @@ export function ReportButtons({ reg, record, facts = [], look, factPairs, extraF
         {busy && <span className="vx-hint">Збираю звіт із файлами…</span>}
         {record.number && <span className="vx-hint vx-mono">{record.number}</span>}
       </div>
+      {preview && <ReportPreview p={preview} onSave={download} onClose={() => setPreview(null)} />}
       <div className="vx-hint">З грифом на кожній сторінці{reg.id === 'products' ? ', ключовими судженнями й ланцюгом підстав' : ''}; усі файли запису — додатками: фото як зображення, PDF, Word, Excel і текст — їхнім текстом. Те, що вище грифа запису, у звіт не потрапляє.</div>
     </div>
   );

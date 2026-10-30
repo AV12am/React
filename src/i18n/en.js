@@ -1,7 +1,7 @@
 // English for the interface: every Ukrainian text of the code (buttons, headings, fields, messages) and its translation.
 // EXACT — whole texts; TEMPLATES — texts with {} for the parts that change (numbers, names), filled in order. See dom.js.
 /* eslint-disable */
-export const EXACT = {"Документи й правила":"Documents and rules",
+export const EXACT = {" · попередній перегляд":" · preview","Документи й правила":"Documents and rules",
 "Інформація":"Information",
 "Документів ще немає":"No documents yet",
 "Документи й сертифікати":"Documents and certificates",
@@ -1528,7 +1528,8 @@ export const EXACT = {"Документи й правила":"Documents and rule
 "Збираю звіт із файлами…":"Building the report with its files…",
 "фото обкладинки":"cover photo",
 "прибрано обкладинку":"cover removed"};
-export const TEMPLATES = [["Показати · {}","Show · {}"],
+export const TEMPLATES = [["Звіт: {}","Report: {}"],
+["Показати · {}","Show · {}"],
 ["Версія {}","Version {}"],
 ["Частка матеріалів про війни, конфлікти, кризи, атаки й санкції у стрічках світових редакцій (BBC, Al Jazeera, DW, The Guardian, NPR, France 24, Sky News, ООН) — власне вимірювання платформи, днів в історії: {}. Поки зібрано менше тижня, значення попереднє. Оновлюється щогодини. Пунктир — лише продовження тренду, а не прогноз; позначки внизу — прогнози платформи.","The share of items about wars, conflicts, crises, attacks and sanctions in world newsroom feeds (BBC, Al Jazeera, DW, The Guardian, NPR, France 24, Sky News, the UN) — the platform's own measurement, days in history: {}. Until a week is collected, the value is provisional. Updated hourly. The dashed line only continues the trend, it is not a forecast; the marks below are the platform's forecasts."],
 ["Частка матеріалів про війни, конфлікти, кризи, атаки й санкції у стрічках світових редакцій (BBC, Al Jazeera, DW, The Guardian, NPR, France 24, Sky News, ООН) — власне вимірювання платформи, днів в історії: {}. 50 — звичайний рівень зібраної історії. Оновлюється щогодини. Пунктир — лише продовження тренду, а не прогноз; позначки внизу — прогнози платформи.","The share of items about wars, conflicts, crises, attacks and sanctions in world newsroom feeds (BBC, Al Jazeera, DW, The Guardian, NPR, France 24, Sky News, the UN) — the platform's own measurement, days in history: {}. 50 is the usual level of the collected history. Updated hourly. The dashed line only continues the trend, it is not a forecast; the marks below are the platform's forecasts."],
