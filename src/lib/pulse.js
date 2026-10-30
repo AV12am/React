@@ -92,6 +92,11 @@ export const cleanHeadlines = (list) => (Array.isArray(list) ? list : []).slice(
   .map((a) => ({ title: String(a.title || '').slice(0, 200), url: String(a.url || ''), domain: String(a.domain || '').slice(0, 80), country: String(a.sourcecountry || a.country || '').slice(0, 40), at: String(a.seendate || a.at || '').slice(0, 20) }))
   .filter((a) => /^https?:\/\/[^\s]+$/.test(a.url) && a.title);
 
+// A headline worth showing under the index: about war, security or states in conflict — by its title alone,
+// so crime, markets and domestic politics stay out even when their text mentions a «crisis» or «attack».
+const GEO = /\b(wars?|warfare|military|troops|soldiers|army|armed forces|missiles?|drones?|air ?strikes?|shelling|bombard\w*|invasion|invade\w*|occupation|annex\w*|ceasefire|truce|peace talks|sanctions?|nuclear|coup|terror\w*|hostages?|insurgen\w*|militants?|rebels?|frontline|front line|offensive|escalat\w*|conflict|geopolit\w*|nato|security council|kremlin|pentagon|ukrain\w*|russia\w*|gaza|israel\w*|iran\w*|taiwan\w*|syria\w*|sudan\w*|yemen\w*|houthis?|hezbollah|hamas|north korea\w*)\b/i;
+export const geoHeadline = (x) => GEO.test(String(x?.title || ''));
+
 /* ---------- own measurement: world news feeds ---------- */
 // Open RSS of world newsrooms, read by the server: the share of recent items about war, conflict, attacks,
 // crises, sanctions… is measured each time and kept per day — the platform's own record, with no limits of

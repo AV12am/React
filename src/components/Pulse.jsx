@@ -115,7 +115,9 @@ export function Pulse({ go }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
   const [months, setMonths] = useState(3);
-  const [table, setTable] = useState(false);
+  // The headlines under the chart fold away; the choice is remembered on this device.
+  const [news, setNews] = useState(() => { try { return localStorage.getItem('pulse-news') !== 'hidden'; } catch { return true; } });
+  const toggleNews = () => setNews((v) => { try { localStorage.setItem('pulse-news', v ? 'hidden' : 'shown'); } catch { /* private mode */ } return !v; });
   useEffect(() => {
     // (In development the request goes out anyway, so the chart can be tried against a stand-in server.)
     if (!supabaseOn && !import.meta.env.DEV) { setErr('Індекс працює на сайті із сервером (Vercel + Supabase).'); return undefined; }
@@ -155,7 +157,6 @@ export function Pulse({ go }) {
         <div className="segmented" role="group" aria-label="Період">
           {[[1, '1 міс'], [3, '3 міс']].map(([m, l]) => <button key={m} className={months === m ? 'is-active' : ''} onClick={() => setMonths(m)}>{l}</button>)}
         </div>
-        <button className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => setTable(!table)} aria-pressed={table}>{table ? 'Графік' : 'Таблиця'}</button>
       </div>}>
       {!data && !err && <div className="vx-empty"><Loader size={32} label="Індекс" /></div>}
       {!data && err && <div className="vx-hint">{err}</div>}
@@ -168,29 +169,22 @@ export function Pulse({ go }) {
               <span className="vx-hint vx-num">{delta == null ? '' : `${delta > 0 ? '+' : ''}${delta} за тиждень`} · {fmtDate(now.date, false)}{data.stale ? ' · дані не оновлено' : ''}</span>
             </div>
           </div>
-          {table ? (
-            <div className="vx-table-wrap">
-              <table className="vx-table">
-                <thead><tr><th>Дата</th><th className="ta-r">Індекс</th><th>Рівень</th></tr></thead>
-                <tbody>
-                  {[...index.slice(-14).map((p) => ({ ...p, f: false })), ...ahead.map((p) => ({ ...p, f: true }))].map((p) => (
-                    <tr key={p.date}><td>{fmtDate(p.date, false)}{p.f ? ' · тренд' : ''}</td><td className="ta-r vx-num">{Math.round(p.value)}{p.f ? ` (${Math.round(p.lo)}–${Math.round(p.hi)})` : ''}</td><td>{levelOf(p.value).label}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : <Chart index={index} ahead={ahead} marks={marks} months={months} go={go} />}
+          <Chart index={index} ahead={ahead} marks={marks} months={months} go={go} />
           {!!data.headlines?.length && (
             <div className="stack">
-              <div className="vx-eyebrow">Що формує сигнал за добу</div>
-              <div className="list">
+              <button type="button" className="pulse__news-toggle" onClick={toggleNews} aria-expanded={news}>
+                <span className="vx-eyebrow">Що формує сигнал за добу</span>
+                <span className="vx-hint">{news ? 'Сховати' : `Показати · ${Math.min(5, data.headlines.length)}`}</span>
+                <Icon name="chevron" size={12} className={`pulse__news-chev ${news ? 'is-open' : ''}`} />
+              </button>
+              {news && <div className="list">
                 {data.headlines.slice(0, 5).map((h) => (
                   <a key={h.url} className="list__row pulse__news" href={h.url} target="_blank" rel="noopener noreferrer">
                     <Icon name="globe" size={14} />
                     <span className="list__text"><span data-no-i18n="">{h.title}</span><span className="vx-hint">{h.domain}{h.country ? ` · ${h.country}` : ''}</span></span>
                   </a>
                 ))}
-              </div>
+              </div>}
             </div>
           )}
         </div>

@@ -13,7 +13,7 @@
 // GET /api/pulse   Authorization: Bearer <Supabase access token>  → { at, index, headlines, source, provisional }
 import { json, db, caller } from './_core.js';
 import * as XLSX from 'xlsx';
-import { timeline, anxiety, QUERY, FEEDS, parseFeed, crisisShare, ownIndex, cleanHeadlines, sharesByDay, GPR_URL, parseGpr, gprIndex } from '../src/lib/pulse.js';
+import { timeline, anxiety, QUERY, FEEDS, parseFeed, crisisShare, ownIndex, cleanHeadlines, sharesByDay, GPR_URL, parseGpr, gprIndex, geoHeadline } from '../src/lib/pulse.js';
 
 export const config = { maxDuration: 30 };
 
@@ -93,8 +93,8 @@ export async function refresh(now = Date.now()) {
   const gprOk = gpr?.series?.length >= 30 && now - Date.parse(`${gpr.series.at(-1).date}T00:00:00Z`) < 21 * 24 * HOUR;
   const gOk = g.tone?.data?.length && g.vol?.data?.length && now - Date.parse(g.tone.at) < 7 * 24 * HOUR;
   const index = gprOk ? gprIndex(gpr.series) : gOk ? anxiety(g.tone.data, g.vol.data) : ownIndex(days);
-  const own = m.crisis.slice(0, 8).map((x) => ({ title: x.title, url: x.url, domain: x.domain, at: x.at }));
-  const headlines = g.arts?.data?.length && now - Date.parse(g.arts.at) < 6 * HOUR ? g.arts.data : own;
+  const own = m.crisis.filter(geoHeadline).slice(0, 8).map((x) => ({ title: x.title, url: x.url, domain: x.domain, at: x.at }));
+  const headlines = g.arts?.data?.length && now - Date.parse(g.arts.at) < 6 * HOUR ? g.arts.data.filter(geoHeadline) : own;
   return {
     at: new Date(now).toISOString(), index, headlines: cleanHeadlines(headlines),
     source: gprOk ? 'gpr' : gOk ? 'gdelt' : 'feeds', days: Object.keys(days).length, provisional: !gprOk && !gOk && Object.keys(days).length < 7,

@@ -30,8 +30,8 @@ export const config = { maxDuration: 20 };
 
 const BUCKET = env.VITE_SUPABASE_BUCKET || env.SUPABASE_BUCKET || 'vault';
 const MAX = 50 * 1024 * 1024;
-const DIVS = ['int', 'ana', 'it', 'sec', 'ops', 'acad', 'res', 'prj'];
-const FOLDER = { int: 'Розвідка · вкладення', ana: 'Аналітика · вкладення', res: 'Дослідження · вкладення', prj: 'Проєкти · вкладення', acad: 'Академія · вкладення' };
+const DIVS = ['int', 'ana', 'it', 'sec', 'ops', 'acad', 'res', 'prj', 'info'];
+const FOLDER = { int: 'Розвідка · вкладення', ana: 'Аналітика · вкладення', res: 'Дослідження · вкладення', prj: 'Проєкти · вкладення', acad: 'Академія · вкладення', info: 'Інформація · документи' };
 
 const level = (m) => Math.max(0, Math.min(2, +m.doc?.clearance || 0));
 const GiB = 1024 * 1024 * 1024;

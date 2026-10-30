@@ -85,7 +85,7 @@ test('server: own feeds always, GDELT one question at a time, kept between calls
     if (u.startsWith('https://api.gdeltproject.org/')) {
       asked.push(u.match(/mode=(\w+)/)[1]);
       if (gdeltDown) return new Response('Please limit requests to one every 5 seconds', { status: 429 });
-      if (u.includes('artlist')) return ok({ articles: [{ title: 'G headline', url: 'https://g.test/a', domain: 'g.test' }] });
+      if (u.includes('artlist')) return ok({ articles: [{ title: 'G: war in the region', url: 'https://g.test/a', domain: 'g.test' }] });
       return ok({ timeline: [{ data: Array.from({ length: 30 }, (_, i) => ({ date: new Date(Date.now() - (30 - i) * 86400000).toISOString().slice(0, 10).replace(/-/g, '') + 'T000000Z', value: u.includes('tone') ? -3 - (i % 4) * 0.3 : 1 + (i % 3) * 0.1 })) }] });
     }
     if (FEEDS.some((f) => u === f)) return new Response(rss, { status: 200 });
@@ -157,4 +157,14 @@ test('server: GPR first, read once a day from its .xls', async () => {
     await refresh(Date.now() + 3600000);
     assert.equal(gprAsked, 1); // once a day
   } finally { globalThis.fetch = real; }
+});
+
+test('headlines under the index are about war and security, not crime or markets', async () => {
+  const { geoHeadline } = await import('../../src/lib/pulse.js');
+  assert.equal(geoHeadline({ title: 'Syrians struggle with soaring prices as crisis challenges post-Assad recovery' }), true);
+  assert.equal(geoHeadline({ title: 'Russian drones strike Kharkiv overnight' }), true);
+  assert.equal(geoHeadline({ title: 'UK government’s obesity plan ‘doomed to fail’, MPs warn' }), false);
+  assert.equal(geoHeadline({ title: 'Erin Patterson to die in prison after losing appeal against mushroom murder convictions' }), false);
+  assert.equal(geoHeadline({ title: 'Crypto giant Binance hit by $6.3bn hack suspected to be largest in history' }), false);
+  assert.equal(geoHeadline({ title: 'Battle lines redrawn in Spain’s snap election after latest train disaster' }), false);
 });

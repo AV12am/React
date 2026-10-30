@@ -245,3 +245,28 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 .segmented { width: fit-content; max-width: 100%; justify-self: start; }
 .perm--3 i { background: var(--ink); border-color: var(--ink); }
 .topbar__mark:focus-visible { border-radius: 50%; }
+
+/* Floating panels and cards keep a solid surface: menus, the notification list, map docks, tiles. */
+.bell__menu.vx-panel, .ws-more__menu.vx-panel, .map-dock.vx-panel, .ws-tile.vx-panel, .og__svg.vx-panel, .og__side.vx-panel, .vault__folders.vx-panel {
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-lg);
+}
+.bell__menu.vx-panel, .ws-more__menu.vx-panel { box-shadow: 0 16px 40px rgba(0, 0, 0, .5); overflow: hidden; }
+.bell__menu .vx-panel__head { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+.bell__menu .list__row { padding-left: 16px; padding-right: 16px; }
+.ws-tile.vx-panel .list__row, .og__side.vx-panel .list__row, .map-dock.vx-panel .list__row { padding-left: 12px; padding-right: 12px; }
+/* The info mark: clearly visible, not a faint ring. */
+.infotip__btn { width: 26px; height: 26px; color: var(--ink-2); }
+.infotip__btn svg { width: 18px; height: 18px; stroke-width: 1.8; }
+.pulse__news-toggle { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 0; background: none; border: 0; color: inherit; cursor: pointer; text-align: left; }
+.pulse__news-toggle .vx-eyebrow { flex: 1; }
+.pulse__news-chev { transform: rotate(90deg); transition: transform .15s var(--ease); color: var(--ink-3); }
+.pulse__news-chev.is-open { transform: rotate(-90deg); }
+
+/* «Інформація»: rules as a quiet two-column list */
+.info-rules { display: grid; }
+.info-rule { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.info-rule:last-child { border-bottom: 0; }
+.info-rule__t { font-weight: 600; font-size: 14px; }
+.info-rule__d { color: var(--ink-2); font-size: 14px; line-height: 1.6; max-width: 760px; }
+.info-rule__d b { color: var(--ink); font-weight: 600; }
+@media (max-width: 700px) { .info-rule { grid-template-columns: 1fr; gap: 6px; } }

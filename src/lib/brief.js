@@ -32,7 +32,7 @@ export function buildBrief({ records = [], requests = [], tasks = [], comments =
   const soon = isoDay(now + 7 * DAY);
   const in3 = isoDay(now + 3 * DAY);
   const top = nameUpTo ?? me.clearance;
-  const mine = records.filter((r) => (r.clearance ?? 0) <= me.clearance);
+  const mine = records.filter((r) => (r.clearance ?? 0) <= me.clearance && r.div !== 'info'); // «Інформація» is no work record
   const byId = new Map(mine.map((r) => [r.id, r]));
   const item = (r, note) => {
     const level = r.clearance ?? 0;
