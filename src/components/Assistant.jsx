@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store.jsx';
 import { Icon } from './Icon.jsx';
-import { Loader, ContextMark } from '../brand/Mark.jsx';
+import { Loader, Mark, ContextMark } from '../brand/Mark.jsx';
 import { ClassBadge } from './ui.jsx';
 import { supabaseOn, callApi } from '../lib/supabase.js';
 import { GUIDE, buildContext, parseReply, checkAction, recordRoute, openRecord, honestyNote } from '../lib/assistant.js';
@@ -135,7 +135,7 @@ export function Assistant({ onClose, onBusy, go, route, allowed }) {
   return (
     <aside className="ai-panel" aria-label="CONTEXT — AI-асистент">
       <header className="ai-panel__head">
-        <span className={`ai-panel__mark ${busy ? 'is-thinking' : ''}`}><ContextMark size={24} title="" /></span>
+        <span className="ai-panel__mark"><ContextMark size={30} title="" /></span>
         <div className="ai-panel__title"><span className="vx-wordmark">Context</span>{busy && <span className="vx-hint">думаю…</span>}</div>
         <span className="grow" />
         {msgs.length > 0 && <button className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => setMsgs([])}>Нова розмова</button>}
@@ -165,7 +165,7 @@ export function Assistant({ onClose, onBusy, go, route, allowed }) {
             {m.role === 'assistant' && !m.error && m.source && <div className="ai-msg__src">Джерело: {m.source}</div>}
           </div>
         ))}
-        {busy && <div className="ai-msg ai-msg--assistant ai-msg__thinking"><span className="is-thinking"><ContextMark size={16} title="" /></span> Думаю…</div>}
+        {busy && <div className="ai-msg ai-msg--assistant ai-msg__thinking"><span className="is-thinking"><Mark size={16} title="" /></span> Думаю…</div>}
         <div ref={end} />
       </div>
       <form className="ai-panel__form" onSubmit={(e) => { e.preventDefault(); send(); }}>
