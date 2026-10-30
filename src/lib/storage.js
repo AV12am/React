@@ -107,7 +107,7 @@ function supabaseBackend() {
     writable: true,
     needsSignIn: true,
     maxFile: 50 * MiB,
-    quota: (Number(import.meta.env?.VITE_STORAGE_QUOTA_GB || import.meta.env?.NEXT_PUBLIC_STORAGE_QUOTA_GB) || 1) * 1024 * MiB,
+    quota: (Number(import.meta.env?.VITE_STORAGE_QUOTA_GB || import.meta.env?.NEXT_PUBLIC_STORAGE_QUOTA_GB) || 9.75) * 1024 * MiB, // until the server reports it (api/files.js, R2_QUOTA_GB)
     // Where new files go, what is used there and the limit (Cloudflare R2: 9,75 ГБ of the free 10 ГБ).
     async usage() {
       const i = await where();
