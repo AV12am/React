@@ -248,13 +248,13 @@ function Shell() {
 
       <div className="main">
         <header className="topbar">
-          {/* The mark is the assistant: it opens it, and turns while the assistant is thinking. */}
-          <button className={`topbar__mark ${ai ? 'is-active' : ''} ${aiBusy ? 'is-thinking' : ''}`} onClick={() => setAi(!ai)} aria-expanded={ai} aria-label="Помічник" title="Помічник (Ctrl+J)"><Mark size={26} title="" /></button>
           <span className="topbar__word" aria-hidden="true">REACTION</span>
           <button className="topbar__search" onClick={() => setPalette(true)} aria-label="Пошук">
             <Icon name="search" size={16} /> <span className="topbar__search-long">Пошук і команди</span> <kbd>Ctrl K</kbd>
           </button>
           <span className="grow" />
+          {/* The assistant is the mark: it turns slowly, faster while thinking, and says what it is on hover. */}
+          <button className={`topbar__ai-mark ${ai ? 'is-active' : ''} ${aiBusy ? 'is-thinking' : 'is-idle'}`} onClick={() => setAi(!ai)} aria-expanded={ai} aria-label="AI-асистент (Ctrl+J)" data-tip="AI-асистент · Ctrl+J"><Mark size={22} title="" /></button>
           <Bell open={bell} setOpen={setBell} go={go} />
           <Clock />
           <span className="topbar__secure vx-hint"><Icon name="shield" size={14} /> Захищено</span>
