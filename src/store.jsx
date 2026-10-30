@@ -445,9 +445,19 @@ export function fmtBytes(n) {
   return `${n.toLocaleString(LOCALE, { maximumFractionDigits: n < 10 ? 1 : 0 })} ${u[i]}`;
 }
 
+// Any date a source may send: ISO, «29.10.2026 21:00», Unix seconds or milliseconds → a Date, or null.
+export function parseWhen(v) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number' || /^\d{9,13}$/.test(String(v))) { const n = +v; const t = new Date(n < 1e11 ? n * 1000 : n); return Number.isNaN(+t) ? null : t; }
+  const m = /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:[ T](\d{1,2}):(\d{2}))?/.exec(String(v).trim());
+  const t = m ? new Date(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0)) : new Date(v);
+  return Number.isNaN(+t) ? null : t;
+}
+
 export function fmtDate(iso, withTime = true) {
   if (!iso) return '—';
-  const t = new Date(iso);
+  const t = parseWhen(iso);
+  if (!t) return '—';
   const date = t.toLocaleDateString(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric' });
   return withTime ? `${date}, ${t.toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' })}` : date;
 }

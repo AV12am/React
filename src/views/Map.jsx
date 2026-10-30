@@ -7,7 +7,7 @@ import { Protocol } from 'pmtiles';
 import { geoCentroid, geoArea, geoContains, geoBounds, geoInterpolate } from 'd3-geo';
 import { feature, mesh } from 'topojson-client';
 import world50 from '../data/world-50m.json';
-import { useStore, fmtDate, fmtAgo } from '../store.jsx';
+import { useStore, fmtDate, fmtAgo, parseWhen } from '../store.jsx';
 import { Panel, ClassBadge, Modal, Status } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { Loader } from '../brand/Mark.jsx';
@@ -248,10 +248,12 @@ export function MapView({ focus }) {
     return fc ? { pick: want, fc, meta: liveData.manifest?.sources?.[want] } : { pick: 'builtin', fc: null, meta: null };
   }, [liveData, frontSource]);
   const zones = useMemo(() => BUILTIN_ZONES.map((z) => (z.id === 'ua-occupied' && front.fc
-    ? { ...z, live: true, feature: front.fc, bbox: geoBounds(front.fc), note: `Дані ${SOURCE_NAME[front.pick]} станом на ${fmtDate(front.meta?.sourceDate || front.meta?.updatedAt)}.` }
+    ? { ...z, live: true, feature: front.fc, bbox: geoBounds(front.fc), note: `Дані ${SOURCE_NAME[front.pick]} станом на ${fmtDate(frontWhen)}.` }
     : z)), [front]);
   const events = useMemo(() => liveData.acled?.events || [], [liveData.acled]);
-  const frontAge = ageHours(front.meta?.sourceDate || front.meta?.updatedAt);
+  // The source's own date when it is readable, else when the platform last fetched it.
+  const frontWhen = [front.meta?.sourceDate, front.meta?.updatedAt].find((d) => parseWhen(d));
+  const frontAge = ageHours(frontWhen);
 
   const points = useMemo(() => state.points.filter((p) => p.clearance <= me.clearance), [state.points, me.clearance]);
   const hiddenPoints = state.points.length - points.length;

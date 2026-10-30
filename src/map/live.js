@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { parseWhen } from '../store.jsx';
 
 // Live conflict data, from the first place that has it:
 //   1. api/conflicts — the Vercel Function (api/conflicts.js) that fetches the sources itself;
@@ -49,4 +50,4 @@ export function useLiveConflicts() {
 }
 
 /** Hours since an ISO date, or Infinity when unknown. */
-export const ageHours = (iso) => (iso ? (Date.now() - Date.parse(iso)) / 3600000 : Infinity);
+export const ageHours = (iso) => { const t = parseWhen(iso); return t ? (Date.now() - +t) / 3600000 : Infinity; };
