@@ -247,13 +247,13 @@ export function MapView({ focus }) {
     const fc = want === 'builtin' ? null : liveData[want];
     return fc ? { pick: want, fc, meta: liveData.manifest?.sources?.[want] } : { pick: 'builtin', fc: null, meta: null };
   }, [liveData, frontSource]);
-  const zones = useMemo(() => BUILTIN_ZONES.map((z) => (z.id === 'ua-occupied' && front.fc
-    ? { ...z, live: true, feature: front.fc, bbox: geoBounds(front.fc), note: `Дані ${SOURCE_NAME[front.pick]} станом на ${fmtDate(frontWhen)}.` }
-    : z)), [front]);
-  const events = useMemo(() => liveData.acled?.events || [], [liveData.acled]);
   // The source's own date when it is readable, else when the platform last fetched it.
   const frontWhen = [front.meta?.sourceDate, front.meta?.updatedAt].find((d) => parseWhen(d));
   const frontAge = ageHours(frontWhen);
+  const zones = useMemo(() => BUILTIN_ZONES.map((z) => (z.id === 'ua-occupied' && front.fc
+    ? { ...z, live: true, feature: front.fc, bbox: geoBounds(front.fc), note: `Дані ${SOURCE_NAME[front.pick]} станом на ${fmtDate(frontWhen)}.` }
+    : z)), [front, frontWhen]);
+  const events = useMemo(() => liveData.acled?.events || [], [liveData.acled]);
 
   const points = useMemo(() => state.points.filter((p) => p.clearance <= me.clearance), [state.points, me.clearance]);
   const hiddenPoints = state.points.length - points.length;
@@ -834,7 +834,7 @@ export function MapView({ focus }) {
               <i aria-hidden="true" />
               {front.pick === 'builtin'
                 ? <>Зони конфліктів · орієнтовно, {CONFLICTS_AS_OF}{liveData.manifest?.sources?.deepstate?.status === 'error' && <b className="map-legend__stale"> · DeepState недоступний</b>}</>
-                : <>Фронт: {SOURCE_NAME[front.pick]} · {fmtDate(front.meta?.sourceDate || front.meta?.updatedAt)}{frontAge > STALE_HOURS && <b className="map-legend__stale"> · застаріло</b>}</>}
+                : <>Фронт: {SOURCE_NAME[front.pick]} · {fmtDate(frontWhen)}{frontAge > STALE_HOURS && <b className="map-legend__stale"> · застаріло</b>}</>}
             </button>
           )}
           {mode !== 'view' && (
