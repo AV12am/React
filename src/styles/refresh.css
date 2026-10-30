@@ -309,3 +309,11 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 }
 /* A free lane on the right for the assistant's mark, so it never covers the page. */
 @media (min-width: 901px) { .shell:not(.has-ai) .content { padding-right: 112px; } }
+
+/* Map readout: the label column fits its longest word («Висота», «Країна»), values line up after it. */
+.map-readout > div:not(.vx-hint) { display: grid; grid-template-columns: 64px minmax(0, 1fr); column-gap: 8px; align-items: baseline; }
+.map-readout > div > span, .map-frame .map-readout span { width: auto; white-space: nowrap; }
+@media (max-width: 900px) { .map-readout > div:not(.vx-hint) { grid-template-columns: 56px minmax(0, 1fr); column-gap: 6px; } }
+
+/* On the map (phone) the bottom corner holds the map's own controls: the mark waits mid-way up the right edge. */
+@media (max-width: 900px) { .shell.on-map .ai-fab { top: 50%; bottom: auto; transform: translateY(-50%) translateZ(0); } }

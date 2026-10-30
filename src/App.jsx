@@ -225,7 +225,7 @@ function Shell() {
   }[current];
 
   return (
-    <div className={`shell ${ai ? 'has-ai' : ''}`}>
+    <div className={`shell ${ai ? 'has-ai' : ''} ${current === 'map' ? 'on-map' : ''}`}>
       <aside className={`sidebar ${menu ? 'is-open' : ''}`} ref={sideRef}>
         <div className="sidebar__brand"><Wordmark /></div>
         <div className="sidebar__product vx-eyebrow">Core · внутрішня платформа</div>

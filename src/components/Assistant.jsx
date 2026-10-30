@@ -87,7 +87,6 @@ export function Assistant({ onClose, onBusy, go, route, allowed }) {
   const [msgs, setMsgs] = useState([]); // { role, content, actions? }
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
-  const [left, setLeft] = useState(null);
   const end = useRef(null);
   const input = useRef(null);
   useEffect(() => { onBusy?.(busy); }, [busy, onBusy]);
@@ -126,7 +125,6 @@ export function Assistant({ onClose, onBusy, go, route, allowed }) {
       const nav = checked.find((a) => a.kind === 'go') || checked.find((a) => a.kind === 'results' && a.auto);
       if (nav) go(...(nav.kind === 'go' ? nav.route : recordRoute(nav.found[0])));
       setMsgs([...history, { role: 'assistant', content: reply || (checked.length ? '' : 'Не маю відповіді.'), actions: checked, note: honestyNote(reply, checked), source: sourceOf() }]);
-      if (r.limit) setLeft(Math.max(0, r.limit - r.used));
     } catch (e) {
       setMsgs([...history, { role: 'assistant', content: e.message || 'Помічник недоступний', error: true }]);
     } finally { setBusy(false); }
@@ -138,7 +136,7 @@ export function Assistant({ onClose, onBusy, go, route, allowed }) {
     <aside className="ai-panel" aria-label="Помічник">
       <header className="ai-panel__head">
         <span className={`ai-panel__mark ${busy ? 'is-thinking' : ''}`}><Mark size={22} title="" /></span>
-        <div className="ai-panel__title"><b>Помічник</b>{busy && <span className="vx-hint">думаю…</span>}</div>
+        <div className="ai-panel__title"><span className="vx-wordmark">Reaction</span>{busy && <span className="vx-hint">думаю…</span>}</div>
         <span className="grow" />
         {msgs.length > 0 && <button className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => setMsgs([])}>Нова розмова</button>}
         <button className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" onClick={onClose} aria-label="Закрити помічника"><Icon name="close" /></button>
@@ -175,7 +173,6 @@ export function Assistant({ onClose, onBusy, go, route, allowed }) {
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
         <button className="vx-btn vx-btn--primary vx-btn--icon" disabled={busy || !text.trim()} aria-label="Надіслати"><Icon name="chevron" /></button>
       </form>
-      {left != null && <div className="vx-hint ai-panel__left">{`Сьогодні лишилось запитів: ${left}`}</div>}
     </aside>
   );
 }
