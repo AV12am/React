@@ -276,14 +276,14 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 .topbar__brand { display: none; align-items: center; gap: 10px; color: var(--ink); }
 .ai-fab {
   /* In the free margin on the right, level with the first panel: just the mark, in the platform's own colours. */
-  position: fixed; right: max(22px, calc((100vw - 260px - 32px - 1360px) / 2 - 22px)); top: 220px; z-index: 40;
-  display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 50%;
-  background: none; border: 1px solid transparent; color: var(--ink-3); cursor: pointer;
-  transition: color .25s var(--ease), background-color .25s var(--ease), border-color .25s var(--ease);
+  position: fixed; right: max(16px, calc((100vw - 260px - 32px - 1360px) / 2 - 42px)); top: 200px; z-index: 40;
+  display: grid; place-items: center; width: 84px; height: 84px; padding: 0;
+  background: none; border: 0; color: var(--ink-3); cursor: pointer; transition: color .3s var(--ease);
 }
-.ai-fab:hover, .ai-fab:focus-visible { color: var(--ink); background: var(--surface); border-color: var(--line-strong); outline: none; }
+.ai-fab svg { width: 72px; height: 72px; will-change: transform; }
+/* On hover only the colour changes: the turn keeps its pace, so it never jumps or restarts. */
+.ai-fab:hover, .ai-fab:focus-visible { color: var(--ink); outline: none; }
 .ai-fab.is-idle svg { animation: mark-spin 18s linear infinite; }
-.ai-fab:hover.is-idle svg { animation-duration: 7s; }
 .ai-fab.is-thinking { color: var(--brass); }
 .ai-fab.is-thinking svg { animation: mark-spin 1.6s cubic-bezier(.55, .1, .45, .9) infinite; }
 @media (prefers-reduced-motion: reduce) { .ai-fab.is-idle svg { animation: none; } }
@@ -300,9 +300,10 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
   .topbar__word { display: inline; margin: 0; }
   /* On the phone: bottom right, above the tab bar, within reach of the thumb. */
   .ai-fab {
-    top: auto; bottom: calc(var(--tabbar-h) + 16px); right: 16px; width: 48px; height: 48px;
-    background: var(--surface); border-color: var(--line-strong); color: var(--ink);
+    top: auto; bottom: calc(var(--tabbar-h) + 16px); right: 16px; width: 52px; height: 52px; border-radius: 50%;
+    background: var(--surface); border: 1px solid var(--line-strong); color: var(--ink);
   }
+  .ai-fab svg { width: 28px; height: 28px; }
 }
 /* A free lane on the right for the assistant's mark, so it never covers the page. */
-@media (min-width: 901px) { .shell:not(.has-ai) .content { padding-right: 88px; } }
+@media (min-width: 901px) { .shell:not(.has-ai) .content { padding-right: 112px; } }
