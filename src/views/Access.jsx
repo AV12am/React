@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore, fmtAgo, fmtDate } from '../store.jsx';
-import { SealBadge, Panel, Status, Avatar, Drawer, ClassBadge, Switch } from '../components/ui.jsx';
+import { SealBadge, Panel, Status, Avatar, Drawer, ClassBadge, Switch, InfoTip } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { Loader } from '../brand/Mark.jsx';
 import { ROLES, CLEARANCE, MODULES, PERMISSIONS } from '../data/seed.js';
@@ -272,17 +272,22 @@ function EditUser({ id, onClose, readOnly: ro }) {
   const u = state.users.find((x) => x.id === id);
   // The CUSTOS card is changed only by CUSTOS (the server enforces it too).
   const readOnly = ro || (u.custos && u.id !== me.id);
-  const [draft, setDraft] = useState({ role: u.role, clearance: u.clearance, status: u.status, mfa: u.mfa, ips: rulesOf(u) });
+  const [draft, setDraft] = useState({ name: u.name || '', title: u.title || '', role: u.role, clearance: u.clearance, status: u.status, mfa: u.mfa, ips: rulesOf(u) });
   const set = (k) => (v) => setDraft((d) => ({ ...d, [k]: v }));
   const [ipErr, setIpErr] = useState('');
+  // The name is also a sign-in login: it must be there, and not be someone else's too.
+  const nameTaken = (n) => state.users.some((x) => x.id !== u.id && x.status !== 'suspended' && String(x.name || '').trim().toLowerCase() === n.trim().toLowerCase());
   const save = async () => {
+    const name = draft.name.trim().replace(/\s+/g, ' ');
+    if (!name) { setIpErr('Вкажіть ім’я'); return; }
+    if (nameTaken(name)) { setIpErr(`Ім’я «${name}» уже має інша людина — додайте прізвище чи ініціал, щоб вхід за іменем був однозначним.`); return; }
     // Your own list must keep this device, or the next request would lock you out.
     if (supabaseOn && u.id === me.id && draft.ips.length) {
       const mine = await myAddresses();
       const out = mine.filter((x) => !ipAllowed({ ips: draft.ips }, x));
       if (!mine.length || out.length) { setIpErr(`Цей пристрій (${out.join(', ') || 'адресу не визначено'}) не входить у ваш список — збереження заблокувало б вам доступ. Додайте «Адреси цього пристрою».`); return; }
     }
-    dispatch({ type: 'user/update', id, patch: draft });
+    dispatch({ type: 'user/update', id, patch: { ...draft, name, title: draft.title.trim() } });
     toast(`Зміни для ${u.name} збережено й записано в журнал`);
     onClose();
   };
@@ -300,6 +305,14 @@ function EditUser({ id, onClose, readOnly: ro }) {
       </div>
       {u.custos && u.id !== me.id && <div className="vx-hint">{CUSTOS.name} — {CUSTOS.gloss}. Цей профіль змінює лише власник.</div>}
       <div className="form-grid">
+        <div className="vx-field">
+          <label className="vx-label" htmlFor="u-name">Ім’я та прізвище <InfoTip>{`Ім’я також підходить для входу: замість пошти можна ввести його, код (${u.code}) або частину пошти до «@».`}</InfoTip></label>
+          <input id="u-name" className="vx-input" value={draft.name} maxLength={80} disabled={readOnly} onChange={(e) => { setIpErr(''); set('name')(e.target.value); }} />
+        </div>
+        <div className="vx-field">
+          <label className="vx-label" htmlFor="u-title">Посада</label>
+          <input id="u-title" className="vx-input" value={draft.title} maxLength={120} disabled={readOnly} onChange={(e) => set('title')(e.target.value)} />
+        </div>
         <div className="vx-field">
           <label className="vx-label" htmlFor="role">Роль</label>
           <select id="role" className="vx-select" value={draft.role} disabled={readOnly || me.role !== 'admin'} onChange={(e) => set('role')(e.target.value)}>

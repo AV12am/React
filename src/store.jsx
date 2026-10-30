@@ -105,6 +105,8 @@ function reducer(state, a) {
       const changes = Object.keys(a.patch)
         .filter((k) => JSON.stringify(before[k] ?? null) !== JSON.stringify(a.patch[k] ?? null))
         .map((k) => {
+          if (k === 'name') return `ім’я → «${a.patch[k]}»`;
+          if (k === 'title') return `посада → «${a.patch[k]}»`;
           if (k === 'clearance') return `допуск → «${CLEARANCE[a.patch[k]].short}»`;
           if (k === 'status') return `статус → ${a.patch[k] === 'suspended' ? 'призупинено' : 'активний'}`;
           if (k === 'role') return `роль → ${a.patch[k]}`;

@@ -1,7 +1,7 @@
 // English for the interface: every Ukrainian text of the code (buttons, headings, fields, messages) and its translation.
 // EXACT — whole texts; TEMPLATES — texts with {} for the parts that change (numbers, names), filled in order. See dom.js.
 /* eslint-disable */
-export const EXACT = {"AI-асистент (Ctrl+J)":"AI assistant (Ctrl+J)","AI-асистент · Ctrl+J":"AI assistant · Ctrl+J","· попередній перегляд":"· preview"," · попередній перегляд":" · preview","Документи й правила":"Documents and rules",
+export const EXACT = {"Ім’я та прізвище":"Full name","Вкажіть ім’я":"Enter a name","AI-асистент (Ctrl+J)":"AI assistant (Ctrl+J)","AI-асистент · Ctrl+J":"AI assistant · Ctrl+J","· попередній перегляд":"· preview"," · попередній перегляд":" · preview","Документи й правила":"Documents and rules",
 "Інформація":"Information",
 "Документів ще немає":"No documents yet",
 "Документи й сертифікати":"Documents and certificates",
@@ -1528,7 +1528,9 @@ export const EXACT = {"AI-асистент (Ctrl+J)":"AI assistant (Ctrl+J)","AI
 "Збираю звіт із файлами…":"Building the report with its files…",
 "фото обкладинки":"cover photo",
 "прибрано обкладинку":"cover removed"};
-export const TEMPLATES = [["Звіт: {}","Report: {}"],
+export const TEMPLATES = [["Ім’я також підходить для входу: замість пошти можна ввести його, код ({}) або частину пошти до «@».", "The name also works for signing in: instead of the e-mail you can enter it, the code ({}) or the part of the e-mail before «@»."],
+["Ім’я «{}» уже має інша людина — додайте прізвище чи ініціал, щоб вхід за іменем був однозначним.", "Someone else already has the name «{}» — add a surname or an initial so that signing in by name stays unambiguous."],
+["Звіт: {}","Report: {}"],
 ["Показати · {}","Show · {}"],
 ["Версія {}","Version {}"],
 ["Частка матеріалів про війни, конфлікти, кризи, атаки й санкції у стрічках світових редакцій (BBC, Al Jazeera, DW, The Guardian, NPR, France 24, Sky News, ООН) — власне вимірювання платформи, днів в історії: {}. Поки зібрано менше тижня, значення попереднє. Оновлюється щогодини. Пунктир — лише продовження тренду, а не прогноз; позначки внизу — прогнози платформи.","The share of items about wars, conflicts, crises, attacks and sanctions in world newsroom feeds (BBC, Al Jazeera, DW, The Guardian, NPR, France 24, Sky News, the UN) — the platform's own measurement, days in history: {}. Until a week is collected, the value is provisional. Updated hourly. The dashed line only continues the trend, it is not a forecast; the marks below are the platform's forecasts."],
