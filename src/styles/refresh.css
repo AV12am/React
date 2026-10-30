@@ -348,3 +348,5 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 /* Desktop: the side panel holds it, so no floating mark; the phone keeps the floating one above the tab bar. */
 @media (min-width: 901px) { .ai-fab { display: none !important; } }
 @media (max-width: 900px) { .sidebar__ai { display: none; } }
+/* Pages fill the whole width of the screen — no empty margin on the right. */
+.page { max-width: none; }
