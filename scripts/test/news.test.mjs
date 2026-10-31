@@ -92,7 +92,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
   const translated = [];
   const real = globalThis.fetch;
   const now = new Date().toUTCString();
-  const rss = (host) => `<rss xmlns:media="m"><item><title>${host} one</title><link>https://${host}/1</link><pubDate>${now}</pubDate><description>Text one about Ukraine and Russia’s military.</description>${host.includes('stopfake') ? '' : `<media:thumbnail url="https://img.${host}/1.jpg"/>`}</item>
+  const rss = (host) => `<rss xmlns:media="m"><item><title>${host} one</title><link>https://${host}/1</link><pubDate>${now}</pubDate><description>Text one about Ukraine and Russia’s military.</description>${host.includes('cpd') ? '' : `<media:thumbnail url="https://img.${host}/1.jpg"/>`}</item>
     <item><title>${host} two</title><link>https://${host}/2</link><pubDate>${now}</pubDate><description>Text two on the conflict.</description></item></rss>`;
   globalThis.fetch = async (url, opts = {}) => {
     const u = decodeURIComponent(String(url));
@@ -143,8 +143,8 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     if (feed && /lenta\.ru/.test(feed)) return new Response(`<rss><item><title>ПВО за ночь перехватили и уничтожили 531 украинский беспилотник</title><link>https://lenta.ru/news/pvo</link><pubDate>${now}</pubDate><description>Минобороны России сообщило: над территориями Брянской, Курской областей и над акваторией Черного моря перехвачены 531 БПЛА.</description></item>${rss(`${new URL(feed).hostname}${new URL(feed).pathname}`.replace(/\W+/g, '')).replace(/^<rss[^>]*>/, '')}`, { status: 200 });
     if (feed && /ukrinform/.test(feed)) return new Response(`<rss><item><title>Повітряні сили: ППО знешкодила 271 з 288 дронів, ворог атакував шістьма балістичними ракетами</title><link>https://www.ukrinform.ua/ppo</link><pubDate>${now}</pubDate><description>У ніч противник атакував 6 балістичними ракетами та 288 ударними БпЛА.</description></item>${rss(`${new URL(feed).hostname}${new URL(feed).pathname}`.replace(/\W+/g, '')).replace(/^<rss[^>]*>/, '')}`, { status: 200 });
     if (feed) { const f = new URL(feed); return new Response(rss(`${f.hostname}${f.pathname}`.replace(/\W+/g, '')), { status: 200 }); }
-    // article pages (og:image for items without a thumbnail) — StopFake's carry none
-    if (u.includes('stopfake')) return new Response('<html><head></head></html>', { status: 200, headers: { 'content-type': 'text/html' } });
+    // article pages (og:image for items without a thumbnail) — the CPD's carry none
+    if (u.includes('cpd')) return new Response('<html><head></head></html>', { status: 200, headers: { 'content-type': 'text/html' } });
     return new Response('<html><head><meta property="og:image" content="https://img.page/og.jpg"></head></html>', { status: 200, headers: { 'content-type': 'text/html' } });
   };
   const token = `x.${Buffer.from(JSON.stringify({ session_id: 's' })).toString('base64url')}.y`;
