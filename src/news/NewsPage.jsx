@@ -30,7 +30,7 @@ export function NewsPage() {
   const [introGone, setIntroGone] = useState(false);
   useEffect(() => { const t = setTimeout(() => setIntroDone(true), 3300); return () => clearTimeout(t); }, []);
   const introLeaving = introDone && (!!issue || !!err);
-  useEffect(() => { if (!introLeaving) return undefined; const t = setTimeout(() => setIntroGone(true), 520); return () => clearTimeout(t); }, [introLeaving]);
+  useEffect(() => { if (!introLeaving) return undefined; const t = setTimeout(() => setIntroGone(true), 780); return () => clearTimeout(t); }, [introLeaving]);
   const t = T[lang];
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -81,7 +81,7 @@ export function NewsPage() {
   };
 
   return (
-    <main className="news-page">
+    <main className={`news-page ${introGone ? '' : 'is-intro'}`}>
       <header className="news-page__head">
         <h1 className="vx-h1 news__brand"><ContextMark size={26} title="" /> CONTEXT News</h1>
         <div className="toolbar">

@@ -385,9 +385,13 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 @media (max-width: 700px) { .news-page { padding: calc(16px + env(safe-area-inset-top, 0px)) 16px 40px; gap: 18px; } }
 
 /* ── CONTEXT News opening (src/news/NewsIntro.jsx) ─────────────────────────────────────────────────────── */
-.news-intro { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: var(--bg); color: var(--ink); cursor: pointer; transition: opacity .5s var(--ease); }
-.news-intro.is-leaving { opacity: 0; pointer-events: none; }
-.news-intro__art { width: min(640px, 92vw); height: auto; overflow: visible; }
+.news-intro { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background-color: var(--bg); color: var(--ink); cursor: pointer; transition: background-color .75s cubic-bezier(.4, 0, .2, 1); }
+/* the issue is in: the backdrop clears and the name rises to the page's heading */
+.news-intro.is-leaving { background-color: transparent; pointer-events: none; }
+.news-intro__art { width: min(640px, 92vw); height: auto; overflow: visible; transition: transform .75s cubic-bezier(.65, 0, .25, 1); will-change: transform; }
+/* while the opening is on, the heading waits for the name to arrive */
+.news-page.is-intro .news__brand { opacity: 0; }
+.news-page .news__brand { transition: opacity .2s linear; }
 .news-intro__art g, .news-intro__art path, .news-intro__art text { transform-box: view-box; transform-origin: 0 0; }
 /* the mark at the centre turns a little, then the seven pens and the core fall away */
 .ni-flower { animation: ni-flower 3s cubic-bezier(.4, 0, .2, 1) both; }
@@ -424,4 +428,5 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
   .ni-pen__petal { animation: none; opacity: 0; }
   .ni-pen__nib { animation: none; opacity: 1; }
   .ni-word--context, .ni-word--news { animation: none; clip-path: none; opacity: 1; }
+  .news-intro, .news-intro__art { transition: none; }
 }
