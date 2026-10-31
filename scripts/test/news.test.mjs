@@ -2,7 +2,7 @@
 // one issue a day at 17:00 Kyiv.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SECTIONS, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, itemImage, issueTime, fitItems, readPick, keyPrompt } from '../../src/lib/news.js';
+import { SECTIONS, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, itemImage, issueTime, fitItems, readPick, keyPrompt, readClass, classifyPrompt } from '../../src/lib/news.js';
 
 const RSS = `<rss xmlns:media="http://search.yahoo.com/mrss/"><channel>
 <item><title>Talks resume in Geneva</title><link>https://www.bbc.co.uk/news/1</link><pubDate>Fri, 30 Oct 2026 08:00:00 GMT</pubDate>
@@ -85,6 +85,8 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
   Object.assign(process.env, { SUPABASE_URL: 'https://sb.test', SUPABASE_SERVICE_ROLE_KEY: 'svc', CF_AI_TOKEN: 'cf', CF_ACCOUNT_ID: 'acc' });
   const docs = {};
   let ai = 0;
+  let commons = 0;
+  let editorSaw = [];
   const real = globalThis.fetch;
   const now = new Date().toUTCString();
   const rss = (host) => `<rss xmlns:media="m"><item><title>${host} one</title><link>https://${host}/1</link><pubDate>${now}</pubDate><description>Text one about Ukraine and Russia’s military.</description><media:thumbnail url="https://img.${host}/1.jpg"/></item>
@@ -104,12 +106,30 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
       if (!(opts.headers.Prefer.includes('ignore-duplicates') && docs[b.id])) docs[b.id] = b.doc;
       return ok(null);
     }
-    if (u.includes('api.cloudflare.com') && JSON.parse(opts.body).messages[0].content.includes('випусковий')) { ai++; return ok({ success: true, result: { response: '{"pick": [2, 9, 15, 22, 30]}' } }); }
-    if (u.includes('api.cloudflare.com')) { ai++; const n = (JSON.parse(opts.body).messages[1].content.match(/^\d+\./gm) || []).length; return ok({ success: true, result: { response: JSON.stringify({ summaries: Array.from({ length: n }, (_, i) => `Стислий виклад новини номер ${i + 1}.`) }) } }); }
-    if (u.startsWith('https://img.')) return new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/jpeg' } });
+    if (u.includes('api.cloudflare.com')) {
+      ai++;
+      const m = JSON.parse(opts.body).messages;
+      const lines = m[1].content.split('\n').filter((l) => /^\d+\. /.test(l));
+      if (m[0].content.includes('Розподіли новини')) {
+        // The editor: each news to a section that reads its feed («one» to the first, «two» to the last), lines 1 and 2 one event.
+        const s = lines.map((l) => {
+          const slug = /^\d+\. (\S+) (one|two)/.exec(l);
+          const secs = SECTIONS.filter((x) => !x.key && x.feeds.some((f) => { const g = new URL(f); return `${g.hostname}${g.pathname.replace(/\W+/g, '-')}`.replace(/-$/, '') === slug[1]; }));
+          return (slug[2] === 'one' ? secs[0] : secs.at(-1)).code;
+        });
+        editorSaw = lines;
+        return ok({ success: true, result: { response: JSON.stringify({ s, same: [[1, 2]], key: [1, 3, 5, 7, 9] }) } });
+      }
+      const n = (m[1].content.match(/^\d+\./gm) || []).length;
+      const en = m[0].content.startsWith('You are');
+      return ok({ success: true, result: { response: JSON.stringify({ summaries: Array.from({ length: n }, (_, i) => (en ? `Short summary of news number ${i + 1}.` : `Стислий виклад новини номер ${i + 1}.`)), q: Array.from({ length: n }, () => 'Kyiv parliament') }) } });
+    }
+    if (u.startsWith('https://commons.wikimedia.org/')) { commons++; return ok({ query: { pages: { 1: { index: 1, imageinfo: [{ mime: 'image/jpeg', thumburl: 'https://upload.wikimedia.org/k.jpg' }] } } } }); }
+    if (u.startsWith('https://img.') || u.startsWith('https://upload.wikimedia.org/')) return new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/jpeg' } });
     const feed = SECTIONS.flatMap((s) => s.feeds).find((f) => f === u);
     if (feed) { const f = new URL(feed); return new Response(rss(`${f.hostname}${f.pathname.replace(/\W+/g, '-')}`.replace(/-$/, '')), { status: 200 }); }
-    // article pages (og:image for items without a thumbnail)
+    // article pages (og:image for items without a thumbnail) — Jamestown's carry none
+    if (u.includes('jamestown')) return new Response('<html><head></head></html>', { status: 200, headers: { 'content-type': 'text/html' } });
     return new Response('<html><head><meta property="og:image" content="https://img.page/og.jpg"></head></html>', { status: 200, headers: { 'content-type': 'text/html' } });
   };
   const token = `x.${Buffer.from(JSON.stringify({ session_id: 's' })).toString('base64url')}.y`;
@@ -127,11 +147,17 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     // No news twice: the key ones leave their sections, and a feed shared by two sections feeds only one.
     const urls = j.sections.flatMap((s) => s.items.map((x) => x.url));
     assert.equal(new Set(urls).size, urls.length);
-    assert.ok(j.sections.find((s) => s.id === 'abroad-war').items.every((x) => / one$/.test(x.title)));
-    assert.ok(j.sections.find((s) => s.id === 'abroad-other').items.every((x) => / two$/.test(x.title)));
-    assert.equal(ai, 8); // 7 sections summarized + the key news chosen
+    assert.equal(ai, 17); // the editor once + 8 sections in Ukrainian and in English
+    assert.equal(j.editor, true);
+    assert.ok(j.sections.every((s) => s.en?.part && s.items.every((x) => /^Short summary/.test(x.summary_en))));
+    // The editor said news 1 and 2 are one event: only one of them is in the issue.
+    const twin = editorSaw.slice(0, 2).map((l) => /^\d+\. (\S+ (?:one|two))/.exec(l)[1]);
+    assert.equal(j.sections.flatMap((s) => s.items).filter((x) => twin.includes(x.title)).length, 1);
+    // No picture in the feed or on the page: a photo from Wikimedia Commons.
+    const fromCommons = j.sections.flatMap((s) => s.items).filter((x) => x.imageFrom === 'commons');
+    assert.ok(commons > 0 && fromCommons.length && fromCommons.every((x) => x.image === 'https://upload.wikimedia.org/k.jpg'));
     const again = await (await call()).json(); // until the next 17:00: the same issue, the model not asked again
-    assert.equal(again.at, j.at); assert.equal(ai, 8);
+    assert.equal(again.at, j.at); assert.equal(ai, 17);
     const pic = j.sections[1].items.find((x) => x.image).image;
     assert.equal((await call(`?img=${encodeURIComponent(pic)}`)).status, 200);
     assert.equal((await call(`?img=${encodeURIComponent('https://evil.test/x.jpg')}`)).status, 404);
@@ -143,7 +169,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     // An issue from before the latest 17:00 is made anew — once, even when two readers come at the same time.
     docs.issue = { ...docs.issue, for: new Date(issueTime() - 86400000).toISOString() };
     const [x, y] = await Promise.all([anon(''), anon('')]).then((rs) => Promise.all(rs.map((q) => q.json())));
-    assert.equal(ai, 16);
+    assert.equal(ai, 34);
     assert.ok([x, y].some((v) => v.for === new Date(issueTime()).toISOString()));
   } finally { globalThis.fetch = real; }
 });
@@ -155,4 +181,15 @@ test('off-topic news, emoji pictures and empty phrases stay out', async () => {
   assert.equal(itemImage('<item><media:thumbnail url="https://s.w.org/images/core/emoji/17.0.2/72x72/25ab.png"/></item>'), '');
   const [s] = readSummaries('{"summaries":["Армія РФ завдала удару по Харкову. Це сталося в Харкові. Київ вимагає更多 перехоплювачів."]}', [{ title: 'x' }]);
   assert.equal(s.text, 'Армія РФ завдала удару по Харкову. Київ вимагає перехоплювачів.');
+});
+
+test('the editor’s answer: sections by code, «x» out, one news per event (the pictured one kept)', () => {
+  const items = [{ title: 'a', image: '' }, { title: 'b', image: 'https://p/b.jpg' }, { title: 'c' }, { title: 'd' }, { title: 'e' }];
+  const c = readClass('{"s":["2.2","2.2","x","5.2","9.9"],"same":[[1,2]],"key":[2,4]}', items);
+  assert.deepEqual(c.sec, ['media', 'media', null, 'abroad-other', undefined]);
+  assert.deepEqual([...c.drop], [0]);
+  assert.deepEqual(c.key, [1, 3]);
+  assert.equal(readClass('no json', items), null);
+  assert.equal(readClass('{"s":["2.2"]}', items), null); // too short to trust
+  assert.match(classifyPrompt(items)[0].content, /4\.2 — озброєння/);
 });

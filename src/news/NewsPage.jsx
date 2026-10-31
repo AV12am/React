@@ -6,7 +6,15 @@ import { Icon } from '../components/Icon.jsx';
 import { ReportPreview } from '../components/viewers.jsx';
 import { ContextMark, Loader } from '../brand/Mark.jsx';
 import { saveFile } from '../lib/io.js';
-import { issueFileName, thumb, newsPdf, newsDocx } from '../lib/newsExport.js';
+import { issueFileName, thumb, newsPdf, newsDocx, localize } from '../lib/newsExport.js';
+
+// The page's own words in both languages (the platform's translator is not loaded here).
+const T = {
+  uk: { wait: 'Збираю випуск — перше відкриття може тривати до хвилини.', making: 'Збираю', empty: 'Свіжих матеріалів у джерелах розділу немає.', open: 'Відкрити матеріал у джерелі', down: 'Випуск зараз недоступний', fail: 'Не вдалося сформувати випуск', save: 'Не вдалося зберегти файл', lang: 'Мова випуску' },
+  en: { wait: 'Putting the issue together — the first opening can take up to a minute.', making: 'Making', empty: 'No fresh material in this section’s sources.', open: 'Open the article at its source', down: 'The issue is not available right now', fail: 'Could not make the issue', save: 'Could not save the file', lang: 'Issue language' },
+};
+const LANG_KEY = 'context-news-lang';
+const savedLang = () => { try { return localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'uk'; } catch { return 'uk'; } };
 
 const api = (q = '') => new URL(`api/pulse?news=1${q}`, document.baseURI);
 
@@ -15,6 +23,13 @@ export function NewsPage() {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState('');
   const [preview, setPreview] = useState(null);
+  const [lang, setLang] = useState(savedLang);
+  const t = T[lang];
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    try { localStorage.setItem(LANG_KEY, lang); } catch { /* the choice just is not remembered */ }
+  }, [lang]);
+  const shown = issue ? localize(issue, lang) : null;
 
   useEffect(() => {
     let live = true;
@@ -25,7 +40,7 @@ export function NewsPage() {
         if (!res.ok) throw new Error(j.message || `HTTP ${res.status}`);
         if (live && j.sections?.length) { setIssue(j); setErr(''); }
         else if (live && j.making) setTimeout(load, 20000); // another reader's request is making it right now
-      } catch (e) { if (live) setErr(`Випуск зараз недоступний: ${e.message}`); }
+      } catch (e) { if (live) setErr(`${T[savedLang()].down}: ${e.message}`); }
     };
     load();
     const t = setInterval(load, 60 * 60000);
@@ -48,14 +63,14 @@ export function NewsPage() {
     setBusy(kind);
     try {
       const pics = await pictures();
-      const blob = kind === 'pdf' ? await newsPdf(issue, pics) : await newsDocx(issue, pics);
-      setPreview({ kind, blob, name: issueFileName(issue, kind === 'pdf' ? 'pdf' : 'docx') });
-    } catch (e) { setErr(e.message || 'Не вдалося сформувати випуск'); } finally { setBusy(''); }
+      const blob = kind === 'pdf' ? await newsPdf(shown, pics, lang) : await newsDocx(shown, pics, lang);
+      setPreview({ kind, blob, name: issueFileName(issue, kind === 'pdf' ? 'pdf' : 'docx', lang) });
+    } catch (e) { setErr(e.message || t.fail); } finally { setBusy(''); }
   };
   const download = async () => {
     const res = await saveFile(preview.name, preview.blob);
     if (res === 'saved') setPreview(null);
-    else if (res !== 'declined') setErr('Не вдалося зберегти файл');
+    else if (res !== 'declined') setErr(t.save);
   };
 
   return (
@@ -63,23 +78,27 @@ export function NewsPage() {
       <header className="news-page__head">
         <h1 className="vx-h1 news__brand"><ContextMark size={26} title="" /> CONTEXT News</h1>
         <div className="toolbar">
-          <button className="vx-btn vx-btn--sm" disabled={!issue || !!busy} onClick={() => make('pdf')}>{busy === 'pdf' ? <Loader size={14} label="Збираю" /> : <Icon name="file" />} PDF</button>
-          <button className="vx-btn vx-btn--sm" disabled={!issue || !!busy} onClick={() => make('docx')}>{busy === 'docx' ? <Loader size={14} label="Збираю" /> : <Icon name="download" />} Word</button>
+          <div className="segmented" role="group" aria-label={t.lang}>
+            <button className={lang === 'uk' ? 'is-active' : ''} aria-pressed={lang === 'uk'} onClick={() => setLang('uk')}>УКР</button>
+            <button className={lang === 'en' ? 'is-active' : ''} aria-pressed={lang === 'en'} onClick={() => setLang('en')}>ENG</button>
+          </div>
+          <button className="vx-btn vx-btn--sm" disabled={!issue || !!busy} onClick={() => make('pdf')}>{busy === 'pdf' ? <Loader size={14} label={t.making} /> : <Icon name="file" />} PDF</button>
+          <button className="vx-btn vx-btn--sm" disabled={!issue || !!busy} onClick={() => make('docx')}>{busy === 'docx' ? <Loader size={14} label={t.making} /> : <Icon name="download" />} Word</button>
         </div>
       </header>
       {err && <div className="vx-error">{err}</div>}
-      {!issue && !err && <div className="news-page__wait"><Loader size={40} label="Збираю випуск" /><span className="vx-hint">Збираю випуск — перше відкриття може тривати до хвилини.</span></div>}
-      {issue?.sections.map((s) => (
+      {!issue && !err && <div className="news-page__wait"><Loader size={40} label={t.making} /><span className="vx-hint">{t.wait}</span></div>}
+      {shown?.sections.map((s) => (
         <section key={s.id} className="news__section">
           <h2 className="news__title">{s.part}{s.title && <span className="news__sub">{s.title}</span>}</h2>
-          {!s.items.length ? <div className="vx-hint">Свіжих матеріалів у джерелах розділу немає.</div> : (
+          {!s.items.length ? <div className="vx-hint">{t.empty}</div> : (
             <div className="news__list">
               {s.items.map((x) => (
                 <article key={x.url} className="news__item">
-                  <a className="news__pic" href={x.url} target="_blank" rel="noopener noreferrer" aria-label="Відкрити матеріал у джерелі">
+                  <a className="news__pic" href={x.url} target="_blank" rel="noopener noreferrer" aria-label={t.open}>
                     {x.image ? <img src={x.image} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; }} /> : <ContextMark size={28} title="" />}
                   </a>
-                  <p className="news__sum">{x.summary}</p>
+                  <p className="news__sum" lang={lang}>{x.summary}</p>
                 </article>
               ))}
             </div>

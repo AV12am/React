@@ -12,11 +12,11 @@
 // Cloudflare Workers AI from the item's own feed text (src/lib/news.js), or that text shortened when the model
 // is not available. Section 1 is the day's key news, chosen by the model from the headlines of all the others.
 import { json, db, env } from './_core.js';
-import { SECTIONS, PER_SECTION, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, keyPrompt, readPick, fitItems, issueTime } from '../src/lib/news.js';
+import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, readQueries, classifyPrompt, readClass, readPick, fitItems, issueTime } from '../src/lib/news.js';
 
 
 const MIN = 60000;
-const VERSION = 3;
+const VERSION = 4;
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -67,17 +67,31 @@ async function ask(messages, maxTokens) {
 }
 const on = () => Boolean(ACCOUNT && TOKEN);
 
-async function summarize(items) {
-  if (!on() || !items.length) return readSummaries('', items);
-  try { return readSummaries(await ask(summaryPrompt(items), 1600), items); } catch { return readSummaries('', items); }
+async function summarize(items, lang) {
+  if (!on() || !items.length) return { sums: readSummaries('', items), q: items.map(() => '') };
+  try {
+    const raw = await ask(summaryPrompt(items, lang), 1100);
+    return { sums: readSummaries(raw, items), q: readQueries(raw, items) };
+  } catch { return { sums: readSummaries('', items), q: items.map(() => '') }; }
+}
+
+// A news item with no picture of its own: a photo of its subject from Wikimedia Commons (an open,
+// freely licensed archive), found by the short query the model gave with the English summary.
+async function commonsImage(q) {
+  if (!q) return '';
+  try {
+    const u = `https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search&gsrnamespace=6&gsrlimit=5&gsrsearch=${encodeURIComponent(`${q} filetype:bitmap`)}&prop=imageinfo&iiprop=url|mime&iiurlwidth=640`;
+    const j = await (await get(u, 6000, 'application/json')).json();
+    const pages = Object.values(j?.query?.pages || {}).sort((a, b) => (a.index || 0) - (b.index || 0));
+    const hit = pages.map((p) => p.imageinfo?.[0]).find((i) => i && /image\/(jpeg|png|webp)/.test(i.mime || '') && i.thumburl);
+    return hit?.thumburl || '';
+  } catch { return ''; }
 }
 
 // The first news of each section in turn — the key news when the model cannot choose.
 function roundRobin(lists) {
   const out = [];
-  let base = 0;
-  const starts = lists.map((l) => { const s = base; base += l.length; return s; });
-  for (let i = 0; i < PER_SECTION; i++) lists.forEach((l, k) => { if (i < l.length) out.push(starts[k] + i); });
+  for (let i = 0; i < POOL; i++) lists.forEach((l) => { if (i < l.length) out.push(l[i]); });
   return out;
 }
 
@@ -85,36 +99,54 @@ export async function makeIssue(now = Date.now()) {
   const own = SECTIONS.filter((s) => !s.key);
   const urls = [...new Set(own.flatMap((s) => s.feeds))];
   const got = new Map(await Promise.all(urls.map(async (u) => [u, await feed(u)])));
+
+  // 1. The pool: the freshest news of every section's feeds, each news once.
   const used = new Set();
-  // Sections marked «first» choose before the others, so a feed two sections share fills the narrower one.
+  const titles = new Set();
+  const pool = [];
   const order = own.map((s, k) => k).sort((a, b) => Number(Boolean(own[b].first)) - Number(Boolean(own[a].first)));
-  const lists = [];
   for (const k of order) {
     const s = own[k];
-    const all = s.feeds.flatMap((u) => got.get(u) || [])
-      .filter((x) => !used.has(x.url.split('?')[0]) && !offTopic(x))
-      .filter((x) => (!s.match || s.match.test(`${x.title} ${x.text}`)) && (!s.skip || !s.skip.test(`${x.title} ${x.text}`)));
-    lists[k] = pickItems(all, now, PER_SECTION);
-    lists[k].forEach((x) => used.add(x.url.split('?')[0]));
+    const all = s.feeds.flatMap((u) => got.get(u) || []).filter((x) => !used.has(x.url.split('?')[0]) && !offTopic(x));
+    for (const x of pickItems(all, now, POOL)) {
+      const t = x.title.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+      if (titles.has(t)) continue;
+      used.add(x.url.split('?')[0]); titles.add(t);
+      pool.push({ ...x, home: s.id });
+    }
   }
-  const flat = lists.flat();
-  const [pictured, pick] = await Promise.all([
-    Promise.all(lists.map((l) => Promise.all(l.map(withImage)))),
-    (async () => {
-      const fallback = roundRobin(lists);
-      if (!on() || !flat.length) return readPick('', flat, KEY_COUNT, fallback);
-      try { return readPick(await ask(keyPrompt(flat), 120), flat, KEY_COUNT, fallback); } catch { return readPick('', flat, KEY_COUNT, fallback); }
-    })(),
-  ]);
-  const sums = await Promise.all(pictured.map(summarize));
-  const done = pictured.map((l, k) => l.map((x, i) => ({ title: x.title, url: x.url, domain: x.domain, at: x.at, image: x.image || null, summary: sums[k][i].text, ai: sums[k][i].ai })));
-  const all = done.flat();
-  const keyUrls = new Set(pick.map((i) => all[i].url));
-  const sections = SECTIONS.map((s) => {
-    const items = s.key ? pick.map((i) => all[i]) : done[own.indexOf(s)].filter((x) => !keyUrls.has(x.url));
-    return { id: s.id, part: s.part, title: s.title, sources: s.feeds.length, items: fitItems(items) };
+
+  // 2. The editor: each news to the one section it is about (or out), the same event only once, the key news.
+  let cls = null;
+  if (on() && pool.length) { try { cls = readClass(await ask(classifyPrompt(pool), 1200), pool); } catch { cls = null; } }
+  const fits = (x, s) => (!s.match || s.match.test(`${x.title} ${x.text}`)) && (!s.skip || !s.skip.test(`${x.title} ${x.text}`));
+  const sec = pool.map((x, i) => {
+    if (cls && cls.sec[i] !== undefined) return cls.sec[i];
+    const s = own.find((o) => o.id === x.home);
+    return fits(x, s) ? s.id : null; // without the editor: the home section's own keyword rule
   });
-  return { v: VERSION, at: new Date(now).toISOString(), for: new Date(issueTime(now)).toISOString(), sections };
+  const live = pool.map((_, i) => i).filter((i) => sec[i] && !cls?.drop.has(i));
+  const bySec = Object.fromEntries(own.map((s) => [s.id, pickItems(live.filter((i) => sec[i] === s.id).map((i) => ({ ...pool[i], i })), now, POOL).map((x) => x.i)]));
+  const key = readPick(JSON.stringify({ pick: (cls?.key || []).filter((i) => live.includes(i)).map((i) => i + 1) }), pool, KEY_COUNT, roundRobin(own.map((s) => bySec[s.id])));
+  const picked = SECTIONS.map((s) => (s.key ? key : bySec[s.id].filter((i) => !key.includes(i)).slice(0, PER_SECTION)).map((i) => pool[i]));
+
+  // 3. Pictures from the article pages; summaries in Ukrainian and English, side by side.
+  const [pictured, uk, en] = await Promise.all([
+    Promise.all(picked.map((l) => Promise.all(l.map(withImage)))),
+    Promise.all(picked.map((l) => summarize(l, 'uk'))),
+    Promise.all(picked.map((l) => summarize(l, 'en'))),
+  ]);
+  // 4. Still no picture: a photo of the subject from the open archive.
+  const withPhotos = await Promise.all(pictured.map((l, k) => Promise.all(l.map(async (x, i) => (x.image ? x : { ...x, image: await commonsImage(en[k].q[i]), imageFrom: 'commons' })))));
+
+  const sections = SECTIONS.map((s, k) => {
+    const items = withPhotos[k].map((x, i) => ({
+      title: x.title, url: x.url, domain: x.domain, at: x.at, image: x.image || null, ...(x.imageFrom && x.image ? { imageFrom: x.imageFrom } : {}),
+      summary: uk[k].sums[i].text, summary_en: en[k].sums[i].text, ai: uk[k].sums[i].ai,
+    }));
+    return { id: s.id, part: s.part, title: s.title, en: s.en, sources: s.feeds.length, items: fitItems(items) };
+  });
+  return { v: VERSION, at: new Date(now).toISOString(), for: new Date(issueTime(now)).toISOString(), editor: Boolean(cls), sections };
 }
 
 export async function newsGet(req) {

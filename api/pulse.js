@@ -16,7 +16,7 @@ import { json, db, caller } from './_core.js';
 import * as XLSX from 'xlsx';
 import { timeline, anxiety, QUERY, FEEDS, parseFeed, crisisShare, ownIndex, cleanHeadlines, sharesByDay, GPR_URL, parseGpr, gprIndex, ANALYSIS_FEEDS, pickHeadlines } from '../src/lib/pulse.js';
 
-export const config = { maxDuration: 60 };
+export const config = { maxDuration: 120 };
 
 const MIN = 60000;
 const HOUR = 60 * MIN;

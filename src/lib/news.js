@@ -21,9 +21,11 @@ const SOFT = /гороскоп|horoscope|свят[оа] |праздник|цер
  * not by relaying state propaganda.
  */
 export const SECTIONS = [
-  { id: 'key', part: 'РОЗДІЛ 1 | КЛЮЧОВІ НОВИНИ ДОБИ', title: '', key: true, feeds: [] },
+  { id: 'key', code: '1', part: 'РОЗДІЛ 1 | КЛЮЧОВІ НОВИНИ ДОБИ', title: '', en: { part: 'SECTION 1 | KEY NEWS OF THE DAY', title: '' }, key: true, feeds: [] },
   {
-    id: 'infospace', match: TOPIC.infospace, part: 'РОЗДІЛ 2 | СПЕЦОПЕРАЦІЇ ТА АКТУАЛЬНІ ПОДІЇ', title: '2.1 ІНФОПРОСТІР КРАЇНИ-АГРЕСОРА',
+    id: 'infospace', code: '2.1', match: TOPIC.infospace, part: 'РОЗДІЛ 2 | СПЕЦОПЕРАЦІЇ ТА АКТУАЛЬНІ ПОДІЇ', title: '2.1 ІНФОПРОСТІР КРАЇНИ-АГРЕСОРА',
+    en: { part: 'SECTION 2 | SPECIAL OPERATIONS AND CURRENT EVENTS', title: '2.1 THE AGGRESSOR STATE’S INFORMATION SPACE' },
+    about: 'інформаційний простір Росії: пропаганда, дезінформація, наративи й заяви кремлівських ЗМІ та посадовців, цензура, тиск на незалежні медіа',
     feeds: [
       'https://meduza.io/rss/all',
       'https://www.themoscowtimes.com/rss/news',
@@ -33,7 +35,9 @@ export const SECTIONS = [
     ],
   },
   {
-    id: 'media', part: 'РОЗДІЛ 2 | СПЕЦОПЕРАЦІЇ ТА АКТУАЛЬНІ ПОДІЇ', title: '2.2 УКРАЇНСЬКІ ТА СВІТОВІ ЗМІ',
+    id: 'media', code: '2.2', part: 'РОЗДІЛ 2 | СПЕЦОПЕРАЦІЇ ТА АКТУАЛЬНІ ПОДІЇ', title: '2.2 УКРАЇНСЬКІ ТА СВІТОВІ ЗМІ',
+    en: { part: 'SECTION 2 | SPECIAL OPERATIONS AND CURRENT EVENTS', title: '2.2 UKRAINIAN AND WORLD MEDIA' },
+    about: 'поточні події війни за повідомленнями українських і світових ЗМІ: удари, бойові дії, спецоперації, ураження об’єктів у Росії, евакуації, полонені',
     feeds: [
       'https://www.ukrinform.ua/rss/block-lastnews',
       'https://suspilne.media/rss/all.rss',
@@ -43,7 +47,9 @@ export const SECTIONS = [
     ],
   },
   {
-    id: 'agenda', match: TOPIC.agenda, first: true, part: 'РОЗДІЛ 3 | ВІЙСЬКОВО-ПОЛІТИЧНА АДЖЕНДА КРАЇНИ-АГРЕСОРА ТА САТЕЛІТІВ', title: '',
+    id: 'agenda', code: '3', match: TOPIC.agenda, first: true, part: 'РОЗДІЛ 3 | ВІЙСЬКОВО-ПОЛІТИЧНА АДЖЕНДА КРАЇНИ-АГРЕСОРА ТА САТЕЛІТІВ', title: '',
+    en: { part: 'SECTION 3 | MILITARY AND POLITICAL AGENDA OF THE AGGRESSOR STATE AND ITS SATELLITES', title: '' },
+    about: 'військово-політичний порядок денний Росії та її союзників (Білорусь, Іран, КНДР, Китай): армія, оборонна промисловість, військова співпраця, санкції, ядерна риторика, рішення Кремля',
     feeds: [
       'https://jamestown.org/feed/',
       'https://feeds.bbci.co.uk/russian/rss.xml',
@@ -54,7 +60,9 @@ export const SECTIONS = [
     ],
   },
   {
-    id: 'society', part: 'РОЗДІЛ 4 | ОГЛЯД ВІЙСЬКОВО-ПОЛІТИЧНИХ ПОДІЙ В УКРАЇНІ', title: '4.1 СУСПІЛЬНО-ПОЛІТИЧНІ ПОДІЇ',
+    id: 'society', code: '4.1', part: 'РОЗДІЛ 4 | ОГЛЯД ВІЙСЬКОВО-ПОЛІТИЧНИХ ПОДІЙ В УКРАЇНІ', title: '4.1 СУСПІЛЬНО-ПОЛІТИЧНІ ПОДІЇ',
+    en: { part: 'SECTION 4 | MILITARY AND POLITICAL EVENTS IN UKRAINE', title: '4.1 SOCIAL AND POLITICAL EVENTS' },
+    about: 'суспільно-політичне життя України: Президент, Верховна Рада, уряд, реформи, антикорупція, енергетика, економіка, соціальні рішення, дипломатія України',
     feeds: [
       'https://www.pravda.com.ua/rss/view_news/',
       'https://lb.ua/rss/ukr/news.xml',
@@ -64,7 +72,9 @@ export const SECTIONS = [
     ],
   },
   {
-    id: 'defence', part: 'РОЗДІЛ 4 | ОГЛЯД ВІЙСЬКОВО-ПОЛІТИЧНИХ ПОДІЙ В УКРАЇНІ', title: '4.2 ОіВТ ТА ПІДТРИМКА СИЛ ОБОРОНИ УКРАЇНИ',
+    id: 'defence', code: '4.2', part: 'РОЗДІЛ 4 | ОГЛЯД ВІЙСЬКОВО-ПОЛІТИЧНИХ ПОДІЙ В УКРАЇНІ', title: '4.2 ОіВТ ТА ПІДТРИМКА СИЛ ОБОРОНИ УКРАЇНИ',
+    en: { part: 'SECTION 4 | MILITARY AND POLITICAL EVENTS IN UKRAINE', title: '4.2 WEAPONS, MILITARY EQUIPMENT AND SUPPORT FOR UKRAINE’S DEFENCE FORCES' },
+    about: 'озброєння і військова техніка та підтримка Сил оборони України: постачання зброї, пакети допомоги, оборонне виробництво, нові системи, навчання військових',
     feeds: [
       'https://mil.in.ua/uk/feed/',
       'https://armyinform.com.ua/feed/',
@@ -74,7 +84,9 @@ export const SECTIONS = [
     ],
   },
   {
-    id: 'abroad-war', part: 'РОЗДІЛ 5 | ОГЛЯД ЗАКОРДОННИХ ЗМІ', title: '5.1 ІЗ ВПЛИВОМ НА РОСІЙСЬКО-УКРАЇНСЬКУ ВІЙНУ', match: WAR,
+    id: 'abroad-war', code: '5.1', part: 'РОЗДІЛ 5 | ОГЛЯД ЗАКОРДОННИХ ЗМІ', title: '5.1 ІЗ ВПЛИВОМ НА РОСІЙСЬКО-УКРАЇНСЬКУ ВІЙНУ', match: WAR,
+    en: { part: 'SECTION 5 | FOREIGN MEDIA REVIEW', title: '5.1 AFFECTING THE RUSSIAN-UKRAINIAN WAR' },
+    about: 'закордонні ЗМІ про те, що впливає на війну: позиції інших держав, переговори, санкції, політика США та ЄС щодо України й Росії',
     feeds: [
       'https://feeds.bbci.co.uk/news/world/rss.xml',
       'https://www.politico.eu/feed/',
@@ -84,7 +96,9 @@ export const SECTIONS = [
     ],
   },
   {
-    id: 'abroad-other', part: 'РОЗДІЛ 5 | ОГЛЯД ЗАКОРДОННИХ ЗМІ', title: '5.2 ІНШІ МІЖНАРОДНІ КОНФЛІКТИ', skip: WAR, match: TOPIC.conflicts,
+    id: 'abroad-other', code: '5.2', part: 'РОЗДІЛ 5 | ОГЛЯД ЗАКОРДОННИХ ЗМІ', title: '5.2 ІНШІ МІЖНАРОДНІ КОНФЛІКТИ', skip: WAR, match: TOPIC.conflicts,
+    en: { part: 'SECTION 5 | FOREIGN MEDIA REVIEW', title: '5.2 OTHER INTERNATIONAL CONFLICTS' },
+    about: 'інші збройні конфлікти й кризи у світі, не пов’язані з Україною та Росією: Близький Схід, Африка, Азія, Латинська Америка',
     feeds: [
       'https://www.aljazeera.com/xml/rss/all.xml',
       'https://feeds.bbci.co.uk/news/world/rss.xml',
@@ -95,7 +109,9 @@ export const SECTIONS = [
   },
 ];
 /** Candidates read per section; the page then holds four or five of them (fitItems). */
-export const PER_SECTION = 6;
+export const PER_SECTION = 5;
+/** Fresh news read from each section's feeds before the editor sorts them. */
+export const POOL = 10;
 /** Light news (holidays, films, horoscopes, sport) — kept out of every section. */
 export const offTopic = (x) => SOFT.test(x.title || '');
 export const KEY_COUNT = 5;
@@ -124,6 +140,47 @@ export function fitItems(items, min = 4, max = 5) {
     out.push(x); used += h;
   }
   return out;
+}
+
+/** The editor's pass over all fresh news at once: the section each one belongs to (or none), the news that
+ * tell the same event, and the day's key news. */
+export function classifyPrompt(items, n = KEY_COUNT) {
+  const own = SECTIONS.filter((s) => !s.key);
+  return [
+    {
+      role: 'system',
+      content: 'Ти — випусковий редактор щоденного огляду новин. Розподіли новини за розділами строго за темою:\n'
+        + own.map((s) => `${s.code} — ${s.about}`).join('\n')
+        + '\nx — не підходить жодному розділу (культура, спорт, розваги, побут, свята, реклама, кримінал без політичного значення).\n'
+        + 'Кожній новині — один найточніший розділ; якщо сумніваєшся, що новина відповідає темі, став x. '
+        + 'Знайди новини про ту саму подію (з різних джерел чи різними мовами) — це дублікати. '
+        + `Обери ${n} найважливіших для України новин доби про різні події.\n`
+        + 'Відповідай лише JSON: {"s": ["2.2", "x", …] — по одному коду на кожну новину в тому ж порядку, '
+        + '"same": [[1, 4], [2, 9, 13]] — групи номерів про одну подію, "key": [номери від найважливішої]}',
+    },
+    { role: 'user', content: items.map((x, i) => `${i + 1}. ${x.title} — ${String(x.text || '').slice(0, 140)}`).join('\n') },
+  ];
+}
+/** The editor's answer → { sec: [section id | null | undefined], drop: Set of indices, key: [indices] }. */
+export function readClass(raw, items) {
+  let j = {};
+  try {
+    const s = typeof raw === 'string' ? raw : JSON.stringify(raw);
+    j = typeof raw === 'object' && raw ? raw : JSON.parse(s.slice(s.indexOf('{'), s.lastIndexOf('}') + 1));
+  } catch { return null; }
+  if (!Array.isArray(j?.s) || j.s.length < items.length * 0.8) return null;
+  const byCode = Object.fromEntries(SECTIONS.filter((s) => !s.key).map((s) => [s.code, s.id]));
+  const sec = items.map((_, i) => { const c = String(j.s[i] ?? '').trim().toLowerCase(); return c === 'x' ? null : byCode[c]; });
+  const drop = new Set();
+  for (const g of Array.isArray(j.same) ? j.same : []) {
+    const idx = (Array.isArray(g) ? g : []).map((v) => Number(v) - 1).filter((k) => Number.isInteger(k) && k >= 0 && k < items.length);
+    if (idx.length < 2) continue;
+    // Keep the one with a picture, then the freshest; the others leave the issue.
+    const keep = [...idx].sort((a, b) => Number(Boolean(items[b].image)) - Number(Boolean(items[a].image)) || String(items[b].at || '').localeCompare(String(items[a].at || '')))[0];
+    idx.forEach((k) => { if (k !== keep) drop.add(k); });
+  }
+  const key = (Array.isArray(j.key) ? j.key : []).map((v) => Number(v) - 1).filter((k) => Number.isInteger(k) && k >= 0 && k < items.length);
+  return { sec, drop, key };
 }
 
 /** What the model is asked when choosing the day's key news from the headlines of all sections. */
@@ -217,17 +274,29 @@ export function pageImage(html) {
 }
 
 /** What the model is asked: a short retelling of each item from its own text only, in Ukrainian. */
-export function summaryPrompt(items) {
+export function summaryPrompt(items, lang = 'uk') {
+  const system = lang === 'en'
+    ? 'You are the editor of a short news digest. For each news item write 2–3 sentences in English (up to 400 characters): what happened, where, and why it matters. '
+      + 'Use ONLY the given headline and text — add nothing of your own, invent no figures, names or assessments. No filler such as «This is important because…». '
+      + 'If the text is short, retell the headline in one sentence. For each item also give a 2–4 word English query for a news photo of its subject (a place, person or object). '
+      + 'Answer with JSON only: {"summaries": ["…"], "q": ["…"]} — one per item, in the same order.'
+    : 'Ти — редактор стислого огляду новин. Для кожної новини напиши українською 2–3 речення (до 450 знаків): що сталося, де і чому це важливо. '
+      + 'Спирайся ЛИШЕ на наданий заголовок і текст — нічого не додавай від себе, не вигадуй цифр, імен чи оцінок. '
+      + 'Пиши лише українською (імена й назви — українською транслітерацією). Без порожніх фраз на кшталт «Це важливо, оскільки…» чи «Це сталося в …» — '
+      + 'пояснюй значення лише тоді, коли воно є в тексті. Якщо тексту мало — перекажи заголовок одним реченням. Відповідай лише JSON: {"summaries": ["…", "…"]} — по одному на новину, у тому ж порядку.';
   return [
-    {
-      role: 'system',
-      content: 'Ти — редактор стислого огляду новин. Для кожної новини напиши українською 2–3 речення (до 450 знаків): що сталося, де і чому це важливо. '
-        + 'Спирайся ЛИШЕ на наданий заголовок і текст — нічого не додавай від себе, не вигадуй цифр, імен чи оцінок. '
-        + 'Пиши лише українською (імена й назви — українською транслітерацією). Без порожніх фраз на кшталт «Це важливо, оскільки…» чи «Це сталося в …» — '
-        + 'пояснюй значення лише тоді, коли воно є в тексті. Якщо тексту мало — перекажи заголовок одним реченням. Відповідай лише JSON: {"summaries": ["…", "…"]} — по одному на новину, у тому ж порядку.',
-    },
+    { role: 'system', content: system },
     { role: 'user', content: items.map((x, i) => `${i + 1}. ${x.title}\n${x.text || ''}`.slice(0, 1400)).join('\n\n') },
   ];
+}
+
+/** Image-search queries the model gave with the English summaries (empty where none). */
+export function readQueries(raw, items) {
+  try {
+    const s = typeof raw === 'string' ? raw : JSON.stringify(raw);
+    const j = typeof raw === 'object' && raw ? raw : JSON.parse(s.slice(s.indexOf('{'), s.lastIndexOf('}') + 1));
+    return items.map((_, i) => String(j?.q?.[i] || '').replace(/[^\p{L}\p{N} '-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60));
+  } catch { return items.map(() => ''); }
 }
 
 /** The model's answer → one summary per item; where it gave none, the item's own text, shortened. */

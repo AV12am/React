@@ -8,8 +8,21 @@ const MUTED = [0.42, 0.42, 0.42];
 const ACCENT = [0.55, 0.11, 0.2];
 const PIC = { w: 150, h: 112 };
 
-export const issueTitle = (issue) => `CONTEXT News · ${new Date(issue.at).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Kyiv' })}`;
-export const issueFileName = (issue, ext) => `context-news_${String(issue.at).slice(0, 10)}.${ext}`;
+export const issueTitle = (issue, lang = 'uk') => `CONTEXT News · ${new Date(issue.for || issue.at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'uk-UA', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Kyiv' })}`;
+export const issueFileName = (issue, ext, lang = 'uk') => `context-news_${String(issue.for || issue.at).slice(0, 10)}${lang === 'en' ? '_en' : ''}.${ext}`;
+
+/** The issue in one language: the section headings and every summary (English where the server made one). */
+export function localize(issue, lang = 'uk') {
+  if (lang !== 'en') return issue;
+  return {
+    ...issue,
+    sections: issue.sections.map((s) => ({
+      ...s, part: s.en?.part || s.part, title: s.en ? s.en.title : s.title,
+      items: s.items.map((x) => ({ ...x, summary: x.summary_en || x.summary })),
+    })),
+  };
+}
+const EMPTY = { uk: 'Свіжих матеріалів у джерелах розділу немає.', en: 'No fresh material in this section’s sources.' };
 
 /** A picture cropped to 4:3 and saved as JPEG: { bytes, w, h } — or null when it cannot be read. */
 export async function thumb(blob, w = 480, h = 360) {
@@ -37,13 +50,14 @@ const fonts = () => (fontsCache ||= Promise.all(['NotoSerif-Regular', 'NotoSerif
 })).catch((e) => { fontsCache = null; throw e; }));
 
 /** @param pics Map image url → { bytes, w, h } */
-export async function newsPdf(issue, pics = new Map()) {
+export async function newsPdf(issue, pics = new Map(), lang = 'uk') {
   const [{ PDFDocument, rgb }, fontkit, [reg, bold]] = await Promise.all([
     import('pdf-lib'), import('@pdf-lib/fontkit').then((x) => x.default || x), fonts(),
   ]);
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
-  doc.setTitle(issueTitle(issue));
+  doc.setTitle(issueTitle(issue, lang));
+  doc.setLanguage(lang === 'en' ? 'en-GB' : 'uk-UA');
   doc.setCreator('Reaction Core · CONTEXT');
   const F = await doc.embedFont(reg, { subset: true });
   const B = await doc.embedFont(bold, { subset: true });
@@ -73,7 +87,7 @@ export async function newsPdf(issue, pics = new Map()) {
     if (s.part && s.title) { page.drawText(safe(s.title).toUpperCase(), { x: M.l, y: y - 10, size: 9.5, font: B, color: color(INK) }); y -= 16; }
     page.drawLine({ start: { x: M.l, y }, end: { x: M.l + W, y }, thickness: 0.5, color: color([0.78, 0.78, 0.78]) });
     y -= 12;
-    if (!s.items.length) { page.drawText('Свіжих матеріалів у джерелах розділу немає.', { x: M.l, y: y - 10, size: 10, font: F, color: color(MUTED) }); y -= 22; continue; }
+    if (!s.items.length) { page.drawText(EMPTY[lang] || EMPTY.uk, { x: M.l, y: y - 10, size: 10, font: F, color: color(MUTED) }); y -= 22; continue; }
     for (const x of s.items) {
       const tx = M.l + PIC.w + 16;
       const tw = W - PIC.w - 16;
@@ -112,7 +126,7 @@ export async function newsPdf(issue, pics = new Map()) {
   return new Blob([await doc.save()], { type: 'application/pdf' });
 }
 
-export async function newsDocx(issue, pics = new Map()) {
+export async function newsDocx(issue, pics = new Map(), lang = 'uk') {
   const d = await import('docx');
   const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, VerticalAlign, AlignmentType } = d;
   const FONT = 'Georgia';
@@ -123,7 +137,7 @@ export async function newsDocx(issue, pics = new Map()) {
     const sub = s.part && s.title;
     children.push(new Paragraph({ pageBreakBefore: k > 0, spacing: { after: sub ? 60 : 200 }, border: sub ? undefined : { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'BBBBBB', space: 4 } }, children: [new TextRun({ text: (s.part || s.title).toUpperCase(), bold: true, color: RED, size: 20, font: FONT, characterSpacing: 20 })] }));
     if (sub) children.push(new Paragraph({ spacing: { after: 200 }, border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'BBBBBB', space: 4 } }, children: [new TextRun({ text: s.title.toUpperCase(), bold: true, size: 19, font: FONT })] }));
-    if (!s.items.length) { children.push(new Paragraph({ children: [new TextRun({ text: 'Свіжих матеріалів у джерелах розділу немає.', italics: true, color: '888888', font: FONT, size: 20 })] })); return; }
+    if (!s.items.length) { children.push(new Paragraph({ children: [new TextRun({ text: EMPTY[lang] || EMPTY.uk, italics: true, color: '888888', font: FONT, size: 20 })] })); return; }
     const rows = s.items.map((x) => {
       const pic = x.image && pics.get(x.image);
       return new TableRow({
@@ -142,6 +156,6 @@ export async function newsDocx(issue, pics = new Map()) {
     });
     children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: { top: none, bottom: none, left: none, right: none, insideHorizontal: none, insideVertical: none }, rows }));
   });
-  const doc = new Document({ creator: 'Reaction Core · CONTEXT', title: issueTitle(issue), sections: [{ properties: { page: { margin: { top: 1000, bottom: 1000, left: 960, right: 960 } } }, children }] });
+  const doc = new Document({ creator: 'Reaction Core · CONTEXT', title: issueTitle(issue, lang), sections: [{ properties: { page: { margin: { top: 1000, bottom: 1000, left: 960, right: 960 } } }, children }] });
   return Packer.toBlob(doc);
 }
