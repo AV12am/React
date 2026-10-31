@@ -108,12 +108,21 @@ export const SECTIONS = [
     ],
   },
 ];
+/** The verified outlets of a section: the sites of its own feeds. A news goes only into a section whose list
+ * holds its outlet (the key news may come from any section's list). */
+export function outlets(id) {
+  const s = SECTIONS.find((x) => x.id === id);
+  return new Set((s?.feeds || []).map(host));
+}
+
 /** Candidates read per section; the page then holds four or five of them (fitItems). */
 export const PER_SECTION = 5;
 /** Fresh news read from each section's feeds before the editor sorts them. */
 export const POOL = 10;
 /** Light news (holidays, films, horoscopes, sport) — kept out of every section. */
-export const offTopic = (x) => SOFT.test(x.title || '');
+export const offTopic = (x) => SOFT.test(x.title || '')
+  || /^(захищено|protected|private)\s*:/i.test(x.title || '') // a password-protected post has no text to retell
+  || !/[a-zа-яіїєґё]{3}/i.test(x.title || ''); // headlines in scripts the issue does not carry (Arabic, Chinese …)
 export const KEY_COUNT = 5;
 
 /** The time the current issue belongs to: the latest 17:00 in Kyiv at or before `now`. */
@@ -151,8 +160,8 @@ export function classifyPrompt(items) {
       content: 'Ти — випусковий редактор щоденного огляду новин. Розподіли новини за розділами строго за темою:\n'
         + own.map((s) => `${s.code} — ${s.about}`).join('\n')
         + '\nx — не підходить жодному розділу (культура, релігія, спорт, розваги, побут, свята, економіка інших країн без зв’язку з війною, кримінал без політичного значення).\n'
-        + 'Кожній новині — один найточніший розділ; якщо сумніваєшся, що новина відповідає темі, став x. '
-        + `Відповідай лише JSON без пояснень: {"s": ["2.2", "x", …]} — рівно ${items.length} кодів, по одному на кожну новину в тому ж порядку.`,
+        + 'Кожній новині — один найточніший розділ; x став лише тоді, коли новина явно не стосується жодної теми. '
+        + `Відповідай лише JSON без пояснень, з кодом для кожного номера від 1 до ${items.length}: {"s": {"1": "2.2", "2": "x", …}}`,
     },
     { role: 'user', content: items.map((x, i) => `${i + 1}. ${x.title} — ${String(x.text || '').slice(0, 120)}`).join('\n') },
   ];
@@ -165,9 +174,11 @@ const parseJson = (raw) => {
 export function readSections(raw, items) {
   let j;
   try { j = parseJson(raw); } catch { return null; }
-  if (!Array.isArray(j?.s) || j.s.length < items.length * 0.8) return null;
+  // Codes keyed by the news's number (a list is read in order, as a fallback) — a skipped one shifts nothing.
+  const at = Array.isArray(j?.s) ? (i) => j.s[i] : j?.s && typeof j.s === 'object' ? (i) => j.s[String(i + 1)] : null;
+  if (!at || items.filter((_, i) => at(i) != null).length < items.length * 0.8) return null;
   const byCode = Object.fromEntries(SECTIONS.filter((s) => !s.key).map((s) => [s.code, s.id]));
-  return items.map((_, i) => { const c = String(j.s[i] ?? '').trim().toLowerCase(); return c === 'x' ? null : byCode[c]; });
+  return items.map((_, i) => { const c = String(at(i) ?? '').trim().toLowerCase(); return c === 'x' ? null : byCode[c]; });
 }
 
 /** The editor's look at all headlines together: which tell the same event, and the day's key news. */
@@ -344,29 +355,51 @@ export function pageImage(html) {
 }
 
 /** What the model is asked: a short retelling of each item from its own text only, in Ukrainian. */
-export function summaryPrompt(items, lang = 'uk') {
-  const system = lang === 'en'
-    ? 'You are the editor of a short news digest. For each news item write 2–3 sentences in English (up to 400 characters): what happened, where, and why it matters. '
-      + 'Use ONLY the given headline and text — add nothing of your own, invent no figures, names or assessments. No filler such as «This is important because…». '
-      + 'If the text is short, retell the headline in one sentence. For each item also give a 2–4 word English query for a news photo of its subject (a place, person or object). '
-      + 'Answer with JSON only: {"summaries": ["…"], "q": ["…"]} — one per item, in the same order.'
-    : 'Ти — редактор стислого огляду новин. Для кожної новини напиши українською 2–3 речення (до 450 знаків): що сталося, де і чому це важливо. '
-      + 'Спирайся ЛИШЕ на наданий заголовок і текст — нічого не додавай від себе, не вигадуй цифр, імен чи оцінок. '
-      + 'Пиши лише українською (імена й назви — українською транслітерацією). Без порожніх фраз на кшталт «Це важливо, оскільки…» чи «Це сталося в …» — '
-      + 'пояснюй значення лише тоді, коли воно є в тексті. Якщо тексту мало — перекажи заголовок одним реченням. Відповідай лише JSON: {"summaries": ["…", "…"]} — по одному на новину, у тому ж порядку.';
+export function summaryPrompt(items) {
   return [
-    { role: 'system', content: system },
+    {
+      role: 'system',
+      content: 'Ти — редактор стислого огляду новин. Для кожної новини напиши українською рівно 2 або 3 повні речення (до 450 знаків): що сталося, де і чому це важливо. '
+        + 'Спирайся ЛИШЕ на наданий заголовок і текст — нічого не додавай від себе, не вигадуй цифр, імен чи оцінок. '
+        + 'Пиши лише українською (імена й назви — українською транслітерацією). Без порожніх фраз на кшталт «Це важливо, оскільки…» чи «Це сталося в …» — '
+        + 'пояснюй значення лише тоді, коли воно є в тексті. Відповідай лише JSON: {"summaries": ["…", "…"]} — по одному на новину, у тому ж порядку.',
+    },
     { role: 'user', content: items.map((x, i) => `${i + 1}. ${x.title}\n${x.text || ''}`.slice(0, 1400)).join('\n\n') },
   ];
 }
 
-/** Image-search queries the model gave with the English summaries (empty where none). */
-export function readQueries(raw, items) {
+/** The English issue is the Ukrainian one translated — sentence for sentence, nothing added or left out. */
+export function translatePrompt(texts) {
+  return [
+    {
+      role: 'system',
+      content: 'Translate each Ukrainian text into English faithfully, sentence for sentence: keep the same number of sentences, add nothing, leave nothing out. '
+        + 'Use the usual English spelling of names and places (Kyiv, Kharkiv, Oleshky). For each text also give a 2–4 word English query for a news photo of its subject (a place, person or object). '
+        + 'Answer with JSON only: {"t": ["…"], "q": ["…"]} — one per text, in the same order.',
+    },
+    { role: 'user', content: texts.map((t, i) => `${i + 1}. ${t}`).join('\n\n') },
+  ];
+}
+/** → { t: [English text | ''], q: [query | ''] }. */
+export function readTranslations(raw, texts) {
+  let j = {};
   try {
     const s = typeof raw === 'string' ? raw : JSON.stringify(raw);
-    const j = typeof raw === 'object' && raw ? raw : JSON.parse(s.slice(s.indexOf('{'), s.lastIndexOf('}') + 1));
-    return items.map((_, i) => String(j?.q?.[i] || '').replace(/[^\p{L}\p{N} '-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60));
-  } catch { return items.map(() => ''); }
+    j = typeof raw === 'object' && raw ? raw : JSON.parse(s.slice(s.indexOf('{'), s.lastIndexOf('}') + 1));
+  } catch { j = {}; }
+  const t = texts.map((_, i) => shape(String(j?.t?.[i] || '').replace(/[Ѐ-ӿ⺀-鿿]+/g, (m) => (m.length > 2 ? m : '')).trim()).text);
+  const q = texts.map((_, i) => String(j?.q?.[i] || '').replace(/[^\p{L}\p{N} '-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60));
+  return { t, q };
+}
+
+/** Sentences of a summary — split after . ! ? … before a capital letter or a quote. */
+export function sentences(text) {
+  return String(text || '').replace(/\s+/g, ' ').trim().split(/(?<=[.!?…])\s+(?=[«"„(]?[A-ZА-ЯІЇЄҐ])/u).filter(Boolean);
+}
+/** A summary is two or three sentences: more are cut to three; `n` tells how many it has. */
+export function shape(text) {
+  const list = sentences(text);
+  return { text: list.slice(0, 3).join(' '), n: Math.min(list.length, 3) };
 }
 
 /** The model's answer → one summary per item; where it gave none, the item's own text, shortened. */
@@ -382,8 +415,8 @@ export function readSummaries(raw, items) {
       .replace(/[\u2E80-\u9FFF\uAC00-\uD7AF\uF900-\uFAFF\u3000-\u303F]+/g, '') // stray CJK the model sometimes slips in
       .replace(/\s*Це (важливо|сталося)[^.]*?(оскільки це|в [А-ЯІЇЄҐ][^.,]*)\.(?=\s|$)/g, '')
       .replace(/\s+/g, ' ').trim();
-    if (s.length > 20) return { text: s.length > 560 ? `${s.slice(0, 560).replace(/\s\S*$/, '')}…` : s, ai: true };
-    const own = (x.text || x.title).replace(/\s+/g, ' ').trim();
-    return { text: own.length > 320 ? `${own.slice(0, 320).replace(/\s\S*$/, '')}…` : own, ai: false };
+    if (s.length > 20) return { ...shape(s), ai: true };
+    const own = shape((x.text || x.title).replace(/\s+/g, ' ').trim());
+    return { ...own, text: own.text.length > 420 ? `${own.text.slice(0, 420).replace(/\s\S*$/, '')}…` : own.text, ai: false };
   });
 }

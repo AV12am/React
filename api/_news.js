@@ -12,11 +12,11 @@
 // Cloudflare Workers AI from the item's own feed text (src/lib/news.js), or that text shortened when the model
 // is not available. Section 1 is the day's key news, chosen by the model from the headlines of all the others.
 import { json, db, env } from './_core.js';
-import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, readQueries, classifyPrompt, readSections, eventsPrompt, readEvents, sameEvents, dropRepeats, readPick, fitItems, issueTime } from '../src/lib/news.js';
+import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, classifyPrompt, readSections, eventsPrompt, readEvents, sameEvents, dropRepeats, readPick, fitItems, issueTime } from '../src/lib/news.js';
 
 
 const MIN = 60000;
-const VERSION = 5;
+const VERSION = 6;
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -68,12 +68,13 @@ async function ask(messages, maxTokens) {
 }
 const on = () => Boolean(ACCOUNT && TOKEN);
 
-async function summarize(items, lang) {
-  if (!on() || !items.length) return { sums: readSummaries('', items), q: items.map(() => '') };
-  try {
-    const raw = await ask(summaryPrompt(items, lang), 1100);
-    return { sums: readSummaries(raw, items), q: readQueries(raw, items) };
-  } catch { return { sums: readSummaries('', items), q: items.map(() => '') }; }
+async function summarize(items) {
+  if (!on() || !items.length) return readSummaries('', items);
+  try { return readSummaries(await ask(summaryPrompt(items), 1300), items); } catch { return readSummaries('', items); }
+}
+async function translate(texts) {
+  if (!on() || !texts.length) return { t: texts.map(() => ''), q: texts.map(() => '') };
+  try { return readTranslations(await ask(translatePrompt(texts), 1300), texts); } catch { return { t: texts.map(() => ''), q: texts.map(() => '') }; }
 }
 
 // A news item with no picture of its own: a photo of its subject from Wikimedia Commons (an open,
@@ -108,7 +109,7 @@ export async function makeIssue(now = Date.now()) {
   const order = own.map((s, k) => k).sort((a, b) => Number(Boolean(own[b].first)) - Number(Boolean(own[a].first)));
   for (const k of order) {
     const s = own[k];
-    const all = s.feeds.flatMap((u) => got.get(u) || []).filter((x) => !used.has(x.url.split('?')[0]) && !offTopic(x));
+    const all = s.feeds.flatMap((u) => (got.get(u) || []).map((x) => ({ ...x, outlet: host(u) }))).filter((x) => !used.has(x.url.split('?')[0]) && !offTopic(x));
     for (const x of pickItems(all, now, POOL)) {
       const t = x.title.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
       if (titles.has(t)) continue;
@@ -139,7 +140,8 @@ export async function makeIssue(now = Date.now()) {
   const fits = (x, s) => (!s.match || s.match.test(`${x.title} ${x.text}`)) && (!s.skip || !s.skip.test(`${x.title} ${x.text}`));
   const sec = pool.map((x, i) => {
     const said = sorted[Math.floor(i / BATCH)]?.[i % BATCH];
-    if (said !== undefined) return said;
+    // The editor's section only when its verified outlets include this news's outlet.
+    if (said !== undefined) return said && outlets(said).has(x.outlet) ? said : null;
     const s = own.find((o) => o.id === x.home);
     return fits(x, s) ? s.id : null; // without the editor's answer: the home section's own keyword rule
   });
@@ -147,25 +149,37 @@ export async function makeIssue(now = Date.now()) {
   const { drop } = dropRepeats(pool, [...(events?.groups || []), ...sameEvents(pool)]);
   const live = pool.map((_, i) => i).filter((i) => sec[i] && !drop.has(i));
   const bySec = Object.fromEntries(own.map((s) => [s.id, pickItems(live.filter((i) => sec[i] === s.id).map((i) => ({ ...pool[i], i })), now, POOL).map((x) => x.i)]));
-  const key = readPick(JSON.stringify({ pick: (events?.key || []).filter((i) => live.includes(i)).map((i) => i + 1) }), pool, KEY_COUNT, roundRobin(own.map((s) => bySec[s.id])));
-  const picked = SECTIONS.map((s) => (s.key ? key : bySec[s.id].filter((i) => !key.includes(i)).slice(0, PER_SECTION)).map((i) => pool[i]));
+  const SPARE = 2; // candidates beyond five, for the news whose summary comes out shorter than two sentences
+  const key = readPick(JSON.stringify({ pick: (events?.key || []).filter((i) => live.includes(i)).map((i) => i + 1) }), pool, KEY_COUNT + SPARE, roundRobin(own.map((s) => bySec[s.id])));
+  const picked = SECTIONS.map((s) => (s.key ? key : bySec[s.id].filter((i) => !key.includes(i)).slice(0, PER_SECTION + SPARE)).map((i) => pool[i]));
 
-  // 3. Pictures from the article pages; summaries in Ukrainian and English, side by side.
-  const [pictured, uk, en] = await Promise.all([
+  // 3. Pictures from the article pages and the Ukrainian summaries, side by side; then the news to keep:
+  //    two or three sentences each (one-sentence ones only when nothing else is left), four or five a page.
+  const [pictured, uk] = await Promise.all([
     Promise.all(picked.map((l) => Promise.all(l.map(withImage)))),
-    Promise.all(picked.map((l) => summarize(l, 'uk'))),
-    Promise.all(picked.map((l) => summarize(l, 'en'))),
+    Promise.all(picked.map((l) => summarize(l))),
   ]);
-  // 4. Still no picture: a photo of the subject from the open archive.
-  const withPhotos = await Promise.all(pictured.map((l, k) => Promise.all(l.map(async (x, i) => (x.image ? x : { ...x, image: await commonsImage(en[k].q[i]), imageFrom: 'commons' })))));
-
-  const sections = SECTIONS.map((s, k) => {
-    const items = withPhotos[k].map((x, i) => ({
-      title: x.title, url: x.url, domain: x.domain, at: x.at, image: x.image || null, ...(x.imageFrom && x.image ? { imageFrom: x.imageFrom } : {}),
-      summary: uk[k].sums[i].text, summary_en: en[k].sums[i].text, ai: uk[k].sums[i].ai,
-    }));
-    return { id: s.id, part: s.part, title: s.title, en: s.en, sources: s.feeds.length, items: fitItems(items) };
+  const chosen = pictured.map((l, k) => {
+    const rows = l.map((x, i) => ({ ...x, summary: uk[k][i].text, ai: uk[k][i].ai, n: uk[k][i].n }));
+    const good = rows.filter((x) => x.n >= 2);
+    return fitItems([...good, ...rows.filter((x) => x.n < 2)].slice(0, PER_SECTION));
   });
+  note.short = chosen.flat().filter((x) => x.n < 2).length;
+
+  // 4. The English issue: the Ukrainian summaries translated; with them, the photo queries.
+  const en = await Promise.all(chosen.map((l) => translate(l.map((x) => x.summary))));
+  note.translated = en.flatMap((e) => e.t).filter(Boolean).length;
+
+  // 5. Still no picture: a photo of the subject from the open archive.
+  const withPhotos = await Promise.all(chosen.map((l, k) => Promise.all(l.map(async (x, i) => (x.image ? x : { ...x, image: await commonsImage(en[k].q[i]), imageFrom: 'commons' })))));
+
+  const sections = SECTIONS.map((s, k) => ({
+    id: s.id, part: s.part, title: s.title, en: s.en, sources: s.feeds.length,
+    items: withPhotos[k].map((x, i) => ({
+      title: x.title, url: x.url, domain: x.domain, at: x.at, image: x.image || null, ...(x.imageFrom && x.image ? { imageFrom: x.imageFrom } : {}),
+      summary: x.summary, summary_en: en[k].t[i] || x.summary, ai: x.ai,
+    })),
+  }));
   return { v: VERSION, at: new Date(now).toISOString(), for: new Date(issueTime(now)).toISOString(), editor: note, sections };
 }
 

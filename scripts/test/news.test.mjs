@@ -88,6 +88,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
   let commons = 0;
   let editorSaw = [];
   let sortCalls = 0;
+  const translated = [];
   const real = globalThis.fetch;
   const now = new Date().toUTCString();
   const rss = (host) => `<rss xmlns:media="m"><item><title>${host} one</title><link>https://${host}/1</link><pubDate>${now}</pubDate><description>Text one about Ukraine and Russia’s military.</description><media:thumbnail url="https://img.${host}/1.jpg"/></item>
@@ -119,15 +120,18 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
           return (slug[2] === 'one' ? secs[0] : secs.at(-1)).code;
         });
         sortCalls++;
-        return ok({ success: true, result: { response: JSON.stringify({ s }) } });
+        return ok({ success: true, result: { response: JSON.stringify({ s: Object.fromEntries(s.map((c, i) => [String(i + 1), c])) }) } });
       }
       if (m[0].content.includes('Знайди групи')) {
         editorSaw = lines;
         return ok({ success: true, result: { response: JSON.stringify({ same: [[1, 2]], key: [1, 3, 5, 7, 9] }) } });
       }
       const n = (m[1].content.match(/^\d+\./gm) || []).length;
-      const en = m[0].content.startsWith('You are');
-      return ok({ success: true, result: { response: JSON.stringify({ summaries: Array.from({ length: n }, (_, i) => (en ? `Short summary of news number ${i + 1}.` : `Стислий виклад новини номер ${i + 1}.`)), q: Array.from({ length: n }, () => 'Kyiv parliament') }) } });
+      if (m[0].content.startsWith('Translate')) {
+        translated.push(...m[1].content.split('\n\n').map((l) => l.replace(/^\d+\. /, '')));
+        return ok({ success: true, result: { response: JSON.stringify({ t: Array.from({ length: n }, (_, i) => `Short summary of news number ${i + 1}. It has two sentences.`), q: Array.from({ length: n }, () => 'Kyiv parliament') }) } });
+      }
+      return ok({ success: true, result: { response: JSON.stringify({ summaries: Array.from({ length: n }, (_, i) => `Стислий виклад новини номер ${i + 1}. Друге речення викладу. Третє речення. Четверте зайве.`) }) } });
     }
     if (u.startsWith('https://commons.wikimedia.org/')) { commons++; return ok({ query: { pages: { 1: { index: 1, imageinfo: [{ mime: 'image/jpeg', thumburl: 'https://upload.wikimedia.org/k.jpg' }] } } } }); }
     if (u.startsWith('https://img.') || u.startsWith('https://upload.wikimedia.org/')) return new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/jpeg' } });
@@ -154,8 +158,16 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     assert.equal(new Set(urls).size, urls.length);
     const editor = sortCalls + 1; // the batches sorted into sections + one look over all headlines
     assert.equal(ai, editor + 16); // + 8 sections in Ukrainian and in English
-    assert.deepEqual(j.editor, { batches: sortCalls, sorted: sortCalls, events: true });
+    assert.deepEqual(j.editor, { batches: sortCalls, sorted: sortCalls, events: true, short: 0, translated: j.sections.flatMap((s) => s.items).length });
     assert.ok(j.sections.every((s) => s.en?.part && s.items.every((x) => /^Short summary/.test(x.summary_en))));
+    // Two or three sentences — the fourth is cut; the English is the Ukrainian translated.
+    assert.ok(j.sections.every((s) => s.items.every((x) => x.summary.endsWith('Третє речення.'))));
+    assert.ok(translated.length && translated.every((t) => t.endsWith('Третє речення.')));
+    // Only outlets on a section's verified list: every news sits in a section whose feeds carry its outlet.
+    for (const s of j.sections.filter((x) => x.id !== 'key')) {
+      const sites = SECTIONS.find((x) => x.id === s.id).feeds.map((f) => new URL(f).hostname.replace(/^(www|feeds|rss|news)\./, ''));
+      assert.ok(s.items.every((x) => sites.some((h) => x.url.includes(h.split('.')[0].replace(/\W/g, '')))), s.id);
+    }
     // The editor said news 1 and 2 are one event: only one of them is in the issue.
     const twin = editorSaw.slice(0, 2).map((l) => /^\d+\. (.+)$/.exec(l)[1]);
     assert.equal(j.sections.flatMap((s) => s.items).filter((x) => twin.includes(x.title)).length, 1);
@@ -184,6 +196,9 @@ test('off-topic news, emoji pictures and empty phrases stay out', async () => {
   const { offTopic } = await import('../../src/lib/news.js');
   assert.ok(offTopic({ title: 'Черный шар — фильм, который может победить на «Оскарах»' }));
   assert.ok(offTopic({ title: 'France braces for Halloween protests' }));
+  assert.ok(offTopic({ title: 'Захищено: Британський лучник проти стерв’ятників' }));
+  assert.ok(offTopic({ title: 'كيف يمكن للقطيعة بين الجزائر والإمارات' }));
+  assert.ok(!offTopic({ title: 'US approves sale of 500 Patriot missiles to Ukraine' }));
   assert.equal(itemImage('<item><media:thumbnail url="https://s.w.org/images/core/emoji/17.0.2/72x72/25ab.png"/></item>'), '');
   const [s] = readSummaries('{"summaries":["Армія РФ завдала удару по Харкову. Це сталося в Харкові. Київ вимагає更多 перехоплювачів."]}', [{ title: 'x' }]);
   assert.equal(s.text, 'Армія РФ завдала удару по Харкову. Київ вимагає перехоплювачів.');
@@ -192,6 +207,7 @@ test('off-topic news, emoji pictures and empty phrases stay out', async () => {
 test('the editor’s answers: sections by code, «x» out; same events; one news per event, the pictured one kept', () => {
   const items = [{ title: 'a', image: '' }, { title: 'b', image: 'https://p/b.jpg' }, { title: 'c' }, { title: 'd' }, { title: 'e' }];
   assert.deepEqual(readSections('{"s":["2.2","2.2","x","5.2","9.9"]}', items), ['media', 'media', null, 'abroad-other', undefined]);
+  assert.deepEqual(readSections('{"s":{"1":"2.2","2":"x","3":"4.1","5":"3"}}', items), ['media', null, 'society', undefined, 'agenda']); // «4» skipped: nothing shifts
   assert.equal(readSections('no json', items), null);
   assert.equal(readSections('{"s":["2.2"]}', items), null); // too short to trust
   assert.match(classifyPrompt(items)[0].content, /4\.2 — озброєння/);
@@ -215,4 +231,11 @@ test('same event without the model: headlines in different languages that share 
   assert.ok(groups.some((g) => g.includes(3) && g.includes(4)), JSON.stringify(groups));
   assert.ok(groups.some((g) => g.includes(1) && g.includes(2)), JSON.stringify(groups)); // «Oleshky … evacuated» meets «Евакуйовані з Олешок»
   assert.ok(!groups.some((g) => g.includes(5) || g.includes(6)), JSON.stringify(groups));
+});
+
+test('a summary is two or three sentences', async () => {
+  const { shape } = await import('../../src/lib/news.js');
+  assert.deepEqual(shape('Перше речення. Друге — про США. Третє! Четверте?'), { text: 'Перше речення. Друге — про США. Третє!', n: 3 });
+  assert.equal(shape('Лише одне речення про «Patriot».').n, 1);
+  assert.equal(shape('Delegations met on 30 Oct. 2026 in Geneva. Talks go on.').n, 2);
 });
