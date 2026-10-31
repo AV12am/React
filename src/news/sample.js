@@ -17,16 +17,6 @@ export default {
    },
    "items": [
     {
-     "title": "US approves sale of 500 Patriot missiles to Ukraine",
-     "url": "https://www.bbc.co.uk/news/articles/c3vgxznlx7jzo",
-     "domain": "bbc.co.uk",
-     "at": "2026-10-31T00:00:00.000Z",
-     "image": "https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/ea75/live/f93e2820-d4b7-11f1-a701-fddedf244c16.jpg",
-     "summary": "США схвалили продаж Україні 500 ракет-перехоплювачів Patriot. Ці американські ракети — один із небагатьох засобів, здатних збивати російські балістичні ракети.",
-     "summary_en": "The US has approved the sale of 500 Patriot interceptor missiles to Ukraine. These American missiles are among the few means able to shoot down Russian ballistic missiles.",
-     "ai": true
-    },
-    {
      "title": "Україна вдарила \"Нептунами\" та дронами по заводу ракетного палива в Росії – Генштаб",
      "url": "https://www.pravda.com.ua/news/2026/10/31/8060623/",
      "domain": "pravda.com.ua",
@@ -37,16 +27,6 @@ export default {
      "ai": true
     },
     {
-     "title": "Russian attacks kill 5, injure at least 46 as Ukraine faces 'difficult' energy situation",
-     "url": "https://kyivindependent.com/russian-attacks-kill-5-injure-at-least-46-as-ukraine-faces-difficult-energy-situation/",
-     "domain": "kyivindependent.com",
-     "at": "2026-10-31T00:00:00.000Z",
-     "image": "https://assets.kyivindependent.com/content/images/2026/10/photo_2026-10-31_08-47-14_20261031-103332.jpg",
-     "summary": "Унаслідок російських атак загинули п’ятеро людей, щонайменше 46 поранено, а енергетична ситуація в Україні залишається складною. Українські сили збили 105 зі 134 російських дронів, серед них реактивні ударні.",
-     "summary_en": "Russian attacks killed five people and injured at least 46, and the energy situation in Ukraine remains difficult. Ukrainian forces shot down 105 of 134 Russian drones, including jet-powered strike drones.",
-     "ai": true
-    },
-    {
      "title": "Зеленський зустрівся з Ердоганом у Стамбулі",
      "url": "https://www.pravda.com.ua/news/2026/10/31/8060651/",
      "domain": "pravda.com.ua",
@@ -54,6 +34,26 @@ export default {
      "image": "https://uimg.pravda.com.ua/buckets/upstatic/images/doc/8/6/948061/86feb5c2723b646d97d3f874b2f01eee.jpeg",
      "summary": "Президент Володимир Зеленський після прибуття до Стамбула в суботу зустрівся з президентом Туреччини Реджепом Таїпом Ердоганом. Серед тем переговорів — безпека, партнерство й Чорне море.",
      "summary_en": "After arriving in Istanbul on Saturday, President Volodymyr Zelensky met Turkish President Recep Tayyip Erdoğan. The talks covered security, partnership and the Black Sea.",
+     "ai": true
+    },
+    {
+     "title": "Зеленський: Майже 300 тисяч родин без світла через удари росіян по Дніпропетровщині та Київщині",
+     "url": "https://www.pravda.com.ua/news/2026/10/31/8060618/",
+     "domain": "pravda.com.ua",
+     "at": "2026-10-31T00:00:00.000Z",
+     "image": "https://uimg.pravda.com.ua/buckets/upstatic/images/doc/d/0/947904/d07a8da042e252ca4d09a43928f061f6.jpeg",
+     "summary": "Близько 200 тисяч родин на Дніпропетровщині та 80 тисяч на Київщині залишилися без світла через удари росіян. Удари припали на ТЕЦ, підстанції й залізничну інфраструктуру.",
+     "summary_en": "About 200,000 families in the Dnipropetrovsk region and 80,000 in the Kyiv region were left without power after Russian strikes. The strikes hit combined heat and power plants, substations and railway infrastructure.",
+     "ai": true
+    },
+    {
+     "title": "Канада виділить €500 мільйонів на підтримку України",
+     "url": "https://www.ukrinform.ua/rubric-polytics/4179941-kanada-vidilit-500-miljoniv-na-pidtrimku-ukraini.html",
+     "domain": "ukrinform.ua",
+     "at": "2026-10-31T00:00:00.000Z",
+     "image": "https://static.ukrinform.com/photos/2018_09/thumb_files/630_360_1537458684-6085.jpg",
+     "summary": "Канада виділить 500 млн євро на підтримку України. Кошти надійдуть у межах позики Ukraine Support Loan, яку ЄС передбачив на 2026–2027 роки.",
+     "summary_en": "Canada will allocate €500 million to support Ukraine. The funds will come under the Ukraine Support Loan that the EU has provided for 2026–2027.",
      "ai": true
     }
    ]
@@ -67,6 +67,17 @@ export default {
     "title": "2.1 THE AGGRESSOR STATE’S INFORMATION SPACE"
    },
    "items": [
+    {
+     "title": "Силы ПВО за ночь уничтожили 433 украинских беспилотника",
+     "url": "https://ria.ru/20261031/pvo-2128276141.html",
+     "domain": "ria.ru",
+     "at": "2026-10-31T00:00:00.000Z",
+     "image": null,
+     "summary": "Протягом минулої ночі черговими силами ППО рф було перехоплено та знищено 433 українських безпілотних літальних апаратів літакового типу над територіями Бєлгородської, Брянської, Курської, Калузької, Тульської, Орловської, Липецької, Воронезької, Смоленської, Тамбовської, Волгоградської, Ростовської, Пензенської, Самарської, Саратовської, Оренбурзької, Ульяновської областей, Республіки Татарстан і Республіки Башкортостан.",
+     "summary_en": "Overnight, the duty air-defence forces of the Russian Federation intercepted and destroyed 433 Ukrainian fixed-wing unmanned aerial vehicles over the territories of the Belgorod, Bryansk, Kursk, Kaluga, Tula, Oryol, Lipetsk, Voronezh, Smolensk, Tambov, Volgograd, Rostov, Penza, Samara, Saratov, Orenburg and Ulyanovsk regions, the Republic of Tatarstan and the Republic of Bashkortostan.",
+     "ai": true,
+     "lead": "ru"
+    },
     {
      "title": "В МИД России обвинили Украину в нарушении режима прекращении огня в Алешках",
      "url": "https://meduza.io/news/2026/10/31/v-mid-rossii-obvinili-ukrainu-v-narushenii-rezhima-prekraschenii-ognya-v-aleshkah",
@@ -119,14 +130,15 @@ export default {
    },
    "items": [
     {
-     "title": "Зеленський: Майже 300 тисяч родин без світла через удари росіян по Дніпропетровщині та Київщині",
-     "url": "https://www.pravda.com.ua/news/2026/10/31/8060618/",
-     "domain": "pravda.com.ua",
+     "title": "Сили ППО перехопили за ніч 105 ворожих БПЛА, 49 з яких — реактивні",
+     "url": "https://armyinform.com.ua/2026/10/31/syly-ppo-perehopyly-za-nich-105-vorozhyh-bpla-49-z-yakyh-reaktyvni/",
+     "domain": "armyinform.com.ua",
      "at": "2026-10-31T00:00:00.000Z",
-     "image": "https://uimg.pravda.com.ua/buckets/upstatic/images/doc/d/0/947904/d07a8da042e252ca4d09a43928f061f6.jpeg",
-     "summary": "Близько 200 тисяч родин на Дніпропетровщині та 80 тисяч на Київщині залишилися без світла через удари росіян. Удари припали на ТЕЦ, підстанції й залізничну інфраструктуру.",
-     "summary_en": "About 200,000 families in the Dnipropetrovsk region and 80,000 in the Kyiv region were left without power after Russian strikes. The strikes hit combined heat and power plants, substations and railway infrastructure.",
-     "ai": true
+     "image": null,
+     "summary": "У ніч на 31 жовтня противник атакував 134 ударними БпЛА типу Shahed (72 із них — реактивні), Гербера, дронами-імітаторами типу «Пародія». За попередніми даними, станом на 08:30, протиповітряною обороною збито/подавлено 105 ворожих БпЛА типу Shahed (49 із них — реактивні), Гербера та дронів інших типів.",
+     "summary_en": "On the night of 31 October the enemy attacked with 134 Shahed-type strike UAVs (72 of them jet-powered), Gerbera and «Parodiya»-type decoy drones. According to preliminary data, as of 08:30 air defence shot down or suppressed 105 enemy Shahed-type UAVs (49 of them jet-powered), Gerbera and drones of other types.",
+     "ai": true,
+     "lead": "ua"
     },
     {
      "title": "Росіяни вдарили по Павлограду: 8 поранених, серед них троє дітей",
@@ -241,16 +253,6 @@ export default {
      "ai": true
     },
     {
-     "title": "Канада виділить €500 мільйонів на підтримку України",
-     "url": "https://www.ukrinform.ua/rubric-polytics/4179941-kanada-vidilit-500-miljoniv-na-pidtrimku-ukraini.html",
-     "domain": "ukrinform.ua",
-     "at": "2026-10-31T00:00:00.000Z",
-     "image": "https://static.ukrinform.com/photos/2018_09/thumb_files/630_360_1537458684-6085.jpg",
-     "summary": "Канада виділить 500 млн євро на підтримку України. Кошти надійдуть у межах позики Ukraine Support Loan, яку ЄС передбачив на 2026–2027 роки.",
-     "summary_en": "Canada will allocate €500 million to support Ukraine. The funds will come under the Ukraine Support Loan that the EU has provided for 2026–2027.",
-     "ai": true
-    },
-    {
      "title": "Україна й НАТО поглиблюватимуть співпрацю у сфері інноваційних технологій",
      "url": "https://www.ukrinform.ua/rubric-polytics/4179928-ukraina-j-nato-poglibluvatimut-spivpracu-u-sferi-innovacijnih-tehnologij.html",
      "domain": "ukrinform.ua",
@@ -352,6 +354,26 @@ export default {
     "title": "5.1 AFFECTING THE RUSSIAN-UKRAINIAN WAR"
    },
    "items": [
+    {
+     "title": "US approves sale of 500 Patriot missiles to Ukraine",
+     "url": "https://www.bbc.co.uk/news/articles/c3vgxznlx7jzo",
+     "domain": "bbc.co.uk",
+     "at": "2026-10-31T00:00:00.000Z",
+     "image": "https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/ea75/live/f93e2820-d4b7-11f1-a701-fddedf244c16.jpg",
+     "summary": "США схвалили продаж Україні 500 ракет-перехоплювачів Patriot. Ці американські ракети — один із небагатьох засобів, здатних збивати російські балістичні ракети.",
+     "summary_en": "The US has approved the sale of 500 Patriot interceptor missiles to Ukraine. These American missiles are among the few means able to shoot down Russian ballistic missiles.",
+     "ai": true
+    },
+    {
+     "title": "Ukraine war briefing: Moscow’s Lavrov snubbed at G20 in Atlanta",
+     "url": "https://www.theguardian.com/world/2026/oct/31/ukraine-war-briefing-moscows-lavrov-snubbed-at-g20-in-atlanta",
+     "domain": "theguardian.com",
+     "at": "2026-10-31T00:00:00.000Z",
+     "image": "https://i.guim.co.uk/img/media/fd7f1ff47174ac5892165fcc97821201039de801/563_0_3732_2987/master/3732.jpg?width=1200&height=630&quality=85&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0&overlay-align=bottom%2Cleft&overlay-width=100p&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctZGVmYXVsdC5wbmc&enable=upscale&s=67ab82ea39f7f024aca764a78fa7d12f",
+     "summary": "На зустрічі міністрів G20 в Атланті голова дипломатії ЄС звинуватила Сергія Лаврова в поширенні брехні про війну в Україні. Європейські дипломати відмовилися від спільного фото з ним, а Росію звинуватили в небажанні мирних переговорів.",
+     "summary_en": "At the G20 ministers’ meeting in Atlanta the EU’s top diplomat accused Sergei Lavrov of spreading lies about the war in Ukraine. European diplomats refused a joint photo with him, and Russia was accused of being unwilling to negotiate peace.",
+     "ai": true
+    },
     {
      "title": "Evacuees from Russia-occupied city where residents ate weeds on way to Ukraine",
      "url": "https://www.bbc.co.uk/news/articles/cqx2818elrnzo",

@@ -44,7 +44,6 @@ export const SECTIONS = [
       'https://kyivindependent.com/news-archive/rss/',
       'https://www.pravda.com.ua/rss/view_news/',
       'https://mil.in.ua/uk/feed/',
-      'https://www.theguardian.com/world/ukraine/rss',
     ],
   },
   {
@@ -85,8 +84,9 @@ export const SECTIONS = [
   {
     id: 'abroad-war', code: '5.1', part: 'РОЗДІЛ 5 | ОГЛЯД ЗАКОРДОННИХ ЗМІ', title: '5.1 ІЗ ВПЛИВОМ НА РОСІЙСЬКО-УКРАЇНСЬКУ ВІЙНУ', match: WAR,
     en: { part: 'SECTION 5 | FOREIGN MEDIA REVIEW', title: '5.1 AFFECTING THE RUSSIAN-UKRAINIAN WAR' },
-    about: 'закордонні ЗМІ про те, що впливає на війну: позиції інших держав, переговори, санкції, політика США та ЄС щодо України й Росії',
+    about: 'що пишуть закордонні ЗМІ про ситуацію в Україні та війну: репортажі, оцінки, аналітика, реакція світу, рішення інших держав щодо України й Росії',
     feeds: [
+      'https://www.theguardian.com/world/ukraine/rss',
       'https://feeds.bbci.co.uk/news/world/rss.xml',
       'https://www.politico.eu/feed/',
       'https://rss.dw.com/rdf/rss-en-world',
