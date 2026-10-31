@@ -30,7 +30,6 @@ export const SECTIONS = [
       'https://lenta.ru/rss/news',
       'https://meduza.io/rss/all',
       'https://www.themoscowtimes.com/rss/news',
-      'https://cpd.gov.ua/feed/',
     ],
   },
   {

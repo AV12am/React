@@ -85,6 +85,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
   Object.assign(process.env, { SUPABASE_URL: 'https://sb.test', SUPABASE_SERVICE_ROLE_KEY: 'svc', CF_AI_TOKEN: 'cf', CF_ACCOUNT_ID: 'acc' });
   const docs = {};
   let ai = 0;
+  let vision = 0;
   let commons = 0;
   let editorSaw = [];
   let sortCalls = 0;
@@ -92,7 +93,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
   const translated = [];
   const real = globalThis.fetch;
   const now = new Date().toUTCString();
-  const rss = (host) => `<rss xmlns:media="m"><item><title>${host} one</title><link>https://${host}/1</link><pubDate>${now}</pubDate><description>Text one about Ukraine and Russia’s military.</description>${host.includes('cpd') ? '' : `<media:thumbnail url="https://img.${host}/1.jpg"/>`}</item>
+  const rss = (host) => `<rss xmlns:media="m"><item><title>${host} one</title><link>https://${host}/1</link><pubDate>${now}</pubDate><description>Text one about Ukraine and Russia’s military.</description>${host.includes('meduza') ? '' : `<media:thumbnail url="https://img.${host}/1.jpg"/>`}</item>
     <item><title>${host} two</title><link>https://${host}/2</link><pubDate>${now}</pubDate><description>Text two on the conflict.</description></item></rss>`;
   globalThis.fetch = async (url, opts = {}) => {
     const u = decodeURIComponent(String(url));
@@ -111,8 +112,9 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     }
     if (u.includes('api.cloudflare.com') && spent) return new Response(JSON.stringify({ errors: [{ message: 'you have used up your daily free allocation of 10,000 neurons' }] }), { status: 429 });
     if (u.includes('api.cloudflare.com')) {
-      ai++;
       const m = JSON.parse(opts.body).messages;
+      if (Array.isArray(m[0].content)) { vision++; return ok({ success: true, result: { response: 'No' } }); } // the words-on-picture check
+      ai++;
       const lines = m[1].content.split('\n').filter((l) => /^\d+\. /.test(l));
       if (m[0].content.includes('Міноборони РФ')) return ok({ success: true, result: { response: '{"count": 531, "regions": "Брянської, Курської областей та над акваторією Чорного моря"}' } });
       if (m[0].content.includes('Повітряних сил ЗСУ')) return ok({ success: true, result: { response: '{"ballistic": 6, "cruise": 0, "drones": 288, "jet": 38, "downed": 271, "downedJet": 31, "time": "09:00"}' } });
@@ -143,8 +145,8 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     if (feed && /lenta\.ru/.test(feed)) return new Response(`<rss><item><title>ПВО за ночь перехватили и уничтожили 531 украинский беспилотник</title><link>https://lenta.ru/news/pvo</link><pubDate>${now}</pubDate><description>Минобороны России сообщило: над территориями Брянской, Курской областей и над акваторией Черного моря перехвачены 531 БПЛА.</description></item>${rss(`${new URL(feed).hostname}${new URL(feed).pathname}`.replace(/\W+/g, '')).replace(/^<rss[^>]*>/, '')}`, { status: 200 });
     if (feed && /ukrinform/.test(feed)) return new Response(`<rss><item><title>Повітряні сили: ППО знешкодила 271 з 288 дронів, ворог атакував шістьма балістичними ракетами</title><link>https://www.ukrinform.ua/ppo</link><pubDate>${now}</pubDate><description>У ніч противник атакував 6 балістичними ракетами та 288 ударними БпЛА.</description></item>${rss(`${new URL(feed).hostname}${new URL(feed).pathname}`.replace(/\W+/g, '')).replace(/^<rss[^>]*>/, '')}`, { status: 200 });
     if (feed) { const f = new URL(feed); return new Response(rss(`${f.hostname}${f.pathname}`.replace(/\W+/g, '')), { status: 200 }); }
-    // article pages (og:image for items without a thumbnail) — the CPD's carry none
-    if (u.includes('cpd')) return new Response('<html><head></head></html>', { status: 200, headers: { 'content-type': 'text/html' } });
+    // article pages (og:image for items without a thumbnail) — Meduza's carry none in this test
+    if (u.includes('meduza')) return new Response('<html><head></head></html>', { status: 200, headers: { 'content-type': 'text/html' } });
     return new Response('<html><head><meta property="og:image" content="https://img.page/og.jpg"></head></html>', { status: 200, headers: { 'content-type': 'text/html' } });
   };
   const token = `x.${Buffer.from(JSON.stringify({ session_id: 's' })).toString('base64url')}.y`;
@@ -164,8 +166,11 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     assert.equal(new Set(urls).size, urls.length);
     const editor = sortCalls + 1; // the batches sorted into sections + one look over all headlines
     assert.equal(ai, editor + 18); // + 8 sections in Ukrainian and in English + the two night reports
+    // every picture but the two leads' own is looked at for words on it
+    assert.equal(vision, j.sections.flatMap((s) => s.items).filter((x) => x.image && !x.lead).length);
+    assert.equal(j.sections.find((s) => s.id === 'infospace').items[0].image, '/news-img/lead-ru.jpg');
     assert.equal(sortCalls, 7);
-    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined, feeds: undefined, airHeads: undefined }, { feeds: undefined, airHeads: undefined, sections: 7, judged: 7, events: true, short: 0, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined, reports: { ru: 'used', ua: 'used' } });
+    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined, feeds: undefined, airHeads: undefined }, { feeds: undefined, airHeads: undefined, sections: 7, judged: 7, events: true, short: 0, textPics: 0, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined, reports: { ru: 'used', ua: 'used' } });
     // The night's reports open 2.1 and 2.2, in the fixed wording, with the day's own numbers.
     const [ru] = j.sections.find((s) => s.id === 'infospace').items;
     const [ua] = j.sections.find((s) => s.id === 'media').items;
@@ -323,4 +328,16 @@ test('night reports: the headlines the media actually give them', () => {
     'Над Россией сбили 111 украинских беспилотников за ночь',
     'Силы ПВО уничтожили за ночь 121 украинский беспилотник над 14 регионами России',
   ]) assert.ok(findReport([{ title, url: 'https://r/x', at }], 'ru', now), title);
+});
+
+test('words on a picture: yes and no told apart; unknown keeps the picture; the site’s own pictures are not asked about', async () => {
+  const { hasText } = await import('../../api/_news.js');
+  const fetchImage = async () => ({ type: 'image/jpeg', buf: new Uint8Array([1, 2, 3]).buffer });
+  let seen;
+  const ask = (a) => async (m) => { seen = m; return a; };
+  assert.equal(await hasText('https://x/1.jpg', { fetchImage, ask: ask('Yes.') }), true);
+  assert.ok(seen[0].content.some((c) => c.type === 'image_url' && c.image_url.url.startsWith('data:image/jpeg;base64,')));
+  assert.equal(await hasText('https://x/2.jpg', { fetchImage, ask: ask('no') }), false);
+  assert.equal(await hasText('https://x/3.jpg', { fetchImage, ask: ask('maybe') }), null);
+  assert.equal(await hasText('/news-img/lead-ru.jpg', { fetchImage, ask: ask('yes') }), null);
 });

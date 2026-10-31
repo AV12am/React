@@ -83,7 +83,7 @@ export default {
      "url": "https://meduza.io/news/2026/10/31/v-mid-rossii-obvinili-ukrainu-v-narushenii-rezhima-prekraschenii-ognya-v-aleshkah",
      "domain": "meduza.io",
      "at": "2026-10-31T00:00:00.000Z",
-     "image": "https://meduza.io/imgly/share/1793445405/news/2026/10/31/v-mid-rossii-obvinili-ukrainu-v-narushenii-rezhima-prekraschenii-ognya-v-aleshkah",
+     "image": null,
      "summary": "Посол з особливих доручень МЗС Росії Родіон Мирошник звинуватив Україну в порушенні режиму припинення вогню в Олешках. Заяву зроблено за добу до завершення цього режиму.",
      "summary_en": "The Russian Foreign Ministry’s ambassador-at-large Rodion Miroshnik accused Ukraine of violating the ceasefire in Oleshky. The statement came a day before the ceasefire was due to end.",
      "ai": true
@@ -106,16 +106,6 @@ export default {
      "image": "https://static.themoscowtimes.com/image/og/73/94137__73a8708f3d4fc848be932707bbe6463b.jpg",
      "summary": "Росія визнала «небажаною» делегацію російських опозиціонерів у Парламентській асамблеї Ради Європи. Делегацію створили на початку року, щоб представляти антикремлівську опозицію в Європі.",
      "summary_en": "Russia declared the delegation of Russian opposition figures at the Parliamentary Assembly of the Council of Europe «undesirable». The delegation was set up early this year to represent the anti-Kremlin opposition in Europe.",
-     "ai": true
-    },
-    {
-     "title": "Фейк про втечу полонених рф",
-     "url": "https://cpd.gov.ua/international-direction/ssha/fejk-pro-vtechu-polonenyh-rf/",
-     "domain": "cpd.gov.ua",
-     "at": "2026-10-31T00:00:00.000Z",
-     "image": "https://cpd.gov.ua/wp-content/uploads/2026/10/img_20261029_190053_530.jpg",
-     "summary": "У Telegram-каналах поширюють повідомлення про нібито втечу двох озброєних російських військовополонених поблизу Старовірівки на Харківщині. Військова служба правопорядку офіційно спростувала цю інформацію: такого випадку не фіксували.",
-     "summary_en": "Telegram channels are spreading reports that two armed Russian prisoners of war allegedly escaped near Starovirivka in the Kharkiv region. The Military Law Enforcement Service officially denied this: no such case was recorded.",
      "ai": true
     }
    ]

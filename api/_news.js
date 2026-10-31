@@ -4,6 +4,7 @@
 // GET /api/pulse?news=1              → { v, at, for, sections: [{ id, part, title, items }] } — open, no sign-in
 //                                      (public news from open sources, for the standalone page news.html)
 // GET /api/pulse?news=1&img=<url>    a thumbnail of the current issue, for PDF and Word (only pictures it holds)
+// GET /api/pulse?news=1&imgcheck=<url> whether one of its pictures has words on it (the picture model's yes / no)
 //
 // There is no refresh: the issue stays as it is until the next 17:00. The first request after 17:00 — the daily
 // cron (vercel.json) or the first reader — makes the next one; a lock keeps two requests from making it twice.
@@ -21,6 +22,8 @@ const VERSION = 13;
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+// A small model that sees pictures: it tells a clean photo from one with words on it (about 256 tokens a picture).
+const VISION = env.CF_AI_VISION_MODEL || '@cf/google/gemma-3-12b-it';
 const UA = 'ReactionCore/1.0 (+https://reactioncore.uk/news; news digest)'; // who asks, with a page to find out more (Wikimedia's policy)
 
 const read = async (id = 'issue') => (await db(`core_docs?kind=eq.news&id=eq.${id}&select=doc`).catch(() => []))[0]?.doc || null;
@@ -66,8 +69,8 @@ async function articleText(url) {
   } catch { return ''; }
 }
 
-async function ask(messages, maxTokens) {
-  const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/ai/run/${MODEL}`, {
+async function ask(messages, maxTokens, model = MODEL) {
+  const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/ai/run/${model}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ messages, max_tokens: maxTokens, temperature: 0.1 }),
@@ -111,6 +114,34 @@ async function commonsImage(q) {
 }
 
 const COMMON_CAPS = /^(The|This|That|These|According|After|Before|During|Ukraine’s|Russia’s|January|February|March|April|May|June|July|August|September|October|November|December|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|President|Minister|Deputy|Office|Head|Leader|Supreme|Separate|Express|Federation|General|Staff|Defence|Forces|Ministry|Foreign|Republic)$/;
+// A picture's bytes, only when it is one (and small enough to pass on).
+async function fetchImage(u) {
+  const res = await get(u, 8000, 'image/*');
+  const type = res.headers.get('content-type') || '';
+  const buf = await res.arrayBuffer();
+  if (!/^image\//.test(type) || buf.byteLength > 4 * 1024 * 1024) throw new Error('not an image');
+  return { type, buf };
+}
+
+// Whether a picture carries words: a headline card, a caption or slogan laid over it, a poster, a screenshot.
+// true / false; null when it could not be told (no model, the picture unreadable) — such a picture stays.
+export const TEXT_CHECK = 'Look at this picture. Is there any written text on it — a headline, caption, title, slogan, label, watermark with words, subtitles, a poster or a screenshot of text? Small text on a uniform or a vehicle number does not count. Answer only yes or no.';
+let visionSpent = false;
+export async function hasText(url, deps = {}) {
+  const run = deps.ask || ask;
+  if ((!deps.ask && !on()) || visionSpent || !url || url.startsWith('/')) return null;
+  try {
+    const { type, buf } = await (deps.fetchImage || fetchImage)(url);
+    const data = `data:${type.split(';')[0]};base64,${Buffer.from(buf).toString('base64')}`;
+    const r = await run([{ role: 'user', content: [{ type: 'text', text: TEXT_CHECK }, { type: 'image_url', image_url: { url: data } }] }], 4, VISION);
+    const a = String(r || '').trim().toLowerCase();
+    return /^(yes|так)/.test(a) ? true : /^(no|ні)/.test(a) ? false : null;
+  } catch (e) {
+    if (/neurons|429/.test(String(e?.message))) visionSpent = true; // the day's allowance: stop asking
+    return null;
+  }
+}
+
 // A Commons search for a news item: the names in its English summary (places, people, systems), else its title.
 export function commonsQuery(x) {
   if (!x) return '';
@@ -228,7 +259,21 @@ export async function makeIssue(now = Date.now()) {
   note.translated = en.flatMap((e) => e.t).filter(Boolean).length;
 
   // 5. Still no picture: a photo of the subject from the open archive.
-  const withPhotos = await Promise.all(chosen.map((l, k) => Promise.all(l.map(async (x, i) => (x.image ? x : { ...x, image: await commonsImage(en[k].q[i]), imageFrom: 'commons' })))));
+  const found = await Promise.all(chosen.map((l, k) => Promise.all(l.map(async (x, i) => (x.image ? x : { ...x, image: await commonsImage(en[k].q[i]), imageFrom: 'commons' })))));
+
+  // 6. Photos only, no words on them: a picture with a headline or caption laid over it gives way to an open
+  //    photo of the subject; if that one has words too, the news goes without a picture. The leads keep theirs.
+  note.textPics = 0;
+  const withPhotos = await Promise.all(found.map((l, k) => Promise.all(l.map(async (x, i) => {
+    if (x.lead || !x.image || (await hasText(x.image)) !== true) return x;
+    note.textPics++;
+    const words = commonsQuery({ ...x, summary_en: en[k].t[i] }).split(' ');
+    for (const q of [...new Set([en[k].q[i], words.join(' '), words.slice(0, 2).join(' ')])].filter(Boolean)) {
+      const alt = await commonsImage(q);
+      if (alt && alt !== x.image && (await hasText(alt)) !== true) return { ...x, image: alt, imageFrom: 'commons' };
+    }
+    return { ...x, image: '', imageFrom: undefined };
+  }))));
 
   const sections = SECTIONS.map((s, k) => ({
     id: s.id, part: s.part, title: s.title, en: s.en, sources: s.feeds.length,
@@ -276,18 +321,19 @@ export async function newsGet(req) {
     }
     const cached = await read();
 
+    // A check of one of the issue's pictures for words on it (to see the picture model answer): yes / no / unknown.
+    const check = q.get('imgcheck');
+    if (check) {
+      const known = [...(cached?.sections || []), ...sample.sections].some((s) => s.items.some((x) => x.image === check));
+      if (!known) return json(404, { error: 'img', message: 'Немає такого зображення у випуску' });
+      return json(200, { text: await hasText(check) });
+    }
+
     // A thumbnail for the documents: only one the current issue holds — never an arbitrary address.
     const img = q.get('img');
     if (img) {
       const known = [...(cached?.sections || []), ...sample.sections].some((s) => s.items.some((x) => x.image === img)); // the issue's own, or the hand-made test issue's
       if (!known) return json(404, { error: 'img', message: 'Немає такого зображення у випуску' });
-      const fetchImage = async (u) => {
-        const res = await get(u, 8000, 'image/*');
-        const type = res.headers.get('content-type') || '';
-        const buf = await res.arrayBuffer();
-        if (!/^image\//.test(type) || buf.byteLength > 4 * 1024 * 1024) throw new Error('not an image');
-        return { type, buf };
-      };
       const send = ({ type, buf }) => new Response(buf, { status: 200, headers: { 'Content-Type': type, 'Cache-Control': 'private, max-age=3600' } });
       try { return send(await fetchImage(img)); } catch { /* the source would not give it: an open picture instead */ }
       // When the source turns the picture away, a picture on the same subject from Wikimedia Commons stands in.
