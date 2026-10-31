@@ -285,10 +285,17 @@ export async function newsGet(req) {
     const now = Date.now();
     const current = cached?.v === VERSION && cached.sections?.length && Date.parse(cached.for) >= issueTime(now);
     if (current) return json(200, cached);
+    // While the day's issue is only a stand-in made without the model, the hand-made test issue of the same day
+    // (real news, src/news/sample.js) is shown instead — never after its day has passed.
+    const standIn = (doc) => (doc?.degraded && Date.parse(sample.for) === issueTime(now) ? { ...sample, standIn: true } : doc);
+
+    // The model's daily allowance is spent (it renews at 00:00 UTC): no point making the issue again before then.
+    const spent = cached?.degraded && /neurons|429/.test(cached.editor?.err || '') && String(cached.at).slice(0, 10) === new Date(now).toISOString().slice(0, 10);
+    if (spent) return json(200, standIn(cached));
 
     // Only one request makes it: the first to file the lock for this issue (and this ten minutes, so a failed
     // attempt is tried again); the others give what there is.
-    if (!(await claim(now))) return json(200, cached?.sections?.length ? { ...cached, making: true } : { making: true, sections: [] });
+    if (!(await claim(now))) return json(200, cached?.sections?.length ? standIn({ ...cached, making: true }) : { making: true, sections: [] });
 
     const issue = await makeIssue(now);
     if (issue.degraded) {
@@ -297,7 +304,7 @@ export async function newsGet(req) {
       const retry = { ...issue, for: new Date(issueTime(now) - 1).toISOString() };
       if (cached?.sections?.length && !cached.degraded && cached.v === VERSION) { await keep({ ...cached, for: retry.for }); return json(200, { ...cached, stale: true }); }
       if (issue.sections.some((s) => s.items.length)) await keep(retry);
-      return json(200, retry);
+      return json(200, standIn(retry));
     }
     if (issue.sections.some((s) => s.items.length)) {
       await keep(issue);
