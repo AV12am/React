@@ -12,11 +12,11 @@
 // Cloudflare Workers AI from the item's own feed text (src/lib/news.js), or that text shortened when the model
 // is not available. Section 1 is the day's key news, chosen by the model from the headlines of all the others.
 import { json, db, env } from './_core.js';
-import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime } from '../src/lib/news.js';
+import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, findReport, reportPrompt, composeReport, sharedWords } from '../src/lib/news.js';
 
 
 const MIN = 60000;
-const VERSION = 12;
+const VERSION = 13;
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -53,6 +53,16 @@ async function withImage(x) {
     reader.cancel().catch(() => {});
     return { ...x, image: pageImage(html) };
   } catch { return x; }
+}
+
+// The article's own paragraphs (the first few thousand characters) — for the numbers of an official report.
+async function articleText(url) {
+  try {
+    const res = await get(url, 7000, 'text/html');
+    const html = (await res.text()).slice(0, 600000).replace(/<(script|style|noscript)[^>]*>[\s\S]*?<\/\1>/gi, ' ');
+    const paras = [...html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)].map((m) => m[1].replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim()).filter((t) => t.length > 40);
+    return paras.join('\n').slice(0, 3500);
+  } catch { return ''; }
 }
 
 async function ask(messages, maxTokens) {
@@ -153,7 +163,10 @@ export async function makeIssue(now = Date.now()) {
   note.pool = pool.length;
   // One news per event — the editor's groups and the shared-words rule together.
   const { drop } = dropRepeats(pool, [...checkGroups(pool, events?.groups || []), ...sameEvents(pool)]);
-  const live = pool.map((_, i) => i).filter((i) => sec[i] && !drop.has(i));
+  // The night's air-defence reports that open 2.1 (Russian claim) and 2.2 (Ukrainian Air Force) — never twice.
+  const reports = { ru: findReport([...got.values()].flat(), 'ru', now), ua: findReport([...got.values()].flat(), 'ua', now) };
+  const isReport = (x) => Object.values(reports).some((r) => r && (norm(r) === norm(x) || sharedWords(r, x) >= 3));
+  const live = pool.map((_, i) => i).filter((i) => sec[i] && !drop.has(i) && !isReport(pool[i]));
   const bySec = Object.fromEntries(own.map((s) => [s.id, pickItems(live.filter((i) => sec[i] === s.id).map((i) => ({ ...pool[i], i })), now, POOL).map((x) => x.i)]));
   const SPARE = 2; // candidates beyond five, for the news whose summary comes out shorter than two sentences
   // The key news: the editor's ranking, at most one from a section, and never from a section left with fewer than
@@ -170,14 +183,27 @@ export async function makeIssue(now = Date.now()) {
 
   // 3. Pictures from the article pages and the Ukrainian summaries, side by side; then the news to keep:
   //    two or three sentences each (one-sentence ones only when nothing else is left), four or five a page.
-  const [pictured, uk] = await Promise.all([
+  const lead = async (side) => {
+    const r = reports[side];
+    if (!r || !on()) return null;
+    try {
+      const [text, pic] = await Promise.all([articleText(r.url), withImage(r)]);
+      const summary = composeReport(side, await ask(reportPrompt(side, `${r.title}\n${r.text || ''}\n${text}`), 300), r.at);
+      return summary ? { ...pic, summary, ai: true, n: 2, lead: side } : null;
+    } catch { return null; }
+  };
+  const [pictured, uk, leadRu, leadUa] = await Promise.all([
     Promise.all(picked.map((l) => Promise.all(l.map(withImage)))),
     Promise.all(picked.map((l) => summarize(l))),
+    lead('ru'),
+    lead('ua'),
   ]);
+  note.reports = { ru: reports.ru ? (leadRu ? 'used' : 'unread') : 'none', ua: reports.ua ? (leadUa ? 'used' : 'unread') : 'none' };
   const chosen = pictured.map((l, k) => {
     const rows = l.map((x, i) => ({ ...x, summary: uk[k][i].text, ai: uk[k][i].ai, n: uk[k][i].n }));
     const good = rows.filter((x) => x.n >= 2);
-    return fitItems([...good, ...rows.filter((x) => x.n === 1)].slice(0, PER_SECTION)); // n 0: not Ukrainian — left out
+    const first = SECTIONS[k].id === 'infospace' ? leadRu : SECTIONS[k].id === 'media' ? leadUa : null;
+    return fitItems([...(first ? [first] : []), ...good, ...rows.filter((x) => x.n === 1)].slice(0, PER_SECTION)); // n 0: not Ukrainian — left out
   });
   note.short = chosen.flat().filter((x) => x.n < 2).length;
 
@@ -192,7 +218,7 @@ export async function makeIssue(now = Date.now()) {
     id: s.id, part: s.part, title: s.title, en: s.en, sources: s.feeds.length,
     items: withPhotos[k].map((x, i) => ({
       title: x.title, url: x.url, domain: x.domain, at: x.at, image: x.image || null, ...(x.imageFrom && x.image ? { imageFrom: x.imageFrom } : {}),
-      summary: x.summary, summary_en: en[k].t[i] || x.summary, ai: x.ai,
+      summary: x.summary, summary_en: en[k].t[i] || x.summary, ai: x.ai, ...(x.lead ? { lead: x.lead } : {}),
     })),
   }));
   // Made without the model (its daily free allowance spent, or it did not answer at all): a stand-in, not the

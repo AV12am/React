@@ -2,7 +2,7 @@
 // one issue a day at 17:00 Kyiv.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SECTIONS, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, itemImage, issueTime, fitItems, readPick, keyPrompt, readKeep, keepPrompt, readEvents, eventsPrompt, sameEvents, dropRepeats, checkGroups } from '../../src/lib/news.js';
+import { kyivDay, findReport, composeReport, SECTIONS, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, itemImage, issueTime, fitItems, readPick, keyPrompt, readKeep, keepPrompt, readEvents, eventsPrompt, sameEvents, dropRepeats, checkGroups } from '../../src/lib/news.js';
 
 const RSS = `<rss xmlns:media="http://search.yahoo.com/mrss/"><channel>
 <item><title>Talks resume in Geneva</title><link>https://www.bbc.co.uk/news/1</link><pubDate>Fri, 30 Oct 2026 08:00:00 GMT</pubDate>
@@ -114,6 +114,8 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
       ai++;
       const m = JSON.parse(opts.body).messages;
       const lines = m[1].content.split('\n').filter((l) => /^\d+\. /.test(l));
+      if (m[0].content.includes('Міноборони РФ')) return ok({ success: true, result: { response: '{"count": 531, "regions": "Брянської, Курської областей та над акваторією Чорного моря"}' } });
+      if (m[0].content.includes('Повітряних сил ЗСУ')) return ok({ success: true, result: { response: '{"ballistic": 6, "cruise": 0, "drones": 288, "jet": 38, "downed": 271, "downedJet": 31, "time": "09:00"}' } });
       if (m[0].content.includes('стосується теми розділу')) {
         // The editor for one section: keeps all but the news whose headline ends in «two» in Chapter 3.
         sortCalls++;
@@ -138,6 +140,8 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     if (u.startsWith('https://commons.wikimedia.org/')) { commons++; return ok({ query: { pages: { 1: { index: 1, imageinfo: [{ mime: 'image/jpeg', thumburl: 'https://upload.wikimedia.org/k.jpg' }] } } } }); }
     if (u.startsWith('https://img.') || u.startsWith('https://upload.wikimedia.org/')) return new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/jpeg' } });
     const feed = SECTIONS.flatMap((s) => s.feeds).find((f) => f === u);
+    if (feed && /lenta\.ru/.test(feed)) return new Response(`<rss><item><title>ПВО за ночь перехватили и уничтожили 531 украинский беспилотник</title><link>https://lenta.ru/news/pvo</link><pubDate>${now}</pubDate><description>Минобороны России сообщило: над территориями Брянской, Курской областей и над акваторией Черного моря перехвачены 531 БПЛА.</description></item></rss>`, { status: 200 });
+    if (feed && /ukrinform/.test(feed)) return new Response(`<rss><item><title>Повітряні сили: ППО знешкодила 271 з 288 дронів, ворог атакував шістьма балістичними ракетами</title><link>https://www.ukrinform.ua/ppo</link><pubDate>${now}</pubDate><description>У ніч противник атакував 6 балістичними ракетами та 288 ударними БпЛА.</description></item>${rss(`${new URL(feed).hostname}${new URL(feed).pathname}`.replace(/\W+/g, '')).replace(/^<rss[^>]*>/, '')}`, { status: 200 });
     if (feed) { const f = new URL(feed); return new Response(rss(`${f.hostname}${f.pathname}`.replace(/\W+/g, '')), { status: 200 }); }
     // article pages (og:image for items without a thumbnail) — StopFake's carry none
     if (u.includes('stopfake')) return new Response('<html><head></head></html>', { status: 200, headers: { 'content-type': 'text/html' } });
@@ -159,14 +163,23 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     const urls = j.sections.flatMap((s) => s.items.map((x) => x.url));
     assert.equal(new Set(urls).size, urls.length);
     const editor = sortCalls + 1; // the batches sorted into sections + one look over all headlines
-    assert.equal(ai, editor + 16); // + 8 sections in Ukrainian and in English
+    assert.equal(ai, editor + 18); // + 8 sections in Ukrainian and in English + the two night reports
     assert.equal(sortCalls, 7);
-    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined }, { sections: 7, judged: 7, events: true, short: 0, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined });
+    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined }, { sections: 7, judged: 7, events: true, short: 0, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined, reports: { ru: 'used', ua: 'used' } });
+    // The night's reports open 2.1 and 2.2, in the fixed wording, with the day's own numbers.
+    const [ru] = j.sections.find((s) => s.id === 'infospace').items;
+    const [ua] = j.sections.find((s) => s.id === 'media').items;
+    assert.equal(ru.lead, 'ru');
+    assert.equal(ru.summary, 'Протягом минулої ночі черговими силами ППО рф було перехоплено та знищено 531 українських безпілотних літальних апаратів літакового типу над територіями Брянської, Курської областей та над акваторією Чорного моря.');
+    assert.equal(ua.lead, 'ua');
+    assert.match(ua.summary, new RegExp(`^У ніч на ${kyivDay(Date.now()).text} противник атакував 6 балістичними ракетами та 288 ударними БпЛА типу Shahed \\(38 із них — реактивні\\), Гербера, дронами-імітаторами типу «Пародія»\\. За попередніми даними, станом на 09:00, протиповітряною обороною збито/подавлено 271 ворожих БпЛА`));
+    // …and the same reports do not turn up again elsewhere in the issue.
+    assert.equal(j.sections.flatMap((s) => s.items).filter((x) => /ППО|ПВО/.test(x.title)).length, 2);
     assert.ok(j.sections.find((s) => s.id === 'agenda').items.every((x) => / one$/.test(x.title))); // the editor said no to the others
     assert.ok(j.sections.every((s) => s.en?.part && s.items.every((x) => /^Short summary/.test(x.summary_en))));
     // Two or three sentences — the fourth is cut; the English is the Ukrainian translated.
-    assert.ok(j.sections.every((s) => s.items.every((x) => x.summary.endsWith('Третє речення.'))));
-    assert.ok(translated.length && translated.every((t) => t.endsWith('Третє речення.')));
+    assert.ok(j.sections.every((s) => s.items.every((x) => x.lead || x.summary.endsWith('Третє речення.'))));
+    assert.ok(translated.length && translated.every((t) => /^(У ніч|Протягом)/.test(t) || t.endsWith('Третє речення.')));
     // Only outlets on a section's verified list: every news sits in a section whose feeds carry its outlet.
     for (const s of j.sections.filter((x) => x.id !== 'key')) {
       const sites = SECTIONS.find((x) => x.id === s.id).feeds.map((f) => new URL(f).hostname.replace(/^(www|feeds|rss|news)\./, ''));
@@ -179,7 +192,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     const fromCommons = j.sections.flatMap((s) => s.items).filter((x) => x.imageFrom === 'commons');
     assert.ok(commons > 0 && fromCommons.length && fromCommons.every((x) => x.image === 'https://upload.wikimedia.org/k.jpg'));
     const again = await (await call()).json(); // until the next 17:00: the same issue, the model not asked again
-    assert.equal(again.at, j.at); assert.equal(ai, editor + 16);
+    assert.equal(again.at, j.at); assert.equal(ai, editor + 18);
     const pic = j.sections[1].items.find((x) => x.image).image;
     assert.equal((await call(`?img=${encodeURIComponent(pic)}`)).status, 200);
     assert.equal((await call(`?img=${encodeURIComponent('https://evil.test/x.jpg')}`)).status, 404);
@@ -191,7 +204,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     // An issue from before the latest 17:00 is made anew — once, even when two readers come at the same time.
     docs.issue = { ...docs.issue, for: new Date(issueTime() - 86400000).toISOString() };
     const [x, y] = await Promise.all([anon(''), anon('')]).then((rs) => Promise.all(rs.map((q) => q.json())));
-    assert.equal(ai, 2 * (editor + 16));
+    assert.equal(ai, 2 * (editor + 18));
     assert.ok([x, y].some((v) => v.for === new Date(issueTime()).toISOString()));
     // The model's daily allowance spent: the good issue stays, marked to be made again; nothing worse replaces it.
     const good = docs.issue;
@@ -272,4 +285,21 @@ test('a summary reply cut off at the length limit keeps the summaries it finishe
   const s = readSummaries(raw, items);
   assert.deepEqual(s.map((x) => x.ai), [true, true, false]);
   assert.equal(s[0].text, 'Перша новина про «Нептун». Друге речення.');
+});
+
+test('night reports: only the day’s own, and nothing composed without the numbers', () => {
+  const now = Date.parse('2026-10-28T12:00:00Z');
+  const items = [
+    { title: 'Повітряні сили: ППО збила 250 з 300 дронів', url: 'https://u/1', at: '2026-10-27T07:00:00Z' }, // yesterday
+    { title: 'Повітряні сили: ППО знешкодила 271 з 288 дронів', url: 'https://u/2', at: '2026-10-28T07:10:00Z' },
+    { title: 'Повітряні сили: уточнення — 275 з 288', url: 'https://u/3', at: '2026-10-28T09:00:00Z' },
+    { title: 'ПВО за ночь сбила 531 беспилотник', url: 'https://r/1', at: '2026-10-28T05:00:00Z', text: 'Минобороны России' },
+  ];
+  assert.equal(findReport(items, 'ua', now).url, 'https://u/2'); // the morning report, not yesterday's or a later update
+  assert.equal(findReport(items, 'ru', now).url, 'https://r/1');
+  assert.equal(findReport(items.slice(0, 1), 'ua', now), null);
+  assert.equal(composeReport('ua', '{"drones": null, "downed": 100}', '2026-10-28T07:00:00Z'), '');
+  assert.equal(composeReport('ru', '{"count": 531, "regions": null}', ''), '');
+  assert.equal(composeReport('ru', '{"count": 531, "regions": "Брянской области"}', ''), ''); // Russian, not Ukrainian
+  assert.doesNotMatch(composeReport('ua', '{"ballistic": 0, "cruise": 0, "drones": 120, "downed": 100}', '2026-10-28T07:00:00Z'), /ракет/);
 });

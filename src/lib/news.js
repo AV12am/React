@@ -462,3 +462,88 @@ export function readSummaries(raw, items) {
     return { ...own, text: own.text.length > 420 ? `${own.text.slice(0, 420).replace(/\s\S*$/, '')}…` : own.text, ai: false };
   });
 }
+
+// ── The night's air-defence reports that open 2.1 and 2.2 ───────────────────────────────────────────────
+// 2.1 opens with what the Russian defence ministry claims its air defence shot down overnight; 2.2 with the
+// Ukrainian Air Force's report of the night's attack. Both are official statements published every
+// morning and carried by the media; the issue takes the day's own report from the feeds it already reads.
+// The model only lifts the numbers (and, for 2.1, the regions) out of the report; the text is the fixed
+// wording below, so every issue says it the same way, and a report whose numbers cannot be read is left out.
+
+const MONTHS = ['січня', 'лютого', 'березня', 'квітня', 'травня', 'червня', 'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня'];
+/** The Kyiv calendar day of a moment: «31 жовтня». */
+export function kyivDay(ts) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Kyiv', year: 'numeric', month: 'numeric', day: 'numeric' })
+    .formatToParts(new Date(ts)).map((x) => [x.type, x.value]));
+  return { day: +p.day, month: +p.month, year: +p.year, text: `${+p.day} ${MONTHS[+p.month - 1]}` };
+}
+
+export const REPORTS = {
+  // The Ukrainian Air Force's morning report, as Ukrainian outlets carry it.
+  ua: /(ППО|Повітрян\S* сил|протиповітрян\S* оборон)[^]*?(збил|збито|знешкод|подавл|нейтраліз)|(ворог|противник|росія|рф)[^]*?атакува\S*[^]*?(дрон|БпЛА|ракет)|збил\S* \d+ (з|із) \d+/i,
+  // The Russian defence ministry's morning claim, as Russian-language and foreign outlets carry it.
+  ru: /(ПВО|перехвач\S*|уничтож\S*|сбит\S*|сбил\S*)[^]*?(беспилотн|БПЛА|дрон)|(беспилотн|БПЛА|дрон)\S*[^]*?(перехвач|уничтож|сбит|сбил)|(Russia|Russian)[^]*?(downed|intercept\S*|shot down|destroyed)[^]*?(drone|UAV)/i,
+};
+const RU_SIDE = /Минобороны|МО РФ|ПВО|над (территори|регион)|Russia(n)? (says|claims|defen[cs]e ministry|air defen[cs]e)|над рос/i;
+
+/** The day's report for a side: published since midnight in Kyiv, with numbers in its headline or text. */
+export function findReport(items, side, now = Date.now()) {
+  const today = kyivDay(now);
+  const re = REPORTS[side];
+  const fit = items.filter((x) => {
+    if (!x.at) return false;
+    const d = kyivDay(Date.parse(x.at));
+    if (d.day !== today.day || d.month !== today.month || Date.parse(x.at) > now) return false;
+    const t = `${x.title} ${x.text || ''}`;
+    if (!re.test(x.title) || !/\d{2,}/.test(t)) return false;
+    return side === 'ru' ? RU_SIDE.test(t) && !/Повітрян\S* сил/i.test(t) : /[іїєґ]/i.test(x.title);
+  });
+  // The earliest of the day's reports is the morning one; later items are follow-ups and corrections.
+  return fit.sort((a, b) => String(a.at).localeCompare(String(b.at)))[0] || null;
+}
+
+/** What the model is asked: the numbers of the report, nothing else. */
+export function reportPrompt(side, text) {
+  const ask = side === 'ua'
+    ? 'Це ранковий звіт Повітряних сил ЗСУ про нічну атаку. Випиши з тексту лише числа. Відповідай лише JSON: '
+      + '{"ballistic": кількість балістичних ракет або 0, "cruise": кількість крилатих і інших ракет або 0, '
+      + '"drones": скільки всього ударних БпЛА (Shahed, Гербера, імітаторів) запустив противник, "jet": скільки з них реактивних або null, '
+      + '"downed": скільки БпЛА збито/подавлено, "downedJet": скільки з них реактивних або null, "time": "станом на" — час у форматі 09:00 або null}. '
+      + 'Якщо числа в тексті немає — null. Нічого не вигадуй.'
+    : 'Це заява Міноборони РФ про перехоплені за ніч безпілотники. Відповідай лише JSON: '
+      + '{"count": кількість перехоплених і знищених безпілотників (число з тексту), '
+      + '"regions": перелік регіонів і акваторій із тексту українською в родовому відмінку одним рядком, наприклад: '
+      + '«Новгородської, Тверської, Бєлгородської областей, Краснодарського краю, ТОТ Автономної Республіки Крим та над акваторією Чорного моря» '
+      + '(Крим — завжди «ТОТ Автономної Республіки Крим»; якщо регіонів у тексті немає — null)}. Нічого не вигадуй.';
+  return [{ role: 'system', content: ask }, { role: 'user', content: String(text || '').slice(0, 3500) }];
+}
+
+const num = (v) => (Number.isInteger(+v) && +v > 0 ? +v : 0);
+/** The model's numbers → the report's fixed wording, or '' when the numbers are not there. */
+export function composeReport(side, raw, at) {
+  let j;
+  try {
+    const s = typeof raw === 'string' ? raw : JSON.stringify(raw);
+    j = typeof raw === 'object' && raw ? raw : JSON.parse(s.slice(s.indexOf('{'), s.lastIndexOf('}') + 1));
+  } catch { return ''; }
+  if (side === 'ru') {
+    const n = num(j?.count);
+    const regions = String(j?.regions || '').replace(/\s+/g, ' ').trim().replace(/[.;]+$/, '');
+    // Ukrainian forms only («Брянської області», not «Брянской области»).
+    if (!n || !/[а-яіїєґ]{4}/i.test(regions) || /[ыэъё]|област[иь](?![а-яіїєґ])|ской(?![а-яіїєґ])|(?<![а-яіїєґ])края(?![а-яіїєґ])/i.test(regions) || regions.length > 600) return '';
+    return `Протягом минулої ночі черговими силами ППО рф було перехоплено та знищено ${n} українських безпілотних літальних апаратів літакового типу над територіями ${regions}.`;
+  }
+  const drones = num(j?.drones);
+  const downed = num(j?.downed);
+  if (!drones || !downed || downed > drones + 100) return '';
+  const jet = num(j?.jet);
+  const downedJet = num(j?.downedJet);
+  const time = /^\d{1,2}:\d{2}$/.test(String(j?.time || '')) ? String(j.time).padStart(5, '0') : '09:00';
+  const parts = [];
+  if (num(j?.ballistic)) parts.push(`${num(j.ballistic)} балістичними ракетами`);
+  if (num(j?.cruise)) parts.push(`${num(j.cruise)} крилатими ракетами`);
+  const uav = `${drones} ударними БпЛА типу Shahed${jet ? ` (${jet} із них — реактивні)` : ''}, Гербера, дронами-імітаторами типу «Пародія»`;
+  const attack = parts.length ? `${parts.join(', ')} та ${uav}` : uav;
+  return `У ніч на ${kyivDay(Date.parse(at)).text} противник атакував ${attack}. `
+    + `За попередніми даними, станом на ${time}, протиповітряною обороною збито/подавлено ${downed} ворожих БпЛА типу Shahed${downedJet ? ` (${downedJet} із них — реактивні)` : ''}, Гербера та дронів інших типів.`;
+}
