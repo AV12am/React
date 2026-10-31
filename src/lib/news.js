@@ -118,7 +118,7 @@ export function outlets(id) {
 /** Candidates read per section; the page then holds four or five of them (fitItems). */
 export const PER_SECTION = 5;
 /** Fresh news read from each section's feeds before the editor sorts them. */
-export const POOL = 14;
+export const POOL = 20;
 /** Light news (holidays, films, horoscopes, sport) — kept out of every section. */
 export const offTopic = (x) => SOFT.test(x.title || '')
   || /^(захищено|protected|private)\s*:/i.test(x.title || '') // a password-protected post has no text to retell
@@ -383,7 +383,7 @@ export function summaryPrompt(items) {
       content: 'Ти — редактор стислого огляду новин. Для кожної новини напиши українською рівно 2 або 3 повні речення (до 450 знаків): що сталося, де і чому це важливо. '
         + 'Спирайся ЛИШЕ на наданий заголовок і текст — нічого не додавай від себе, не вигадуй цифр, імен чи оцінок. '
         + 'Пиши лише українською (імена й назви — українською транслітерацією). Без порожніх фраз на кшталт «Це важливо, оскільки…» чи «Це сталося в …» — '
-        + 'пояснюй значення лише тоді, коли воно є в тексті. Відповідай лише JSON: {"summaries": ["…", "…"]} — по одному на новину, у тому ж порядку.',
+        + 'пояснюй значення лише тоді, коли воно є в тексті. Кожне речення — нова інформація, без повторів сказаного. Відповідай лише JSON: {"summaries": ["…", "…"]} — по одному на новину, у тому ж порядку.',
     },
     { role: 'user', content: items.map((x, i) => `${i + 1}. ${x.title}\n${x.text || ''}`.slice(0, 1400)).join('\n\n') },
   ];
@@ -413,6 +413,10 @@ export function readTranslations(raw, texts) {
   return { t, q };
 }
 
+/** Ukrainian text: Cyrillic, with no letters only Russian has. A summary in another language never stands
+ * in for a Ukrainian one. */
+export const isUkrainian = (t) => /[а-яіїєґ]{3}/i.test(t || '') && !/[ыэъё]/i.test(t || '') && (t.match(/[a-z]/gi) || []).length < String(t).length * 0.3;
+
 /** Sentences of a summary — split after . ! ? … before a capital letter or a quote. */
 export function sentences(text) {
   return String(text || '').replace(/\s+/g, ' ').trim().split(/(?<=[.!?…])\s+(?=[«"„(]?[A-ZА-ЯІЇЄҐ])/u).filter(Boolean);
@@ -438,8 +442,9 @@ export function readSummaries(raw, items) {
       .replace(/[\u2E80-\u9FFF\uAC00-\uD7AF\uF900-\uFAFF\u3000-\u303F]+/g, '') // stray CJK the model sometimes slips in
       .replace(/\s*Це (важливо|сталося)[^.]*?(оскільки це|в [А-ЯІЇЄҐ][^.,]*)\.(?=\s|$)/g, '')
       .replace(/\s+/g, ' ').trim();
-    if (s.length > 20) return { ...shape(s), ai: true };
+    if (s.length > 20 && isUkrainian(s)) return { ...shape(s), ai: true };
     const own = shape((x.text || x.title).replace(/\s+/g, ' ').trim());
+    if (!isUkrainian(own.text)) return { text: own.text, n: 0, ai: false }; // not Ukrainian: not shown
     return { ...own, text: own.text.length > 420 ? `${own.text.slice(0, 420).replace(/\s\S*$/, '')}…` : own.text, ai: false };
   });
 }

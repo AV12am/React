@@ -240,3 +240,12 @@ test('a summary is two or three sentences', async () => {
   assert.deepEqual(shape('Перше речення. Друге речення. Третє обірване на кшталт контенту,'), { text: 'Перше речення. Друге речення.', n: 2 });
   assert.equal(shape('Delegations met on 30 Oct. 2026 in Geneva. Talks go on.').n, 2);
 });
+
+test('a summary not in Ukrainian never stands in for one', async () => {
+  const { isUkrainian } = await import('../../src/lib/news.js');
+  assert.ok(isUkrainian('Канада виділить 500 млн євро на підтримку України.'));
+  assert.ok(!isUkrainian('Посол по особым поручениям МИД России обвинил Украину.'));
+  assert.ok(!isUkrainian('The announcement comes amid heightened tensions.'));
+  const [r] = readSummaries('', [{ title: 'x', text: 'The announcement comes amid heightened tensions between Kyiv and Washington.' }]);
+  assert.equal(r.n, 0);
+});

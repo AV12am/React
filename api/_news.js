@@ -16,7 +16,7 @@ import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickIt
 
 
 const MIN = 60000;
-const VERSION = 8;
+const VERSION = 9;
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -68,9 +68,13 @@ async function ask(messages, maxTokens) {
 }
 const on = () => Boolean(ACCOUNT && TOKEN);
 
-async function summarize(items) {
+async function summarize(items, tries = 2) {
   if (!on() || !items.length) return readSummaries('', items);
-  try { return readSummaries(await ask(summaryPrompt(items), 1300), items); } catch { return readSummaries('', items); }
+  try {
+    const out = readSummaries(await ask(summaryPrompt(items), 1300), items);
+    if (tries > 1 && out.filter((x) => x.ai).length < items.length / 2) return summarize(items, tries - 1); // the model fell short: once more
+    return out;
+  } catch { return tries > 1 ? summarize(items, tries - 1) : readSummaries('', items); }
 }
 async function translate(texts) {
   if (!on() || !texts.length) return { t: texts.map(() => ''), q: texts.map(() => '') };
@@ -159,7 +163,7 @@ export async function makeIssue(now = Date.now()) {
   const chosen = pictured.map((l, k) => {
     const rows = l.map((x, i) => ({ ...x, summary: uk[k][i].text, ai: uk[k][i].ai, n: uk[k][i].n }));
     const good = rows.filter((x) => x.n >= 2);
-    return fitItems([...good, ...rows.filter((x) => x.n < 2)].slice(0, PER_SECTION));
+    return fitItems([...good, ...rows.filter((x) => x.n === 1)].slice(0, PER_SECTION)); // n 0: not Ukrainian — left out
   });
   note.short = chosen.flat().filter((x) => x.n < 2).length;
 
