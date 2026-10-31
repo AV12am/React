@@ -254,3 +254,11 @@ test('a summary not in Ukrainian never stands in for one', async () => {
   const [r] = readSummaries('', [{ title: 'x', text: 'The announcement comes amid heightened tensions between Kyiv and Washington.' }]);
   assert.equal(r.n, 0);
 });
+
+test('a summary reply cut off at the length limit keeps the summaries it finished', () => {
+  const items = [{ title: 'a' }, { title: 'b' }, { title: 'c' }];
+  const raw = '{"summaries": ["Перша новина про «Нептун». Друге речення.", "Друга новина повністю. І ще одне.", "Третя обірв';
+  const s = readSummaries(raw, items);
+  assert.deepEqual(s.map((x) => x.ai), [true, true, false]);
+  assert.equal(s[0].text, 'Перша новина про «Нептун». Друге речення.');
+});

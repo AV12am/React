@@ -446,7 +446,11 @@ export function readSummaries(raw, items) {
     const s = typeof raw === 'string' ? raw : JSON.stringify(raw);
     const j = typeof raw === 'object' && raw ? raw : JSON.parse(s.slice(s.indexOf('{'), s.lastIndexOf('}') + 1));
     list = Array.isArray(j?.summaries) ? j.summaries : [];
-  } catch { list = []; }
+  } catch {
+    // A reply cut off at the length limit: keep the summaries it finished.
+    const tail = String(raw || '').split(/"summaries"\s*:\s*\[/)[1] || '';
+    list = [...tail.matchAll(/"((?:[^"\\]|\\.)*)"\s*[,\]]/g)].map((m) => { try { return JSON.parse(`"${m[1]}"`); } catch { return ''; } });
+  }
   return items.map((x, i) => {
     const s = String(list[i] || '')
       .replace(/[\u2E80-\u9FFF\uAC00-\uD7AF\uF900-\uFAFF\u3000-\u303F]+/g, '') // stray CJK the model sometimes slips in

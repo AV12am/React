@@ -16,7 +16,7 @@ import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickIt
 
 
 const MIN = 60000;
-const VERSION = 11;
+const VERSION = 12;
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -71,7 +71,7 @@ const on = () => Boolean(ACCOUNT && TOKEN);
 async function summarize(items, tries = 2) {
   if (!on() || !items.length) return readSummaries('', items);
   try {
-    const out = readSummaries(await ask(summaryPrompt(items), 1300), items);
+    const out = readSummaries(await ask(summaryPrompt(items), 2600), items);
     if (tries > 1 && out.filter((x) => x.ai).length < items.length / 2) return summarize(items, tries - 1); // the model fell short: once more
     return out;
   } catch { return tries > 1 ? summarize(items, tries - 1) : readSummaries('', items); }
@@ -80,7 +80,7 @@ async function translate(texts, tries = 2) {
   const none = { t: texts.map(() => ''), q: texts.map(() => '') };
   if (!on() || !texts.length) return none;
   try {
-    const out = readTranslations(await ask(translatePrompt(texts), 1300), texts);
+    const out = readTranslations(await ask(translatePrompt(texts), 2200), texts);
     if (tries > 1 && out.t.filter(Boolean).length < texts.length) return translate(texts, tries - 1); // missing ones: once more
     return out;
   } catch { return tries > 1 ? translate(texts, tries - 1) : none; }
