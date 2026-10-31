@@ -12,7 +12,7 @@
 // Cloudflare Workers AI from the item's own feed text (src/lib/news.js), or that text shortened when the model
 // is not available. Section 1 is the day's key news, chosen by the model from the headlines of all the others.
 import { json, db, env } from './_core.js';
-import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, findReport, reportPrompt, composeReport, sharedWords } from '../src/lib/news.js';
+import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords } from '../src/lib/news.js';
 
 
 const MIN = 60000;
@@ -164,7 +164,9 @@ export async function makeIssue(now = Date.now()) {
   // One news per event — the editor's groups and the shared-words rule together.
   const { drop } = dropRepeats(pool, [...checkGroups(pool, events?.groups || []), ...sameEvents(pool)]);
   // The night's air-defence reports that open 2.1 (Russian claim) and 2.2 (Ukrainian Air Force) — never twice.
-  const reports = { ru: findReport([...got.values()].flat(), 'ru', now), ua: findReport([...got.values()].flat(), 'ua', now) };
+  // The morning capture keeps the day's reports (the feeds move on by 17:00); otherwise look in today's feeds.
+  const kept = await captured(now);
+  const reports = { ru: kept.ru || findReport([...got.values()].flat(), 'ru', now), ua: kept.ua || findReport([...got.values()].flat(), 'ua', now) };
   // What each feed gave and which headlines look like air-defence reports — to see why a report was not found.
   note.feeds = Object.fromEntries([...got].map(([u, l]) => [host(u) + new URL(u).pathname.slice(0, 24), l.length]));
   note.airHeads = [...got.values()].flat().filter((x) => /ППО|ПВО|протиповітрян|Повітрян\S* сил|беспилотн|БПЛА|БпЛА|drones?\b/i.test(x.title) && /\d{2,}/.test(x.title))
@@ -191,7 +193,7 @@ export async function makeIssue(now = Date.now()) {
     const r = reports[side];
     if (!r || !on()) return null;
     try {
-      const [text, pic] = await Promise.all([articleText(r.url), withImage(r)]);
+      const [text, pic] = await Promise.all([r.article ? Promise.resolve(r.article) : articleText(r.url), withImage(r)]);
       const summary = composeReport(side, await ask(reportPrompt(side, `${r.title}\n${r.text || ''}\n${text}`), 300), r.at);
       return summary ? { ...pic, summary, ai: true, n: 2, lead: side } : null;
     } catch { return null; }
@@ -231,9 +233,37 @@ export async function makeIssue(now = Date.now()) {
   return { v: VERSION, at: new Date(now).toISOString(), for: new Date(issueTime(now)).toISOString(), editor: note, ...(degraded ? { degraded: true } : {}), sections };
 }
 
+// ── Morning capture ─────────────────────────────────────────────────────────────────────────────────────
+// The Air Force's report and the Russian defence ministry's claim come out each morning; by the 17:00 issue the
+// busiest feeds have moved past them. Two morning crons (vercel.json) look for the day's reports and keep them
+// with the article's own text — no model involved — so the 17:00 issue can quote them.
+const dayKey = (now) => { const d = kyivDay(now); return `${d.year}-${d.month}-${d.day}`; };
+async function captured(now) {
+  const doc = await read('reports');
+  return doc?.day === dayKey(now) ? { ru: doc.ru || null, ua: doc.ua || null } : {};
+}
+export async function captureReports(now = Date.now()) {
+  const have = await captured(now);
+  if (have.ru && have.ua) return have;
+  const urls = [...new Set(SECTIONS.flatMap((s) => s.feeds))];
+  const items = (await Promise.all(urls.map(feed))).flat();
+  const out = { ...have };
+  for (const side of ['ru', 'ua']) {
+    if (out[side]) continue;
+    const r = findReport(items, side, now);
+    if (r) out[side] = { ...r, article: await articleText(r.url) };
+  }
+  if (out.ru || out.ua) await keep({ day: dayKey(now), ru: out.ru || null, ua: out.ua || null }, 'reports');
+  return out;
+}
+
 export async function newsGet(req) {
   try {
     const q = new URL(req.url).searchParams;
+    if (q.has('capture')) {
+      const r = await captureReports();
+      return json(200, { day: dayKey(Date.now()), ru: r.ru ? r.ru.title : null, ua: r.ua ? r.ua.title : null });
+    }
     const cached = await read();
 
     // A thumbnail for the documents: only one the current issue holds — never an arbitrary address.

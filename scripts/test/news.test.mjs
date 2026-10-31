@@ -215,6 +215,11 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     assert.equal(z.at, good.at);
     assert.equal(docs.issue.at, good.at);
     assert.ok(Date.parse(docs.issue.for) < issueTime()); // to be made again once the model answers
+    // The morning capture keeps the day's two reports with their articles — no model needed.
+    const cap = await (await anon('&capture=1')).json();
+    assert.match(cap.ru, /ПВО/); assert.match(cap.ua, /Повітряні сили/);
+    assert.equal(docs.reports.ua.url, 'https://www.ukrinform.ua/ppo');
+    assert.ok('article' in docs.reports.ua);
   } finally { globalThis.fetch = real; }
 });
 
@@ -302,4 +307,20 @@ test('night reports: only the day’s own, and nothing composed without the numb
   assert.equal(composeReport('ru', '{"count": 531, "regions": null}', ''), '');
   assert.equal(composeReport('ru', '{"count": 531, "regions": "Брянской области"}', ''), ''); // Russian, not Ukrainian
   assert.doesNotMatch(composeReport('ua', '{"ballistic": 0, "cruise": 0, "drones": 120, "downed": 100}', '2026-10-28T07:00:00Z'), /ракет/);
+});
+
+test('night reports: the headlines the media actually give them', () => {
+  const now = Date.parse('2026-10-31T12:00:00Z');
+  const at = '2026-10-31T06:30:00Z';
+  for (const title of [
+    'Цієї ночі уражено 69 ворожих БпЛА зі 101 – Повітряні сили',
+    'Вночі Сили оборони ліквідували 126 зі 142 ворожих безпілотників',
+    'За ніч ППО знешкодила 66 зі 100 ворожих БПЛА',
+    'Повітряні сили ЗСУ: противник вночі атакував 70 БпЛА різних типів',
+  ]) assert.ok(findReport([{ title, url: 'https://u/x', at }], 'ua', now), title);
+  for (const title of [
+    'Минобороны заявило об уничтожении 31 беспилотника за ночь',
+    'Над Россией сбили 111 украинских беспилотников за ночь',
+    'Силы ПВО уничтожили за ночь 121 украинский беспилотник над 14 регионами России',
+  ]) assert.ok(findReport([{ title, url: 'https://r/x', at }], 'ru', now), title);
 });

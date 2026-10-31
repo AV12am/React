@@ -480,11 +480,11 @@ export function kyivDay(ts) {
 
 export const REPORTS = {
   // The Ukrainian Air Force's morning report, as Ukrainian outlets carry it.
-  ua: /(ППО|Повітрян\S* сил|протиповітрян\S* оборон)[^]*?(збил|збито|знешкод|подавл|нейтраліз)|(ворог|противник|росія|рф)[^]*?атакува\S*[^]*?(дрон|БпЛА|ракет)|збил\S* \d+ (з|із) \d+/i,
+  ua: /(ППО|Повітрян\S* сил|протиповітрян\S* оборон|Сил\S* оборони)[^]*?(збил|збито|знешкод|подавл|нейтраліз|уражен|ліквідув|знищ)|(збил|збито|знешкод|подавл|нейтраліз|уражен|ліквідув|знищ)\S*[^]*?(Повітрян\S* сил|ППО)|(ворог|противник|росія|рф)[^]*?атакува\S*[^]*?(дрон|БпЛА|БПЛА|безпілот|ракет)|\d+ (з|із|зі) \d+[^]*?(БпЛА|БПЛА|дрон|безпілот|цілей)/i,
   // The Russian defence ministry's morning claim, as Russian-language and foreign outlets carry it.
   ru: /(ПВО|перехвач\S*|уничтож\S*|сбит\S*|сбил\S*)[^]*?(беспилотн|БПЛА|дрон)|(беспилотн|БПЛА|дрон)\S*[^]*?(перехвач|уничтож|сбит|сбил)|(Russia|Russian)[^]*?(downed|intercept\S*|shot down|destroyed)[^]*?(drone|UAV)/i,
 };
-const RU_SIDE = /Минобороны|МО РФ|ПВО|над (территори|регион)|Russia(n)? (says|claims|defen[cs]e ministry|air defen[cs]e)|над рос/i;
+const RU_SIDE = /Минобороны|МО РФ|ПВО|над (территори|регион)|Russia(n)? (says|claims|defen[cs]e ministry|air defen[cs]e)|над рос|за ночь/i;
 
 /** The day's report for a side: published since midnight in Kyiv, with numbers in its headline or text. */
 export function findReport(items, side, now = Date.now()) {

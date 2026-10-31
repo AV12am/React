@@ -102,6 +102,14 @@
     {
       "path": "/api/pulse?news=1&at=0010-utc-retry",
       "schedule": "10 0 * * *"
+    },
+    {
+      "path": "/api/pulse?news=1&capture=0940",
+      "schedule": "40 7 * * *"
+    },
+    {
+      "path": "/api/pulse?news=1&capture=1140",
+      "schedule": "40 9 * * *"
     }
   ],
   "rewrites": [
