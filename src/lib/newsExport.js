@@ -132,12 +132,15 @@ export async function newsDocx(issue, pics = new Map(), lang = 'uk') {
   const FONT = 'Georgia';
   const RED = '8C1C32';
   const none = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
-  const children = [];
-  issue.sections.forEach((s, k) => {
+  // Each news section is a Word section of its own, so it starts on a new page in Word and in the preview alike
+  // (a page break inside one section is ignored by the browser preview, which drew the whole issue as one page).
+  const page = { margin: { top: 1000, bottom: 1000, left: 960, right: 960 } };
+  const sections = issue.sections.map((s) => {
+    const children = [];
     const sub = s.part && s.title;
-    children.push(new Paragraph({ pageBreakBefore: k > 0, spacing: { after: sub ? 60 : 200 }, border: sub ? undefined : { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'BBBBBB', space: 4 } }, children: [new TextRun({ text: (s.part || s.title).toUpperCase(), bold: true, color: RED, size: 20, font: FONT, characterSpacing: 20 })] }));
+    children.push(new Paragraph({ spacing: { after: sub ? 60 : 200 }, border: sub ? undefined : { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'BBBBBB', space: 4 } }, children: [new TextRun({ text: (s.part || s.title).toUpperCase(), bold: true, color: RED, size: 20, font: FONT, characterSpacing: 20 })] }));
     if (sub) children.push(new Paragraph({ spacing: { after: 200 }, border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'BBBBBB', space: 4 } }, children: [new TextRun({ text: s.title.toUpperCase(), bold: true, size: 19, font: FONT })] }));
-    if (!s.items.length) { children.push(new Paragraph({ children: [new TextRun({ text: EMPTY[lang] || EMPTY.uk, italics: true, color: '888888', font: FONT, size: 20 })] })); return; }
+    if (!s.items.length) { children.push(new Paragraph({ children: [new TextRun({ text: EMPTY[lang] || EMPTY.uk, italics: true, color: '888888', font: FONT, size: 20 })] })); return { properties: { page }, children }; }
     const rows = s.items.map((x) => {
       const pic = x.image && pics.get(x.image);
       return new TableRow({
@@ -155,8 +158,9 @@ export async function newsDocx(issue, pics = new Map(), lang = 'uk') {
       });
     });
     children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: { top: none, bottom: none, left: none, right: none, insideHorizontal: none, insideVertical: none }, rows }));
+    return { properties: { page }, children };
   });
-  const doc = new Document({ creator: 'Reaction Core · CONTEXT', title: issueTitle(issue, lang), sections: [{ properties: { page: { margin: { top: 1000, bottom: 1000, left: 960, right: 960 } } }, children }] });
+  const doc = new Document({ creator: 'Reaction Core · CONTEXT', title: issueTitle(issue, lang), sections });
   return Packer.toBlob(doc);
 }
 
@@ -204,5 +208,7 @@ export async function newsPptx(issue, pics = new Map(), lang = 'uk') {
     }
     slide.addText(`CONTEXT News · ${k + 1} / ${sections.length}`, { x: X, y: 11.69 - 0.45, w: W, h: 0.2, fontFace: FONT, fontSize: 8, color: '6B6B6B', margin: 0 });
   });
-  return deck.write({ outputType: 'blob' });
+  // The library hands back a bare ZIP blob; typed as a presentation it is saved as .pptx, not as a .zip (Safari, iOS).
+  const raw = await deck.write({ outputType: 'blob' });
+  return new Blob([raw], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
 }
