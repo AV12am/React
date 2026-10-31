@@ -1,9 +1,9 @@
 // Analytics screens: the «звідки ми це знаємо» chain in a record, the review queue, forecasts and calibration.
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useStore, fmtDate, fmtAgo, canSeeFile } from '../store.jsx';
 import { Panel, ClassBadge, Status, Avatar } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
-import { PdfView, DocxView } from '../components/Attachments.jsx';
+import { ReportPreview } from '../components/viewers.jsx';
 import { registerOf, OUTCOMES } from '../data/workspaces.js';
 import { chainOf, reasonsFor, usedBy, reviewQueue, isOpen, attention } from '../lib/provenance.js';
 import { OrgExtras } from './Orgs.jsx';
@@ -93,29 +93,6 @@ function Resolve({ record, canEdit }) {
  * «Звіт»: a record page as a PDF (print dialog) or a Word document, with its grif and number — the
  * description, data and entries, the cover photo, and every attached file as an appendix.
  */
-// The made report, page by page, before it is saved: «Завантажити» or «Закрити».
-export function ReportPreview({ p, onSave, onClose }) {
-  useEffect(() => {
-    const esc = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose(); } };
-    window.addEventListener('keydown', esc, true);
-    return () => window.removeEventListener('keydown', esc, true);
-  }, [onClose]);
-  return (
-    <div className="fv" role="dialog" aria-modal="true" aria-label={`Звіт: ${p.name}`}>
-      <header className="fv__bar">
-        <div className="fv__title"><b>{p.name}</b><span className="vx-hint">{p.kind === 'pdf' ? 'PDF' : 'Word'} · попередній перегляд</span></div>
-        <button className="vx-btn vx-btn--primary vx-btn--sm fv__wide" onClick={onSave}><Icon name="download" /> Завантажити</button>
-        <button className="vx-btn vx-btn--ghost vx-btn--icon fv__wide" onClick={onClose} aria-label="Закрити"><Icon name="close" /></button>
-      </header>
-      <div className="fv__body">{p.kind === 'pdf' ? <PdfView blob={p.blob} /> : <DocxView blob={p.blob} />}</div>
-      <footer className="fv__dock">
-        <button className="vx-btn vx-btn--primary" onClick={onSave}><Icon name="download" /> Завантажити</button>
-        <button className="vx-btn" onClick={onClose}><Icon name="close" /> Закрити</button>
-      </footer>
-    </div>
-  );
-}
-
 export function ReportButtons({ reg, record, facts = [], look, factPairs, extraFiles, about }) {
   const { state, me, backend, dispatch, toast } = useStore();
   const [busy, setBusy] = useState('');

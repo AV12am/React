@@ -67,6 +67,15 @@
           "value": "/"
         }
       ]
+    },
+    {
+      "source": "/news(.html)?",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
     }
   ],
   "crons": [
@@ -81,6 +90,12 @@
     {
       "path": "/api/backup",
       "schedule": "15 3 * * 1"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/news",
+      "destination": "/news.html"
     }
   ]
 }

@@ -97,6 +97,11 @@ test('server: an issue of three sections with summaries, kept an hour; only the 
     const pic = j.sections[0].items.find((x) => x.image).image;
     assert.equal((await call(`?img=${encodeURIComponent(pic)}`)).status, 200);
     assert.equal((await call(`?img=${encodeURIComponent('https://evil.test/x.jpg')}`)).status, 404);
-    assert.equal((await import(`../../api/pulse.js?u=${Date.now()}`).then(({ GET }) => GET(new Request('https://app.test/api/pulse?news=1')))).status, 401);
+    // Open to anyone with the link: the issue and its pictures without sign-in; a manual refresh only for members.
+    const anon = (q) => import(`../../api/pulse.js?u=${Date.now()}`).then(({ GET }) => GET(new Request(`https://app.test/api/pulse?news=1${q}`)));
+    assert.equal((await anon('')).status, 200);
+    assert.equal((await anon(`&img=${encodeURIComponent(pic)}`)).status, 200);
+    assert.equal((await anon('&refresh=1')).status, 401);
+    assert.equal(ai, 3); // nobody outside made the model work
   } finally { globalThis.fetch = real; }
 });

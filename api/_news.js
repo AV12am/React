@@ -1,9 +1,12 @@
 // CONTEXT News — an issue of short news, each section from its own open sources. Served by api/pulse.js
 // (the Hobby plan allows 12 functions per deployment; files starting with «_» are not routes):
 //
-// GET /api/pulse?news=1              Authorization: Bearer <token>  → { at, sections: [{ id, title, items }] }
-// GET /api/pulse?news=1&refresh=1    the same, made anew (at most once every 5 minutes)
+// GET /api/pulse?news=1              → { at, sections: [{ id, title, items }] } — open, no sign-in (public news
+//                                      from open sources, for the standalone page news.html)
 // GET /api/pulse?news=1&img=<url>    a thumbnail of the current issue, for PDF and Word (only pictures it holds)
+// GET /api/pulse?news=1&refresh=1    made anew (at most once every 5 minutes) — signed-in members only, so
+//                                      nobody outside can spend the free model's allowance
+// Without a refresh the issue is made at most once an hour, however many people open the page.
 //
 // Each item: { title, url, domain, at, image, summary, ai } — summary is a 2–3 sentence Ukrainian retelling by
 // Cloudflare Workers AI from the item's own feed text (src/lib/news.js), or that text shortened when the model
@@ -71,9 +74,8 @@ export async function makeIssue(now = Date.now()) {
 
 export async function newsGet(req) {
   try {
-    const m = await caller(req);
-    if (!m) return json(401, { error: 'signin', message: 'Потрібен вхід із підтвердженням ключем' });
     const q = new URL(req.url).searchParams;
+    if (q.get('refresh') === '1' && !(await caller(req))) return json(401, { error: 'signin', message: 'Оновлення вручну — лише для учасників платформи' });
     const cached = await read();
 
     // A thumbnail for the documents: only one the current issue holds — never an arbitrary address.

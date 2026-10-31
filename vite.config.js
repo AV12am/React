@@ -12,6 +12,8 @@ export default defineConfig({
   // (it sets NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY). Only public values use these prefixes.
   envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   worker: { format: 'es' },
+  // Two pages: the platform (index.html) and CONTEXT News on its own (news.html, served at /news).
+  build: { rollupOptions: { input: { main: fileURLToPath(new URL('./index.html', import.meta.url)), news: fileURLToPath(new URL('./news.html', import.meta.url)) } } },
   // v0 / shadcn import paths: `@/components/…`, `@/lib/utils`
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   // Dev server only: let v0 / Vercel sandboxes open the preview (hosts like sb-….vercel.run).
