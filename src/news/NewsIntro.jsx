@@ -8,7 +8,15 @@ import { NIB } from '../brand/Mark.jsx';
 
 export function NewsIntro({ leaving = false, onSkip }) {
   const art = useRef(null);
+  const word = useRef(null);
   const [move, setMove] = useState(null);
+  // «News» follows «CONTEXT» at its natural width (the letters keep their own proportions), once the font is in.
+  const [newsX, setNewsX] = useState(425);
+  useLayoutEffect(() => {
+    const place = () => { try { const w = word.current?.getComputedTextLength(); if (w) setNewsX(133 + w + 22); } catch { /* keep the default */ } };
+    place();
+    document.fonts?.ready?.then(place).catch(() => {});
+  }, []);
   // Centre → heading: where the lockup sits on screen (the nib's left edge and the name's middle line, its
   // letters 64 units tall) and where the heading's mark and name are; one translate and scale between them.
   useLayoutEffect(() => {
@@ -17,7 +25,7 @@ export function NewsIntro({ leaving = false, onSkip }) {
     if (!brand) return;
     const a = art.current.getBoundingClientRect();
     const k = a.width / 640;
-    const fromX = 112 * k;
+    const fromX = 37 * k;
     const fromY = 120 * k;
     const b = brand.getBoundingClientRect();
     const size = parseFloat(getComputedStyle(brand).fontSize) || 32;
@@ -42,8 +50,8 @@ export function NewsIntro({ leaving = false, onSkip }) {
           <path className="ni-pen__petal" d={paths.petals[0]} />
           <path className="ni-pen__nib" d={NIB} />
         </g>
-        <text className="ni-word ni-word--context" x="208" y="143" textLength="252" lengthAdjust="spacingAndGlyphs">CONTEXT</text>
-        <text className="ni-word ni-word--news" x="478" y="143" textLength="128" lengthAdjust="spacingAndGlyphs">News</text>
+        <text ref={word} className="ni-word ni-word--context" x="133" y="143">CONTEXT</text>
+        <text className="ni-word ni-word--news" x={newsX} y="143">News</text>
       </svg>
     </div>
   );
