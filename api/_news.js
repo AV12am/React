@@ -12,11 +12,11 @@
 // Cloudflare Workers AI from the item's own feed text (src/lib/news.js), or that text shortened when the model
 // is not available. Section 1 is the day's key news, chosen by the model from the headlines of all the others.
 import { json, db, env } from './_core.js';
-import { SECTIONS, PER_SECTION, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, keyPrompt, readPick, fitItems, issueTime } from '../src/lib/news.js';
+import { SECTIONS, PER_SECTION, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, keyPrompt, readPick, fitItems, issueTime } from '../src/lib/news.js';
 
 
 const MIN = 60000;
-const VERSION = 2;
+const VERSION = 3;
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -86,14 +86,17 @@ export async function makeIssue(now = Date.now()) {
   const urls = [...new Set(own.flatMap((s) => s.feeds))];
   const got = new Map(await Promise.all(urls.map(async (u) => [u, await feed(u)])));
   const used = new Set();
-  const lists = own.map((s) => {
+  // Sections marked «first» choose before the others, so a feed two sections share fills the narrower one.
+  const order = own.map((s, k) => k).sort((a, b) => Number(Boolean(own[b].first)) - Number(Boolean(own[a].first)));
+  const lists = [];
+  for (const k of order) {
+    const s = own[k];
     const all = s.feeds.flatMap((u) => got.get(u) || [])
-      .filter((x) => !used.has(x.url.split('?')[0]))
+      .filter((x) => !used.has(x.url.split('?')[0]) && !offTopic(x))
       .filter((x) => (!s.match || s.match.test(`${x.title} ${x.text}`)) && (!s.skip || !s.skip.test(`${x.title} ${x.text}`)));
-    const items = pickItems(all, now, PER_SECTION);
-    items.forEach((x) => used.add(x.url.split('?')[0]));
-    return items;
-  });
+    lists[k] = pickItems(all, now, PER_SECTION);
+    lists[k].forEach((x) => used.add(x.url.split('?')[0]));
+  }
   const flat = lists.flat();
   const [pictured, pick] = await Promise.all([
     Promise.all(lists.map((l) => Promise.all(l.map(withImage)))),

@@ -5,6 +5,14 @@
 /** Things that tie a report to the Russian–Ukrainian war — for 5.1 (only these) and 5.2 (none of these). */
 export const WAR = /украї|ukrain|росі|russia|kremlin|кремл|путін|putin|зеленськ|zelensk|київ|kyiv|kiev|москв|moscow|донбас|donbas|крим|crimea/i;
 
+/** What each section is about — items that match none of it stay out (a film review is not «infospace»). */
+const TOPIC = {
+  infospace: /пропаганд|propagand|фейк|fake|дезінформ|дезинформ|disinform|кремл|kremlin|путін|путин|putin|війн|войн|\bwar\b|армі|арми|military|військ|военн|санкц|sanction|репрес|repress|цензур|censor|вибор|выбор|election|дум[аиі]|duma|мобіліз|мобилиз|mobili[sz]|наратив|narrative|telegram|телеграм|z-|zelensk|зеленськ|зеленск|україн|украин|ukrain|окупац|оккупац|occup/i,
+  agenda: /росі|росси|russia|kremlin|кремл|путін|путин|putin|китай|china|chinese|xi\b|іран|иран|iran|кндр|north korea|pyongyang|білорус|беларус|belarus|лукашенк|lukashenk|армі|арми|army|військ|военн|military|оборон|defen[cs]e|ракет|missile|санкц|sanction|nuclear|ядерн|nato|нато|окупац|оккупац|occup/i,
+  conflicts: /\bwar\b|conflict|fighting|clash|attack|strike|airstrike|shelling|ceasefire|truce|rebel|militia|insurg|troops|army|military|killed|displaced|refugee|humanitarian|hostage|coup|terror|gaza|israel|hamas|hezbollah|lebanon|iran|syria|yemen|houthi|sudan|congo|sahel|mali|somalia|ethiopia|myanmar|taiwan|kashmir|haiti|venezuela|peacekeep|sanction/i,
+};
+const SOFT = /гороскоп|horoscope|свят[оа] |праздник|церковн|погода|weather|рецепт|recipe|фільм|фильм|\bfilm\b|movie|кіно|кино|серіал|сериал|оскар|oscar|football|футбол|halloween|хелловін|хэллоуин/i;
+
 /**
  * The sections of an issue, in order, and the open, free sources each is made from (RSS, no paywall).
  * part — the chapter heading; title — the subsection (empty when the chapter has none).
@@ -15,7 +23,7 @@ export const WAR = /украї|ukrain|росі|russia|kremlin|кремл|пут�
 export const SECTIONS = [
   { id: 'key', part: 'РОЗДІЛ 1 | КЛЮЧОВІ НОВИНИ ДОБИ', title: '', key: true, feeds: [] },
   {
-    id: 'infospace', part: 'РОЗДІЛ 2 | СПЕЦОПЕРАЦІЇ ТА АКТУАЛЬНІ ПОДІЇ', title: '2.1 ІНФОПРОСТІР КРАЇНИ-АГРЕСОРА',
+    id: 'infospace', match: TOPIC.infospace, part: 'РОЗДІЛ 2 | СПЕЦОПЕРАЦІЇ ТА АКТУАЛЬНІ ПОДІЇ', title: '2.1 ІНФОПРОСТІР КРАЇНИ-АГРЕСОРА',
     feeds: [
       'https://meduza.io/rss/all',
       'https://www.themoscowtimes.com/rss/news',
@@ -35,10 +43,11 @@ export const SECTIONS = [
     ],
   },
   {
-    id: 'agenda', part: 'РОЗДІЛ 3 | ВІЙСЬКОВО-ПОЛІТИЧНА АДЖЕНДА КРАЇНИ-АГРЕСОРА ТА САТЕЛІТІВ', title: '',
+    id: 'agenda', match: TOPIC.agenda, first: true, part: 'РОЗДІЛ 3 | ВІЙСЬКОВО-ПОЛІТИЧНА АДЖЕНДА КРАЇНИ-АГРЕСОРА ТА САТЕЛІТІВ', title: '',
     feeds: [
-      'https://www.understandingwar.org/rss.xml',
       'https://jamestown.org/feed/',
+      'https://feeds.bbci.co.uk/russian/rss.xml',
+      'https://www.understandingwar.org/rss.xml',
       'https://belsat.eu/en/feed',
       'https://www.rferl.org/api/zrqiteuuir',
       'https://www.themoscowtimes.com/rss/news',
@@ -75,7 +84,7 @@ export const SECTIONS = [
     ],
   },
   {
-    id: 'abroad-other', part: 'РОЗДІЛ 5 | ОГЛЯД ЗАКОРДОННИХ ЗМІ', title: '5.2 ІНШІ МІЖНАРОДНІ КОНФЛІКТИ', skip: WAR,
+    id: 'abroad-other', part: 'РОЗДІЛ 5 | ОГЛЯД ЗАКОРДОННИХ ЗМІ', title: '5.2 ІНШІ МІЖНАРОДНІ КОНФЛІКТИ', skip: WAR, match: TOPIC.conflicts,
     feeds: [
       'https://www.aljazeera.com/xml/rss/all.xml',
       'https://feeds.bbci.co.uk/news/world/rss.xml',
@@ -87,6 +96,8 @@ export const SECTIONS = [
 ];
 /** Candidates read per section; the page then holds four or five of them (fitItems). */
 export const PER_SECTION = 6;
+/** Light news (holidays, films, horoscopes, sport) — kept out of every section. */
+export const offTopic = (x) => SOFT.test(x.title || '');
 export const KEY_COUNT = 5;
 
 /** The time the current issue belongs to: the latest 17:00 in Kyiv at or before `now`. */
@@ -150,7 +161,7 @@ const plain = (s) => unesc(unesc(s).replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' 
 const tag = (block, name) => (new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, 'i').exec(block) || [])[1] || '';
 const attr = (block, re) => (re.exec(block) || [])[1] || '';
 export const host = (url) => { try { return new URL(url).hostname.replace(/^(www|feeds|rss|news)\./, ''); } catch { return ''; } };
-const httpUrl = (u) => (/^https?:\/\/[^\s"'<>]+$/i.test(u || '') ? u : '');
+const httpUrl = (u) => (/^https?:\/\/[^\s"'<>]+$/i.test(u || '') && !/\/emoji\/|s\.w\.org\/images|pixel|spacer|1x1/i.test(u) ? u : '');
 
 /** The thumbnail an item carries: media:thumbnail / media:content / an image enclosure / the first <img>. */
 export function itemImage(block) {
@@ -212,7 +223,8 @@ export function summaryPrompt(items) {
       role: 'system',
       content: 'Ти — редактор стислого огляду новин. Для кожної новини напиши українською 2–3 речення (до 450 знаків): що сталося, де і чому це важливо. '
         + 'Спирайся ЛИШЕ на наданий заголовок і текст — нічого не додавай від себе, не вигадуй цифр, імен чи оцінок. '
-        + 'Якщо тексту мало — перекажи заголовок одним реченням. Відповідай лише JSON: {"summaries": ["…", "…"]} — по одному на новину, у тому ж порядку.',
+        + 'Пиши лише українською (імена й назви — українською транслітерацією). Без порожніх фраз на кшталт «Це важливо, оскільки…» чи «Це сталося в …» — '
+        + 'пояснюй значення лише тоді, коли воно є в тексті. Якщо тексту мало — перекажи заголовок одним реченням. Відповідай лише JSON: {"summaries": ["…", "…"]} — по одному на новину, у тому ж порядку.',
     },
     { role: 'user', content: items.map((x, i) => `${i + 1}. ${x.title}\n${x.text || ''}`.slice(0, 1400)).join('\n\n') },
   ];
@@ -227,7 +239,10 @@ export function readSummaries(raw, items) {
     list = Array.isArray(j?.summaries) ? j.summaries : [];
   } catch { list = []; }
   return items.map((x, i) => {
-    const s = String(list[i] || '').trim();
+    const s = String(list[i] || '')
+      .replace(/[\u2E80-\u9FFF\uAC00-\uD7AF\uF900-\uFAFF\u3000-\u303F]+/g, '') // stray CJK the model sometimes slips in
+      .replace(/\s*Це (важливо|сталося)[^.]*?(оскільки це|в [А-ЯІЇЄҐ][^.,]*)\.(?=\s|$)/g, '')
+      .replace(/\s+/g, ' ').trim();
     if (s.length > 20) return { text: s.length > 560 ? `${s.slice(0, 560).replace(/\s\S*$/, '')}…` : s, ai: true };
     const own = (x.text || x.title).replace(/\s+/g, ' ').trim();
     return { text: own.length > 320 ? `${own.slice(0, 320).replace(/\s\S*$/, '')}…` : own, ai: false };

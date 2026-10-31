@@ -87,8 +87,8 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
   let ai = 0;
   const real = globalThis.fetch;
   const now = new Date().toUTCString();
-  const rss = (host) => `<rss xmlns:media="m"><item><title>${host} one</title><link>https://${host}/1</link><pubDate>${now}</pubDate><description>Text one about Ukraine.</description><media:thumbnail url="https://img.${host}/1.jpg"/></item>
-    <item><title>${host} two</title><link>https://${host}/2</link><pubDate>${now}</pubDate><description>Text two.</description></item></rss>`;
+  const rss = (host) => `<rss xmlns:media="m"><item><title>${host} one</title><link>https://${host}/1</link><pubDate>${now}</pubDate><description>Text one about Ukraine and Russia’s military.</description><media:thumbnail url="https://img.${host}/1.jpg"/></item>
+    <item><title>${host} two</title><link>https://${host}/2</link><pubDate>${now}</pubDate><description>Text two on the conflict.</description></item></rss>`;
   globalThis.fetch = async (url, opts = {}) => {
     const u = decodeURIComponent(String(url));
     const ok = (b) => new Response(b == null ? null : JSON.stringify(b), { status: b == null ? 204 : 200 });
@@ -108,7 +108,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     if (u.includes('api.cloudflare.com')) { ai++; const n = (JSON.parse(opts.body).messages[1].content.match(/^\d+\./gm) || []).length; return ok({ success: true, result: { response: JSON.stringify({ summaries: Array.from({ length: n }, (_, i) => `Стислий виклад новини номер ${i + 1}.`) }) } }); }
     if (u.startsWith('https://img.')) return new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/jpeg' } });
     const feed = SECTIONS.flatMap((s) => s.feeds).find((f) => f === u);
-    if (feed) return new Response(rss(new URL(feed).hostname), { status: 200 });
+    if (feed) { const f = new URL(feed); return new Response(rss(`${f.hostname}${f.pathname.replace(/\W+/g, '-')}`.replace(/-$/, '')), { status: 200 }); }
     // article pages (og:image for items without a thumbnail)
     return new Response('<html><head><meta property="og:image" content="https://img.page/og.jpg"></head></html>', { status: 200, headers: { 'content-type': 'text/html' } });
   };
@@ -146,4 +146,13 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     assert.equal(ai, 16);
     assert.ok([x, y].some((v) => v.for === new Date(issueTime()).toISOString()));
   } finally { globalThis.fetch = real; }
+});
+
+test('off-topic news, emoji pictures and empty phrases stay out', async () => {
+  const { offTopic } = await import('../../src/lib/news.js');
+  assert.ok(offTopic({ title: 'Черный шар — фильм, который может победить на «Оскарах»' }));
+  assert.ok(offTopic({ title: 'France braces for Halloween protests' }));
+  assert.equal(itemImage('<item><media:thumbnail url="https://s.w.org/images/core/emoji/17.0.2/72x72/25ab.png"/></item>'), '');
+  const [s] = readSummaries('{"summaries":["Армія РФ завдала удару по Харкову. Це сталося в Харкові. Київ вимагає更多 перехоплювачів."]}', [{ title: 'x' }]);
+  assert.equal(s.text, 'Армія РФ завдала удару по Харкову. Київ вимагає перехоплювачів.');
 });
