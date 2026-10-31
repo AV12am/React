@@ -27,6 +27,7 @@ export const SECTIONS = [
     en: { part: 'SECTION 2 | SPECIAL OPERATIONS AND CURRENT EVENTS', title: '2.1 THE AGGRESSOR STATE’S INFORMATION SPACE' },
     about: 'інформаційний простір Росії: пропаганда, дезінформація, наративи й заяви кремлівських ЗМІ та посадовців, цензура, тиск на незалежні медіа',
     feeds: [
+      'https://lenta.ru/rss/news',
       'https://meduza.io/rss/all',
       'https://www.themoscowtimes.com/rss/news',
       'https://www.stopfake.org/uk/feed/',
@@ -43,6 +44,8 @@ export const SECTIONS = [
       'https://suspilne.media/rss/all.rss',
       'https://feeds.bbci.co.uk/ukrainian/rss.xml',
       'https://kyivindependent.com/news-archive/rss/',
+      'https://www.pravda.com.ua/rss/view_news/',
+      'https://mil.in.ua/uk/feed/',
       'https://www.theguardian.com/world/ukraine/rss',
     ],
   },
@@ -52,6 +55,8 @@ export const SECTIONS = [
     about: 'військово-політичний порядок денний Росії та її союзників (Білорусь, Іран, КНДР, Китай): армія, оборонна промисловість, військова співпраця, санкції, ядерна риторика, рішення Кремля',
     feeds: [
       'https://jamestown.org/feed/',
+      'https://lenta.ru/rss/news',
+      'https://mil.in.ua/uk/feed/',
       'https://feeds.bbci.co.uk/russian/rss.xml',
       'https://www.understandingwar.org/rss.xml',
       'https://belsat.eu/en/feed',
@@ -347,8 +352,8 @@ export function parseNewsFeed(xml) {
   }).filter((x) => x.title && x.url);
 }
 
-/** The freshest of a section: the last two days, newest first, each source at most twice, pictures preferred. */
-export function pickItems(items, now = Date.now(), n = PER_SECTION) {
+/** The freshest of a section: the last two days, newest first, each source at most `cap` times, pictures preferred. */
+export function pickItems(items, now = Date.now(), n = PER_SECTION, cap = 4) {
   const seen = new Set();
   const fresh = items
     .filter((x) => !x.at || now - Date.parse(x.at) < 2 * 86400000)
@@ -360,7 +365,7 @@ export function pickItems(items, now = Date.now(), n = PER_SECTION) {
     for (const x of fresh) {
       if (out.length >= n) break;
       if (out.includes(x) || (pass && !x.image)) continue;
-      if ((per[x.domain] || 0) >= 2) continue;
+      if ((per[x.domain] || 0) >= cap) continue;
       per[x.domain] = (per[x.domain] || 0) + 1;
       out.push(x);
     }
@@ -386,7 +391,7 @@ export function summaryPrompt(items) {
         + 'Пиши лише українською (імена й назви — українською транслітерацією). Без порожніх фраз на кшталт «Це важливо, оскільки…» чи «Це сталося в …» — '
         + 'пояснюй значення лише тоді, коли воно є в тексті. Кожне речення — нова інформація, без повторів сказаного. Відповідай лише JSON: {"summaries": ["…", "…"]} — по одному на новину, у тому ж порядку.',
     },
-    { role: 'user', content: items.map((x, i) => `${i + 1}. ${x.title}\n${x.text || ''}`.slice(0, 1400)).join('\n\n') },
+    { role: 'user', content: items.map((x, i) => `${i + 1}. ${RU_STATE.has(x.outlet) ? '[російське провладне ЗМІ — перекажи як твердження: «Російські ЗМІ повідомляють, що…» / «За версією російських ЗМІ…», не як факт] ' : ''}${x.title}\n${x.text || ''}`.slice(0, 1400)).join('\n\n') },
   ];
 }
 
@@ -414,6 +419,10 @@ export function readTranslations(raw, texts) {
   return { t, q };
 }
 
+/** Russian pro-government outlets: read only to show the aggressor's own agenda — their news is retold as what
+ * Russian media claim, never as fact. */
+export const RU_STATE = new Set(['lenta.ru']);
+
 /** Ukrainian text: Cyrillic, with no letters only Russian has. A summary in another language never stands
  * in for a Ukrainian one. */
 export const isUkrainian = (t) => /[а-яіїєґ]{3}/i.test(t || '') && !/[ыэъё]/i.test(t || '') && (t.match(/[a-z]/gi) || []).length < String(t).length * 0.3;
@@ -426,7 +435,7 @@ export function sentences(text) {
  * `n` tells how many it has. */
 export function shape(text) {
   const list = sentences(text);
-  if (list.length > 1 && !/[.!?…»"')]$/.test(list.at(-1))) list.pop();
+  if (list.length > 1 && (!/[.!?…»"')]$/.test(list.at(-1)) || /(\.\.\.|…)$/.test(list.at(-1)))) list.pop(); // unfinished or cut off with «…»
   return { text: list.slice(0, 3).join(' '), n: Math.min(list.length, 3) };
 }
 

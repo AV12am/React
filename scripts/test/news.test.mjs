@@ -57,7 +57,7 @@ test('four freshest, pictures first, no older than two days, a source at most tw
   const now = Date.parse('2026-10-30T10:00:00Z');
   const items = parseNewsFeed(RSS);
   const many = [...items, ...[6, 7, 8].map((n) => ({ title: `BBC ${n}`, url: `https://www.bbc.co.uk/news/${n}`, domain: 'bbc.co.uk', at: '2026-10-30T09:00:00Z', image: 'https://x/p.jpg' }))];
-  const pick = pickItems(many, now, 4);
+  const pick = pickItems(many, now, 4, 2);
   assert.equal(pick.length, 4);
   assert.ok(!pick.some((x) => x.title === 'Old news'));
   assert.ok(pick.filter((x) => x.domain === 'bbc.co.uk').length <= 2);
@@ -91,7 +91,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
   const translated = [];
   const real = globalThis.fetch;
   const now = new Date().toUTCString();
-  const rss = (host) => `<rss xmlns:media="m"><item><title>${host} one</title><link>https://${host}/1</link><pubDate>${now}</pubDate><description>Text one about Ukraine and Russia’s military.</description><media:thumbnail url="https://img.${host}/1.jpg"/></item>
+  const rss = (host) => `<rss xmlns:media="m"><item><title>${host} one</title><link>https://${host}/1</link><pubDate>${now}</pubDate><description>Text one about Ukraine and Russia’s military.</description>${host.includes('stopfake') ? '' : `<media:thumbnail url="https://img.${host}/1.jpg"/>`}</item>
     <item><title>${host} two</title><link>https://${host}/2</link><pubDate>${now}</pubDate><description>Text two on the conflict.</description></item></rss>`;
   globalThis.fetch = async (url, opts = {}) => {
     const u = decodeURIComponent(String(url));
