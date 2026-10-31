@@ -195,7 +195,10 @@ export async function makeIssue(now = Date.now()) {
       summary: x.summary, summary_en: en[k].t[i] || x.summary, ai: x.ai,
     })),
   }));
-  return { v: VERSION, at: new Date(now).toISOString(), for: new Date(issueTime(now)).toISOString(), editor: note, sections };
+  // Made without the model (its daily free allowance spent, or it did not answer at all): a stand-in, not the
+  // day's issue — it is marked to be made again as soon as the model answers (the allowance renews at 00:00 UTC).
+  const degraded = on() && !note.judged && !note.events;
+  return { v: VERSION, at: new Date(now).toISOString(), for: new Date(issueTime(now)).toISOString(), editor: note, ...(degraded ? { degraded: true } : {}), sections };
 }
 
 export async function newsGet(req) {
@@ -227,6 +230,14 @@ export async function newsGet(req) {
     if (!(await claim(now))) return json(200, cached?.sections?.length ? { ...cached, making: true } : { making: true, sections: [] });
 
     const issue = await makeIssue(now);
+    if (issue.degraded) {
+      // Keep a good issue rather than replace it with one made without the model; either way try again later
+      // (a stand-in counts as from the day before, so the next request after ten minutes makes it anew).
+      const retry = { ...issue, for: new Date(issueTime(now) - 1).toISOString() };
+      if (cached?.sections?.length && !cached.degraded && cached.v === VERSION) { await keep({ ...cached, for: retry.for }); return json(200, { ...cached, stale: true }); }
+      if (issue.sections.some((s) => s.items.length)) await keep(retry);
+      return json(200, retry);
+    }
     if (issue.sections.some((s) => s.items.length)) {
       await keep(issue);
       await db('core_docs?kind=eq.news&id=like.make-*', { method: 'DELETE' }).catch(() => {});

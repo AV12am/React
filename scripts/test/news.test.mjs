@@ -88,6 +88,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
   let commons = 0;
   let editorSaw = [];
   let sortCalls = 0;
+  let spent = false;
   const translated = [];
   const real = globalThis.fetch;
   const now = new Date().toUTCString();
@@ -108,6 +109,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
       if (!(opts.headers.Prefer.includes('ignore-duplicates') && docs[b.id])) docs[b.id] = b.doc;
       return ok(null);
     }
+    if (u.includes('api.cloudflare.com') && spent) return new Response(JSON.stringify({ errors: [{ message: 'you have used up your daily free allocation of 10,000 neurons' }] }), { status: 429 });
     if (u.includes('api.cloudflare.com')) {
       ai++;
       const m = JSON.parse(opts.body).messages;
@@ -191,6 +193,15 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     const [x, y] = await Promise.all([anon(''), anon('')]).then((rs) => Promise.all(rs.map((q) => q.json())));
     assert.equal(ai, 2 * (editor + 16));
     assert.ok([x, y].some((v) => v.for === new Date(issueTime()).toISOString()));
+    // The model's daily allowance spent: the good issue stays, marked to be made again; nothing worse replaces it.
+    const good = docs.issue;
+    spent = true;
+    docs.issue = { ...good, for: new Date(issueTime() - 86400000).toISOString() };
+    for (const k of Object.keys(docs)) if (k.startsWith('make-')) delete docs[k];
+    const z = await (await anon('')).json();
+    assert.equal(z.at, good.at);
+    assert.equal(docs.issue.at, good.at);
+    assert.ok(Date.parse(docs.issue.for) < issueTime()); // to be made again once the model answers
   } finally { globalThis.fetch = real; }
 });
 

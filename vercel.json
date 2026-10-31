@@ -98,6 +98,10 @@
     {
       "path": "/api/pulse?news=1&at=1700-eest",
       "schedule": "2 14 * * *"
+    },
+    {
+      "path": "/api/pulse?news=1&at=0010-utc-retry",
+      "schedule": "10 0 * * *"
     }
   ],
   "rewrites": [
