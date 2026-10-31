@@ -21,7 +21,7 @@ const VERSION = 13;
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
-const UA = 'ReactionCore/1.0 (+news digest)';
+const UA = 'ReactionCore/1.0 (+https://reactioncore.uk/news; news digest)'; // who asks, with a page to find out more (Wikimedia's policy)
 
 const read = async (id = 'issue') => (await db(`core_docs?kind=eq.news&id=eq.${id}&select=doc`).catch(() => []))[0]?.doc || null;
 const keep = (doc, id = 'issue') => db('core_docs?on_conflict=kind,id', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: { kind: 'news', id, doc: { ...doc, id, clearance: 0 } } }).catch(() => {});
@@ -293,8 +293,12 @@ export async function newsGet(req) {
       // When the source turns the picture away, a picture on the same subject from Wikimedia Commons stands in.
       const item = [...(cached?.sections || []), ...sample.sections].flatMap((s) => s.items).find((x) => x.image === img);
       try {
-        const alt = await commonsImage(commonsQuery(item));
-        if (alt) return send(await fetchImage(alt));
+        // The names together first, then fewer of them: Commons finds only what matches every word.
+        const words = commonsQuery(item).split(' ');
+        for (const q of [...new Set([words.join(' '), words.slice(0, 2).join(' '), words[0]])].filter(Boolean)) {
+          const alt = await commonsImage(q);
+          if (alt) return send(await fetchImage(alt));
+        }
       } catch { /* nothing open on the subject either */ }
       return json(502, { error: 'img', message: 'Джерело не віддало зображення' });
     }
