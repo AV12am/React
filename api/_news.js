@@ -12,11 +12,11 @@
 // Cloudflare Workers AI from the item's own feed text (src/lib/news.js), or that text shortened when the model
 // is not available. Section 1 is the day's key news, chosen by the model from the headlines of all the others.
 import { json, db, env } from './_core.js';
-import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, readQueries, classifyPrompt, readClass, readPick, fitItems, issueTime } from '../src/lib/news.js';
+import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, readQueries, classifyPrompt, readSections, eventsPrompt, readEvents, sameEvents, dropRepeats, readPick, fitItems, issueTime } from '../src/lib/news.js';
 
 
 const MIN = 60000;
-const VERSION = 4;
+const VERSION = 5;
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -63,7 +63,8 @@ async function ask(messages, maxTokens) {
     signal: AbortSignal.timeout(28000),
   });
   const data = await res.json().catch(() => ({}));
-  return res.ok ? data.result?.response : '';
+  if (!res.ok) throw new Error(`AI ${res.status} ${JSON.stringify(data.errors || '').slice(0, 100)}`);
+  return data.result?.response;
 }
 const on = () => Boolean(ACCOUNT && TOKEN);
 
@@ -116,18 +117,37 @@ export async function makeIssue(now = Date.now()) {
     }
   }
 
-  // 2. The editor: each news to the one section it is about (or out), the same event only once, the key news.
-  let cls = null;
-  if (on() && pool.length) { try { cls = readClass(await ask(classifyPrompt(pool), 1200), pool); } catch { cls = null; } }
+  // 2. The editor, in small requests side by side: each batch of news to the one section it is about (or out),
+  //    and over all headlines together, the news telling the same event and the key news of the day.
+  const note = { batches: 0, sorted: 0, events: false };
+  const BATCH = 14;
+  const batches = [];
+  for (let i = 0; i < pool.length; i += BATCH) batches.push(pool.slice(i, i + BATCH));
+  const [sorted, events] = await Promise.all([
+    Promise.all(batches.map(async (b) => {
+      if (!on()) return null;
+      try { return readSections(await ask(classifyPrompt(b), 400), b); } catch (e) { note.err = String(e.message || e).slice(0, 120); return null; }
+    })),
+    (async () => {
+      if (!on() || !pool.length) return null;
+      try { return readEvents(await ask(eventsPrompt(pool), 500), pool); } catch (e) { note.err = String(e.message || e).slice(0, 120); return null; }
+    })(),
+  ]);
+  note.batches = batches.length;
+  note.sorted = sorted.filter(Boolean).length;
+  note.events = Boolean(events);
   const fits = (x, s) => (!s.match || s.match.test(`${x.title} ${x.text}`)) && (!s.skip || !s.skip.test(`${x.title} ${x.text}`));
   const sec = pool.map((x, i) => {
-    if (cls && cls.sec[i] !== undefined) return cls.sec[i];
+    const said = sorted[Math.floor(i / BATCH)]?.[i % BATCH];
+    if (said !== undefined) return said;
     const s = own.find((o) => o.id === x.home);
-    return fits(x, s) ? s.id : null; // without the editor: the home section's own keyword rule
+    return fits(x, s) ? s.id : null; // without the editor's answer: the home section's own keyword rule
   });
-  const live = pool.map((_, i) => i).filter((i) => sec[i] && !cls?.drop.has(i));
+  // One news per event — the editor's groups and the shared-words rule together.
+  const { drop } = dropRepeats(pool, [...(events?.groups || []), ...sameEvents(pool)]);
+  const live = pool.map((_, i) => i).filter((i) => sec[i] && !drop.has(i));
   const bySec = Object.fromEntries(own.map((s) => [s.id, pickItems(live.filter((i) => sec[i] === s.id).map((i) => ({ ...pool[i], i })), now, POOL).map((x) => x.i)]));
-  const key = readPick(JSON.stringify({ pick: (cls?.key || []).filter((i) => live.includes(i)).map((i) => i + 1) }), pool, KEY_COUNT, roundRobin(own.map((s) => bySec[s.id])));
+  const key = readPick(JSON.stringify({ pick: (events?.key || []).filter((i) => live.includes(i)).map((i) => i + 1) }), pool, KEY_COUNT, roundRobin(own.map((s) => bySec[s.id])));
   const picked = SECTIONS.map((s) => (s.key ? key : bySec[s.id].filter((i) => !key.includes(i)).slice(0, PER_SECTION)).map((i) => pool[i]));
 
   // 3. Pictures from the article pages; summaries in Ukrainian and English, side by side.
@@ -146,7 +166,7 @@ export async function makeIssue(now = Date.now()) {
     }));
     return { id: s.id, part: s.part, title: s.title, en: s.en, sources: s.feeds.length, items: fitItems(items) };
   });
-  return { v: VERSION, at: new Date(now).toISOString(), for: new Date(issueTime(now)).toISOString(), editor: Boolean(cls), sections };
+  return { v: VERSION, at: new Date(now).toISOString(), for: new Date(issueTime(now)).toISOString(), editor: note, sections };
 }
 
 export async function newsGet(req) {

@@ -11,7 +11,7 @@ const TOPIC = {
   agenda: /росі|росси|russia|kremlin|кремл|путін|путин|putin|китай|china|chinese|xi\b|іран|иран|iran|кндр|north korea|pyongyang|білорус|беларус|belarus|лукашенк|lukashenk|армі|арми|army|військ|военн|military|оборон|defen[cs]e|ракет|missile|санкц|sanction|nuclear|ядерн|nato|нато|окупац|оккупац|occup/i,
   conflicts: /\bwar\b|conflict|fighting|clash|attack|strike|airstrike|shelling|ceasefire|truce|rebel|militia|insurg|troops|army|military|killed|displaced|refugee|humanitarian|hostage|coup|terror|gaza|israel|hamas|hezbollah|lebanon|iran|syria|yemen|houthi|sudan|congo|sahel|mali|somalia|ethiopia|myanmar|taiwan|kashmir|haiti|venezuela|peacekeep|sanction/i,
 };
-const SOFT = /гороскоп|horoscope|свят[оа] |праздник|церковн|погода|weather|рецепт|recipe|фільм|фильм|\bfilm\b|movie|кіно|кино|серіал|сериал|оскар|oscar|football|футбол|halloween|хелловін|хэллоуин/i;
+const SOFT = /гороскоп|horoscope|свят[оа] |праздник|церковн|храм|богородиц|релігійн|религиозн|погода|weather|рецепт|recipe|фільм|фильм|\bfilm\b|movie|кіно|кино|серіал|сериал|оскар|oscar|football|футбол|halloween|хелловін|хэллоуин/i;
 
 /**
  * The sections of an issue, in order, and the open, free sources each is made from (RSS, no paywall).
@@ -142,45 +142,115 @@ export function fitItems(items, min = 4, max = 5) {
   return out;
 }
 
-/** The editor's pass over all fresh news at once: the section each one belongs to (or none), the news that
- * tell the same event, and the day's key news. */
-export function classifyPrompt(items, n = KEY_COUNT) {
+/** The editor's pass over a batch of fresh news: the one section each belongs to, or none. */
+export function classifyPrompt(items) {
   const own = SECTIONS.filter((s) => !s.key);
   return [
     {
       role: 'system',
       content: 'Ти — випусковий редактор щоденного огляду новин. Розподіли новини за розділами строго за темою:\n'
         + own.map((s) => `${s.code} — ${s.about}`).join('\n')
-        + '\nx — не підходить жодному розділу (культура, спорт, розваги, побут, свята, реклама, кримінал без політичного значення).\n'
+        + '\nx — не підходить жодному розділу (культура, релігія, спорт, розваги, побут, свята, економіка інших країн без зв’язку з війною, кримінал без політичного значення).\n'
         + 'Кожній новині — один найточніший розділ; якщо сумніваєшся, що новина відповідає темі, став x. '
-        + 'Знайди новини про ту саму подію (з різних джерел чи різними мовами) — це дублікати. '
-        + `Обери ${n} найважливіших для України новин доби про різні події.\n`
-        + 'Відповідай лише JSON: {"s": ["2.2", "x", …] — по одному коду на кожну новину в тому ж порядку, '
-        + '"same": [[1, 4], [2, 9, 13]] — групи номерів про одну подію, "key": [номери від найважливішої]}',
+        + `Відповідай лише JSON без пояснень: {"s": ["2.2", "x", …]} — рівно ${items.length} кодів, по одному на кожну новину в тому ж порядку.`,
     },
-    { role: 'user', content: items.map((x, i) => `${i + 1}. ${x.title} — ${String(x.text || '').slice(0, 140)}`).join('\n') },
+    { role: 'user', content: items.map((x, i) => `${i + 1}. ${x.title} — ${String(x.text || '').slice(0, 120)}`).join('\n') },
   ];
 }
-/** The editor's answer → { sec: [section id | null | undefined], drop: Set of indices, key: [indices] }. */
-export function readClass(raw, items) {
-  let j = {};
-  try {
-    const s = typeof raw === 'string' ? raw : JSON.stringify(raw);
-    j = typeof raw === 'object' && raw ? raw : JSON.parse(s.slice(s.indexOf('{'), s.lastIndexOf('}') + 1));
-  } catch { return null; }
+const parseJson = (raw) => {
+  const s = typeof raw === 'string' ? raw : JSON.stringify(raw);
+  return typeof raw === 'object' && raw ? raw : JSON.parse(s.slice(s.indexOf('{'), s.lastIndexOf('}') + 1));
+};
+/** The editor's sections for a batch → [section id | null (out) | undefined (no answer)], or null when unreadable. */
+export function readSections(raw, items) {
+  let j;
+  try { j = parseJson(raw); } catch { return null; }
   if (!Array.isArray(j?.s) || j.s.length < items.length * 0.8) return null;
   const byCode = Object.fromEntries(SECTIONS.filter((s) => !s.key).map((s) => [s.code, s.id]));
-  const sec = items.map((_, i) => { const c = String(j.s[i] ?? '').trim().toLowerCase(); return c === 'x' ? null : byCode[c]; });
-  const drop = new Set();
-  for (const g of Array.isArray(j.same) ? j.same : []) {
-    const idx = (Array.isArray(g) ? g : []).map((v) => Number(v) - 1).filter((k) => Number.isInteger(k) && k >= 0 && k < items.length);
-    if (idx.length < 2) continue;
-    // Keep the one with a picture, then the freshest; the others leave the issue.
-    const keep = [...idx].sort((a, b) => Number(Boolean(items[b].image)) - Number(Boolean(items[a].image)) || String(items[b].at || '').localeCompare(String(items[a].at || '')))[0];
-    idx.forEach((k) => { if (k !== keep) drop.add(k); });
+  return items.map((_, i) => { const c = String(j.s[i] ?? '').trim().toLowerCase(); return c === 'x' ? null : byCode[c]; });
+}
+
+/** The editor's look at all headlines together: which tell the same event, and the day's key news. */
+export function eventsPrompt(items, n = KEY_COUNT) {
+  return [
+    {
+      role: 'system',
+      content: 'Ти — випусковий редактор. Нижче заголовки новин з різних джерел і різними мовами. '
+        + 'Знайди групи заголовків про ту саму подію (той самий факт, рішення, удар, заяву). '
+        + `Також обери ${n} найважливіших для читача в Україні новин доби — про різні події. `
+        + 'Відповідай лише JSON без пояснень: {"same": [[1, 4], [2, 9, 13]], "key": [номери від найважливішої]}',
+    },
+    { role: 'user', content: items.map((x, i) => `${i + 1}. ${x.title}`).join('\n') },
+  ];
+}
+/** → { groups: [[indices]], key: [indices] }, or null when unreadable. */
+export function readEvents(raw, items) {
+  let j;
+  try { j = parseJson(raw); } catch { return null; }
+  const ok = (v) => Number.isInteger(v) && v >= 0 && v < items.length;
+  const groups = (Array.isArray(j?.same) ? j.same : []).map((g) => (Array.isArray(g) ? g : []).map((v) => Number(v) - 1).filter(ok)).filter((g) => g.length > 1);
+  const key = (Array.isArray(j?.key) ? j.key : []).map((v) => Number(v) - 1).filter(ok);
+  return { groups, key };
+}
+
+// Same event without the model: two headlines that share two telling words (the word's first consonants,
+// Cyrillic read as Latin, so «Олешки» meets «Oleshky»), or a number and a telling word. Words found in many headlines
+// («Україна», «Росія») tell nothing and are left out.
+const LAT = { а: 'a', б: 'b', в: 'v', г: 'g', ґ: 'g', д: 'd', е: 'e', є: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', і: 'i', ї: 'i', й: 'i', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sh', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'iu', я: 'ia' };
+const STOP = new Set(['about', 'after', 'their', 'there', 'which', 'would', 'could', 'should', 'these', 'those', 'where', 'while', 'under', 'over', 'says', 'said', 'will', 'with', 'from', 'that', 'this', 'have', 'pisli', 'ponad', 'cherez', 'iakii', 'iakyi', 'takozh', 'mozhe', 'budut', 'bude', 'shchodo', 'pochn', 'zaiav', 'zaiai', 'novyn', 'novos', 'news', 'world', 'ukrai', 'russi', 'rosii', 'rossi', 'rosiis', 'kyiv', 'kiev', 'moskv', 'moscow']);
+// Each telling word as two keys — its first five letters and its first consonants — so «evacuated» meets
+// «евакуйовані» by the letters and «Oleshky» meets «Алешек» by the consonants.
+function words(title) {
+  const t = String(title || '').toLowerCase().replace(/[а-яёіїєґ]/g, (c) => LAT[c] ?? c).replace(/c/g, 'k').replace(/y/g, 'i');
+  const out = [];
+  for (const w of t.split(/[^a-z0-9]+/)) {
+    if (/^\d{2,}$/.test(w) && !/^20\d\d$/.test(w)) out.push([`#${w}`]);
+    else if (w.length >= 5 && !STOP.has(w.slice(0, 5)) && !STOP.has(w)) {
+      const k = w.replace(/[aeiou]/g, '').replace(/(.)\1+/g, '$1').slice(0, 4);
+      out.push(k.length >= 3 ? [w.slice(0, 5), `~${k}`] : [w.slice(0, 5)]);
+    }
   }
-  const key = (Array.isArray(j.key) ? j.key : []).map((v) => Number(v) - 1).filter((k) => Number.isInteger(k) && k >= 0 && k < items.length);
-  return { sec, drop, key };
+  return out;
+}
+export function sameEvents(items) {
+  const ws = items.map((x) => words(x.title));
+  const df = new Map();
+  ws.forEach((list) => new Set(list.flat()).forEach((key) => df.set(key, (df.get(key) || 0) + 1)));
+  const common = Math.max(8, items.length * 0.15);
+  const tell = ws.map((list) => list.map((keys) => keys.filter((key) => df.get(key) <= common)).filter((keys) => keys.length));
+  const parent = items.map((_, i) => i);
+  const root = (i) => (parent[i] === i ? i : (parent[i] = root(parent[i])));
+  for (let i = 0; i < items.length; i++) {
+    for (let k = i + 1; k < items.length; k++) {
+      // Word to word, each word of the other headline used once («операції» and «порятунку» must not both
+      // lean on «operation»).
+      const free = tell[k].map((keys) => new Set(keys));
+      let shared = 0;
+      for (const keys of tell[i]) {
+        const at = free.findIndex((f) => f && keys.some((key) => f.has(key)));
+        if (at >= 0) { free[at] = null; shared++; }
+      }
+      if (shared >= 2) parent[root(k)] = root(i);
+    }
+  }
+  const g = new Map();
+  items.forEach((_, i) => { const r = root(i); g.set(r, [...(g.get(r) || []), i]); });
+  return [...g.values()].filter((x) => x.length > 1);
+}
+/** One news per event: from each group the pictured one, then the freshest, stays. */
+export function dropRepeats(items, groups) {
+  const parent = items.map((_, i) => i);
+  const root = (i) => (parent[i] === i ? i : (parent[i] = root(parent[i])));
+  for (const g of groups) for (const k of g.slice(1)) parent[root(k)] = root(g[0]);
+  const by = new Map();
+  items.forEach((_, i) => { const r = root(i); by.set(r, [...(by.get(r) || []), i]); });
+  const drop = new Set();
+  for (const g of by.values()) {
+    if (g.length < 2) continue;
+    const keep = [...g].sort((a, b) => Number(Boolean(items[b].image)) - Number(Boolean(items[a].image)) || String(items[b].at || '').localeCompare(String(items[a].at || '')))[0];
+    g.forEach((k) => { if (k !== keep) drop.add(k); });
+  }
+  return { drop, root };
 }
 
 /** What the model is asked when choosing the day's key news from the headlines of all sections. */
