@@ -71,10 +71,9 @@ export function NewsPage() {
     try {
       const pics = await pictures();
       if (kind === 'pptx') {
-        // PowerPoint has no preview here: the deck is saved straight away.
-        const blob = await newsPptx(shown, pics, lang);
-        const res = await saveFile(issueFileName(issue, 'pptx', lang), blob);
-        if (res !== 'saved' && res !== 'declined') setErr(t.save);
+        // A browser cannot show a PowerPoint file; its slides are the PDF's pages, so those are previewed.
+        const [blob, view] = await Promise.all([newsPptx(shown, pics, lang), newsPdf(shown, pics, lang)]);
+        setPreview({ kind, blob, view, name: issueFileName(issue, 'pptx', lang) });
         return;
       }
       const blob = kind === 'pdf' ? await newsPdf(shown, pics, lang) : await newsDocx(shown, pics, lang);
@@ -98,7 +97,7 @@ export function NewsPage() {
           </div>
           <button className="vx-btn vx-btn--sm" disabled={!issue || !!busy} onClick={() => make('pdf')}>{busy === 'pdf' ? <Loader size={14} label={t.making} /> : <Icon name="file" />} PDF</button>
           <button className="vx-btn vx-btn--sm" disabled={!issue || !!busy} onClick={() => make('docx')}>{busy === 'docx' ? <Loader size={14} label={t.making} /> : <Icon name="download" />} Word</button>
-          <button className="vx-btn vx-btn--sm" disabled={!issue || !!busy} onClick={() => make('pptx')}>{busy === 'pptx' ? <Loader size={14} label={t.making} /> : <Icon name="download" />} PowerPoint</button>
+          <button className="vx-btn vx-btn--sm" disabled={!issue || !!busy} onClick={() => make('pptx')}>{busy === 'pptx' ? <Loader size={14} label={t.making} /> : <Icon name="file" />} PowerPoint</button>
         </div>
       </header>
       {err && <div className="vx-error">{err}</div>}

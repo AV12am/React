@@ -60,11 +60,12 @@ export function ReportPreview({ p, onSave, onClose }) {
   return (
     <div className="fv" role="dialog" aria-modal="true" aria-label={`Звіт: ${p.name}`}>
       <header className="fv__bar">
-        <div className="fv__title"><b>{p.name}</b><span className="vx-hint">{p.kind === 'pdf' ? 'PDF' : 'Word'} · попередній перегляд</span></div>
+        <div className="fv__title"><b>{p.name}</b><span className="vx-hint">{p.kind === 'pdf' ? 'PDF' : p.kind === 'pptx' ? 'PowerPoint' : 'Word'} · попередній перегляд</span></div>
         <button className="vx-btn vx-btn--primary vx-btn--sm fv__wide" onClick={onSave}><Icon name="download" /> Завантажити</button>
         <button className="vx-btn vx-btn--ghost vx-btn--icon fv__wide" onClick={onClose} aria-label="Закрити"><Icon name="close" /></button>
       </header>
-      <div className="fv__body">{p.kind === 'pdf' ? <PdfView blob={p.blob} /> : <DocxView blob={p.blob} />}</div>
+      {/* A PowerPoint deck is shown through its pages as PDF (the same layout, slide for page); the deck itself is saved. */}
+      <div className="fv__body">{p.kind === 'pdf' ? <PdfView blob={p.blob} /> : p.kind === 'pptx' ? <PdfView blob={p.view} /> : <DocxView blob={p.blob} />}</div>
       <footer className="fv__dock">
         <button className="vx-btn vx-btn--primary" onClick={onSave}><Icon name="download" /> Завантажити</button>
         <button className="vx-btn" onClick={onClose}><Icon name="close" /> Закрити</button>
