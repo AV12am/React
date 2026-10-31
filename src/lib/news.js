@@ -151,34 +151,32 @@ export function fitItems(items, min = 4, max = 5) {
   return out;
 }
 
-/** The editor's pass over a batch of fresh news: the one section each belongs to, or none. */
-export function classifyPrompt(items) {
-  const own = SECTIONS.filter((s) => !s.key);
+/** The editor's question for one section: which of these news are plainly about its topic. */
+export function keepPrompt(section, items) {
   return [
     {
       role: 'system',
-      content: 'Ти — випусковий редактор щоденного огляду новин. Розподіли новини за розділами строго за темою:\n'
-        + own.map((s) => `${s.code} — ${s.about}`).join('\n')
-        + '\nx — не підходить жодному розділу (культура, релігія, спорт, розваги, побут, свята, економіка інших країн без зв’язку з війною, кримінал без політичного значення).\n'
-        + 'Кожній новині — один найточніший розділ; x став лише тоді, коли новина явно не стосується жодної теми. '
-        + `Відповідай лише JSON без пояснень, з кодом для кожного номера від 1 до ${items.length}: {"s": {"1": "2.2", "2": "x", …}}`,
+      content: `Ти — випусковий редактор щоденного огляду новин. Розділ огляду: «${[section.part, section.title].filter(Boolean).join(' ')}». `
+        + `Тема розділу: ${section.about}.\n`
+        + 'Для кожної новини нижче визнач, чи вона прямо стосується теми розділу (1) чи ні (0). '
+        + 'Культура, спорт, розваги, побут, свята, внутрішня політика чи економіка інших країн без зв’язку з темою — 0. '
+        + `Відповідай лише JSON без пояснень, з відповіддю для кожного номера від 1 до ${items.length}: {"keep": {"1": 1, "2": 0, …}}`,
     },
-    { role: 'user', content: items.map((x, i) => `${i + 1}. ${x.title} — ${String(x.text || '').slice(0, 120)}`).join('\n') },
+    { role: 'user', content: items.map((x, i) => `${i + 1}. ${x.title} — ${String(x.text || '').slice(0, 160)}`).join('\n') },
   ];
 }
 const parseJson = (raw) => {
   const s = typeof raw === 'string' ? raw : JSON.stringify(raw);
   return typeof raw === 'object' && raw ? raw : JSON.parse(s.slice(s.indexOf('{'), s.lastIndexOf('}') + 1));
 };
-/** The editor's sections for a batch → [section id | null (out) | undefined (no answer)], or null when unreadable. */
-export function readSections(raw, items) {
+/** → [true | false | undefined (no answer)], or null when unreadable. */
+export function readKeep(raw, items) {
   let j;
   try { j = parseJson(raw); } catch { return null; }
-  // Codes keyed by the news's number (a list is read in order, as a fallback) — a skipped one shifts nothing.
-  const at = Array.isArray(j?.s) ? (i) => j.s[i] : j?.s && typeof j.s === 'object' ? (i) => j.s[String(i + 1)] : null;
+  const k = j?.keep;
+  const at = Array.isArray(k) ? (i) => k[i] : k && typeof k === 'object' ? (i) => k[String(i + 1)] : null;
   if (!at || items.filter((_, i) => at(i) != null).length < items.length * 0.8) return null;
-  const byCode = Object.fromEntries(SECTIONS.filter((s) => !s.key).map((s) => [s.code, s.id]));
-  return items.map((_, i) => { const c = String(at(i) ?? '').trim().toLowerCase(); return c === 'x' ? null : byCode[c]; });
+  return items.map((_, i) => { const v = at(i); return v == null ? undefined : v === true || v === 1 || v === '1' || /^(yes|так|true)$/i.test(String(v)); });
 }
 
 /** The editor's look at all headlines together: which tell the same event, and the day's key news. */

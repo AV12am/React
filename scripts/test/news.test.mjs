@@ -2,7 +2,7 @@
 // one issue a day at 17:00 Kyiv.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SECTIONS, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, itemImage, issueTime, fitItems, readPick, keyPrompt, readSections, readEvents, eventsPrompt, sameEvents, dropRepeats, classifyPrompt } from '../../src/lib/news.js';
+import { SECTIONS, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, itemImage, issueTime, fitItems, readPick, keyPrompt, readKeep, keepPrompt, readEvents, eventsPrompt, sameEvents, dropRepeats } from '../../src/lib/news.js';
 
 const RSS = `<rss xmlns:media="http://search.yahoo.com/mrss/"><channel>
 <item><title>Talks resume in Geneva</title><link>https://www.bbc.co.uk/news/1</link><pubDate>Fri, 30 Oct 2026 08:00:00 GMT</pubDate>
@@ -112,15 +112,11 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
       ai++;
       const m = JSON.parse(opts.body).messages;
       const lines = m[1].content.split('\n').filter((l) => /^\d+\. /.test(l));
-      if (m[0].content.includes('Розподіли новини')) {
-        // The editor: each news to a section that reads its feed («one» to the first, «two» to the last), lines 1 and 2 one event.
-        const s = lines.map((l) => {
-          const slug = /^\d+\. (\S+) (one|two)/.exec(l);
-          const secs = SECTIONS.filter((x) => !x.key && x.feeds.some((f) => { const g = new URL(f); return `${g.hostname}${g.pathname}`.replace(/\W+/g, '') === slug[1]; }));
-          return (slug[2] === 'one' ? secs[0] : secs.at(-1)).code;
-        });
+      if (m[0].content.includes('прямо стосується')) {
+        // The editor for one section: keeps all but the news whose headline ends in «two» in Chapter 3.
         sortCalls++;
-        return ok({ success: true, result: { response: JSON.stringify({ s: Object.fromEntries(s.map((c, i) => [String(i + 1), c])) }) } });
+        const ch3 = m[0].content.includes('РОЗДІЛ 3');
+        return ok({ success: true, result: { response: JSON.stringify({ keep: Object.fromEntries(lines.map((l, i) => [String(i + 1), ch3 && / two —/.test(l) ? 0 : 1])) }) } });
       }
       if (m[0].content.includes('Знайди групи')) {
         editorSaw = lines;
@@ -137,8 +133,8 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     if (u.startsWith('https://img.') || u.startsWith('https://upload.wikimedia.org/')) return new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/jpeg' } });
     const feed = SECTIONS.flatMap((s) => s.feeds).find((f) => f === u);
     if (feed) { const f = new URL(feed); return new Response(rss(`${f.hostname}${f.pathname}`.replace(/\W+/g, '')), { status: 200 }); }
-    // article pages (og:image for items without a thumbnail) — Jamestown's carry none
-    if (u.includes('jamestown')) return new Response('<html><head></head></html>', { status: 200, headers: { 'content-type': 'text/html' } });
+    // article pages (og:image for items without a thumbnail) — StopFake's carry none
+    if (u.includes('stopfake')) return new Response('<html><head></head></html>', { status: 200, headers: { 'content-type': 'text/html' } });
     return new Response('<html><head><meta property="og:image" content="https://img.page/og.jpg"></head></html>', { status: 200, headers: { 'content-type': 'text/html' } });
   };
   const token = `x.${Buffer.from(JSON.stringify({ session_id: 's' })).toString('base64url')}.y`;
@@ -158,7 +154,9 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     assert.equal(new Set(urls).size, urls.length);
     const editor = sortCalls + 1; // the batches sorted into sections + one look over all headlines
     assert.equal(ai, editor + 16); // + 8 sections in Ukrainian and in English
-    assert.deepEqual(j.editor, { batches: sortCalls, sorted: sortCalls, events: true, short: 0, translated: j.sections.flatMap((s) => s.items).length });
+    assert.equal(sortCalls, 7);
+    assert.deepEqual({ ...j.editor, kept: undefined }, { sections: 7, judged: 7, events: true, short: 0, translated: j.sections.flatMap((s) => s.items).length, kept: undefined });
+    assert.ok(j.sections.find((s) => s.id === 'agenda').items.every((x) => / one$/.test(x.title))); // the editor said no to the others
     assert.ok(j.sections.every((s) => s.en?.part && s.items.every((x) => /^Short summary/.test(x.summary_en))));
     // Two or three sentences — the fourth is cut; the English is the Ukrainian translated.
     assert.ok(j.sections.every((s) => s.items.every((x) => x.summary.endsWith('Третє речення.'))));
@@ -204,13 +202,12 @@ test('off-topic news, emoji pictures and empty phrases stay out', async () => {
   assert.equal(s.text, 'Армія РФ завдала удару по Харкову. Київ вимагає перехоплювачів.');
 });
 
-test('the editor’s answers: sections by code, «x» out; same events; one news per event, the pictured one kept', () => {
+test('the editor’s answers: keep or not for a section; same events; one news per event, the pictured one kept', () => {
   const items = [{ title: 'a', image: '' }, { title: 'b', image: 'https://p/b.jpg' }, { title: 'c' }, { title: 'd' }, { title: 'e' }];
-  assert.deepEqual(readSections('{"s":["2.2","2.2","x","5.2","9.9"]}', items), ['media', 'media', null, 'abroad-other', undefined]);
-  assert.deepEqual(readSections('{"s":{"1":"2.2","2":"x","3":"4.1","5":"3"}}', items), ['media', null, 'society', undefined, 'agenda']); // «4» skipped: nothing shifts
-  assert.equal(readSections('no json', items), null);
-  assert.equal(readSections('{"s":["2.2"]}', items), null); // too short to trust
-  assert.match(classifyPrompt(items)[0].content, /4\.2 — озброєння/);
+  assert.deepEqual(readKeep('{"keep":{"1":1,"2":0,"3":"так","5":true}}', items), [true, false, true, undefined, true]);
+  assert.equal(readKeep('no json', items), null);
+  assert.equal(readKeep('{"keep":{"1":1}}', items), null); // too few answers to trust
+  assert.match(keepPrompt(SECTIONS[5], items)[0].content, /4\.2 ОіВТ.*Тема розділу: озброєння/s);
   const ev = readEvents('{"same":[[1,2],[5]],"key":[2,4,77]}', items);
   assert.deepEqual(ev, { groups: [[0, 1]], key: [1, 3] });
   assert.deepEqual([...dropRepeats(items, ev.groups).drop], [0]);

@@ -12,11 +12,11 @@
 // Cloudflare Workers AI from the item's own feed text (src/lib/news.js), or that text shortened when the model
 // is not available. Section 1 is the day's key news, chosen by the model from the headlines of all the others.
 import { json, db, env } from './_core.js';
-import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, classifyPrompt, readSections, eventsPrompt, readEvents, sameEvents, dropRepeats, readPick, fitItems, issueTime } from '../src/lib/news.js';
+import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, eventsPrompt, readEvents, sameEvents, dropRepeats, readPick, fitItems, issueTime } from '../src/lib/news.js';
 
 
 const MIN = 60000;
-const VERSION = 6;
+const VERSION = 7;
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -102,49 +102,45 @@ export async function makeIssue(now = Date.now()) {
   const urls = [...new Set(own.flatMap((s) => s.feeds))];
   const got = new Map(await Promise.all(urls.map(async (u) => [u, await feed(u)])));
 
-  // 1. The pool: the freshest news of every section's feeds, each news once.
-  const used = new Set();
-  const titles = new Set();
+  // 1. Candidates: each section's freshest news from its own verified outlets only.
+  const norm = (x) => x.url.split('?')[0];
+  const cands = own.map((s) => pickItems(
+    s.feeds.flatMap((u) => (got.get(u) || []).map((x) => ({ ...x, outlet: host(u) }))).filter((x) => !offTopic(x)),
+    now, POOL,
+  ));
+  // All candidates once (a feed two sections share gives the same news to both).
   const pool = [];
-  const order = own.map((s, k) => k).sort((a, b) => Number(Boolean(own[b].first)) - Number(Boolean(own[a].first)));
-  for (const k of order) {
-    const s = own[k];
-    const all = s.feeds.flatMap((u) => (got.get(u) || []).map((x) => ({ ...x, outlet: host(u) }))).filter((x) => !used.has(x.url.split('?')[0]) && !offTopic(x));
-    for (const x of pickItems(all, now, POOL)) {
-      const t = x.title.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
-      if (titles.has(t)) continue;
-      used.add(x.url.split('?')[0]); titles.add(t);
-      pool.push({ ...x, home: s.id });
-    }
-  }
+  const at = new Map();
+  for (const x of cands.flat()) if (!at.has(norm(x))) { at.set(norm(x), pool.length); pool.push(x); }
 
-  // 2. The editor, in small requests side by side: each batch of news to the one section it is about (or out),
-  //    and over all headlines together, the news telling the same event and the key news of the day.
-  const note = { batches: 0, sorted: 0, events: false };
-  const BATCH = 14;
-  const batches = [];
-  for (let i = 0; i < pool.length; i += BATCH) batches.push(pool.slice(i, i + BATCH));
-  const [sorted, events] = await Promise.all([
-    Promise.all(batches.map(async (b) => {
-      if (!on()) return null;
-      try { return readSections(await ask(classifyPrompt(b), 400), b); } catch (e) { note.err = String(e.message || e).slice(0, 120); return null; }
+  // 2. The editor, in small requests side by side: for each section, which of its candidates are plainly about
+  //    its topic (yes or no); over all headlines together, the news telling the same event and the key news.
+  const note = { sections: own.length, judged: 0, events: false };
+  const [verdicts, events] = await Promise.all([
+    Promise.all(own.map(async (s, k) => {
+      if (!on() || !cands[k].length) return null;
+      try { return readKeep(await ask(keepPrompt(s, cands[k]), 300), cands[k]); } catch (e) { note.err = String(e.message || e).slice(0, 120); return null; }
     })),
     (async () => {
       if (!on() || !pool.length) return null;
       try { return readEvents(await ask(eventsPrompt(pool), 500), pool); } catch (e) { note.err = String(e.message || e).slice(0, 120); return null; }
     })(),
   ]);
-  note.batches = batches.length;
-  note.sorted = sorted.filter(Boolean).length;
+  note.judged = verdicts.filter(Boolean).length;
   note.events = Boolean(events);
   const fits = (x, s) => (!s.match || s.match.test(`${x.title} ${x.text}`)) && (!s.skip || !s.skip.test(`${x.title} ${x.text}`));
-  const sec = pool.map((x, i) => {
-    const said = sorted[Math.floor(i / BATCH)]?.[i % BATCH];
-    // The editor's section only when its verified outlets include this news's outlet.
-    if (said !== undefined) return said && outlets(said).has(x.outlet) ? said : null;
-    const s = own.find((o) => o.id === x.home);
-    return fits(x, s) ? s.id : null; // without the editor's answer: the home section's own keyword rule
-  });
+  // Each news to the first section (Chapter 3 first) that keeps it; without the editor's answer, the section's keyword rule.
+  const sec = pool.map(() => null);
+  const order = own.map((s, k) => k).sort((a, b) => Number(Boolean(own[b].first)) - Number(Boolean(own[a].first)));
+  for (const k of order) {
+    cands[k].forEach((x, i) => {
+      const said = verdicts[k]?.[i];
+      const keep = said === undefined ? fits(x, own[k]) : said;
+      const p = at.get(norm(x));
+      if (keep && !sec[p]) sec[p] = own[k].id;
+    });
+  }
+  note.kept = Object.fromEntries(own.map((s) => [s.id, sec.filter((v) => v === s.id).length]));
   // One news per event — the editor's groups and the shared-words rule together.
   const { drop } = dropRepeats(pool, [...(events?.groups || []), ...sameEvents(pool)]);
   const live = pool.map((_, i) => i).filter((i) => sec[i] && !drop.has(i));
