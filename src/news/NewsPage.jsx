@@ -106,7 +106,6 @@ export function NewsPage() {
           <button className="vx-btn vx-btn--sm" disabled={!issue || !!busy} onClick={() => make('pptx')}>{busy === 'pptx' ? <Loader size={14} label={t.making} /> : <Icon name="file" />} PowerPoint</button>
         </div>
       </header>
-      {issue?.sample && <div className="vx-hint news__sample">{lang === 'en' ? 'Test issue — put together by hand from real news of 31 October; the daily issue is made at 17:00.' : 'Тестовий випуск — зібраний вручну з реальних новин 31 жовтня; щоденний випуск формується о 17:00.'}</div>}
       {err && <div className="vx-error">{err}</div>}
       {!issue && !err && <div className="news-page__wait"><Loader size={40} label={t.making} /><span className="vx-hint">{t.wait}</span></div>}
       {shown?.sections.map((s) => (

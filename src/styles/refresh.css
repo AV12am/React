@@ -432,4 +432,3 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 }
 /* the heading's «News» as the opening writes it: italic, a shade softer */
 .news__brand-news { font-style: italic; color: var(--ink-2); margin-left: .12em; }
-.news__sample { border: 1px dashed var(--line-strong); border-radius: var(--radius-md); padding: 8px 12px; }
