@@ -118,7 +118,7 @@ export function outlets(id) {
 /** Candidates read per section; the page then holds four or five of them (fitItems). */
 export const PER_SECTION = 5;
 /** Fresh news read from each section's feeds before the editor sorts them. */
-export const POOL = 10;
+export const POOL = 14;
 /** Light news (holidays, films, horoscopes, sport) — kept out of every section. */
 export const offTopic = (x) => SOFT.test(x.title || '')
   || /^(захищено|protected|private)\s*:/i.test(x.title || '') // a password-protected post has no text to retell
@@ -158,7 +158,7 @@ export function keepPrompt(section, items) {
       role: 'system',
       content: `Ти — випусковий редактор щоденного огляду новин. Розділ огляду: «${[section.part, section.title].filter(Boolean).join(' ')}». `
         + `Тема розділу: ${section.about}.\n`
-        + 'Для кожної новини нижче визнач, чи вона прямо стосується теми розділу (1) чи ні (0). '
+        + 'Для кожної новини нижче визнач, чи вона стосується теми розділу (1) чи ні (0). '
         + 'Культура, спорт, розваги, побут, свята, внутрішня політика чи економіка інших країн без зв’язку з темою — 0. '
         + `Відповідай лише JSON без пояснень, з відповіддю для кожного номера від 1 до ${items.length}: {"keep": {"1": 1, "2": 0, …}}`,
     },
@@ -246,6 +246,29 @@ export function sameEvents(items) {
   items.forEach((_, i) => { const r = root(i); g.set(r, [...(g.get(r) || []), i]); });
   return [...g.values()].filter((x) => x.length > 1);
 }
+/** How many telling words two headlines share (each word of the second used once). */
+export function sharedWords(a, b, { numbers = true } = {}) {
+  const pick = (t) => words(t).filter((keys) => numbers || !keys[0].startsWith('#'));
+  const free = pick(b.title).map((keys) => new Set(keys));
+  let n = 0;
+  for (const keys of pick(a.title)) {
+    const at = free.findIndex((f) => f && keys.some((key) => f.has(key)));
+    if (at >= 0) { free[at] = null; n++; }
+  }
+  return n;
+}
+/** The editor's same-event groups, trusted pair by pair only where the headlines share a telling word (not a bare number) —
+ * a model that lumps unrelated news together must not empty a section. */
+export function checkGroups(items, groups) {
+  const out = [];
+  for (const g of groups) {
+    for (let a = 0; a < g.length; a++) for (let b = a + 1; b < g.length; b++) {
+      if (sharedWords(items[g[a]], items[g[b]], { numbers: false }) >= 1) out.push([g[a], g[b]]);
+    }
+  }
+  return out;
+}
+
 /** One news per event: from each group the pictured one, then the freshest, stays. */
 export function dropRepeats(items, groups) {
   const parent = items.map((_, i) => i);
@@ -394,9 +417,11 @@ export function readTranslations(raw, texts) {
 export function sentences(text) {
   return String(text || '').replace(/\s+/g, ' ').trim().split(/(?<=[.!?…])\s+(?=[«"„(]?[A-ZА-ЯІЇЄҐ])/u).filter(Boolean);
 }
-/** A summary is two or three sentences: more are cut to three; `n` tells how many it has. */
+/** A summary is two or three sentences: more are cut to three, an unfinished last one is left out;
+ * `n` tells how many it has. */
 export function shape(text) {
   const list = sentences(text);
+  if (list.length > 1 && !/[.!?…»"')]$/.test(list.at(-1))) list.pop();
   return { text: list.slice(0, 3).join(' '), n: Math.min(list.length, 3) };
 }
 

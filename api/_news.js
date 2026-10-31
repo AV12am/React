@@ -12,11 +12,11 @@
 // Cloudflare Workers AI from the item's own feed text (src/lib/news.js), or that text shortened when the model
 // is not available. Section 1 is the day's key news, chosen by the model from the headlines of all the others.
 import { json, db, env } from './_core.js';
-import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, eventsPrompt, readEvents, sameEvents, dropRepeats, readPick, fitItems, issueTime } from '../src/lib/news.js';
+import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime } from '../src/lib/news.js';
 
 
 const MIN = 60000;
-const VERSION = 7;
+const VERSION = 8;
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -141,8 +141,9 @@ export async function makeIssue(now = Date.now()) {
     });
   }
   note.kept = Object.fromEntries(own.map((s) => [s.id, sec.filter((v) => v === s.id).length]));
+  note.pool = pool.length;
   // One news per event — the editor's groups and the shared-words rule together.
-  const { drop } = dropRepeats(pool, [...(events?.groups || []), ...sameEvents(pool)]);
+  const { drop } = dropRepeats(pool, [...checkGroups(pool, events?.groups || []), ...sameEvents(pool)]);
   const live = pool.map((_, i) => i).filter((i) => sec[i] && !drop.has(i));
   const bySec = Object.fromEntries(own.map((s) => [s.id, pickItems(live.filter((i) => sec[i] === s.id).map((i) => ({ ...pool[i], i })), now, POOL).map((x) => x.i)]));
   const SPARE = 2; // candidates beyond five, for the news whose summary comes out shorter than two sentences

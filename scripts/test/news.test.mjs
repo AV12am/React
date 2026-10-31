@@ -2,7 +2,7 @@
 // one issue a day at 17:00 Kyiv.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SECTIONS, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, itemImage, issueTime, fitItems, readPick, keyPrompt, readKeep, keepPrompt, readEvents, eventsPrompt, sameEvents, dropRepeats } from '../../src/lib/news.js';
+import { SECTIONS, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, itemImage, issueTime, fitItems, readPick, keyPrompt, readKeep, keepPrompt, readEvents, eventsPrompt, sameEvents, dropRepeats, checkGroups } from '../../src/lib/news.js';
 
 const RSS = `<rss xmlns:media="http://search.yahoo.com/mrss/"><channel>
 <item><title>Talks resume in Geneva</title><link>https://www.bbc.co.uk/news/1</link><pubDate>Fri, 30 Oct 2026 08:00:00 GMT</pubDate>
@@ -112,7 +112,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
       ai++;
       const m = JSON.parse(opts.body).messages;
       const lines = m[1].content.split('\n').filter((l) => /^\d+\. /.test(l));
-      if (m[0].content.includes('прямо стосується')) {
+      if (m[0].content.includes('стосується теми розділу')) {
         // The editor for one section: keeps all but the news whose headline ends in «two» in Chapter 3.
         sortCalls++;
         const ch3 = m[0].content.includes('РОЗДІЛ 3');
@@ -155,7 +155,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     const editor = sortCalls + 1; // the batches sorted into sections + one look over all headlines
     assert.equal(ai, editor + 16); // + 8 sections in Ukrainian and in English
     assert.equal(sortCalls, 7);
-    assert.deepEqual({ ...j.editor, kept: undefined }, { sections: 7, judged: 7, events: true, short: 0, translated: j.sections.flatMap((s) => s.items).length, kept: undefined });
+    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined }, { sections: 7, judged: 7, events: true, short: 0, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined });
     assert.ok(j.sections.find((s) => s.id === 'agenda').items.every((x) => / one$/.test(x.title))); // the editor said no to the others
     assert.ok(j.sections.every((s) => s.en?.part && s.items.every((x) => /^Short summary/.test(x.summary_en))));
     // Two or three sentences — the fourth is cut; the English is the Ukrainian translated.
@@ -212,6 +212,9 @@ test('the editor’s answers: keep or not for a section; same events; one news p
   assert.deepEqual(ev, { groups: [[0, 1]], key: [1, 3] });
   assert.deepEqual([...dropRepeats(items, ev.groups).drop], [0]);
   assert.match(eventsPrompt(items)[0].content, /ту саму подію/);
+  // A group the model lumps together is trusted only where the headlines share a telling word.
+  const heads = [{ title: 'US approves 500 Patriot missiles' }, { title: 'Zelenskyy urges faster Patriot deliveries' }, { title: 'Canada gives €500m to Ukraine' }, { title: 'Kabila turns rebel leader in Congo' }];
+  assert.deepEqual(checkGroups(heads, [[0, 1, 2, 3]]), [[0, 1]]); // «500» alone ties nothing
 });
 
 test('same event without the model: headlines in different languages that share telling words', () => {
@@ -234,5 +237,6 @@ test('a summary is two or three sentences', async () => {
   const { shape } = await import('../../src/lib/news.js');
   assert.deepEqual(shape('Перше речення. Друге — про США. Третє! Четверте?'), { text: 'Перше речення. Друге — про США. Третє!', n: 3 });
   assert.equal(shape('Лише одне речення про «Patriot».').n, 1);
+  assert.deepEqual(shape('Перше речення. Друге речення. Третє обірване на кшталт контенту,'), { text: 'Перше речення. Друге речення.', n: 2 });
   assert.equal(shape('Delegations met on 30 Oct. 2026 in Geneva. Talks go on.').n, 2);
 });
