@@ -23,7 +23,8 @@ const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 // A small model that sees pictures: it tells a clean photo from one with words on it (about 256 tokens a picture).
-const VISION = env.CF_AI_VISION_MODEL || '@cf/google/gemma-3-12b-it';
+// The first one this account may use is kept (not every account is let in to every model).
+const VISIONS = env.CF_AI_VISION_MODEL ? [env.CF_AI_VISION_MODEL] : ['@cf/meta/llama-4-scout-17b-16e-instruct', '@cf/mistralai/mistral-small-3.1-24b-instruct', '@cf/google/gemma-3-12b-it'];
 const UA = 'ReactionCore/1.0 (+https://reactioncore.uk/news; news digest)'; // who asks, with a page to find out more (Wikimedia's policy)
 
 const read = async (id = 'issue') => (await db(`core_docs?kind=eq.news&id=eq.${id}&select=doc`).catch(() => []))[0]?.doc || null;
@@ -134,12 +135,20 @@ export async function hasText(url, deps = {}) {
   try {
     const { type, buf } = await (deps.fetchImage || fetchImage)(url);
     const data = `data:${type.split(';')[0]};base64,${Buffer.from(buf).toString('base64')}`;
-    const r = await run([{ role: 'user', content: [{ type: 'text', text: TEXT_CHECK }, { type: 'image_url', image_url: { url: data } }] }], 4, VISION);
+    const msg = [{ role: 'user', content: [{ type: 'text', text: TEXT_CHECK }, { type: 'image_url', image_url: { url: data } }] }];
+    let r;
+    for (;;) {
+      try { r = await run(msg, 4, VISIONS[0]); break; } catch (e) {
+        // A model this account is not let in to, or one that takes no pictures: the next one, for good.
+        if (VISIONS.length > 1 && /AI (403|400|404)/.test(String(e?.message))) { VISIONS.shift(); continue; }
+        throw e;
+      }
+    }
     const a = String(r || '').trim().toLowerCase();
-    visionWhy = `answer: ${a.slice(0, 40)}`;
+    visionWhy = `${VISIONS[0]}: ${a.slice(0, 40)}`;
     return /^(yes|так)/.test(a) ? true : /^(no|ні)/.test(a) ? false : null;
   } catch (e) {
-    visionWhy = String(e?.message || e).slice(0, 200);
+    visionWhy = `${VISIONS[0]}: ${String(e?.message || e).slice(0, 200)}`;
     if (/neurons|429/.test(String(e?.message))) visionSpent = true; // the day's allowance: stop asking
     return null;
   }
