@@ -119,8 +119,12 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
         return ok({ success: true, result: { response: JSON.stringify({ keep: Object.fromEntries(lines.map((l, i) => [String(i + 1), ch3 && / two —/.test(l) ? 0 : 1])) }) } });
       }
       if (m[0].content.includes('Знайди групи')) {
-        editorSaw = lines;
-        return ok({ success: true, result: { response: JSON.stringify({ same: [[1, 2]], key: [1, 3, 5, 7, 9] }) } });
+        // One event: the first two headlines from the same feed (they share a word, so the group is trusted).
+        const slug = (l) => /^\d+\. (\S+)/.exec(l)[1];
+        const a = lines.findIndex((l, i) => lines.some((m2, k) => k > i && slug(m2) === slug(l)));
+        const b = lines.findIndex((l, k) => k > a && slug(l) === slug(lines[a]));
+        editorSaw = [lines[a], lines[b]];
+        return ok({ success: true, result: { response: JSON.stringify({ same: [[a + 1, b + 1]], key: [1, 3, 5, 7, 9] }) } });
       }
       const n = (m[1].content.match(/^\d+\./gm) || []).length;
       if (m[0].content.startsWith('Translate')) {
@@ -166,7 +170,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
       const sites = SECTIONS.find((x) => x.id === s.id).feeds.map((f) => new URL(f).hostname.replace(/^(www|feeds|rss|news)\./, ''));
       assert.ok(s.items.every((x) => sites.some((h) => x.url.includes(h.split('.')[0].replace(/\W/g, '')))), s.id);
     }
-    // The editor said news 1 and 2 are one event: only one of them is in the issue.
+    // The editor said these two are one event: only one of them is in the issue.
     const twin = editorSaw.slice(0, 2).map((l) => /^\d+\. (.+)$/.exec(l)[1]);
     assert.equal(j.sections.flatMap((s) => s.items).filter((x) => twin.includes(x.title)).length, 1);
     // No picture in the feed or on the page: a photo from Wikimedia Commons.
@@ -197,6 +201,7 @@ test('off-topic news, emoji pictures and empty phrases stay out', async () => {
   assert.ok(offTopic({ title: 'Захищено: Британський лучник проти стерв’ятників' }));
   assert.ok(offTopic({ title: 'كيف يمكن للقطيعة بين الجزائر والإمارات' }));
   assert.ok(!offTopic({ title: 'US approves sale of 500 Patriot missiles to Ukraine' }));
+  assert.ok(offTopic({ title: 'Hear me out: maybe Norway should give the prize', url: 'https://www.theguardian.com/commentisfree/2026/oct/31/x' }));
   assert.equal(itemImage('<item><media:thumbnail url="https://s.w.org/images/core/emoji/17.0.2/72x72/25ab.png"/></item>'), '');
   const [s] = readSummaries('{"summaries":["Армія РФ завдала удару по Харкову. Це сталося в Харкові. Київ вимагає更多 перехоплювачів."]}', [{ title: 'x' }]);
   assert.equal(s.text, 'Армія РФ завдала удару по Харкову. Київ вимагає перехоплювачів.');

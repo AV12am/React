@@ -16,7 +16,7 @@ import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickIt
 
 
 const MIN = 60000;
-const VERSION = 9;
+const VERSION = 10;
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -76,9 +76,14 @@ async function summarize(items, tries = 2) {
     return out;
   } catch { return tries > 1 ? summarize(items, tries - 1) : readSummaries('', items); }
 }
-async function translate(texts) {
-  if (!on() || !texts.length) return { t: texts.map(() => ''), q: texts.map(() => '') };
-  try { return readTranslations(await ask(translatePrompt(texts), 1300), texts); } catch { return { t: texts.map(() => ''), q: texts.map(() => '') }; }
+async function translate(texts, tries = 2) {
+  const none = { t: texts.map(() => ''), q: texts.map(() => '') };
+  if (!on() || !texts.length) return none;
+  try {
+    const out = readTranslations(await ask(translatePrompt(texts), 1300), texts);
+    if (tries > 1 && out.t.filter(Boolean).length < texts.length) return translate(texts, tries - 1); // missing ones: once more
+    return out;
+  } catch { return tries > 1 ? translate(texts, tries - 1) : none; }
 }
 
 // A news item with no picture of its own: a photo of its subject from Wikimedia Commons (an open,
@@ -151,7 +156,16 @@ export async function makeIssue(now = Date.now()) {
   const live = pool.map((_, i) => i).filter((i) => sec[i] && !drop.has(i));
   const bySec = Object.fromEntries(own.map((s) => [s.id, pickItems(live.filter((i) => sec[i] === s.id).map((i) => ({ ...pool[i], i })), now, POOL).map((x) => x.i)]));
   const SPARE = 2; // candidates beyond five, for the news whose summary comes out shorter than two sentences
-  const key = readPick(JSON.stringify({ pick: (events?.key || []).filter((i) => live.includes(i)).map((i) => i + 1) }), pool, KEY_COUNT + SPARE, roundRobin(own.map((s) => bySec[s.id])));
+  // The key news: the editor's ranking, at most one from a section, and never from a section left with fewer than
+  // three — the key news must not empty the chapters they come from.
+  const ranked = readPick(JSON.stringify({ pick: (events?.key || []).filter((i) => live.includes(i)).map((i) => i + 1) }), pool, live.length, roundRobin(own.map((s) => bySec[s.id])));
+  const key = [];
+  const took = new Set();
+  for (const i of ranked) {
+    if (key.length >= KEY_COUNT + SPARE) break;
+    if (took.has(sec[i]) || bySec[sec[i]].length < 4) continue;
+    key.push(i); took.add(sec[i]);
+  }
   const picked = SECTIONS.map((s) => (s.key ? key : bySec[s.id].filter((i) => !key.includes(i)).slice(0, PER_SECTION + SPARE)).map((i) => pool[i]));
 
   // 3. Pictures from the article pages and the Ukrainian summaries, side by side; then the news to keep:

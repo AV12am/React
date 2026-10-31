@@ -122,6 +122,7 @@ export const POOL = 20;
 /** Light news (holidays, films, horoscopes, sport) — kept out of every section. */
 export const offTopic = (x) => SOFT.test(x.title || '')
   || /^(захищено|protected|private)\s*:/i.test(x.title || '') // a password-protected post has no text to retell
+  || /\/(commentisfree|opinions?|podcasts?|videos?|live)\//i.test(x.url || '') // columns, podcasts, videos, live pages: not news
   || !/[a-zа-яіїєґё]{3}/i.test(x.title || ''); // headlines in scripts the issue does not carry (Arabic, Chinese …)
 export const KEY_COUNT = 5;
 
