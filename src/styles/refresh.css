@@ -430,3 +430,5 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
   .ni-word--context, .ni-word--news { animation: none; clip-path: none; opacity: 1; }
   .news-intro, .news-intro__art { transition: none; }
 }
+/* the heading's «News» as the opening writes it: italic, a shade softer */
+.news__brand-news { font-style: italic; color: var(--ink-2); margin-left: .12em; }

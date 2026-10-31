@@ -83,7 +83,7 @@ export function NewsPage() {
   return (
     <main className={`news-page ${introGone ? '' : 'is-intro'}`}>
       <header className="news-page__head">
-        <h1 className="vx-h1 news__brand"><ContextMark size={26} title="" /> CONTEXT News</h1>
+        <h1 className="vx-h1 news__brand"><ContextMark size={26} title="" /> CONTEXT <em className="news__brand-news">News</em></h1>
         <div className="toolbar">
           <div className="segmented" role="group" aria-label={t.lang}>
             <button className={lang === 'uk' ? 'is-active' : ''} aria-pressed={lang === 'uk'} onClick={() => setLang('uk')}>УКР</button>
