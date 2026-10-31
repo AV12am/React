@@ -8,7 +8,7 @@ import { ContextMark, Loader } from '../brand/Mark.jsx';
 import { supabaseOn, authHeaders } from '../lib/supabase.js';
 import { saveFile } from '../lib/io.js';
 import { ReportPreview } from './Analysis.jsx';
-import { fmtWhen, issueTitle, issueFileName, thumb, newsPdf, newsDocx } from '../lib/newsExport.js';
+import { issueTitle, issueFileName, thumb, newsPdf, newsDocx } from '../lib/newsExport.js';
 
 const api = (q = '') => new URL(`api/pulse?news=1${q.replace(/^\?/, '&')}`, document.baseURI);
 
@@ -62,12 +62,11 @@ export function News() {
     <div className="page news">
       <header className="page__head">
         <div>
-          <div className="vx-eyebrow news__brand"><ContextMark size={18} title="" /> CONTEXT News</div>
-          <h1 className="vx-h1">
-            {issue ? issueTitle(issue).replace('CONTEXT News · ', '') : 'Випуск'}{' '}
+          <h1 className="vx-h1 news__brand">
+            <ContextMark size={26} title="" /> CONTEXT News{' '}
             <InfoTip title="CONTEXT News">Кожен розділ збирається лише зі своїх відкритих джерел: чотири найсвіжіші матеріали за дві доби, з мініатюрою від самого видання. Стислий виклад робить CONTEXT лише за текстом джерела; повний матеріал — за посиланням. Випуск оновлюється раз на годину.</InfoTip>
           </h1>
-          {issue?.at && <div className="vx-hint">{`Зібрано ${fmtWhen(issue.at)}`}{issue.stale ? ' · джерела зараз не відповідають, показано попередній випуск' : ''}</div>}
+          {issue?.stale && <div className="vx-hint">Джерела зараз не відповідають — показано попередній випуск.</div>}
         </div>
         <div className="toolbar">
           <button className="vx-btn vx-btn--sm" disabled={!!busy} onClick={() => load(true)}>{busy === 'refresh' ? <Loader size={14} label="Оновлюю" /> : <Icon name="refresh" />} Оновити</button>
@@ -88,11 +87,7 @@ export function News() {
                   <a className="news__pic" href={x.url} target="_blank" rel="noopener noreferrer" aria-label={x.title}>
                     {x.image ? <img src={x.image} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; }} /> : <ContextMark size={28} title="" />}
                   </a>
-                  <div className="news__text">
-                    <a className="news__head" href={x.url} target="_blank" rel="noopener noreferrer" data-no-i18n="">{x.title}</a>
-                    <p className="news__sum" data-no-i18n="">{x.summary}</p>
-                    <div className="news__meta vx-hint">{x.domain}{x.at ? ` · ${fmtWhen(x.at)}` : ''}{x.ai ? '' : ' · текст джерела'}</div>
-                  </div>
+                  <p className="news__sum" data-no-i18n="">{x.summary}</p>
                 </article>
               ))}
             </div>

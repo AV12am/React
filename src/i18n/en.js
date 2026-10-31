@@ -1,7 +1,7 @@
 // English for the interface: every Ukrainian text of the code (buttons, headings, fields, messages) and its translation.
 // EXACT — whole texts; TEMPLATES — texts with {} for the parts that change (numbers, names), filled in order. See dom.js.
 /* eslint-disable */
-export const EXACT = {"Свіжих матеріалів у джерелах розділу немає.":"No fresh items in this section’s sources.",
+export const EXACT = {"Джерела зараз не відповідають — показано попередній випуск.":"The sources are not answering now — showing the previous issue.","Свіжих матеріалів у джерелах розділу немає.":"No fresh items in this section’s sources.",
 "Випуск":"Issue",
 "Оновлюю":"Refreshing",
 "Збираю":"Building",
