@@ -159,3 +159,50 @@ export async function newsDocx(issue, pics = new Map(), lang = 'uk') {
   const doc = new Document({ creator: 'Reaction Core · CONTEXT', title: issueTitle(issue, lang), sections: [{ properties: { page: { margin: { top: 1000, bottom: 1000, left: 960, right: 960 } } }, children }] });
   return Packer.toBlob(doc);
 }
+
+// ── PowerPoint: a portrait A4 deck, a slide for each section ──────────────────────────────────────────
+// The same rows as the PDF — the thumbnail on the left, the summary on the right, justified — so a section
+// that fits a PDF page fits its slide.
+const toB64 = (bytes) => {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+};
+export async function newsPptx(issue, pics = new Map(), lang = 'uk') {
+  const { default: PptxGenJS } = await import('pptxgenjs');
+  const deck = new PptxGenJS();
+  deck.defineLayout({ name: 'A4_PORTRAIT', width: 8.27, height: 11.69 });
+  deck.layout = 'A4_PORTRAIT';
+  deck.title = issueTitle(issue, lang);
+  deck.company = 'Reaction Core · CONTEXT';
+  const FONT = 'Georgia';
+  const X = 0.62;
+  const W = 8.27 - 2 * X;
+  const PIC = { w: 2.1, h: 1.575 };
+  const TX = X + PIC.w + 0.22;
+  const TW = W - PIC.w - 0.22;
+  const sections = issue.sections;
+  sections.forEach((s, k) => {
+    const slide = deck.addSlide();
+    slide.background = { color: 'FFFFFF' };
+    let y = 0.6;
+    slide.addText((s.part || s.title).toUpperCase(), { x: X, y, w: W, h: 0.3, fontFace: FONT, fontSize: 11, bold: true, color: '8C1C32', charSpacing: 1, margin: 0 });
+    y += 0.32;
+    if (s.part && s.title) { slide.addText(s.title.toUpperCase(), { x: X, y, w: W, h: 0.28, fontFace: FONT, fontSize: 10, bold: true, color: '111111', margin: 0 }); y += 0.3; }
+    slide.addShape(deck.ShapeType.line, { x: X, y: y + 0.04, w: W, h: 0, line: { color: 'BBBBBB', width: 0.5 } });
+    y += 0.22;
+    if (!s.items.length) slide.addText(EMPTY[lang] || EMPTY.uk, { x: X, y, w: W, h: 0.3, fontFace: FONT, fontSize: 11, italic: true, color: '888888', margin: 0 });
+    for (const x of s.items) {
+      const lines = Math.ceil(String(x.summary || '').length / 66);
+      const textH = Math.max(0.3, lines * 0.205);
+      const rowH = Math.max(PIC.h, textH);
+      const pic = x.image && pics.get(x.image);
+      if (pic) slide.addImage({ data: `data:image/jpeg;base64,${toB64(pic.bytes)}`, x: X, y, w: PIC.w, h: PIC.h, hyperlink: x.url ? { url: x.url } : undefined });
+      else slide.addShape(deck.ShapeType.rect, { x: X, y, w: PIC.w, h: PIC.h, fill: { color: 'F0F0F0' }, line: { color: 'F0F0F0' } });
+      slide.addText(x.summary, { x: TX, y, w: TW, h: rowH, fontFace: FONT, fontSize: 11, color: '111111', align: 'justify', valign: 'top', margin: 0, paraSpaceAfter: 0 });
+      y += rowH + 0.24;
+    }
+    slide.addText(`CONTEXT News · ${k + 1} / ${sections.length}`, { x: X, y: 11.69 - 0.45, w: W, h: 0.2, fontFace: FONT, fontSize: 8, color: '6B6B6B', margin: 0 });
+  });
+  return deck.write({ outputType: 'blob' });
+}

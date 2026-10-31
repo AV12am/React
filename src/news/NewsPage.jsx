@@ -7,7 +7,7 @@ import { ReportPreview } from '../components/viewers.jsx';
 import { ContextMark, Loader } from '../brand/Mark.jsx';
 import { NewsIntro } from './NewsIntro.jsx';
 import { saveFile } from '../lib/io.js';
-import { issueFileName, thumb, newsPdf, newsDocx, localize } from '../lib/newsExport.js';
+import { issueFileName, thumb, newsPdf, newsDocx, newsPptx, localize } from '../lib/newsExport.js';
 
 // The page's own words in both languages (the platform's translator is not loaded here).
 const T = {
@@ -70,6 +70,13 @@ export function NewsPage() {
     setBusy(kind);
     try {
       const pics = await pictures();
+      if (kind === 'pptx') {
+        // PowerPoint has no preview here: the deck is saved straight away.
+        const blob = await newsPptx(shown, pics, lang);
+        const res = await saveFile(issueFileName(issue, 'pptx', lang), blob);
+        if (res !== 'saved' && res !== 'declined') setErr(t.save);
+        return;
+      }
       const blob = kind === 'pdf' ? await newsPdf(shown, pics, lang) : await newsDocx(shown, pics, lang);
       setPreview({ kind, blob, name: issueFileName(issue, kind === 'pdf' ? 'pdf' : 'docx', lang) });
     } catch (e) { setErr(e.message || t.fail); } finally { setBusy(''); }
@@ -91,6 +98,7 @@ export function NewsPage() {
           </div>
           <button className="vx-btn vx-btn--sm" disabled={!issue || !!busy} onClick={() => make('pdf')}>{busy === 'pdf' ? <Loader size={14} label={t.making} /> : <Icon name="file" />} PDF</button>
           <button className="vx-btn vx-btn--sm" disabled={!issue || !!busy} onClick={() => make('docx')}>{busy === 'docx' ? <Loader size={14} label={t.making} /> : <Icon name="download" />} Word</button>
+          <button className="vx-btn vx-btn--sm" disabled={!issue || !!busy} onClick={() => make('pptx')}>{busy === 'pptx' ? <Loader size={14} label={t.making} /> : <Icon name="download" />} PowerPoint</button>
         </div>
       </header>
       {err && <div className="vx-error">{err}</div>}
