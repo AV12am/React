@@ -12,6 +12,7 @@
 // Cloudflare Workers AI from the item's own feed text (src/lib/news.js), or that text shortened when the model
 // is not available. Section 1 is the day's key news, chosen by the model from the headlines of all the others.
 import { json, db, env } from './_core.js';
+import sample from '../src/news/sample.js';
 import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords } from '../src/lib/news.js';
 
 
@@ -269,7 +270,7 @@ export async function newsGet(req) {
     // A thumbnail for the documents: only one the current issue holds — never an arbitrary address.
     const img = q.get('img');
     if (img) {
-      const known = (cached?.sections || []).some((s) => s.items.some((x) => x.image === img));
+      const known = [...(cached?.sections || []), ...sample.sections].some((s) => s.items.some((x) => x.image === img)); // the issue's own, or the hand-made test issue's
       if (!known) return json(404, { error: 'img', message: 'Немає такого зображення у випуску' });
       try {
         const res = await get(img, 8000, 'image/*');
