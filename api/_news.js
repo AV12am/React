@@ -127,16 +127,19 @@ async function fetchImage(u) {
 // true / false; null when it could not be told (no model, the picture unreadable) — such a picture stays.
 export const TEXT_CHECK = 'Look at this picture. Is there any written text on it — a headline, caption, title, slogan, label, watermark with words, subtitles, a poster or a screenshot of text? Small text on a uniform or a vehicle number does not count. Answer only yes or no.';
 let visionSpent = false;
+export let visionWhy = ''; // why the last check could not tell (for the imgcheck diagnosis)
 export async function hasText(url, deps = {}) {
   const run = deps.ask || ask;
-  if ((!deps.ask && !on()) || visionSpent || !url || url.startsWith('/')) return null;
+  if ((!deps.ask && !on()) || visionSpent || !url || url.startsWith('/')) { visionWhy = visionSpent ? 'spent' : 'off'; return null; }
   try {
     const { type, buf } = await (deps.fetchImage || fetchImage)(url);
     const data = `data:${type.split(';')[0]};base64,${Buffer.from(buf).toString('base64')}`;
     const r = await run([{ role: 'user', content: [{ type: 'text', text: TEXT_CHECK }, { type: 'image_url', image_url: { url: data } }] }], 4, VISION);
     const a = String(r || '').trim().toLowerCase();
+    visionWhy = `answer: ${a.slice(0, 40)}`;
     return /^(yes|так)/.test(a) ? true : /^(no|ні)/.test(a) ? false : null;
   } catch (e) {
+    visionWhy = String(e?.message || e).slice(0, 200);
     if (/neurons|429/.test(String(e?.message))) visionSpent = true; // the day's allowance: stop asking
     return null;
   }
@@ -326,7 +329,8 @@ export async function newsGet(req) {
     if (check) {
       const known = [...(cached?.sections || []), ...sample.sections].some((s) => s.items.some((x) => x.image === check));
       if (!known) return json(404, { error: 'img', message: 'Немає такого зображення у випуску' });
-      return json(200, { text: await hasText(check) });
+      const text = await hasText(check);
+      return json(200, { text, why: visionWhy });
     }
 
     // A thumbnail for the documents: only one the current issue holds — never an arbitrary address.
