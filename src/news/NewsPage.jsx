@@ -1,6 +1,6 @@
-// The standalone CONTEXT News page: three sections, four news each — the thumbnail on the left, the short
-// summary on the right; the issue as PDF or Word, previewed before it is saved. No sign-in: the issue is
-// public news from open sources, kept an hour on the server (api/_news.js).
+// The standalone CONTEXT News page: five chapters, four or five news a section — the thumbnail on the left, the
+// short summary on the right, justified; the issue as PDF or Word, previewed before it is saved. No sign-in: the
+// issue is public news from open sources, made once a day at 17:00 Kyiv time on the server (api/_news.js).
 import { useEffect, useState } from 'react';
 import { Icon } from '../components/Icon.jsx';
 import { ReportPreview } from '../components/viewers.jsx';
@@ -23,11 +23,12 @@ export function NewsPage() {
         const res = await fetch(api());
         const j = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(j.message || `HTTP ${res.status}`);
-        if (live) { setIssue(j); setErr(''); }
+        if (live && j.sections?.length) { setIssue(j); setErr(''); }
+        else if (live && j.making) setTimeout(load, 20000); // another reader's request is making it right now
       } catch (e) { if (live) setErr(`Випуск зараз недоступний: ${e.message}`); }
     };
     load();
-    const t = setInterval(load, 30 * 60000);
+    const t = setInterval(load, 60 * 60000);
     return () => { live = false; clearInterval(t); };
   }, []);
 
@@ -70,7 +71,7 @@ export function NewsPage() {
       {!issue && !err && <div className="news-page__wait"><Loader size={40} label="Збираю випуск" /><span className="vx-hint">Збираю випуск — перше відкриття може тривати до хвилини.</span></div>}
       {issue?.sections.map((s) => (
         <section key={s.id} className="news__section">
-          <h2 className="news__title">{s.title}</h2>
+          <h2 className="news__title">{s.part}{s.title && <span className="news__sub">{s.title}</span>}</h2>
           {!s.items.length ? <div className="vx-hint">Свіжих матеріалів у джерелах розділу немає.</div> : (
             <div className="news__list">
               {s.items.map((x) => (

@@ -1,7 +1,8 @@
-// CONTEXT News: feeds with thumbnails, four fresh items a section, summaries from the item's own text only.
+// CONTEXT News: feeds with thumbnails, four or five items a section, summaries from the item's own text only,
+// one issue a day at 17:00 Kyiv.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SECTIONS, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, itemImage } from '../../src/lib/news.js';
+import { SECTIONS, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, itemImage, issueTime, fitItems, readPick, keyPrompt } from '../../src/lib/news.js';
 
 const RSS = `<rss xmlns:media="http://search.yahoo.com/mrss/"><channel>
 <item><title>Talks resume in Geneva</title><link>https://www.bbc.co.uk/news/1</link><pubDate>Fri, 30 Oct 2026 08:00:00 GMT</pubDate>
@@ -14,9 +15,33 @@ const RSS = `<rss xmlns:media="http://search.yahoo.com/mrss/"><channel>
 <item><title>Old news</title><link>https://www.bbc.co.uk/news/5</link><pubDate>Mon, 20 Oct 2026 08:00:00 GMT</pubDate></item>
 </channel></rss>`;
 
-test('three sections, each with its own sources', () => {
-  assert.equal(SECTIONS.length, 3);
-  for (const s of SECTIONS) assert.ok(s.feeds.length >= 2 && s.feeds.every((u) => u.startsWith('https://')), s.id);
+test('the issue’s structure: key news first, then chapters 2–5, each subsection with its own sources', () => {
+  assert.deepEqual(SECTIONS.map((s) => (s.title || s.part).split(' ')[0] === 'РОЗДІЛ' ? s.part.split(' |')[0] : s.title.split(' ')[0]),
+    ['РОЗДІЛ 1', '2.1', '2.2', 'РОЗДІЛ 3', '4.1', '4.2', '5.1', '5.2']);
+  assert.ok(SECTIONS[0].key && !SECTIONS[0].feeds.length);
+  for (const s of SECTIONS.slice(1)) assert.ok(s.feeds.length >= 3 && s.feeds.every((u) => u.startsWith('https://')), s.id);
+});
+
+test('an issue a day: the latest 17:00 in Kyiv, in winter and in summer time', () => {
+  assert.equal(new Date(issueTime(Date.parse('2026-10-31T14:59:00Z'))).toISOString(), '2026-10-30T15:00:00.000Z'); // 16:59 EET
+  assert.equal(new Date(issueTime(Date.parse('2026-10-31T15:00:00Z'))).toISOString(), '2026-10-31T15:00:00.000Z'); // 17:00 EET
+  assert.equal(new Date(issueTime(Date.parse('2026-07-01T14:30:00Z'))).toISOString(), '2026-07-01T14:00:00.000Z'); // 17:30 EEST
+  assert.equal(new Date(issueTime(Date.parse('2026-07-01T00:30:00Z'))).toISOString(), '2026-06-30T14:00:00.000Z'); // 03:30 EEST
+});
+
+test('four news always, a fifth only when it fits the page', () => {
+  const short = Array.from({ length: 6 }, () => ({ summary: 'x'.repeat(200) }));
+  const long = Array.from({ length: 6 }, () => ({ summary: 'x'.repeat(560) }));
+  assert.equal(fitItems(short).length, 5);
+  assert.equal(fitItems(long).length, 4);
+  assert.equal(fitItems(short.slice(0, 3)).length, 3);
+});
+
+test('key news: the model’s choice, filled up from each section’s first news when it gives too few', () => {
+  const items = Array.from({ length: 8 }, (_, i) => ({ title: `N${i}` }));
+  assert.match(keyPrompt(items)[1].content, /^1\. N0\n2\. N1/);
+  assert.deepEqual(readPick('{"pick":[3,3,1,99]}', items, 5, [0, 4, 6, 2, 7]), [2, 0, 4, 6, 7]);
+  assert.deepEqual(readPick('nonsense', items, 3, [5, 1, 7]), [5, 1, 7]);
 });
 
 test('feeds give title, link, date, text and the thumbnail in any of its forms', () => {
@@ -32,7 +57,7 @@ test('four freshest, pictures first, no older than two days, a source at most tw
   const now = Date.parse('2026-10-30T10:00:00Z');
   const items = parseNewsFeed(RSS);
   const many = [...items, ...[6, 7, 8].map((n) => ({ title: `BBC ${n}`, url: `https://www.bbc.co.uk/news/${n}`, domain: 'bbc.co.uk', at: '2026-10-30T09:00:00Z', image: 'https://x/p.jpg' }))];
-  const pick = pickItems(many, now);
+  const pick = pickItems(many, now, 4);
   assert.equal(pick.length, 4);
   assert.ok(!pick.some((x) => x.title === 'Old news'));
   assert.ok(pick.filter((x) => x.domain === 'bbc.co.uk').length <= 2);
@@ -56,13 +81,13 @@ test('summaries: asked from the items’ own text; missing ones fall back to tha
   assert.deepEqual(readSummaries('not json', items).map((x) => x.ai), [false, false]);
 });
 
-test('server: an issue of three sections with summaries, kept an hour; only the issue’s own pictures are passed on', async () => {
+test('server: an issue of eight sections with summaries, kept until 17:00; only the issue’s own pictures are passed on', async () => {
   Object.assign(process.env, { SUPABASE_URL: 'https://sb.test', SUPABASE_SERVICE_ROLE_KEY: 'svc', CF_AI_TOKEN: 'cf', CF_ACCOUNT_ID: 'acc' });
   const docs = {};
   let ai = 0;
   const real = globalThis.fetch;
   const now = new Date().toUTCString();
-  const rss = (host) => `<rss xmlns:media="m"><item><title>${host} one</title><link>https://${host}/1</link><pubDate>${now}</pubDate><description>Text one.</description><media:thumbnail url="https://img.${host}/1.jpg"/></item>
+  const rss = (host) => `<rss xmlns:media="m"><item><title>${host} one</title><link>https://${host}/1</link><pubDate>${now}</pubDate><description>Text one about Ukraine.</description><media:thumbnail url="https://img.${host}/1.jpg"/></item>
     <item><title>${host} two</title><link>https://${host}/2</link><pubDate>${now}</pubDate><description>Text two.</description></item></rss>`;
   globalThis.fetch = async (url, opts = {}) => {
     const u = decodeURIComponent(String(url));
@@ -71,8 +96,15 @@ test('server: an issue of three sections with summaries, kept an hour; only the 
     if (u.includes('core_members?email=eq')) return ok([{ id: 'u1', email: 'me@x.test', doc: { status: 'active', clearance: 0 } }]);
     if (u.includes('core_settings')) return ok([{ value: false }]);
     if (u.includes('core_verified')) return ok([]);
-    if (u.includes('kind=eq.news&id=eq.issue')) return ok(docs.issue ? [{ doc: docs.issue }] : []);
-    if (u.includes('core_docs?on_conflict')) { const b = JSON.parse(opts.body); docs[b.id] = b.doc; return ok(null); }
+    if (opts.method === 'DELETE') { for (const k of Object.keys(docs)) if (k.startsWith('make-')) delete docs[k]; return ok(null); }
+    const doc = /kind=eq\.news&id=eq\.([\w-]+)/.exec(u);
+    if (doc) return ok(docs[doc[1]] ? [{ doc: docs[doc[1]] }] : []);
+    if (u.includes('core_docs?on_conflict')) {
+      const b = JSON.parse(opts.body);
+      if (!(opts.headers.Prefer.includes('ignore-duplicates') && docs[b.id])) docs[b.id] = b.doc;
+      return ok(null);
+    }
+    if (u.includes('api.cloudflare.com') && JSON.parse(opts.body).messages[0].content.includes('випусковий')) { ai++; return ok({ success: true, result: { response: '{"pick": [2, 9, 15, 22, 30]}' } }); }
     if (u.includes('api.cloudflare.com')) { ai++; const n = (JSON.parse(opts.body).messages[1].content.match(/^\d+\./gm) || []).length; return ok({ success: true, result: { response: JSON.stringify({ summaries: Array.from({ length: n }, (_, i) => `Стислий виклад новини номер ${i + 1}.`) }) } }); }
     if (u.startsWith('https://img.')) return new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/jpeg' } });
     const feed = SECTIONS.flatMap((s) => s.feeds).find((f) => f === u);
@@ -86,22 +118,32 @@ test('server: an issue of three sections with summaries, kept an hour; only the 
     const r = await call();
     const j = await r.json();
     assert.equal(r.status, 200);
-    assert.deepEqual(j.sections.map((s) => s.id), ['world', 'ukraine', 'analysis']);
+    assert.deepEqual(j.sections.map((s) => s.id), SECTIONS.map((s) => s.id));
+    assert.equal(j.for, new Date(issueTime()).toISOString());
     for (const s of j.sections) {
-      assert.equal(s.items.length, 4);
+      assert.ok(s.items.length >= 4 && s.items.length <= 5, `${s.id}: ${s.items.length}`);
       assert.ok(s.items.every((x) => x.image && x.summary && x.ai));
     }
-    assert.equal(ai, 3);
-    const again = await (await call()).json(); // within the hour: the kept issue, the model not asked again
-    assert.equal(again.at, j.at); assert.equal(ai, 3);
-    const pic = j.sections[0].items.find((x) => x.image).image;
+    // No news twice: the key ones leave their sections, and a feed shared by two sections feeds only one.
+    const urls = j.sections.flatMap((s) => s.items.map((x) => x.url));
+    assert.equal(new Set(urls).size, urls.length);
+    assert.ok(j.sections.find((s) => s.id === 'abroad-war').items.every((x) => / one$/.test(x.title)));
+    assert.ok(j.sections.find((s) => s.id === 'abroad-other').items.every((x) => / two$/.test(x.title)));
+    assert.equal(ai, 8); // 7 sections summarized + the key news chosen
+    const again = await (await call()).json(); // until the next 17:00: the same issue, the model not asked again
+    assert.equal(again.at, j.at); assert.equal(ai, 8);
+    const pic = j.sections[1].items.find((x) => x.image).image;
     assert.equal((await call(`?img=${encodeURIComponent(pic)}`)).status, 200);
     assert.equal((await call(`?img=${encodeURIComponent('https://evil.test/x.jpg')}`)).status, 404);
-    // Open to anyone with the link: the issue and its pictures without sign-in; a manual refresh only for members.
+    // Open to anyone with the link, and nothing anyone sends makes it anew before 17:00.
     const anon = (q) => import(`../../api/pulse.js?u=${Date.now()}`).then(({ GET }) => GET(new Request(`https://app.test/api/pulse?news=1${q}`)));
     assert.equal((await anon('')).status, 200);
     assert.equal((await anon(`&img=${encodeURIComponent(pic)}`)).status, 200);
-    assert.equal((await anon('&refresh=1')).status, 401);
-    assert.equal(ai, 3); // nobody outside made the model work
+    assert.equal((await (await anon('&refresh=1')).json()).at, j.at);
+    // An issue from before the latest 17:00 is made anew — once, even when two readers come at the same time.
+    docs.issue = { ...docs.issue, for: new Date(issueTime() - 86400000).toISOString() };
+    const [x, y] = await Promise.all([anon(''), anon('')]).then((rs) => Promise.all(rs.map((q) => q.json())));
+    assert.equal(ai, 16);
+    assert.ok([x, y].some((v) => v.for === new Date(issueTime()).toISOString()));
   } finally { globalThis.fetch = real; }
 });

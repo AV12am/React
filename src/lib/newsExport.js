@@ -1,5 +1,6 @@
 // CONTEXT News as PDF and Word: each section on a page of its own, every item a row — the thumbnail on the
-// left, the short summary on the right; no headline, date or source (the link stays on the picture in Word). Made in the browser, like the reports (src/lib/reportPdf.js).
+// left, the short summary on the right, justified to the column; no headline, date or source (the link stays
+// on the picture in Word). The server already chose four or five rows a section to fit the page (fitItems). Made in the browser, like the reports (src/lib/reportPdf.js).
 const A4 = [595.28, 841.89];
 const M = { l: 48, r: 48, t: 56, b: 52 };
 const INK = [0.07, 0.07, 0.07];
@@ -67,8 +68,9 @@ export async function newsPdf(issue, pics = new Map()) {
   const embedded = new Map();
   for (const s of issue.sections) {
     newPage(); // every section starts a page of its own
-    page.drawText(safe(s.title).toUpperCase(), { x: M.l, y: y - 10, size: 10, font: B, color: color(ACCENT) });
+    page.drawText(safe(s.part || s.title).toUpperCase(), { x: M.l, y: y - 10, size: 10, font: B, color: color(ACCENT) });
     y -= 16;
+    if (s.part && s.title) { page.drawText(safe(s.title).toUpperCase(), { x: M.l, y: y - 10, size: 9.5, font: B, color: color(INK) }); y -= 16; }
     page.drawLine({ start: { x: M.l, y }, end: { x: M.l + W, y }, thickness: 0.5, color: color([0.78, 0.78, 0.78]) });
     y -= 12;
     if (!s.items.length) { page.drawText('Свіжих матеріалів у джерелах розділу немає.', { x: M.l, y: y - 10, size: 10, font: F, color: color(MUTED) }); y -= 22; continue; }
@@ -88,7 +90,20 @@ export async function newsPdf(issue, pics = new Map()) {
         page.drawRectangle({ x: M.l, y: top - PIC.h, width: PIC.w, height: PIC.h, color: color([0.94, 0.94, 0.94]) });
       }
       let ty = top;
-      for (const l of body) { page.drawText(l, { x: tx, y: ty - 10.5, size: 10.5, font: F, color: color(INK) }); ty -= 15; }
+      body.forEach((l, k) => {
+        // Justified: every line but the last is spread to the column's width by widening the spaces.
+        const words = l.split(' ');
+        const gaps = words.length - 1;
+        const last = k === body.length - 1;
+        if (last || !gaps) page.drawText(l, { x: tx, y: ty - 10.5, size: 10.5, font: F, color: color(INK) });
+        else {
+          const extra = (tw - F.widthOfTextAtSize(l, 10.5)) / gaps;
+          const space = F.widthOfTextAtSize(' ', 10.5) + extra;
+          let wx = tx;
+          for (const w of words) { page.drawText(w, { x: wx, y: ty - 10.5, size: 10.5, font: F, color: color(INK) }); wx += F.widthOfTextAtSize(w, 10.5) + space; }
+        }
+        ty -= 15;
+      });
       y = top - rowH - 16;
     }
   }
@@ -99,13 +114,15 @@ export async function newsPdf(issue, pics = new Map()) {
 
 export async function newsDocx(issue, pics = new Map()) {
   const d = await import('docx');
-  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, VerticalAlign } = d;
+  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, VerticalAlign, AlignmentType } = d;
   const FONT = 'Georgia';
   const RED = '8C1C32';
   const none = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
   const children = [];
   issue.sections.forEach((s, k) => {
-    children.push(new Paragraph({ pageBreakBefore: k > 0, spacing: { after: 200 }, border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'BBBBBB', space: 4 } }, children: [new TextRun({ text: s.title.toUpperCase(), bold: true, color: RED, size: 20, font: FONT, characterSpacing: 20 })] }));
+    const sub = s.part && s.title;
+    children.push(new Paragraph({ pageBreakBefore: k > 0, spacing: { after: sub ? 60 : 200 }, border: sub ? undefined : { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'BBBBBB', space: 4 } }, children: [new TextRun({ text: (s.part || s.title).toUpperCase(), bold: true, color: RED, size: 20, font: FONT, characterSpacing: 20 })] }));
+    if (sub) children.push(new Paragraph({ spacing: { after: 200 }, border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'BBBBBB', space: 4 } }, children: [new TextRun({ text: s.title.toUpperCase(), bold: true, size: 19, font: FONT })] }));
     if (!s.items.length) { children.push(new Paragraph({ children: [new TextRun({ text: 'Свіжих матеріалів у джерелах розділу немає.', italics: true, color: '888888', font: FONT, size: 20 })] })); return; }
     const rows = s.items.map((x) => {
       const pic = x.image && pics.get(x.image);
@@ -118,7 +135,7 @@ export async function newsDocx(issue, pics = new Map()) {
           }),
           new TableCell({
             width: { size: 68, type: WidthType.PERCENTAGE }, borders: { top: none, bottom: none, left: none, right: none }, verticalAlign: VerticalAlign.TOP, margins: { bottom: 200 },
-            children: [new Paragraph({ children: [new TextRun({ text: x.summary, font: FONT, size: 22 })] })],
+            children: [new Paragraph({ alignment: AlignmentType.JUSTIFIED, children: [new TextRun({ text: x.summary, font: FONT, size: 22 })] })],
           }),
         ],
       });

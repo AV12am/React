@@ -90,6 +90,14 @@
     {
       "path": "/api/backup",
       "schedule": "15 3 * * 1"
+    },
+    {
+      "path": "/api/pulse?news=1&at=1700-eet",
+      "schedule": "2 15 * * *"
+    },
+    {
+      "path": "/api/pulse?news=1&at=1700-eest",
+      "schedule": "2 14 * * *"
     }
   ],
   "rewrites": [
