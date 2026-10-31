@@ -165,6 +165,10 @@ export async function makeIssue(now = Date.now()) {
   const { drop } = dropRepeats(pool, [...checkGroups(pool, events?.groups || []), ...sameEvents(pool)]);
   // The night's air-defence reports that open 2.1 (Russian claim) and 2.2 (Ukrainian Air Force) — never twice.
   const reports = { ru: findReport([...got.values()].flat(), 'ru', now), ua: findReport([...got.values()].flat(), 'ua', now) };
+  // What each feed gave and which headlines look like air-defence reports — to see why a report was not found.
+  note.feeds = Object.fromEntries([...got].map(([u, l]) => [host(u) + new URL(u).pathname.slice(0, 24), l.length]));
+  note.airHeads = [...got.values()].flat().filter((x) => /ППО|ПВО|протиповітрян|Повітрян\S* сил|беспилотн|БПЛА|БпЛА|drones?\b/i.test(x.title) && /\d{2,}/.test(x.title))
+    .sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 10).map((x) => `${String(x.at).slice(5, 16)} ${x.domain}: ${x.title.slice(0, 110)}`);
   const isReport = (x) => Object.values(reports).some((r) => r && (norm(r) === norm(x) || sharedWords(r, x) >= 3));
   const live = pool.map((_, i) => i).filter((i) => sec[i] && !drop.has(i) && !isReport(pool[i]));
   const bySec = Object.fromEntries(own.map((s) => [s.id, pickItems(live.filter((i) => sec[i] === s.id).map((i) => ({ ...pool[i], i })), now, POOL).map((x) => x.i)]));
