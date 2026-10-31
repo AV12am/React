@@ -108,8 +108,12 @@
       "schedule": "40 7 * * *"
     },
     {
-      "path": "/api/pulse?news=1&capture=1140",
-      "schedule": "40 9 * * *"
+      "path": "/api/pulse?news=1&capture=1040",
+      "schedule": "40 8 * * *"
+    },
+    {
+      "path": "/api/pulse?news=1&capture=1240",
+      "schedule": "40 10 * * *"
     }
   ],
   "rewrites": [
