@@ -10,7 +10,7 @@ import { saveFile } from '../lib/io.js';
 import { ReportPreview } from './Analysis.jsx';
 import { fmtWhen, issueTitle, issueFileName, thumb, newsPdf, newsDocx } from '../lib/newsExport.js';
 
-const api = (q = '') => new URL(`api/news${q}`, document.baseURI);
+const api = (q = '') => new URL(`api/pulse?news=1${q.replace(/^\?/, '&')}`, document.baseURI);
 
 export function News() {
   const { toast, dispatch } = useStore();

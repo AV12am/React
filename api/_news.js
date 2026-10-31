@@ -1,8 +1,9 @@
-// Vercel Function: CONTEXT News — an issue of short news, each section from its own open sources.
+// CONTEXT News — an issue of short news, each section from its own open sources. Served by api/pulse.js
+// (the Hobby plan allows 12 functions per deployment; files starting with «_» are not routes):
 //
-// GET /api/news              Authorization: Bearer <token>  → { at, sections: [{ id, title, items: [...] }] }
-// GET /api/news?refresh=1    the same, made anew (at most once every 5 minutes)
-// GET /api/news?img=<url>    a thumbnail of the current issue, for PDF and Word (only pictures the issue holds)
+// GET /api/pulse?news=1              Authorization: Bearer <token>  → { at, sections: [{ id, title, items }] }
+// GET /api/pulse?news=1&refresh=1    the same, made anew (at most once every 5 minutes)
+// GET /api/pulse?news=1&img=<url>    a thumbnail of the current issue, for PDF and Word (only pictures it holds)
 //
 // Each item: { title, url, domain, at, image, summary, ai } — summary is a 2–3 sentence Ukrainian retelling by
 // Cloudflare Workers AI from the item's own feed text (src/lib/news.js), or that text shortened when the model
@@ -10,7 +11,6 @@
 import { json, db, caller, env } from './_core.js';
 import { SECTIONS, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries } from '../src/lib/news.js';
 
-export const config = { maxDuration: 60 };
 
 const MIN = 60000;
 const HOUR = 60 * MIN;
@@ -69,7 +69,7 @@ export async function makeIssue(now = Date.now()) {
   return { at: new Date(now).toISOString(), sections };
 }
 
-export async function GET(req) {
+export async function newsGet(req) {
   try {
     const m = await caller(req);
     if (!m) return json(401, { error: 'signin', message: 'Потрібен вхід із підтвердженням ключем' });

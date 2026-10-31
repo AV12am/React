@@ -11,11 +11,12 @@
 // The result for the screen is kept for the hour (id 'world'), one refresh for the whole team.
 //
 // GET /api/pulse   Authorization: Bearer <Supabase access token>  → { at, index, headlines, source, provisional }
+import { newsGet } from './_news.js';
 import { json, db, caller } from './_core.js';
 import * as XLSX from 'xlsx';
 import { timeline, anxiety, QUERY, FEEDS, parseFeed, crisisShare, ownIndex, cleanHeadlines, sharesByDay, GPR_URL, parseGpr, gprIndex, ANALYSIS_FEEDS, pickHeadlines } from '../src/lib/pulse.js';
 
-export const config = { maxDuration: 30 };
+export const config = { maxDuration: 60 };
 
 const MIN = 60000;
 const HOUR = 60 * MIN;
@@ -106,6 +107,7 @@ export async function refresh(now = Date.now()) {
 }
 
 export async function GET(req) {
+  if (new URL(req.url).searchParams.has('news')) return newsGet(req); // CONTEXT News (api/_news.js)
   try {
     const m = await caller(req);
     if (!m) return json(401, { error: 'signin', message: 'Потрібен вхід із підтвердженням ключем' });

@@ -81,7 +81,7 @@ test('server: an issue of three sections with summaries, kept an hour; only the 
     return new Response('<html><head><meta property="og:image" content="https://img.page/og.jpg"></head></html>', { status: 200, headers: { 'content-type': 'text/html' } });
   };
   const token = `x.${Buffer.from(JSON.stringify({ session_id: 's' })).toString('base64url')}.y`;
-  const call = (q = '') => import(`../../api/news.js?t=${Date.now()}`).then(({ GET }) => GET(new Request(`https://app.test/api/news${q}`, { headers: { authorization: `Bearer ${token}` } })));
+  const call = (q = '') => import(`../../api/pulse.js?t=${Date.now()}`).then(({ GET }) => GET(new Request(`https://app.test/api/pulse?news=1${q.replace(/^\?/, '&')}`, { headers: { authorization: `Bearer ${token}` } })));
   try {
     const r = await call();
     const j = await r.json();
@@ -97,6 +97,6 @@ test('server: an issue of three sections with summaries, kept an hour; only the 
     const pic = j.sections[0].items.find((x) => x.image).image;
     assert.equal((await call(`?img=${encodeURIComponent(pic)}`)).status, 200);
     assert.equal((await call(`?img=${encodeURIComponent('https://evil.test/x.jpg')}`)).status, 404);
-    assert.equal((await import(`../../api/news.js?u=${Date.now()}`).then(({ GET }) => GET(new Request('https://app.test/api/news')))).status, 401);
+    assert.equal((await import(`../../api/pulse.js?u=${Date.now()}`).then(({ GET }) => GET(new Request('https://app.test/api/pulse?news=1')))).status, 401);
   } finally { globalThis.fetch = real; }
 });
