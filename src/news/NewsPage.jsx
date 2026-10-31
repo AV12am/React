@@ -8,6 +8,7 @@ import { ContextMark, Loader } from '../brand/Mark.jsx';
 import { NewsIntro } from './NewsIntro.jsx';
 import { saveFile } from '../lib/io.js';
 import { issueFileName, thumb, newsPdf, newsDocx, newsPptx, localize } from '../lib/newsExport.js';
+import { withLeadImages } from '../lib/news.js';
 
 // The page's own words in both languages (the platform's translator is not loaded here).
 const T = {
@@ -44,14 +45,14 @@ export function NewsPage() {
       // /news?sample=1 — the test issue put together by hand from real news (src/news/sample.js).
       if (new URLSearchParams(location.search).has('sample')) {
         const { default: sample } = await import('./sample.js');
-        if (live) setIssue(sample);
+        if (live) setIssue(withLeadImages(sample));
         return;
       }
       try {
         const res = await fetch(api());
         const j = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(j.message || `HTTP ${res.status}`);
-        if (live && j.sections?.length) { setIssue(j); setErr(''); }
+        if (live && j.sections?.length) { setIssue(withLeadImages(j)); setErr(''); }
         else if (live && j.making) setTimeout(load, 20000); // another reader's request is making it right now
       } catch (e) { if (live) setErr(`${T[savedLang()].down}: ${e.message}`); }
     };
@@ -66,7 +67,7 @@ export function NewsPage() {
     const out = new Map();
     await Promise.all(urls.map(async (u) => {
       try {
-        const res = await fetch(api(`&img=${encodeURIComponent(u)}`));
+        const res = await fetch(u.startsWith('/') ? u : api(`&img=${encodeURIComponent(u)}`)); // the site's own pictures directly
         if (res.ok) { const t = await thumb(await res.blob()); if (t) out.set(u, t); }
       } catch { /* that row goes without its picture */ }
     }));

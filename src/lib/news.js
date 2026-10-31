@@ -115,6 +115,14 @@ export function outlets(id) {
 }
 
 /** Candidates read per section; the page then holds four or five of them (fitItems). */
+// The two night-report leads (2.1 and 2.2) always carry the same picture of the site's own: only their numbers
+// change from day to day. Served from public/news-img, so it never depends on a source letting it be read.
+export const LEAD_IMAGE = { ru: '/news-img/lead-ru.jpg', ua: '/news-img/lead-ua.jpg' };
+export const withLeadImages = (issue) => (issue?.sections ? {
+  ...issue,
+  sections: issue.sections.map((s) => ({ ...s, items: s.items.map((x) => (x.lead && LEAD_IMAGE[x.lead] ? { ...x, image: LEAD_IMAGE[x.lead] } : x)) })),
+} : issue);
+
 export const PER_SECTION = 5;
 /** Fresh news read from each section's feeds before the editor sorts them. */
 export const POOL = 20;

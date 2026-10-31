@@ -13,7 +13,7 @@
 // is not available. Section 1 is the day's key news, chosen by the model from the headlines of all the others.
 import { json, db, env } from './_core.js';
 import sample from '../src/news/sample.js';
-import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords } from '../src/lib/news.js';
+import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, LEAD_IMAGE } from '../src/lib/news.js';
 
 
 const MIN = 60000;
@@ -110,6 +110,15 @@ async function commonsImage(q) {
   } catch { return ''; }
 }
 
+const COMMON_CAPS = /^(The|This|That|These|According|After|Before|During|Ukraine’s|Russia’s|January|February|March|April|May|June|July|August|September|October|November|December|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|President|Minister|Deputy|Office|Head|Leader|Supreme|Separate|Express|Federation|General|Staff|Defence|Forces|Ministry|Foreign|Republic)$/;
+// A Commons search for a news item: the names in its English summary (places, people, systems), else its title.
+export function commonsQuery(x) {
+  if (!x) return '';
+  const words = (x.summary_en || '').match(/(?<![.!?]\s)(?<!^)\b[A-Z][\p{L}\d-]{2,}/gu) || [];
+  const names = [...new Set(words.filter((w) => !COMMON_CAPS.test(w)))].slice(0, 3);
+  return names.length >= 2 ? names.join(' ') : (x.title || '').split(/\s+/).slice(0, 6).join(' ');
+}
+
 // The first news of each section in turn — the key news when the model cannot choose.
 function roundRobin(lists) {
   const out = [];
@@ -196,7 +205,7 @@ export async function makeIssue(now = Date.now()) {
     try {
       const [text, pic] = await Promise.all([r.article ? Promise.resolve(r.article) : articleText(r.url), withImage(r)]);
       const summary = composeReport(side, await ask(reportPrompt(side, `${r.title}\n${r.text || ''}\n${text}`), 300), r.at);
-      return summary ? { ...pic, summary, ai: true, n: 2, lead: side } : null;
+      return summary ? { ...pic, image: LEAD_IMAGE[side], summary, ai: true, n: 2, lead: side } : null;
     } catch { return null; }
   };
   const [pictured, uk, leadRu, leadUa] = await Promise.all([
@@ -272,13 +281,22 @@ export async function newsGet(req) {
     if (img) {
       const known = [...(cached?.sections || []), ...sample.sections].some((s) => s.items.some((x) => x.image === img)); // the issue's own, or the hand-made test issue's
       if (!known) return json(404, { error: 'img', message: 'Немає такого зображення у випуску' });
-      try {
-        const res = await get(img, 8000, 'image/*');
+      const fetchImage = async (u) => {
+        const res = await get(u, 8000, 'image/*');
         const type = res.headers.get('content-type') || '';
         const buf = await res.arrayBuffer();
-        if (!/^image\//.test(type) || buf.byteLength > 5 * 1024 * 1024) return json(415, { error: 'img', message: 'Не зображення' });
-        return new Response(buf, { status: 200, headers: { 'Content-Type': type, 'Cache-Control': 'private, max-age=3600' } });
-      } catch { return json(502, { error: 'img', message: 'Джерело не віддало зображення' }); }
+        if (!/^image\//.test(type) || buf.byteLength > 4 * 1024 * 1024) throw new Error('not an image');
+        return { type, buf };
+      };
+      const send = ({ type, buf }) => new Response(buf, { status: 200, headers: { 'Content-Type': type, 'Cache-Control': 'private, max-age=3600' } });
+      try { return send(await fetchImage(img)); } catch { /* the source would not give it: an open picture instead */ }
+      // When the source turns the picture away, a picture on the same subject from Wikimedia Commons stands in.
+      const item = [...(cached?.sections || []), ...sample.sections].flatMap((s) => s.items).find((x) => x.image === img);
+      try {
+        const alt = await commonsImage(commonsQuery(item));
+        if (alt) return send(await fetchImage(alt));
+      } catch { /* nothing open on the subject either */ }
+      return json(502, { error: 'img', message: 'Джерело не віддало зображення' });
     }
 
     // The current issue holds until the next 17:00 Kyiv.
