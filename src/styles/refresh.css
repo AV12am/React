@@ -383,3 +383,45 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 .news-page__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .news-page__wait { display: grid; justify-items: center; gap: 14px; padding: 80px 0; }
 @media (max-width: 700px) { .news-page { padding: calc(16px + env(safe-area-inset-top, 0px)) 16px 40px; gap: 18px; } }
+
+/* ── CONTEXT News opening (src/news/NewsIntro.jsx) ─────────────────────────────────────────────────────── */
+.news-intro { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: var(--bg); color: var(--ink); cursor: pointer; transition: opacity .5s var(--ease); }
+.news-intro.is-leaving { opacity: 0; pointer-events: none; }
+.news-intro__art { width: min(640px, 92vw); height: auto; overflow: visible; }
+.news-intro__art g, .news-intro__art path, .news-intro__art text { transform-box: view-box; transform-origin: 0 0; }
+/* the mark at the centre turns a little, then the seven pens and the core fall away */
+.ni-flower { animation: ni-flower 3s cubic-bezier(.4, 0, .2, 1) both; }
+@keyframes ni-flower {
+  0% { transform: translate(320px, 120px) rotate(-40deg) scale(.92); opacity: 0; }
+  12% { opacity: 1; }
+  38% { transform: translate(320px, 120px) rotate(0deg) scale(1); opacity: 1; }
+  58% { transform: translate(320px, 120px) rotate(18deg) scale(.6); opacity: 0; }
+  100% { transform: translate(320px, 120px) rotate(18deg) scale(.6); opacity: 0; }
+}
+/* the loose pen: turns with the mark, then glides left and tilts to the nib's angle, point down to the name */
+.ni-pen { animation: ni-pen 3s cubic-bezier(.4, 0, .2, 1) both; }
+@keyframes ni-pen {
+  0% { transform: translate(320px, 120px) rotate(-40deg) scale(1) translate(0, 0); opacity: 0; }
+  12% { opacity: 1; }
+  38% { transform: translate(320px, 120px) rotate(0deg) scale(1) translate(0, 0); opacity: 1; }
+  44% { transform: translate(320px, 106px) rotate(0deg) scale(1) translate(0, 0); }
+  68% { transform: translate(168px, 118px) rotate(145deg) scale(1.3) translate(0, 60px); opacity: 1; }
+  100% { transform: translate(168px, 118px) rotate(145deg) scale(1.3) translate(0, 60px); opacity: 1; }
+}
+.ni-pen__nib { opacity: 0; animation: ni-fade-in 3s linear both; }
+.ni-pen__petal { animation: ni-fade-out 3s linear both; }
+@keyframes ni-fade-in { 0%, 50% { opacity: 0; } 64%, 100% { opacity: 1; } }
+@keyframes ni-fade-out { 0%, 50% { opacity: 1; } 64%, 100% { opacity: 0; } }
+/* the name, written out from the nib: CONTEXT, then News */
+.ni-word { fill: currentColor; font: 500 64px/1 var(--font-display); letter-spacing: .02em; }
+.ni-word--context { clip-path: inset(0 100% 0 0); animation: ni-write .7s cubic-bezier(.3, 0, .2, 1) 2.05s both; }
+.ni-word--news { font-style: italic; fill: var(--ink-2); opacity: 0; animation: ni-rise .5s cubic-bezier(.3, 0, .2, 1) 2.7s both; }
+@keyframes ni-write { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes ni-rise { from { opacity: 0; transform: translate(0, 8px); } to { opacity: 1; transform: translate(0, 0); } }
+@media (prefers-reduced-motion: reduce) {
+  .ni-flower { animation: none; opacity: 0; }
+  .ni-pen { animation: none; transform: translate(168px, 118px) rotate(145deg) scale(1.3) translate(0, 60px); }
+  .ni-pen__petal { animation: none; opacity: 0; }
+  .ni-pen__nib { animation: none; opacity: 1; }
+  .ni-word--context, .ni-word--news { animation: none; clip-path: none; opacity: 1; }
+}

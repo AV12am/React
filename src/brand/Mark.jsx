@@ -58,7 +58,7 @@ export function Wordmark({ tagline = false }) {
 
 // CONTEXT, the assistant: one pen of the mark made into a steel nib — the petal's point, shoulders and diamond slit,
 // split down to the point, on a short engraved nib body; laid at a pen's angle, its point down toward the name.
-const NIB = 'M0 -96L13.44 -57.6L10.2 -44L10.2 -24L-10.2 -24L-10.2 -44L-13.44 -57.6Z'
+export const NIB = 'M0 -96L13.44 -57.6L10.2 -44L10.2 -24L-10.2 -24L-10.2 -44L-13.44 -57.6Z'
   + 'M0 -86.4L0.77 -65.28L3.07 -55.68L0.77 -46.08L0 -40L-0.77 -46.08L-3.07 -55.68L-0.77 -65.28Z'
   + 'M-0.42 -97L0.42 -97L0.42 -86L-0.42 -86Z'
   + 'M-10.4 -33L10.4 -33L10.4 -31.6L-10.4 -31.6Z';

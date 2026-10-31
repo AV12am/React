@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Icon } from '../components/Icon.jsx';
 import { ReportPreview } from '../components/viewers.jsx';
 import { ContextMark, Loader } from '../brand/Mark.jsx';
+import { NewsIntro } from './NewsIntro.jsx';
 import { saveFile } from '../lib/io.js';
 import { issueFileName, thumb, newsPdf, newsDocx, localize } from '../lib/newsExport.js';
 
@@ -24,6 +25,12 @@ export function NewsPage() {
   const [busy, setBusy] = useState('');
   const [preview, setPreview] = useState(null);
   const [lang, setLang] = useState(savedLang);
+  // The opening plays once through (about three seconds), then leaves as soon as the issue is here.
+  const [introDone, setIntroDone] = useState(() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } });
+  const [introGone, setIntroGone] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setIntroDone(true), 3300); return () => clearTimeout(t); }, []);
+  const introLeaving = introDone && (!!issue || !!err);
+  useEffect(() => { if (!introLeaving) return undefined; const t = setTimeout(() => setIntroGone(true), 520); return () => clearTimeout(t); }, [introLeaving]);
   const t = T[lang];
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -105,6 +112,7 @@ export function NewsPage() {
           )}
         </section>
       ))}
+      {!introGone && <NewsIntro leaving={introLeaving} onSkip={() => setIntroDone(true)} />}
       {preview && <ReportPreview p={preview} onSave={download} onClose={() => setPreview(null)} />}
     </main>
   );
