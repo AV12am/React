@@ -17,23 +17,42 @@ export function NewsIntro({ leaving = false, onSkip }) {
     place();
     document.fonts?.ready?.then(place).catch(() => {});
   }, []);
-  // Centre → heading: where the lockup sits on screen (the nib's left edge and the name's middle line, its
-  // letters 64 units tall) and where the heading's mark and name are; one translate and scale between them.
+  // Centre → heading. The whole lockup is carried so that «CONTEXT» lands exactly on the heading's «CONTEXT»;
+  // then the nib and «News» are each set right onto the heading's own mark and «News» (the heading is laid out
+  // a little differently from the opening), so when the opening steps aside nothing jumps.
+  const pen = useRef(null);
+  const news = useRef(null);
+  const [fix, setFix] = useState({});
   useLayoutEffect(() => {
     if (!leaving || !art.current) return;
     const brand = document.querySelector('.news__brand');
-    if (!brand) return;
+    const textNode = brand && [...brand.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim());
+    const mark = brand?.querySelector('svg path');
+    const em = brand?.querySelector('em');
+    if (!brand || !textNode || !mark || !em || !word.current || !pen.current || !news.current) return;
+    const range = document.createRange();
+    const from = textNode.textContent.indexOf('C');
+    range.setStart(textNode, Math.max(0, from)); range.setEnd(textNode, Math.max(0, from) + 7);
+    const T = range.getBoundingClientRect();
     const a = art.current.getBoundingClientRect();
     const k = a.width / 640;
-    const fromX = 37 * k;
-    const fromY = 120 * k;
-    const b = brand.getBoundingClientRect();
-    const size = parseFloat(getComputedStyle(brand).fontSize) || 32;
-    const s = size / (64 * k);
-    setMove({
-      transformOrigin: `${fromX}px ${fromY}px`,
-      transform: `translate(${b.left - (a.left + fromX)}px, ${b.top + b.height / 2 - (a.top + fromY)}px) scale(${s})`,
-    });
+    const W = word.current.getBoundingClientRect();
+    const s = T.width / W.width;
+    const tx = T.left - (a.left + s * (W.left - a.left));
+    const ty = T.top + T.height / 2 - (a.top + s * (W.top + W.height / 2 - a.top));
+    // A piece of the opening (its box now, on screen) set onto a box of the heading: in the drawing's own units.
+    const onto = (now, to) => {
+      const cx = (now.left + now.width / 2 - a.left) / k;
+      const cy = (now.top + now.height / 2 - a.top) / k;
+      const p = to.height / (now.height * s);
+      const landX = a.left + s * (now.left + now.width / 2 - a.left) + tx; // where its centre would land
+      const landY = a.top + s * (now.top + now.height / 2 - a.top) + ty;
+      const dx = (to.left + to.width / 2 - landX) / (s * k);
+      const dy = (to.top + to.height / 2 - landY) / (s * k);
+      return { transform: `translate(${dx}px, ${dy}px) translate(${cx}px, ${cy}px) scale(${p}) translate(${-cx}px, ${-cy}px)` };
+    };
+    setFix({ pen: onto(pen.current.getBoundingClientRect(), mark.getBoundingClientRect()), news: onto(news.current.getBoundingClientRect(), em.getBoundingClientRect()) });
+    setMove({ transformOrigin: '0 0', transform: `translate(${tx}px, ${ty}px) scale(${s})` });
   }, [leaving]);
   return (
     <div className={`news-intro ${leaving ? 'is-leaving' : ''}`} role="status" aria-label="CONTEXT News — завантаження" onClick={onSkip}>
@@ -46,12 +65,16 @@ export function NewsIntro({ leaving = false, onSkip }) {
           </g>
         </g>
         {/* The pen that comes loose: a petal of the mark, then CONTEXT's nib. */}
-        <g className="ni-pen" fill="currentColor" fillRule="evenodd">
-          <path className="ni-pen__petal" d={paths.petals[0]} />
-          <path className="ni-pen__nib" d={NIB} />
+        <g className="ni-settle ni-settle--pen" style={fix.pen}>
+          <g className="ni-pen" fill="currentColor" fillRule="evenodd">
+            <path className="ni-pen__petal" d={paths.petals[0]} />
+            <path ref={pen} className="ni-pen__nib" d={NIB} />
+          </g>
         </g>
         <text ref={word} className="ni-word ni-word--context" x="133" y="143">CONTEXT</text>
-        <text className="ni-word ni-word--news" x={newsX} y="143">News</text>
+        <g className="ni-settle" style={fix.news}>
+          <text ref={news} className="ni-word ni-word--news" x={newsX} y="143">News</text>
+        </g>
       </svg>
     </div>
   );

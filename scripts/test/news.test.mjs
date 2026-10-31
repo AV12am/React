@@ -170,7 +170,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     assert.equal(vision, j.sections.flatMap((s) => s.items).filter((x) => x.image && !x.lead).length);
     assert.equal(j.sections.find((s) => s.id === 'infospace').items[0].image, '/news-img/lead-ru.jpg');
     assert.equal(sortCalls, 7);
-    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined, feeds: undefined, airHeads: undefined }, { feeds: undefined, airHeads: undefined, sections: 7, judged: 7, events: true, short: 0, textPics: 0, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined, reports: { ru: 'used', ua: 'used' } });
+    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined, feeds: undefined, airHeads: undefined, secs: undefined }, { feeds: undefined, airHeads: undefined, sections: 7, judged: 7, events: true, short: 0, textPics: 0, picsChecked: true, secs: undefined, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined, reports: { ru: 'used', ua: 'used' } });
     // The night's reports open 2.1 and 2.2, in the fixed wording, with the day's own numbers.
     const [ru] = j.sections.find((s) => s.id === 'infospace').items;
     const [ua] = j.sections.find((s) => s.id === 'media').items;
@@ -340,4 +340,45 @@ test('words on a picture: yes and no told apart; unknown keeps the picture; the 
   assert.equal(await hasText('https://x/2.jpg', { fetchImage, ask: ask('no') }), false);
   assert.equal(await hasText('https://x/3.jpg', { fetchImage, ask: ask('maybe') }), null);
   assert.equal(await hasText('/news-img/lead-ru.jpg', { fetchImage, ask: ask('yes') }), null);
+});
+
+test('the allowance running out half-way: nothing more is asked that day, and the thin issue is made again later', async () => {
+  Object.assign(process.env, { SUPABASE_URL: 'https://sb.test', SUPABASE_SERVICE_ROLE_KEY: 'svc', CF_AI_TOKEN: 'cf', CF_ACCOUNT_ID: 'acc' });
+  const { makeIssue, resetSpent, aiSpent } = await import('../../api/_news.js');
+  const { SECTIONS } = await import('../../src/lib/news.js');
+  resetSpent();
+  const real = globalThis.fetch;
+  const now = new Date().toUTCString();
+  let calls = 0, after = 0, retried = 0;
+  globalThis.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    if (u.startsWith('https://sb.test')) return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
+    if (u.includes('api.cloudflare.com')) {
+      calls++;
+      if (aiSpent()) after++;
+      const m = JSON.parse(opts.body).messages;
+      // the editor's first round answers (one passing 503 asked again); everything after it finds the allowance gone
+      if (typeof m[0].content === 'string' && m[0].content.includes('стосується теми розділу')) {
+        if (!retried++) return new Response('{}', { status: 503 });
+        const n = (m[1].content.match(/^\d+\./gm) || []).length;
+        return new Response(JSON.stringify({ result: { response: JSON.stringify({ keep: Object.fromEntries(Array.from({ length: n }, (_, i) => [String(i + 1), 1])) }) } }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ errors: [{ message: 'you have used up your daily free allocation of 10,000 neurons' }] }), { status: 429 });
+    }
+    const feed = SECTIONS.flatMap((s) => s.feeds).find((f) => f === u);
+    if (feed) {
+      const h = new URL(feed).hostname.replace(/\W+/g, '');
+      return new Response(`<rss>${Array.from({ length: 6 }, (_, i) => `<item><title>${h} news ${i} about Ukraine and Russia’s war</title><link>https://${h}.test/${i}</link><pubDate>${now}</pubDate><description>Text ${i} about Ukraine and Russia’s military and the war.</description></item>`).join('')}</rss>`, { status: 200 });
+    }
+    return new Response('<html></html>', { status: 200, headers: { 'content-type': 'text/html' } });
+  };
+  try {
+    const issue = await makeIssue();
+    assert.ok(aiSpent());
+    assert.equal(after, 0, 'no request goes out once the allowance is known spent');
+    assert.ok(retried >= 2, 'a passing 5xx is asked once more');
+    assert.equal(issue.degraded, true);
+    assert.match(issue.editor.err, /neurons|429/);
+    assert.equal(issue.editor.picsChecked, false);
+  } finally { globalThis.fetch = real; resetSpent(); }
 });

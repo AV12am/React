@@ -391,7 +391,10 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 .news-intro__art { width: min(640px, 92vw); height: auto; overflow: visible; transition: transform .75s cubic-bezier(.65, 0, .25, 1); will-change: transform; }
 /* while the opening is on, the heading waits for the name to arrive */
 .news-page.is-intro .news__brand { opacity: 0; }
-.news-page .news__brand { transition: opacity .2s linear; }
+/* the opening's name lies exactly over the heading when it steps aside: the heading shows at once, no blink */
+.news-page .news__brand { transition: none; }
+.ni-settle { transition: transform .75s cubic-bezier(.65, 0, .25, 1), color .75s linear; }
+.news-intro.is-leaving .ni-settle--pen { color: var(--ink-2); }
 .news-intro__art g, .news-intro__art path, .news-intro__art text { transform-box: view-box; transform-origin: 0 0; }
 /* the mark at the centre turns a little, then the seven pens and the core fall away */
 .ni-flower { animation: ni-flower 3s cubic-bezier(.4, 0, .2, 1) both; }

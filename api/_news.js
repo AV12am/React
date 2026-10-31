@@ -70,15 +70,35 @@ async function articleText(url) {
   } catch { return ''; }
 }
 
-async function ask(messages, maxTokens, model = MODEL) {
-  const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/ai/run/${model}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, max_tokens: maxTokens, temperature: 0.1 }),
-    signal: AbortSignal.timeout(28000),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`AI ${res.status} ${JSON.stringify(data.errors || '').slice(0, 100)}`);
+// The model's free allowance is counted per day (it renews at 00:00 UTC). Once it is spent, nothing more is asked
+// that day — every further call fails at once instead of costing a round trip; a passing fault (a 5xx, a timeout)
+// is asked once more. A refusal of the request itself (400, 403) is not asked again.
+let spentDay = '';
+const utcDay = () => new Date().toISOString().slice(0, 10);
+export const aiSpent = () => spentDay === utcDay();
+export const resetSpent = () => { spentDay = ''; }; // for the tests
+export const SPENT = /neurons|daily free allocation|\b429\b/;
+async function ask(messages, maxTokens, model = MODEL, retry = 1) {
+  if (aiSpent()) throw new Error('AI 429 daily neurons spent');
+  let res, data;
+  try {
+    res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/ai/run/${model}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, max_tokens: maxTokens, temperature: 0.1 }),
+      signal: AbortSignal.timeout(28000),
+    });
+    data = await res.json().catch(() => ({}));
+  } catch (e) {
+    if (retry > 0) { await new Promise((r) => setTimeout(r, 1500)); return ask(messages, maxTokens, model, retry - 1); }
+    throw new Error(`AI network ${String(e?.message || e).slice(0, 60)}`);
+  }
+  if (!res.ok) {
+    const msg = `AI ${res.status} ${JSON.stringify(data.errors || '').slice(0, 100)}`;
+    if (res.status === 429 || SPENT.test(msg)) { spentDay = utcDay(); throw new Error(msg); }
+    if (res.status >= 500 && retry > 0) { await new Promise((r) => setTimeout(r, 1500)); return ask(messages, maxTokens, model, retry - 1); }
+    throw new Error(msg);
+  }
   return data.result?.response;
 }
 const on = () => Boolean(ACCOUNT && TOKEN);
@@ -127,11 +147,11 @@ async function fetchImage(u) {
 // Whether a picture carries words: a headline card, a caption or slogan laid over it, a poster, a screenshot.
 // true / false; null when it could not be told (no model, the picture unreadable) — such a picture stays.
 export const TEXT_CHECK = 'Look at this picture. Is there any written text on it — a headline, caption, title, slogan, label, watermark with words, subtitles, a poster or a screenshot of text? Small text on a uniform or a vehicle number does not count. Answer only yes or no.';
-let visionSpent = false;
 export let visionWhy = ''; // why the last check could not tell (for the imgcheck diagnosis)
 export async function hasText(url, deps = {}) {
   const run = deps.ask || ask;
-  if ((!deps.ask && !on()) || visionSpent || !url || url.startsWith('/')) { visionWhy = visionSpent ? 'spent' : 'off'; return null; }
+  const spent = !deps.ask && aiSpent();
+  if ((!deps.ask && !on()) || spent || !url || url.startsWith('/')) { visionWhy = spent ? 'spent' : 'off'; return null; }
   try {
     const { type, buf } = await (deps.fetchImage || fetchImage)(url);
     const data = `data:${type.split(';')[0]};base64,${Buffer.from(buf).toString('base64')}`;
@@ -149,7 +169,6 @@ export async function hasText(url, deps = {}) {
     return /^(yes|так)/.test(a) ? true : /^(no|ні)/.test(a) ? false : null;
   } catch (e) {
     visionWhy = `${VISIONS[0]}: ${String(e?.message || e).slice(0, 200)}`;
-    if (/neurons|429/.test(String(e?.message))) visionSpent = true; // the day's allowance: stop asking
     return null;
   }
 }
@@ -170,6 +189,7 @@ function roundRobin(lists) {
 }
 
 export async function makeIssue(now = Date.now()) {
+  const started = Date.now(); // the whole making must end within the function's 120 s
   const own = SECTIONS.filter((s) => !s.key);
   const urls = [...new Set(own.flatMap((s) => s.feeds))];
   const got = new Map(await Promise.all(urls.map(async (u) => [u, await feed(u)])));
@@ -275,9 +295,12 @@ export async function makeIssue(now = Date.now()) {
 
   // 6. Photos only, no words on them: a picture with a headline or caption laid over it gives way to an open
   //    photo of the subject; if that one has words too, the news goes without a picture. The leads keep theirs.
+  //    The check comes last and is the first to go: not when the allowance is spent, nor late in the making.
   note.textPics = 0;
+  const looks = !aiSpent() && Date.now() - started < 70 * 1000;
+  note.picsChecked = looks;
   const withPhotos = await Promise.all(found.map((l, k) => Promise.all(l.map(async (x, i) => {
-    if (x.lead || !x.image || (await hasText(x.image)) !== true) return x;
+    if (!looks || x.lead || !x.image || (await hasText(x.image)) !== true) return x;
     note.textPics++;
     const words = commonsQuery({ ...x, summary_en: en[k].t[i] }).split(' ');
     for (const q of [...new Set([en[k].q[i], words.join(' '), words.slice(0, 2).join(' ')])].filter(Boolean)) {
@@ -296,7 +319,13 @@ export async function makeIssue(now = Date.now()) {
   }));
   // Made without the model (its daily free allowance spent, or it did not answer at all): a stand-in, not the
   // day's issue — it is marked to be made again as soon as the model answers (the allowance renews at 00:00 UTC).
-  const degraded = on() && !note.judged && !note.events;
+  // The same when the allowance ran out half-way: too few news retold in Ukrainian, or the English mostly missing —
+  // the issue is made again after 00:00 UTC rather than kept as the day's (it never replaces a good one).
+  const items = sections.flatMap((s) => s.items);
+  if (aiSpent()) note.err = note.err || 'AI 429 daily neurons spent';
+  const thin = on() && (items.filter((x) => x.ai).length < 24 || note.translated < items.length / 2);
+  const degraded = on() && ((!note.judged && !note.events) || (aiSpent() && thin));
+  note.secs = Math.round((Date.now() - started) / 1000);
   return { v: VERSION, at: new Date(now).toISOString(), for: new Date(issueTime(now)).toISOString(), editor: note, ...(degraded ? { degraded: true } : {}), sections };
 }
 
@@ -371,7 +400,7 @@ export async function newsGet(req) {
     const standIn = (doc) => (doc?.degraded && Date.parse(sample.for) === issueTime(now) ? { ...sample, standIn: true } : doc);
 
     // The model's daily allowance is spent (it renews at 00:00 UTC): no point making the issue again before then.
-    const spent = cached?.degraded && /neurons|429/.test(cached.editor?.err || '') && String(cached.at).slice(0, 10) === new Date(now).toISOString().slice(0, 10);
+    const spent = cached?.degraded && SPENT.test(cached.editor?.err || '') && String(cached.at).slice(0, 10) === new Date(now).toISOString().slice(0, 10);
     if (spent) return json(200, standIn(cached));
 
     // Only one request makes it: the first to file the lock for this issue (and this ten minutes, so a failed
