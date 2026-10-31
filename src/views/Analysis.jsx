@@ -94,7 +94,7 @@ function Resolve({ record, canEdit }) {
  * description, data and entries, the cover photo, and every attached file as an appendix.
  */
 // The made report, page by page, before it is saved: «Завантажити» or «Закрити».
-function ReportPreview({ p, onSave, onClose }) {
+export function ReportPreview({ p, onSave, onClose }) {
   useEffect(() => {
     const esc = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose(); } };
     window.addEventListener('keydown', esc, true);

@@ -1,7 +1,15 @@
 // English for the interface: every Ukrainian text of the code (buttons, headings, fields, messages) and its translation.
 // EXACT — whole texts; TEMPLATES — texts with {} for the parts that change (numbers, names), filled in order. See dom.js.
 /* eslint-disable */
-export const EXACT = {"Мої завдання":"My tasks",
+export const EXACT = {"Свіжих матеріалів у джерелах розділу немає.":"No fresh items in this section’s sources.",
+"Випуск":"Issue",
+"Оновлюю":"Refreshing",
+"Збираю":"Building",
+" · джерела зараз не відповідають, показано попередній випуск":" · the sources are not answering now, showing the previous issue",
+" · текст джерела":" · source text",
+"Кожен розділ збирається лише зі своїх відкритих джерел: чотири найсвіжіші матеріали за дві доби, з мініатюрою від самого видання. Стислий виклад робить CONTEXT лише за текстом джерела; повний матеріал — за посиланням. Випуск оновлюється раз на годину.":"Each section is made only from its own open sources: the four freshest items of the last two days, with the publisher’s own thumbnail. CONTEXT writes the short summary from the source’s text only; the full piece is behind the link. The issue is refreshed hourly.",
+"CONTEXT News працює на сайті із сервером (Vercel + Supabase).":"CONTEXT News works on the site with the server (Vercel + Supabase).",
+"Мої завдання":"My tasks",
 "Термінових завдань немає":"No urgent tasks",
 "Вас згадали":"Mentions",
 "Згадок немає":"No mentions",
@@ -1546,7 +1554,9 @@ export const EXACT = {"Мої завдання":"My tasks",
 "Збираю звіт із файлами…":"Building the report with its files…",
 "фото обкладинки":"cover photo",
 "прибрано обкладинку":"cover removed"};
-export const TEMPLATES = [["80% ймовірності: {}","80% probability: {}"],
+export const TEMPLATES = [["Зібрано {}","Built {}"],
+["Випуск недоступний: {}","Issue unavailable: {}"],
+["80% ймовірності: {}","80% probability: {}"],
 ["прострочено з {}","overdue since {}"],
 ["строк {}","due {}"],
 ["Ім’я також підходить для входу: замість пошти можна ввести його, код ({}) або частину пошти до «@».", "The name also works for signing in: instead of the e-mail you can enter it, the code ({}) or the part of the e-mail before «@»."],

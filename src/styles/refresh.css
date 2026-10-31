@@ -354,3 +354,25 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 .mark-spin { display: grid; place-items: center; will-change: transform; transform: translateZ(0); backface-visibility: hidden; contain: layout paint style; }
 @keyframes mark-turn { from { transform: rotate(0deg) translateZ(0); } to { transform: rotate(360deg) translateZ(0); } }
 .ai-mark.is-thinking svg, .ai-fab.is-thinking svg { animation: none; } /* the layer around it turns, not the drawing */
+
+/* ---------- CONTEXT News: photo on the left, the short summary on the right, four rows a section ---------- */
+.news__brand { display: inline-flex; align-items: center; gap: 8px; }
+.news__brand svg { color: var(--ink-2); }
+.news__section { border-top: 1px solid var(--line-strong); padding-top: 18px; }
+.news__title { margin: 0 0 16px; font: 600 15px/22px var(--font-ui); letter-spacing: -0.005em; }
+.news__list { display: grid; gap: 0; }
+.news__item { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; align-items: start; padding: 16px 0; border-bottom: 1px solid var(--line); }
+.news__item:last-child { border-bottom: 0; }
+.news__pic { display: grid; place-items: center; aspect-ratio: 4 / 3; overflow: hidden; border-radius: var(--radius-md); background: var(--surface-2); color: var(--ink-faint); }
+.news__pic img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .3s var(--ease); }
+.news__pic:hover img { transform: scale(1.02); }
+.news__text { display: grid; gap: 8px; min-width: 0; align-content: start; }
+.news__head { color: var(--ink); text-decoration: none; font: 600 16px/1.35 var(--font-ui); letter-spacing: -0.01em; }
+.news__head:hover { text-decoration: underline; text-underline-offset: 3px; }
+.news__sum { margin: 0; color: var(--ink-2); font-size: 14.5px; line-height: 1.6; max-width: 820px; }
+.news__meta { font-size: 12px; }
+@media (max-width: 700px) {
+  .news__item { grid-template-columns: 112px minmax(0, 1fr); gap: 14px; padding: 14px 0; }
+  .news__head { font-size: 15px; }
+  .news__sum { font-size: 14px; }
+}

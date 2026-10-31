@@ -258,6 +258,8 @@ function reducer(state, a) {
       const records = (state.records || []).map((r) => (r.id === a.id && !r.number ? { ...r, number: a.number, updated: new Date().toISOString() } : r));
       return withAudit({ ...state, records }, me, 'work', `Аналітика · Продукти: звіт ${a.format} ${a.number} «${a.label}»`, a.level);
     }
+    case 'news/export':
+      return withAudit(state, me, 'work', `CONTEXT News: випуск ${a.format} «${a.label}»`, 0);
     case 'comment/add': {
       const c = { id: uid('cm'), at: new Date().toISOString(), author: me, mentions: [], ...a.comment };
       return withAudit({ ...state, comments: [...(state.comments || []), c] }, me, 'work', `Коментар до «${a.label}»${c.mentions.length ? ` (згадано: ${c.mentions.length})` : ''}`, c.clearance);

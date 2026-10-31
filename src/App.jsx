@@ -46,6 +46,7 @@ const Audit = section(() => import('./views/Audit.jsx'), 'Audit');
 const Settings = section(() => import('./views/Settings.jsx'), 'Settings');
 const Learn = section(() => import('./views/Academy.jsx'), 'Learn');
 const Info = section(() => import('./views/Info.jsx'), 'Info');
+const News = section(() => import('./views/News.jsx'), 'News');
 // v0 sandbox — dev server only; dropped from production builds.
 const V0Sandbox = import.meta.env.DEV ? lazy(() => import('./v0/Sandbox.jsx')) : null;
 
@@ -60,6 +61,8 @@ const NAV = [
   { id: 'audit', label: 'Журнал аудиту', icon: 'audit', side: false, admin: true },
   { id: 'learn', label: 'Навчання', icon: 'book', always: true, side: false },
   { id: 'info', label: 'Інформація', icon: 'info', always: true },
+  // CONTEXT News: opened by its link only (#/news) — no menu item, not offered in search.
+  { id: 'news', label: 'CONTEXT News', icon: 'globe', always: true, side: false, link: true },
   { id: 'settings', label: 'Налаштування', icon: 'settings', always: true },
 ];
 const ADMIN = ['access', 'audit'];
@@ -225,6 +228,7 @@ function Shell() {
     audit: <><AdminTabs tabs={adminTabs} current={current} go={go} /><Audit /></>,
     learn: <Learn key={sub || 'all'} focus={sub} go={go} />,
     info: <Info />,
+    news: <News />,
     settings: <Settings go={go} />,
     v0: V0Sandbox && <Suspense fallback={null}><V0Sandbox /></Suspense>,
   }[current];
@@ -411,7 +415,7 @@ function Palette({ onClose, go, allowed, lock }) {
   const [sel, setSel] = useState(0);
 
   const items = useMemo(() => {
-    const nav = allowed.map((n) => ({ id: `nav-${n.id}`, icon: n.icon, label: `Перейти: ${n.label}`, run: () => go(n.id) }));
+    const nav = allowed.filter((n) => !n.link).map((n) => ({ id: `nav-${n.id}`, icon: n.icon, label: `Перейти: ${n.label}`, run: () => go(n.id) }));
     const people = allowed.some((n) => n.id === 'access')
       ? state.users.map((u) => ({ id: u.id, icon: 'user', label: u.name, hint: u.code, run: () => go('access', 'people', u.id) })) : [];
     const files = allowed.some((n) => n.id === 'vault')
