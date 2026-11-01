@@ -504,7 +504,10 @@ const PERIOD = {
 };
 const NIGHT = { ru: /за ночь|ночью|в ночь|минувшей ночью|в течение ночи/i, ua: /за ніч|вночі|у ніч|в ніч|протягом ночі|минулої ночі/i };
 /** Whether an item is the night's report for its side and not a tally of a longer period. */
-export const nightReport = (x, side) => REPORTS[side].test(x?.title || '') && !PERIOD[side].test(x?.title || '');
+export const nightReport = (x, side) => REPORTS[side].test(x?.title || '') && !PERIOD[side].test(x?.title || '') && (side !== 'ru' || RU_DEFENCE(x.title));
+// The Russian report is the air defence's own (ПВО, «над территориями…»), not a troop grouping's claim about
+// drones it says it hit at the front («Группировка "Север" за ночь уничтожила 183 беспилотника ВСУ»).
+function RU_DEFENCE(title) { return /ПВО|противовоздушн|Минобороны|МО РФ|над (Росси|территори|регион|акватори|област)|over Russia|air defen[cs]e|defen[cs]e ministry/i.test(title) && !/группировк|ВСУ потерял|на (фронте|направлени)/i.test(title); }
 
 /** The day's report for a side: published since midnight in Kyiv, with numbers in its headline or text. */
 export function findReport(items, side, now = Date.now()) {
@@ -516,7 +519,7 @@ export function findReport(items, side, now = Date.now()) {
     if (d.day !== today.day || d.month !== today.month || Date.parse(x.at) > now) return false;
     const t = `${x.title} ${x.text || ''}`;
     if (!re.test(x.title) || PERIOD[side].test(x.title) || !/\d{2,}/.test(t)) return false;
-    return side === 'ru' ? RU_SIDE.test(t) && !/Повітрян\S* сил/i.test(t) : /[іїєґ]/i.test(x.title);
+    return side === 'ru' ? RU_SIDE.test(t) && RU_DEFENCE(x.title) && !/Повітрян\S* сил/i.test(t) : /[іїєґ]/i.test(x.title);
   });
   // The earliest of the day's reports is the morning one; later items are follow-ups and corrections.
   // One that says «за ніч» / «за ночь» comes before one that does not.
