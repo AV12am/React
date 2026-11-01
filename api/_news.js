@@ -15,7 +15,7 @@
 // is not available. Section 1 is the day's key news, chosen by the model from the headlines of all the others.
 import { json, db, env } from './_core.js';
 import sample from '../src/news/sample.js';
-import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, LEAD_IMAGE, ruPicture } from '../src/lib/news.js';
+import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, LEAD_IMAGE, ruPicture, nightReport } from '../src/lib/news.js';
 
 
 const MIN = 60000;
@@ -378,7 +378,9 @@ export async function makeIssue(now = Date.now()) {
 const dayKey = (now) => { const d = kyivDay(now); return `${d.year}-${d.month}-${d.day}`; };
 async function captured(now) {
   const doc = await read('reports');
-  return doc?.day === dayKey(now) ? { ru: doc.ru || null, ua: doc.ua || null } : {};
+  // A kept one that is not the night's report (an earlier rule let a monthly tally through) is looked for again.
+  if (doc?.day !== dayKey(now)) return {};
+  return { ru: nightReport(doc.ru, 'ru') ? doc.ru : null, ua: nightReport(doc.ua, 'ua') ? doc.ua : null };
 }
 export async function captureReports(now = Date.now()) {
   const have = await captured(now);

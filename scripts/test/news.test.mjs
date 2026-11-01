@@ -392,3 +392,16 @@ test('pictures from Russian sites are known by their address', async () => {
   assert.ok(!ruPicture('https://www.pravda.com.ua/x.jpg'));
   assert.ok(!ruPicture('/news-img/lead-ru.jpg'));
 });
+
+test('the night report, not a tally of the month or the day; one saying «за ніч» comes first', async () => {
+  const { findReport, nightReport } = await import('../../src/lib/news.js');
+  const now = Date.now();
+  const at = (m) => new Date(now - m * 60000).toISOString();
+  const pick = (items, side) => findReport(items.map(([title, m, url]) => ({ title, text: '', url, at: at(m) })), side, now)?.url || null;
+  assert.equal(pick([['ПВО за октябрь сбила почти 28 тысяч украинских БПЛА над Россией', 60, 'm']], 'ru'), null);
+  assert.equal(pick([['ПВО за октябрь сбила почти 28 тысяч украинских БПЛА', 60, 'm'], ['Средства ПВО за ночь уничтожили 120 украинских беспилотников', 30, 'n']], 'ru'), 'n');
+  assert.equal(pick([['Противник упродовж суботи атакував Україну 168 БпЛА, збито 124 з них', 60, 'd']], 'ua'), null);
+  assert.equal(pick([['Повітряні сили: ППО знешкодила 271 з 288 дронів', 90, 'p'], ['Сили ППО перехопили за ніч 105 ворожих БПЛА, 49 з яких — реактивні', 30, 'n']], 'ua'), 'n');
+  assert.ok(!nightReport({ title: 'ПВО за октябрь сбила почти 28 тысяч украинских БПЛА' }, 'ru'));
+  assert.ok(nightReport({ title: 'Силы ПВО за ночь уничтожили 433 украинских беспилотника' }, 'ru'));
+});

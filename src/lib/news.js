@@ -490,11 +490,21 @@ export function kyivDay(ts) {
 
 export const REPORTS = {
   // The Ukrainian Air Force's morning report, as Ukrainian outlets carry it.
-  ua: /(ППО|Повітрян\S* сил|протиповітрян\S* оборон|Сил\S* оборони)[^]*?(збил|збито|знешкод|подавл|нейтраліз|уражен|ліквідув|знищ)|(збил|збито|знешкод|подавл|нейтраліз|уражен|ліквідув|знищ)\S*[^]*?(Повітрян\S* сил|ППО)|(ворог|противник|росія|рф)[^]*?атакува\S*[^]*?(дрон|БпЛА|БПЛА|безпілот|ракет)|\d+ (з|із|зі) \d+[^]*?(БпЛА|БПЛА|дрон|безпілот|цілей)/i,
+  ua: /(ППО|Повітрян\S* сил|протиповітрян\S* оборон|Сил\S* оборони)[^]*?(збил|збито|знешкод|подавл|нейтраліз|уражен|ліквідув|знищ|перехоп)|(збил|збито|знешкод|подавл|нейтраліз|уражен|ліквідув|знищ|перехоп)\S*[^]*?(Повітрян\S* сил|ППО)|(ворог|противник|росія|рф)[^]*?атакува\S*[^]*?(дрон|БпЛА|БПЛА|безпілот|ракет)|\d+ (з|із|зі) \d+[^]*?(БпЛА|БПЛА|дрон|безпілот|цілей)/i,
   // The Russian defence ministry's morning claim, as Russian-language and foreign outlets carry it.
   ru: /(ПВО|перехвач\S*|уничтож\S*|сбит\S*|сбил\S*)[^]*?(беспилотн|БПЛА|дрон)|(беспилотн|БПЛА|дрон)\S*[^]*?(перехвач|уничтож|сбит|сбил)|(Russia|Russian)[^]*?(downed|intercept\S*|shot down|destroyed)[^]*?(drone|UAV)/i,
 };
 const RU_SIDE = /Минобороны|МО РФ|ПВО|над (территори|регион)|Russia(n)? (says|claims|defen[cs]e ministry|air defen[cs]e)|над рос|за ночь/i;
+
+// Not the night's report: a tally for a month, a week, a day or since some date («ПВО за октябрь сбила почти
+// 28 тысяч…», «упродовж суботи атакував 168 БпЛА») — such items come out right after midnight too.
+const PERIOD = {
+  ru: /за (октябр|ноябр|декабр|январ|феврал|март|апрел|ма[йя]|июн|июл|август|сентябр|месяц|недел|год|сутки|день|минувш\S* (сутки|день|недел|месяц)|все время|время|период)|в течение (дня|суток|недели|месяца)|с начала|тысяч/i,
+  ua: /за (жовт|листопад|груд|січ|лют|берез|квіт|трав|черв|лип|серп|верес|місяц|тижд|рік|добу|день)|упродовж (дня|доби|суботи|неділі|понеділка|вівторка|середи|четверга|п.ятниці)|протягом (дня|доби)|з початку|тисяч/i,
+};
+const NIGHT = { ru: /за ночь|ночью|в ночь|минувшей ночью|в течение ночи/i, ua: /за ніч|вночі|у ніч|в ніч|протягом ночі|минулої ночі/i };
+/** Whether an item is the night's report for its side and not a tally of a longer period. */
+export const nightReport = (x, side) => REPORTS[side].test(x?.title || '') && !PERIOD[side].test(x?.title || '');
 
 /** The day's report for a side: published since midnight in Kyiv, with numbers in its headline or text. */
 export function findReport(items, side, now = Date.now()) {
@@ -505,11 +515,13 @@ export function findReport(items, side, now = Date.now()) {
     const d = kyivDay(Date.parse(x.at));
     if (d.day !== today.day || d.month !== today.month || Date.parse(x.at) > now) return false;
     const t = `${x.title} ${x.text || ''}`;
-    if (!re.test(x.title) || !/\d{2,}/.test(t)) return false;
+    if (!re.test(x.title) || PERIOD[side].test(x.title) || !/\d{2,}/.test(t)) return false;
     return side === 'ru' ? RU_SIDE.test(t) && !/Повітрян\S* сил/i.test(t) : /[іїєґ]/i.test(x.title);
   });
   // The earliest of the day's reports is the morning one; later items are follow-ups and corrections.
-  return fit.sort((a, b) => String(a.at).localeCompare(String(b.at)))[0] || null;
+  // One that says «за ніч» / «за ночь» comes before one that does not.
+  const night = (x) => (NIGHT[side].test(`${x.title} ${x.text || ''}`) ? 0 : 1);
+  return fit.sort((a, b) => night(a) - night(b) || String(a.at).localeCompare(String(b.at)))[0] || null;
 }
 
 /** What the model is asked: the numbers of the report, nothing else. */
