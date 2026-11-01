@@ -378,12 +378,17 @@ export async function makeIssue(now = Date.now()) {
     if (took.has(sec[i]) || bySec[sec[i]].length < 4) continue;
     key.push(i); took.add(sec[i]);
   }
-  // Too few sections to give one each: a second from the sections that have plenty (seven or more).
+  // Too few sections to give one each: one more (never more) from a section that has plenty — seven or more,
+  // so that it keeps at least five for its own page.
+  const second = new Set();
   for (const i of ranked) {
-    if (key.length >= KEY_COUNT + SPARE) break;
-    if (key.includes(i) || bySec[sec[i]].length < 7) continue;
-    key.push(i);
+    if (key.length >= KEY_COUNT) break;
+    if (key.includes(i) || second.has(sec[i]) || bySec[sec[i]].length < 7) continue;
+    key.push(i); second.add(sec[i]);
   }
+  // Where each section's news went (to see why a page came out thin).
+  note.bySec = Object.fromEntries(own.map((s) => [s.id, bySec[s.id].length]));
+  note.repeats = drop.size;
   const picked = SECTIONS.map((s) => (s.key ? key : bySec[s.id].filter((i) => !key.includes(i)).slice(0, PER_SECTION + SPARE)).map((i) => pool[i]));
 
   // 3. Pictures from the article pages and the Ukrainian summaries, side by side; then the news to keep:
