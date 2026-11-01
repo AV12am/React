@@ -20,7 +20,7 @@ import { SECTIONS, PER_SECTION, POOL, FRESH, offTopic, KEY_COUNT, parseNewsFeed,
 
 
 const MIN = 60000;
-const VERSION = 21; // 21: a repeat is kept in the thinnest section; 5.2 judged by headline; 20: the editor scores 2 / 1 / 0, a short section takes the partly-on-topic ones; 19: a quiet day reaches back to 48 hours; 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
+const VERSION = 22; // 22: photos: only real photographs from the archive, text only when it covers the picture, Russian sites' own pictures kept; 21: a repeat is kept in the thinnest section; 5.2 judged by headline; 20: the editor scores 2 / 1 / 0, a short section takes the partly-on-topic ones; 19: a quiet day reaches back to 48 hours; 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -242,7 +242,10 @@ async function commonsImage(q) {
     // Two words of the search in the name when it has two or more («China Forum», not any file with «China»).
     const need = Math.min(2, words.length);
     const named = (t) => { const n = String(t || '').toLowerCase().replace(/_/g, ' '); return words.filter((w) => n.includes(w.slice(0, Math.max(4, w.length - 2)))).length >= need; };
-    const hit = pages.find((p) => named(p.title) && p.imageinfo?.[0] && /image\/(jpeg|png|webp)/.test(p.imageinfo[0].mime || '') && p.imageinfo[0].thumburl);
+    // Photographs only: no maps, flags, emblems, logos, diagrams or satellite views (a black-and-sand map of
+    // Western Sahara reads as a broken picture).
+    const notPhoto = /\b(map|maps|locator|location|flag|coat of arms|emblem|logo|diagram|chart|graph|scheme|satellite|sat|topographic|relief|outline|blank|svg|icon|symbol|seal)\b|карта|прапор|герб/i;
+    const hit = pages.find((p) => named(p.title) && !notPhoto.test(String(p.title).replace(/_/g, ' ')) && p.imageinfo?.[0] && /image\/jpeg/.test(p.imageinfo[0].mime || '') && p.imageinfo[0].thumburl);
     return hit?.imageinfo[0].thumburl || '';
   } catch { return ''; }
 }
@@ -259,10 +262,13 @@ async function fetchImage(u) {
 
 // Whether a picture carries words: a headline card, a caption or slogan laid over it, a poster, a screenshot.
 // true / false; null when it could not be told (no model, the picture unreadable) — such a picture stays.
-export const TEXT_CHECK = 'Look at this picture. Is there any written text on it — a headline, caption, title, slogan, label, watermark with words, subtitles, a poster or a screenshot of text? Small text on a uniform or a vehicle number does not count. Answer only yes or no.';
+// Only text that takes over the picture counts: a headline card, a quote laid across it, a poster, a screenshot.
+// A small corner logo or watermark, a sign in the street, text on a uniform or a vehicle do not — a news photo
+// keeps its place rather than giving way to a plain one.
+export const TEXT_CHECK = 'Look at this picture. Is it mainly text or does large text cover a big part of it — a headline card, a quote or caption laid across the image, a poster, an infographic or a screenshot of text? A small logo or watermark in a corner, street signs, text on uniforms, vehicles or buildings do not count. Answer only yes or no.';
 export let visionWhy = ''; // why the last check could not tell (for the imgcheck diagnosis)
 // For an archive photo found by search, also whether it shows the news' own subject (not the Kremlin for a forum in China).
-export const FIT_CHECK = (news) => `Look at this picture, meant to illustrate the news: «${String(news).slice(0, 300)}». Answer with two words. First: is there any written text on it — a headline, caption, title, slogan, label, watermark with words, subtitles, a poster or a screenshot of text (small text on a uniform or a vehicle number does not count)? yes or no. Second: does it plainly fit this news — its own place, country, people, organisation or kind of event, not another country's landmark or an unrelated person or scene? yes or no.`;
+export const FIT_CHECK = (news) => `Look at this picture, meant to illustrate the news: «${String(news).slice(0, 300)}». Answer with two words. First: is it mainly text, or does large text cover a big part of it — a headline card, a quote laid across it, a poster, an infographic or a screenshot (a small corner logo or watermark, signs, text on uniforms or vehicles do not count)? yes or no. Second: is it a real photograph (not a map, flag, emblem, diagram or drawing) that plainly fits this news — its own place, country, people, organisation or kind of event, not another country's landmark or an unrelated person or scene? yes or no.`;
 /** true: the picture is not to be used (words on it, or — with `news` given — not about that news). */
 export async function hasText(url, deps = {}, news = '') {
   const run = deps.ask || ask;
@@ -449,7 +455,9 @@ export async function makeIssue(now = Date.now()) {
     return [...new Set([en[k].q[i], words.join(' '), words.slice(0, 2).join(' ')])].filter((q) => q && q.trim());
   };
   const found = await Promise.all(chosen.map((l, k) => Promise.all(l.map(async (x, i) => {
-    if (x.lead || (x.image && !ruPicture(x.image))) return x; // its own picture (the check for words comes next)
+    // Its own picture — a Russian site's too: the page shows it through the site's own server (blocked in Ukraine
+    // otherwise), and the check for words comes next.
+    if (x.lead || x.image) return x;
     if (left() < 15000) return { ...x, image: '' }; // no time to look
     for (const q of queries(x, k, i)) {
       const alt = await commonsImage(q);

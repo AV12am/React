@@ -117,7 +117,8 @@ export function NewsPage() {
               {s.items.map((x) => (
                 <article key={x.url} className="news__item">
                   <a className="news__pic" href={x.url} target="_blank" rel="noopener noreferrer" aria-label={t.open}>
-                    {x.image ? <img src={ruPicture(x.image) ? api(`&img=${encodeURIComponent(x.image)}`).href : x.image} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; }} /> : <ContextMark size={28} title="" />}
+                    {x.image ? <img src={ruPicture(x.image) ? api(`&img=${encodeURIComponent(x.image)}`).href : x.image} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => { const img = e.currentTarget; const step = img.dataset.step || ''; // the source refuses the browser: through the site's server, then the plain picture
+                      if (!step && !img.src.includes('&img=') && x.image.startsWith('http')) { img.dataset.step = 'proxy'; img.src = api(`&img=${encodeURIComponent(x.image)}`).href; } else if (step !== 'plain') { img.dataset.step = 'plain'; img.src = '/news-img/plain.jpg'; } else img.style.display = 'none'; }} /> : <ContextMark size={28} title="" />}
                   </a>
                   <p className="news__sum" lang={lang}>{x.summary}</p>
                 </article>
