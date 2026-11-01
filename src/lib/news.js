@@ -23,7 +23,7 @@ const SOFT = /гороскоп|horoscope|свят[оа] |праздник|цер
 export const SECTIONS = [
   { id: 'key', code: '1', part: 'РОЗДІЛ 1 | КЛЮЧОВІ НОВИНИ ДОБИ', title: '', en: { part: 'SECTION 1 | KEY NEWS OF THE DAY', title: '' }, key: true, feeds: [] },
   {
-    id: 'infospace', pool: 36, code: '2.1', match: TOPIC.infospace, part: 'РОЗДІЛ 2 | СПЕЦОПЕРАЦІЇ ТА АКТУАЛЬНІ ПОДІЇ', title: '2.1 ІНФОПРОСТІР КРАЇНИ-АГРЕСОРА',
+    id: 'infospace', pool: 48, code: '2.1', match: TOPIC.infospace, part: 'РОЗДІЛ 2 | СПЕЦОПЕРАЦІЇ ТА АКТУАЛЬНІ ПОДІЇ', title: '2.1 ІНФОПРОСТІР КРАЇНИ-АГРЕСОРА',
     en: { part: 'SECTION 2 | SPECIAL OPERATIONS AND CURRENT EVENTS', title: '2.1 THE AGGRESSOR STATE’S INFORMATION SPACE' },
     about: 'війна проти України так, як її подають російські ЗМІ та Міноборони рф: заявлені ураження збройними силами рф позицій, об’єктів і техніки ЗСУ, «успіхи» армії рф на фронті, захоплення населених пунктів, інші військові події, пов’язані з Україною (усе — як твердження російської сторони). Не підходить: внутрішнє життя Росії без зв’язку з війною (медицина, економіка, суди, культура); повідомлення українських чи незалежних ЗМІ про російські обстріли українських міст і жертви серед цивільних',
     feeds: [
@@ -38,7 +38,7 @@ export const SECTIONS = [
     ],
   },
   {
-    id: 'media', code: '2.2', part: 'РОЗДІЛ 2 | СПЕЦОПЕРАЦІЇ ТА АКТУАЛЬНІ ПОДІЇ', title: '2.2 УКРАЇНСЬКІ ТА СВІТОВІ ЗМІ',
+    id: 'media', pool: 48, code: '2.2', part: 'РОЗДІЛ 2 | СПЕЦОПЕРАЦІЇ ТА АКТУАЛЬНІ ПОДІЇ', title: '2.2 УКРАЇНСЬКІ ТА СВІТОВІ ЗМІ',
     en: { part: 'SECTION 2 | SPECIAL OPERATIONS AND CURRENT EVENTS', title: '2.2 UKRAINIAN AND WORLD MEDIA' },
     about: 'дії Сил оборони України: спецоперації ЗСУ, СБУ, ГУР, ССО, Сил безпілотних систем; ураження українськими силами ворожих позицій, техніки, складів, НПЗ, заводів і аеродромів, зокрема в Росії; успіхи на фронті, звільнення територій, втрати противника. Не підходить: російські обстріли українських міст і їхні наслідки, політика, дипломатія, енергетика',
     feeds: [
@@ -446,10 +446,13 @@ export function sentences(text) {
 /** A summary is two or three sentences: more are cut to three, an unfinished last one is left out;
  * `n` tells how many it has. */
 // A sentence about the text rather than the news («у наданому тексті відповіді немає», «джерело не уточнює…»).
+// The model thinking aloud in its answer («Канцлер Меркель... Merz», «з 1 по 4 жовтня... — ні, у тексті сказано»).
+const ALOUD = /\.\.\.|…\s*\S|—\s*ні[,.]|\bні, у тексті|\bточніше,/i;
 const META = /(у|в) (наданому )?текст\S* (не|немає|нема)|наданому тексті|джерел\S* не (уточню|наводить|вказу)|не уточнюється|деталей\S*[^.]*не (наведено|наводиться|зазначено)|(конкретн\S*|подробиц\S*)[^.]*не (вказано|зазначено|наведено)/i;
 export function shape(text) {
   const all = sentences(text);
-  const list = all.filter((x) => !META.test(x)).length ? all.filter((x) => !META.test(x)) : all;
+  const bad = (x) => META.test(x) || ALOUD.test(x);
+  const list = all.filter((x) => !bad(x)).length ? all.filter((x) => !bad(x)) : all;
   if (list.length > 1 && (!/[.!?…»"')]$/.test(list.at(-1)) || /(\.\.\.|…)$/.test(list.at(-1)))) list.pop(); // unfinished or cut off with «…»
   return { text: list.slice(0, 3).join(' '), n: Math.min(list.length, 3) };
 }

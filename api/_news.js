@@ -20,7 +20,7 @@ import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickIt
 
 
 const MIN = 60000;
-const VERSION = 14; // 14: retellings asked again where missing, a photo for every news
+const VERSION = 15; // 15: the key news and repeats answered in full, no thinking aloud, a photo for every news
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -318,7 +318,7 @@ export async function makeIssue(now = Date.now()) {
   const norm = (x) => x.url.split('?')[0];
   const cands = own.map((s) => pickItems(
     s.feeds.flatMap((u) => (got.get(u) || []).map((x) => ({ ...x, outlet: host(u) }))).filter((x) => !offTopic(x)),
-    now, s.pool || POOL, s.pool ? 8 : 4,
+    now, s.pool || POOL, s.pool ? (s.pool > 36 ? 12 : 8) : 4,
   ));
   // All candidates once (a feed two sections share gives the same news to both).
   const pool = [];
@@ -335,7 +335,7 @@ export async function makeIssue(now = Date.now()) {
     })),
     (async () => {
       if (!any() || !pool.length) return null;
-      try { return readEvents(await ask(eventsPrompt(pool), 500), pool); } catch (e) { note.err = String(e.message || e).slice(0, 120); return null; }
+      try { return readEvents(await ask(eventsPrompt(pool), 1500), pool); } catch (e) { note.err = String(e.message || e).slice(0, 120); return null; }
     })(),
   ]);
   note.judged = verdicts.filter(Boolean).length;
@@ -445,7 +445,9 @@ export async function makeIssue(now = Date.now()) {
       const alt = await commonsImage(q);
       if (alt && alt !== x.image && (await hasText(alt)) !== true) return { ...x, image: alt, imageFrom: 'commons' };
     }
-    return { ...x, image: '', imageFrom: undefined };
+    // Nothing clean on the subject: the section's general photo (a place or an institution, no words on it).
+    const general = left() > 8000 ? await commonsImage(SECTION_PHOTO[SECTIONS[k].id]) : '';
+    return general ? { ...x, image: general, imageFrom: 'commons' } : { ...x, image: '', imageFrom: undefined };
   }))));
 
   const sections = SECTIONS.map((s, k) => ({
