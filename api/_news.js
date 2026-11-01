@@ -94,7 +94,7 @@ const CLAUDE = 'claude-haiku-5-5';
 const claudeKey = () => env.ANTHROPIC_API_KEY || env.context_new || '';
 const claudeOn = () => Boolean(claudeKey());
 let claudeClient = null;
-export const canAsk = () => (on() && !aiSpent()) || claudeOn();
+export const canAsk = () => (on() && !aiSpent()) || claudeRoom();
 // Our requests are written chat-style ({ role: 'system' | 'user', content }); Claude takes the system text apart
 // and a picture as an image block.
 export function toClaude(messages) {
@@ -125,6 +125,8 @@ async function askClaude(messages, maxTokens) {
     }, { timeout: Math.max(1000, Math.min(40000, left() - 2000)) });
     if (res.stop_reason === 'refusal') throw new Error('Claude refused');
     claudeUsed++;
+    // Haiku 5.5: $0.10 per million tokens in, $0.50 out (prompts under 100K).
+    claudeUSD += ((res.usage?.input_tokens || 0) * 0.10 + (res.usage?.output_tokens || 0) * 0.50) / 1e6;
     return res.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
   } catch (e) {
     if (e instanceof Anthropic.APIError) throw new Error(`Claude ${e.status ?? ''} ${String(e.message).slice(0, 80)}`);
@@ -133,13 +135,19 @@ async function askClaude(messages, maxTokens) {
   }
 }
 let claudeUsed = 0;
+let claudeUSD = 0;
+// Claude Haiku is the first choice; one issue may spend at most 3 cents on it — past that, and whenever Haiku
+// cannot answer, Cloudflare's free model takes the request.
+export const CLAUDE_CAP_USD = 0.03;
+const claudeRoom = () => claudeOn() && claudeUSD < CLAUDE_CAP_USD;
 
 async function ask(messages, maxTokens, model = MODEL, retry = 1) {
-  try { return await askCloudflare(messages, maxTokens, model, retry); } catch (e) {
-    // Cloudflare could not answer: Claude, if it is set up (but not when the making's time is up).
-    if (claudeOn() && !/time up/.test(String(e?.message))) return askClaude(messages, maxTokens);
-    throw e;
+  if (claudeRoom()) {
+    try { return await askClaude(messages, maxTokens); } catch (e) {
+      if (/time up/.test(String(e?.message)) || !on()) throw e;
+    }
   }
+  return askCloudflare(messages, maxTokens, model, retry);
 }
 async function askCloudflare(messages, maxTokens, model = MODEL, retry = 1) {
   if (!on()) throw new Error('AI off');
@@ -175,7 +183,7 @@ const RATES = { 'llama-3.3': [26668, 204805], 'llama-4-scout': [24545, 77273], '
 let spent = 0;
 let timedOut = false;
 export const spentNeurons = () => Math.round(spent);
-export const resetNeurons = () => { spent = 0; timedOut = false; claudeUsed = 0; };
+export const resetNeurons = () => { spent = 0; timedOut = false; claudeUsed = 0; claudeUSD = 0; };
 function spend(model, usage, messages, answer) {
   const [rin, rout] = Object.entries(RATES).find(([k]) => model.includes(k))?.[1] || RATES['llama-3.3'];
   const tin = usage?.prompt_tokens ?? JSON.stringify(messages).length / 3;
@@ -424,6 +432,7 @@ export async function makeIssue(now = Date.now()) {
   const items = sections.flatMap((s) => s.items);
   if (!canAsk()) note.err = note.err || 'AI 429 daily neurons spent';
   note.claude = claudeUsed;
+  note.claudeCents = Math.round(claudeUSD * 10000) / 100;
   const thin = any() && (items.filter((x) => x.ai).length < 24 || note.translated < items.length / 2);
   if (timedOut) note.timedOut = true;
   const degraded = any() && ((!note.judged && !note.events) || ((!canAsk() || timedOut) && thin));

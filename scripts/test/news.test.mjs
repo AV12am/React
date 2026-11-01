@@ -170,7 +170,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     assert.equal(vision, j.sections.flatMap((s) => s.items).filter((x) => x.image && !x.lead).length);
     assert.equal(j.sections.find((s) => s.id === 'infospace').items[0].image, '/news-img/lead-ru.jpg');
     assert.equal(sortCalls, 7);
-    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined, feeds: undefined, airHeads: undefined, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined }, { feeds: undefined, airHeads: undefined, sections: 7, judged: 7, events: true, short: 0, textPics: 0, picsChecked: true, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined, reports: { ru: 'used', ua: 'used' } });
+    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined, feeds: undefined, airHeads: undefined, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, claudeCents: undefined }, { feeds: undefined, airHeads: undefined, sections: 7, judged: 7, events: true, short: 0, textPics: 0, picsChecked: true, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, claudeCents: undefined, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined, reports: { ru: 'used', ua: 'used' } });
     // The night's reports open 2.1 and 2.2, in the fixed wording, with the day's own numbers.
     const [ru] = j.sections.find((s) => s.id === 'infospace').items;
     const [ua] = j.sections.find((s) => s.id === 'media').items;
@@ -409,7 +409,7 @@ test('the night report, not a tally of the month or the day; one saying «за �
   assert.ok(nightReport({ title: 'Силы ПВО за ночь уничтожили 433 украинских беспилотника' }, 'ru'));
 });
 
-test('Cloudflare spent: Claude Haiku answers the same requests, pictures sent as image blocks', async () => {
+test('Claude Haiku first (Cloudflare spent too): the same requests answered, pictures sent as image blocks', async () => {
   Object.assign(process.env, { SUPABASE_URL: 'https://sb.test', SUPABASE_SERVICE_ROLE_KEY: 'svc', CF_AI_TOKEN: 'cf', CF_ACCOUNT_ID: 'acc', ANTHROPIC_API_KEY: 'test-key' });
   const { makeIssue, resetSpent, toClaude, hasText } = await import('../../api/_news.js');
   const { SECTIONS } = await import('../../src/lib/news.js');
@@ -451,7 +451,8 @@ test('Cloudflare spent: Claude Haiku answers the same requests, pictures sent as
     assert.equal(conv.system, 'S');
     assert.deepEqual(conv.messages[0].content[1], { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'AAA=' } });
     const issue = await makeIssue();
-    assert.ok(cf >= 1 && claude > 10, `cf ${cf}, claude ${claude}`);
+    assert.ok(claude > 10, `cf ${cf}, claude ${claude}`);
+    assert.ok(issue.editor.claudeCents >= 0 && issue.editor.claudeCents <= 3);
     assert.ok(!issue.degraded, JSON.stringify(issue.editor).slice(0, 300));
     assert.equal(issue.editor.judged, 7);
     assert.ok(issue.editor.claude > 10);
