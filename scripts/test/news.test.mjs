@@ -122,7 +122,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
         // The editor for one section: keeps all but the news whose headline ends in «two» in Chapter 3.
         sortCalls++;
         const ch3 = m[0].content.includes('РОЗДІЛ 3');
-        return ok({ success: true, result: { response: JSON.stringify({ keep: Object.fromEntries(lines.map((l, i) => [String(i + 1), ch3 && / two —/.test(l) ? 0 : 1])) }) } });
+        return ok({ success: true, result: { response: JSON.stringify({ keep: Object.fromEntries(lines.map((l, i) => [String(i + 1), ch3 && / two —/.test(l) ? 0 : 2])) }) } });
       }
       if (m[0].content.includes('Знайди групи')) {
         // One event: the first two headlines from the same feed (they share a word, so the group is trusted).
@@ -171,7 +171,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     assert.equal(vision, j.sections.flatMap((s) => s.items).filter((x) => x.image && !x.lead).length);
     assert.equal(j.sections.find((s) => s.id === 'infospace').items[0].image, '/news-img/lead-ru.jpg');
     assert.equal(sortCalls, 7);
-    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined, feeds: undefined, airHeads: undefined, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, claudeCents: undefined, bySec: undefined, repeats: undefined, noImage: undefined, unfit: undefined, plain: undefined, keyPick: undefined }, { feeds: undefined, airHeads: undefined, sections: 7, judged: 7, events: true, short: 0, textPics: 0, picsChecked: true, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, claudeCents: undefined, bySec: undefined, repeats: undefined, noImage: undefined, unfit: undefined, plain: undefined, keyPick: undefined, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined, reports: { ru: 'used', ua: 'used' } });
+    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined, feeds: undefined, airHeads: undefined, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, claudeCents: undefined, bySec: undefined, repeats: undefined, noImage: undefined, unfit: undefined, plain: undefined, keyPick: undefined, said: undefined }, { feeds: undefined, airHeads: undefined, sections: 7, judged: 7, events: true, short: 0, textPics: 0, picsChecked: true, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, claudeCents: undefined, bySec: undefined, repeats: undefined, noImage: undefined, unfit: undefined, plain: undefined, keyPick: undefined, said: undefined, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined, reports: { ru: 'used', ua: 'used' } });
     // The night's reports open 2.1 and 2.2, in the fixed wording, with the day's own numbers.
     const [ru] = j.sections.find((s) => s.id === 'infospace').items;
     const [ua] = j.sections.find((s) => s.id === 'media').items;
@@ -244,7 +244,8 @@ test('off-topic news, emoji pictures and empty phrases stay out', async () => {
 
 test('the editor’s answers: keep or not for a section; same events; one news per event, the pictured one kept', () => {
   const items = [{ title: 'a', image: '' }, { title: 'b', image: 'https://p/b.jpg' }, { title: 'c' }, { title: 'd' }, { title: 'e' }];
-  assert.deepEqual(readKeep('{"keep":{"1":1,"2":0,"3":"так","5":true}}', items), [true, false, true, undefined, true]);
+  assert.deepEqual(readKeep('{"keep":{"1":2,"2":0,"3":"так","5":true}}', items), [true, false, true, undefined, true]);
+  assert.deepEqual(readKeep('{"keep":{"1":1,"2":2,"3":0,"4":1,"5":2}}', items), ['maybe', true, false, 'maybe', true]); // 1: partly on topic
   assert.equal(readKeep('no json', items), null);
   assert.equal(readKeep('{"keep":{"1":1}}', items), null); // too few answers to trust
   assert.match(keepPrompt(SECTIONS[5], items)[0].content, /4\.2 ОіВТ.*Тема розділу: озброєння/s);
@@ -363,7 +364,7 @@ test('the allowance running out half-way: nothing more is asked that day, and th
       if (typeof m[0].content === 'string' && m[0].content.includes('стосується теми розділу')) {
         if (!retried++) return new Response('{}', { status: 503 });
         const n = (m[1].content.match(/^\d+\./gm) || []).length;
-        return new Response(JSON.stringify({ result: { response: JSON.stringify({ keep: Object.fromEntries(Array.from({ length: n }, (_, i) => [String(i + 1), 1])) }) } }), { status: 200 });
+        return new Response(JSON.stringify({ result: { response: JSON.stringify({ keep: Object.fromEntries(Array.from({ length: n }, (_, i) => [String(i + 1), 2])) }) } }), { status: 200 });
       }
       return new Response(JSON.stringify({ errors: [{ message: 'you have used up your daily free allocation of 10,000 neurons' }] }), { status: 429 });
     }
@@ -434,7 +435,7 @@ test('Claude Haiku first (Cloudflare spent too): the same requests answered, pic
       const sys = String(b.system || '');
       const text = typeof c === 'string' ? c : '';
       const n = (text.match(/^\d+\./gm) || []).length;
-      if (sys.includes('стосується теми розділу')) return answer(JSON.stringify({ keep: Object.fromEntries(Array.from({ length: n }, (_, i) => [String(i + 1), 1])) }));
+      if (sys.includes('стосується теми розділу')) return answer(JSON.stringify({ keep: Object.fromEntries(Array.from({ length: n }, (_, i) => [String(i + 1), 2])) }));
       if (sys.includes('Знайди групи')) return answer('{"same": [], "key": [1, 2, 3, 4, 5]}');
       if (sys.startsWith('Translate')) return answer(JSON.stringify({ t: Array.from({ length: n }, (_, i) => `Summary ${i + 1}. Second sentence.`), q: Array.from({ length: n }, () => 'Kyiv') }));
       // a long list answered only in part (as a reply cut short): the rest must be asked again

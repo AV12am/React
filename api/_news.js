@@ -20,7 +20,7 @@ import { SECTIONS, PER_SECTION, POOL, FRESH, offTopic, KEY_COUNT, parseNewsFeed,
 
 
 const MIN = 60000;
-const VERSION = 19; // 19: a quiet day reaches back to 48 hours; 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
+const VERSION = 20; // 20: the editor scores 2 / 1 / 0, a short section takes the partly-on-topic ones; 19: a quiet day reaches back to 48 hours; 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -343,7 +343,7 @@ export async function makeIssue(now = Date.now()) {
   const [verdicts, events] = await Promise.all([
     Promise.all(own.map(async (s, k) => {
       if (!any() || !cands[k].length) return null;
-      try { return readKeep(await ask(keepPrompt(s, cands[k]), 300), cands[k]); } catch (e) { note.err = String(e.message || e).slice(0, 120); return null; }
+      try { return readKeep(await ask(keepPrompt(s, cands[k]), 600), cands[k]); } catch (e) { note.err = String(e.message || e).slice(0, 120); return null; }
     })),
     (async () => {
       if (!any() || !pool.length) return null;
@@ -358,11 +358,20 @@ export async function makeIssue(now = Date.now()) {
   for (const k of order) {
     cands[k].forEach((x, i) => {
       const said = verdicts[k]?.[i];
-      const keep = said === undefined ? fits(x, own[k]) : said;
+      const keep = said === undefined ? fits(x, own[k]) : said === true;
       const p = at.get(norm(x));
       if (keep && !sec[p]) sec[p] = own[k].id;
     });
   }
+  // A section the editor left short of news takes the ones it judged partly on its topic.
+  for (const k of order) {
+    cands[k].forEach((x, i) => {
+      const p = at.get(norm(x));
+      if (verdicts[k]?.[i] === 'maybe' && !sec[p] && sec.filter((v) => v === own[k].id).length < 8) sec[p] = own[k].id;
+    });
+  }
+  // What the editor said per section: [clearly, partly, not] — to see why a page came out thin.
+  note.said = Object.fromEntries(own.map((s, k) => [s.id, verdicts[k] ? [true, 'maybe', false].map((v) => verdicts[k].filter((x) => x === v).length) : cands[k].length ? 'none' : 'empty']));
   note.kept = Object.fromEntries(own.map((s) => [s.id, sec.filter((v) => v === s.id).length]));
   note.pool = pool.length;
   // One news per event — the editor's groups and the shared-words rule together.

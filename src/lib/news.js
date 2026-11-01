@@ -186,10 +186,10 @@ export function keepPrompt(section, items) {
       role: 'system',
       content: `Ти — випусковий редактор щоденного огляду новин. Розділ огляду: «${[section.part, section.title].filter(Boolean).join(' ')}». `
         + `Тема розділу: ${section.about}.\n`
-        + 'Для кожної новини нижче визнач, чи вона стосується теми розділу (1) чи ні (0). '
+        + 'Для кожної новини нижче визнач, чи вона стосується теми розділу: 2 — явно про тему розділу, 1 — частково або побічно, 0 — ні. '
         + 'Новина має повідомляти про подію: удар, бій, рішення, заяву, поставку, контракт, випробування, факт чи цифру. Суто аналітичні, оглядові й пояснювальні статті, історичні довідки, інтерв’ю, думки й дайджести без нової події — 0. '
         + 'Культура, спорт, розваги, побут, свята, внутрішня політика чи економіка інших країн без зв’язку з темою — 0. '
-        + `Відповідай лише JSON без пояснень, з відповіддю для кожного номера від 1 до ${items.length}: {"keep": {"1": 1, "2": 0, …}}`,
+        + `Відповідай лише JSON без пояснень, з відповіддю для кожного номера від 1 до ${items.length}: {"keep": {"1": 2, "2": 0, "3": 1, …}}`,
     },
     { role: 'user', content: items.map((x, i) => `${i + 1}. ${x.title} — ${String(x.text || '').slice(0, 160)}`).join('\n') },
   ];
@@ -198,14 +198,14 @@ const parseJson = (raw) => {
   const s = typeof raw === 'string' ? raw : JSON.stringify(raw);
   return typeof raw === 'object' && raw ? raw : JSON.parse(s.slice(s.indexOf('{'), s.lastIndexOf('}') + 1));
 };
-/** → [true | false | undefined (no answer)], or null when unreadable. */
+/** → [true (2: plainly on topic) | 'maybe' (1: partly) | false (0) | undefined (no answer)], or null when unreadable. */
 export function readKeep(raw, items) {
   let j;
   try { j = parseJson(raw); } catch { return null; }
   const k = j?.keep;
   const at = Array.isArray(k) ? (i) => k[i] : k && typeof k === 'object' ? (i) => k[String(i + 1)] : null;
   if (!at || items.filter((_, i) => at(i) != null).length < items.length * 0.8) return null;
-  return items.map((_, i) => { const v = at(i); return v == null ? undefined : v === true || v === 1 || v === '1' || /^(yes|так|true)$/i.test(String(v)); });
+  return items.map((_, i) => { const v = at(i); return v == null ? undefined : v === 1 || v === '1' ? 'maybe' : v === true || v === 2 || v === '2' || /^(yes|так|true)$/i.test(String(v)); });
 }
 
 /** The editor's look at all headlines together: which tell the same event, and the day's key news. */
