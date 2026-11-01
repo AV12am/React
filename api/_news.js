@@ -4,6 +4,7 @@
 // GET /api/pulse?news=1              → { v, at, for, sections: [{ id, part, title, items }] } — open, no sign-in
 //                                      (public news from open sources, for the standalone page news.html)
 // GET /api/pulse?news=1&img=<url>    a thumbnail of the current issue, for PDF and Word (only pictures it holds)
+// GET /api/pulse?news=1&status=1     how the last making went (no model asked)
 // GET /api/pulse?news=1&imgcheck=<url> whether one of its pictures has words on it (the picture model's yes / no)
 //
 // There is no refresh: the issue stays as it is until the next 17:00. The first request after 17:00 — the daily
@@ -361,6 +362,12 @@ export async function newsGet(req) {
       return json(200, { day: dayKey(Date.now()), ru: r.ru ? r.ru.title : null, ua: r.ua ? r.ua.title : null });
     }
     const cached = await read();
+
+    // How the last making went (no model asked): when, for which 17:00, whether it was cut short and why.
+    if (q.has('status')) {
+      const items = (cached?.sections || []).flatMap((s) => s.items);
+      return json(200, { at: cached?.at || null, for: cached?.for || null, v: cached?.v ?? null, degraded: Boolean(cached?.degraded), items: items.length, ai: items.filter((x) => x.ai).length, editor: cached?.editor || null, spentNow: aiSpent() });
+    }
 
     // A check of one of the issue's pictures for words on it (to see the picture model answer): yes / no / unknown.
     const check = q.get('imgcheck');
