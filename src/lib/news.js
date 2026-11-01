@@ -308,8 +308,9 @@ export function checkGroups(items, groups) {
   return out;
 }
 
-/** One news per event: from each group the pictured one, then the freshest, stays. */
-export function dropRepeats(items, groups) {
+/** One news per event: from each group the one in the thinnest section (`weight`, lower first), then the pictured,
+ * then the freshest, stays. */
+export function dropRepeats(items, groups, weight = () => 0) {
   const parent = items.map((_, i) => i);
   const root = (i) => (parent[i] === i ? i : (parent[i] = root(parent[i])));
   for (const g of groups) for (const k of g.slice(1)) parent[root(k)] = root(g[0]);
@@ -318,7 +319,7 @@ export function dropRepeats(items, groups) {
   const drop = new Set();
   for (const g of by.values()) {
     if (g.length < 2) continue;
-    const keep = [...g].sort((a, b) => Number(Boolean(items[b].image)) - Number(Boolean(items[a].image)) || String(items[b].at || '').localeCompare(String(items[a].at || '')))[0];
+    const keep = [...g].sort((a, b) => weight(a) - weight(b) || Number(Boolean(items[b].image)) - Number(Boolean(items[a].image)) || String(items[b].at || '').localeCompare(String(items[a].at || '')))[0];
     g.forEach((k) => { if (k !== keep) drop.add(k); });
   }
   return { drop, root };

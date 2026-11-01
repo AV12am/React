@@ -20,7 +20,7 @@ import { SECTIONS, PER_SECTION, POOL, FRESH, offTopic, KEY_COUNT, parseNewsFeed,
 
 
 const MIN = 60000;
-const VERSION = 20; // 20: the editor scores 2 / 1 / 0, a short section takes the partly-on-topic ones; 19: a quiet day reaches back to 48 hours; 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
+const VERSION = 21; // 21: a repeat is kept in the thinnest section; 5.2 judged by headline; 20: the editor scores 2 / 1 / 0, a short section takes the partly-on-topic ones; 19: a quiet day reaches back to 48 hours; 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -324,7 +324,8 @@ export async function makeIssue(now = Date.now()) {
   const norm = (x) => x.url.split('?')[0];
   // A section with a word list (2.1, 3, 5.1, 5.2) reads only the headlines that have its words: TASS and RIA give
   // a hundred news a day, most of them not about the war.
-  const fits = (x, s) => (!s.match || s.match.test(`${x.title} ${x.text}`)) && (!s.skip || !s.skip.test(`${x.title} ${x.text}`));
+  // A news «not about Ukraine» (5.2) is judged by its headline: a conflict story that mentions Russia in passing stays.
+  const fits = (x, s) => (!s.match || s.match.test(`${x.title} ${x.text}`)) && (!s.skip || !s.skip.test(x.title));
   // The last 24 hours; a section that has too few of them (a weekend, a quiet day) reaches back to 48 hours.
   const cands = own.map((s) => {
     const all = s.feeds.flatMap((u) => (got.get(u) || []).map((x) => ({ ...x, outlet: host(u) }))).filter((x) => !offTopic(x) && fits(x, s));
@@ -375,7 +376,8 @@ export async function makeIssue(now = Date.now()) {
   note.kept = Object.fromEntries(own.map((s) => [s.id, sec.filter((v) => v === s.id).length]));
   note.pool = pool.length;
   // One news per event — the editor's groups and the shared-words rule together.
-  const { drop } = dropRepeats(pool, [...checkGroups(pool, events?.groups || []), ...sameEvents(pool)]);
+  // The copy kept is the one in the section with fewest news (a news of no section is the last to be kept).
+  const { drop } = dropRepeats(pool, [...checkGroups(pool, events?.groups || []), ...sameEvents(pool)], (i) => (sec[i] ? note.kept[sec[i]] : 1e9));
   // The night's air-defence reports that open 2.1 (Russian claim) and 2.2 (Ukrainian Air Force) — never twice.
   // The morning capture keeps the day's reports (the feeds move on by 17:00); otherwise look in today's feeds.
   const kept = await captured(now);

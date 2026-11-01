@@ -513,3 +513,9 @@ test('an archive photo must fit the news as well as carry no words', async () =>
   assert.equal(await hasText('https://x/k.jpg', deps('yes yes'), 'x'), true);
   assert.equal(await hasText('https://x/k.jpg', deps('No'), ''), false);
 });
+
+test('of two news on one event the one in the thinner section stays', () => {
+  const items = [{ title: 'a', image: 'https://p/a.jpg', at: '2026-11-01T10:00:00Z' }, { title: 'b', image: '', at: '2026-11-01T09:00:00Z' }];
+  assert.deepEqual([...dropRepeats(items, [[0, 1]]).drop], [1]);
+  assert.deepEqual([...dropRepeats(items, [[0, 1]], (i) => [9, 2][i]).drop], [0]);
+});
