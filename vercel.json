@@ -100,6 +100,14 @@
       "schedule": "2 14 * * *"
     },
     {
+      "path": "/api/pulse?news=1&at=1710-utc-retry",
+      "schedule": "10 17 * * *"
+    },
+    {
+      "path": "/api/pulse?news=1&at=2010-utc-retry",
+      "schedule": "10 20 * * *"
+    },
+    {
       "path": "/api/pulse?news=1&at=0010-utc-retry",
       "schedule": "10 0 * * *"
     },
