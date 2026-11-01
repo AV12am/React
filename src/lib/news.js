@@ -30,6 +30,11 @@ export const SECTIONS = [
       'https://lenta.ru/rss/news',
       'https://meduza.io/rss/all',
       'https://www.themoscowtimes.com/rss/news',
+      // Lenta.ru at times gives nothing to a server abroad: RIA and TASS carry the same official line (and the
+      // Russian defence ministry's morning claim), DW's Russian service the view from outside.
+      'https://ria.ru/export/rss2/archive/index.xml',
+      'https://tass.ru/rss/v2.xml',
+      'https://rss.dw.com/rdf/rss-ru-all',
     ],
   },
   {
@@ -121,6 +126,10 @@ export const withLeadImages = (issue) => (issue?.sections ? {
   ...issue,
   sections: issue.sections.map((s) => ({ ...s, items: s.items.map((x) => (x.lead && LEAD_IMAGE[x.lead] ? { ...x, image: LEAD_IMAGE[x.lead] } : x)) })),
 } : issue);
+
+// A picture from a Russian site: such sites are blocked in Ukraine, so a reader there never sees it — an open
+// photo of the subject takes its place (and the documents fetch it through the site's own server).
+export const ruPicture = (url) => { try { return /(^|\.)(ru|рф|su)$/i.test(new URL(url).hostname); } catch { return false; } };
 
 export const PER_SECTION = 5;
 /** Fresh news read from each section's feeds before the editor sorts them. */
@@ -422,7 +431,7 @@ export function readTranslations(raw, texts) {
 
 /** Russian pro-government outlets: read only to show the aggressor's own agenda — their news is retold as what
  * Russian media claim, never as fact. */
-export const RU_STATE = new Set(['lenta.ru']);
+export const RU_STATE = new Set(['lenta.ru', 'ria.ru', 'tass.ru']);
 
 /** Ukrainian text: Cyrillic, with no letters only Russian has. A summary in another language never stands
  * in for a Ukrainian one. */

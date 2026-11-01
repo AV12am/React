@@ -8,7 +8,7 @@ import { ContextMark, Loader } from '../brand/Mark.jsx';
 import { NewsIntro } from './NewsIntro.jsx';
 import { saveFile } from '../lib/io.js';
 import { issueFileName, thumb, newsPdf, newsDocx, newsPptx, localize } from '../lib/newsExport.js';
-import { withLeadImages } from '../lib/news.js';
+import { withLeadImages, ruPicture } from '../lib/news.js';
 
 // The page's own words in both languages (the platform's translator is not loaded here).
 const T = {
@@ -117,7 +117,7 @@ export function NewsPage() {
               {s.items.map((x) => (
                 <article key={x.url} className="news__item">
                   <a className="news__pic" href={x.url} target="_blank" rel="noopener noreferrer" aria-label={t.open}>
-                    {x.image ? <img src={x.image} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; }} /> : <ContextMark size={28} title="" />}
+                    {x.image ? <img src={ruPicture(x.image) ? api(`&img=${encodeURIComponent(x.image)}`).href : x.image} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; }} /> : <ContextMark size={28} title="" />}
                   </a>
                   <p className="news__sum" lang={lang}>{x.summary}</p>
                 </article>

@@ -170,7 +170,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     assert.equal(vision, j.sections.flatMap((s) => s.items).filter((x) => x.image && !x.lead).length);
     assert.equal(j.sections.find((s) => s.id === 'infospace').items[0].image, '/news-img/lead-ru.jpg');
     assert.equal(sortCalls, 7);
-    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined, feeds: undefined, airHeads: undefined, secs: undefined }, { feeds: undefined, airHeads: undefined, sections: 7, judged: 7, events: true, short: 0, textPics: 0, picsChecked: true, secs: undefined, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined, reports: { ru: 'used', ua: 'used' } });
+    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined, feeds: undefined, airHeads: undefined, secs: undefined, neurons: undefined, neuronsAll: undefined }, { feeds: undefined, airHeads: undefined, sections: 7, judged: 7, events: true, short: 0, textPics: 0, picsChecked: true, secs: undefined, neurons: undefined, neuronsAll: undefined, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined, reports: { ru: 'used', ua: 'used' } });
     // The night's reports open 2.1 and 2.2, in the fixed wording, with the day's own numbers.
     const [ru] = j.sections.find((s) => s.id === 'infospace').items;
     const [ua] = j.sections.find((s) => s.id === 'media').items;
@@ -381,4 +381,14 @@ test('the allowance running out half-way: nothing more is asked that day, and th
     assert.match(issue.editor.err, /neurons|429/);
     assert.equal(issue.editor.picsChecked, false);
   } finally { globalThis.fetch = real; resetSpent(); }
+});
+
+test('pictures from Russian sites are known by their address', async () => {
+  const { ruPicture } = await import('../../src/lib/news.js');
+  assert.ok(ruPicture('https://icdn.lenta.ru/images/x.jpg'));
+  assert.ok(ruPicture('https://cdnn21.img.ria.ru/images/x.jpg'));
+  assert.ok(!ruPicture('https://static.themoscowtimes.com/x.jpg'));
+  assert.ok(!ruPicture('https://meduza.io/imgly/x'));
+  assert.ok(!ruPicture('https://www.pravda.com.ua/x.jpg'));
+  assert.ok(!ruPicture('/news-img/lead-ru.jpg'));
 });

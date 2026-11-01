@@ -15,7 +15,7 @@
 // is not available. Section 1 is the day's key news, chosen by the model from the headlines of all the others.
 import { json, db, env } from './_core.js';
 import sample from '../src/news/sample.js';
-import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, LEAD_IMAGE } from '../src/lib/news.js';
+import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, LEAD_IMAGE, ruPicture } from '../src/lib/news.js';
 
 
 const MIN = 60000;
@@ -81,28 +81,50 @@ let spentAt = 0;
 export const aiSpent = () => Date.now() - spentAt < SPENT_FOR;
 export const resetSpent = () => { spentAt = 0; }; // for the tests
 export const SPENT = /neurons|daily free allocation|\b429\b/;
+// The function may run 120 s; the making keeps to 105 s so that whatever was made is still saved. Every request to
+// the model is cut at the time left, and nothing is asked once it is up.
+let deadline = Infinity;
+const left = () => deadline - Date.now();
+export const setDeadline = (at) => { deadline = at; };
 async function ask(messages, maxTokens, model = MODEL, retry = 1) {
   if (aiSpent()) throw new Error('AI 429 daily neurons spent');
+  if (left() < 4000) { timedOut = true; throw new Error('AI time up'); }
   let res, data;
   try {
     res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/ai/run/${model}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages, max_tokens: maxTokens, temperature: 0.1 }),
-      signal: AbortSignal.timeout(28000),
+      signal: AbortSignal.timeout(Math.max(1000, Math.min(28000, left() - 2000))),
     });
     data = await res.json().catch(() => ({}));
   } catch (e) {
-    if (retry > 0) { await new Promise((r) => setTimeout(r, 1500)); return ask(messages, maxTokens, model, retry - 1); }
+    if (retry > 0 && left() > 20000) { await new Promise((r) => setTimeout(r, 1500)); return ask(messages, maxTokens, model, retry - 1); }
+    if (left() < 4000) timedOut = true;
     throw new Error(`AI network ${String(e?.message || e).slice(0, 60)}`);
   }
   if (!res.ok) {
     const msg = `AI ${res.status} ${JSON.stringify(data.errors || '').slice(0, 100)}`;
     if (res.status === 429 || SPENT.test(msg)) { spentAt = Date.now(); throw new Error(msg); }
-    if (res.status >= 500 && retry > 0) { await new Promise((r) => setTimeout(r, 1500)); return ask(messages, maxTokens, model, retry - 1); }
+    if (res.status >= 500 && retry > 0 && left() > 20000) { await new Promise((r) => setTimeout(r, 1500)); return ask(messages, maxTokens, model, retry - 1); }
     throw new Error(msg);
   }
+  spend(model, data.result?.usage, messages, data.result?.response);
   return data.result?.response;
+}
+
+// What this making has spent, by the models' own token counts (Cloudflare's neurons per million tokens, in / out).
+// The free allowance is 10,000 a day; the optional picture check runs only while enough is left for it.
+const RATES = { 'llama-3.3': [26668, 204805], 'llama-4-scout': [24545, 77273], 'mistral-small': [31876, 50488], 'gemma-3': [31371, 50560] };
+let spent = 0;
+let timedOut = false;
+export const spentNeurons = () => Math.round(spent);
+export const resetNeurons = () => { spent = 0; timedOut = false; };
+function spend(model, usage, messages, answer) {
+  const [rin, rout] = Object.entries(RATES).find(([k]) => model.includes(k))?.[1] || RATES['llama-3.3'];
+  const tin = usage?.prompt_tokens ?? JSON.stringify(messages).length / 3;
+  const tout = usage?.completion_tokens ?? String(answer || '').length / 3;
+  spent += (tin * rin + tout * rout) / 1e6;
 }
 const on = () => Boolean(ACCOUNT && TOKEN);
 
@@ -110,18 +132,18 @@ async function summarize(items, tries = 2) {
   if (!on() || !items.length) return readSummaries('', items);
   try {
     const out = readSummaries(await ask(summaryPrompt(items), 2600), items);
-    if (tries > 1 && out.filter((x) => x.ai).length < items.length / 2) return summarize(items, tries - 1); // the model fell short: once more
+    if (tries > 1 && left() > 35000 && out.filter((x) => x.ai).length < items.length / 2) return summarize(items, tries - 1); // the model fell short: once more
     return out;
-  } catch { return tries > 1 ? summarize(items, tries - 1) : readSummaries('', items); }
+  } catch { return tries > 1 && left() > 35000 && !aiSpent() ? summarize(items, tries - 1) : readSummaries('', items); }
 }
 async function translate(texts, tries = 2) {
   const none = { t: texts.map(() => ''), q: texts.map(() => '') };
   if (!on() || !texts.length) return none;
   try {
     const out = readTranslations(await ask(translatePrompt(texts), 2200), texts);
-    if (tries > 1 && out.t.filter(Boolean).length < texts.length) return translate(texts, tries - 1); // missing ones: once more
+    if (tries > 1 && left() > 30000 && out.t.filter(Boolean).length < texts.length) return translate(texts, tries - 1); // missing ones: once more
     return out;
-  } catch { return tries > 1 ? translate(texts, tries - 1) : none; }
+  } catch { return tries > 1 && left() > 30000 && !aiSpent() ? translate(texts, tries - 1) : none; }
 }
 
 // A news item with no picture of its own: a photo of its subject from Wikimedia Commons (an open,
@@ -193,6 +215,8 @@ function roundRobin(lists) {
 
 export async function makeIssue(now = Date.now()) {
   const started = Date.now(); // the whole making must end within the function's 120 s
+  resetNeurons();
+  setDeadline(started + 105 * 1000);
   const own = SECTIONS.filter((s) => !s.key);
   const urls = [...new Set(own.flatMap((s) => s.feeds))];
   const got = new Map(await Promise.all(urls.map(async (u) => [u, await feed(u)])));
@@ -294,19 +318,31 @@ export async function makeIssue(now = Date.now()) {
   note.translated = en.flatMap((e) => e.t).filter(Boolean).length;
 
   // 5. Still no picture: a photo of the subject from the open archive.
-  const found = await Promise.all(chosen.map((l, k) => Promise.all(l.map(async (x, i) => (x.image ? x : { ...x, image: await commonsImage(en[k].q[i]), imageFrom: 'commons' })))));
+  //    A picture from a Russian site (blocked in Ukraine) is swapped for an open one the same way.
+  const found = await Promise.all(chosen.map((l, k) => Promise.all(l.map(async (x, i) => {
+    if (x.lead || (x.image && !ruPicture(x.image))) return x;
+    if (left() < 15000) return { ...x, image: x.image && !ruPicture(x.image) ? x.image : '' }; // no time to look
+    const words = commonsQuery({ ...x, summary_en: en[k].t[i] }).split(' ');
+    for (const q of [...new Set([en[k].q[i], words.join(' '), words.slice(0, 2).join(' ')])].filter(Boolean)) {
+      const alt = await commonsImage(q);
+      if (alt) return { ...x, image: alt, imageFrom: 'commons' };
+    }
+    return { ...x, image: '' };
+  }))));
 
   // 6. Photos only, no words on them: a picture with a headline or caption laid over it gives way to an open
   //    photo of the subject; if that one has words too, the news goes without a picture. The leads keep theirs.
   //    The check comes last and is the first to go: not when the allowance is spent, nor late in the making.
   note.textPics = 0;
-  const looks = !aiSpent() && Date.now() - started < 70 * 1000;
+  const looks = !aiSpent() && left() > 35 * 1000 && spent < 7000;
+  note.neurons = spentNeurons();
   note.picsChecked = looks;
   const withPhotos = await Promise.all(found.map((l, k) => Promise.all(l.map(async (x, i) => {
     if (!looks || x.lead || !x.image || (await hasText(x.image)) !== true) return x;
     note.textPics++;
     const words = commonsQuery({ ...x, summary_en: en[k].t[i] }).split(' ');
     for (const q of [...new Set([en[k].q[i], words.join(' '), words.slice(0, 2).join(' ')])].filter(Boolean)) {
+      if (left() < 15000) break;
       const alt = await commonsImage(q);
       if (alt && alt !== x.image && (await hasText(alt)) !== true) return { ...x, image: alt, imageFrom: 'commons' };
     }
@@ -327,8 +363,11 @@ export async function makeIssue(now = Date.now()) {
   const items = sections.flatMap((s) => s.items);
   if (aiSpent()) note.err = note.err || 'AI 429 daily neurons spent';
   const thin = on() && (items.filter((x) => x.ai).length < 24 || note.translated < items.length / 2);
-  const degraded = on() && ((!note.judged && !note.events) || (aiSpent() && thin));
+  if (timedOut) note.timedOut = true;
+  const degraded = on() && ((!note.judged && !note.events) || ((aiSpent() || timedOut) && thin));
+  setDeadline(Infinity);
   note.secs = Math.round((Date.now() - started) / 1000);
+  note.neuronsAll = spentNeurons();
   return { v: VERSION, at: new Date(now).toISOString(), for: new Date(issueTime(now)).toISOString(), editor: note, ...(degraded ? { degraded: true } : {}), sections };
 }
 
