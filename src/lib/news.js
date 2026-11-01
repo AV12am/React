@@ -144,7 +144,7 @@ export const FRESH = 24 * 3600000;
 // Candidates the editor judges per section; the sections whose outlets carry much off-topic news get more.
 export const POOL = 20;
 // Not a fresh event: analysis, explainers, interviews, reviews, podcasts, weekly roundups, «what we know».
-const ANALYSIS = /^(analysis|explainer|explained|opinion|comment|podcast|interview|review|q&a|watch|video|photos|in pictures|briefing)\b|what we know|what to know|how .* works|the week in|week in review|on our radar|eurasia daily monitor|аналітик|аналитик|колонк|інтерв.ю|интервью|подкаст|пояснюємо|объясняем|що відомо про|что известно о|все, що (потрібно|треба) знати|огляд тижня|итоги недели|підсумки тижня|історія |история |хронологія|хронология|^мнение|^думка|^блог|лонгрид/i;
+const ANALYSIS = /^(analysis|explainer|explained|opinion|comment|podcast|interview|review|q&a|watch|video|photos|in pictures|briefing)\b|what we know|what to know|how .* works|the week in|week in review|digest|дайджест|новини вихідних|новости выходных|головне за день|главное за день|підсумки дня|итоги дня|on our radar|eurasia daily monitor|аналітик|аналитик|колонк|інтерв.ю|интервью|подкаст|пояснюємо|объясняем|що відомо про|что известно о|все, що (потрібно|треба) знати|огляд тижня|итоги недели|підсумки тижня|історія |история |хронологія|хронология|^мнение|^думка|^блог|лонгрид/i;
 /** Light news (holidays, films, horoscopes, sport) — kept out of every section. */
 export const offTopic = (x) => SOFT.test(x.title || '')
   || /^(захищено|protected|private)\s*:/i.test(x.title || '') // a password-protected post has no text to retell
@@ -187,7 +187,7 @@ export function keepPrompt(section, items) {
       content: `Ти — випусковий редактор щоденного огляду новин. Розділ огляду: «${[section.part, section.title].filter(Boolean).join(' ')}». `
         + `Тема розділу: ${section.about}.\n`
         + 'Для кожної новини нижче визнач, чи вона стосується теми розділу (1) чи ні (0). '
-        + 'Потрібна лише свіжа конкретна подія доби: заява, рішення, удар, бій, факт, цифра. Аналітика, огляди, пояснювальні статті, історичні довідки, інтерв’ю, думки й прогнози без нової події — 0. '
+        + 'Новина має повідомляти про подію: удар, бій, рішення, заяву, поставку, контракт, випробування, факт чи цифру. Суто аналітичні, оглядові й пояснювальні статті, історичні довідки, інтерв’ю, думки й дайджести без нової події — 0. '
         + 'Культура, спорт, розваги, побут, свята, внутрішня політика чи економіка інших країн без зв’язку з темою — 0. '
         + `Відповідай лише JSON без пояснень, з відповіддю для кожного номера від 1 до ${items.length}: {"keep": {"1": 1, "2": 0, …}}`,
     },
@@ -387,16 +387,16 @@ export function parseNewsFeed(xml) {
 }
 
 /** The freshest of a section: the last day (a news with no date is left out), newest first, each source at most `cap` times, pictures preferred. */
-export function pickItems(items, now = Date.now(), n = PER_SECTION, cap = 4) {
+export function pickItems(items, now = Date.now(), n = PER_SECTION, cap = 4, fresh = FRESH) {
   const seen = new Set();
-  const fresh = items
-    .filter((x) => x.at && now - Date.parse(x.at) < FRESH && Date.parse(x.at) - now < 3600000)
+  const recent = items
+    .filter((x) => x.at && now - Date.parse(x.at) < fresh && Date.parse(x.at) - now < 3600000)
     .filter((x) => { const k = x.url.split('?')[0]; if (seen.has(k)) return false; seen.add(k); return true; })
     .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
   const out = [];
   const per = {};
   for (const pass of [true, false]) {
-    for (const x of fresh) {
+    for (const x of recent) {
       if (out.length >= n) break;
       if (out.includes(x) || (pass && !x.image)) continue;
       if ((per[x.domain] || 0) >= cap) continue;

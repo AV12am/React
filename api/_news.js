@@ -16,11 +16,11 @@
 import { json, db, env } from './_core.js';
 import Anthropic from '@anthropic-ai/sdk';
 import sample from '../src/news/sample.js';
-import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, keyPrompt, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, LEAD_IMAGE, ruPicture, nightReport } from '../src/lib/news.js';
+import { SECTIONS, PER_SECTION, POOL, FRESH, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, keyPrompt, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, LEAD_IMAGE, ruPicture, nightReport } from '../src/lib/news.js';
 
 
 const MIN = 60000;
-const VERSION = 18; // 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
+const VERSION = 19; // 19: a quiet day reaches back to 48 hours; 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -325,10 +325,13 @@ export async function makeIssue(now = Date.now()) {
   // A section with a word list (2.1, 3, 5.1, 5.2) reads only the headlines that have its words: TASS and RIA give
   // a hundred news a day, most of them not about the war.
   const fits = (x, s) => (!s.match || s.match.test(`${x.title} ${x.text}`)) && (!s.skip || !s.skip.test(`${x.title} ${x.text}`));
-  const cands = own.map((s) => pickItems(
-    s.feeds.flatMap((u) => (got.get(u) || []).map((x) => ({ ...x, outlet: host(u) }))).filter((x) => !offTopic(x) && fits(x, s)),
-    now, s.pool || POOL, s.pool ? (s.pool > 36 ? 12 : 8) : 4,
-  ));
+  // The last 24 hours; a section that has too few of them (a weekend, a quiet day) reaches back to 48 hours.
+  const cands = own.map((s) => {
+    const all = s.feeds.flatMap((u) => (got.get(u) || []).map((x) => ({ ...x, outlet: host(u) }))).filter((x) => !offTopic(x) && fits(x, s));
+    const take = (fresh) => pickItems(all, now, s.pool || POOL, s.pool ? (s.pool > 36 ? 12 : 8) : 4, fresh);
+    const day = take(FRESH);
+    return day.length >= 12 ? day : take(2 * FRESH);
+  });
   // All candidates once (a feed two sections share gives the same news to both).
   const pool = [];
   const at = new Map();
@@ -374,7 +377,7 @@ export async function makeIssue(now = Date.now()) {
     .sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 10).map((x) => `${String(x.at).slice(5, 16)} ${x.domain}: ${x.title.slice(0, 110)}`);
   const isReport = (x) => Object.values(reports).some((r) => r && (norm(r) === norm(x) || sharedWords(r, x) >= 3));
   const live = pool.map((_, i) => i).filter((i) => sec[i] && !drop.has(i) && !isReport(pool[i]));
-  const bySec = Object.fromEntries(own.map((s) => [s.id, pickItems(live.filter((i) => sec[i] === s.id).map((i) => ({ ...pool[i], i })), now, POOL).map((x) => x.i)]));
+  const bySec = Object.fromEntries(own.map((s) => [s.id, pickItems(live.filter((i) => sec[i] === s.id).map((i) => ({ ...pool[i], i })), now, POOL, 4, 2 * FRESH).map((x) => x.i)]));
   const SPARE = 3; // candidates beyond five, for the news whose summary comes out shorter than two sentences
   // The key news: the editor's ranking, at most one from a section, and never from a section left with fewer than
   // three — the key news must not empty the chapters they come from.
@@ -391,12 +394,12 @@ export async function makeIssue(now = Date.now()) {
   note.keyPick = picked0.length;
   const editorKey = (events?.key || []).filter((i) => live.includes(i));
   const ranked = picked0.length ? [...picked0, ...editorKey.filter((i) => !picked0.includes(i))] : editorKey.length ? editorKey : roundRobin(own.map((s) => bySec[s.id]));
-  // At most one from a section, and only from one left with four of its own after it.
+  // At most one from a section, and only from one that has four or more.
   const key = [];
   const took = new Set();
   for (const i of ranked) {
     if (key.length >= KEY_COUNT) break;
-    if (took.has(sec[i]) || bySec[sec[i]].length < 5) continue;
+    if (took.has(sec[i]) || bySec[sec[i]].length < 4) continue;
     key.push(i); took.add(sec[i]);
   }
   // Too few sections to give one each: one more (never more) from a section that has six or more, so that it
