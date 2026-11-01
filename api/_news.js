@@ -74,10 +74,12 @@ async function articleText(url) {
 // The model's free allowance is counted per day (it renews at 00:00 UTC). Once it is spent, nothing more is asked
 // that day — every further call fails at once instead of costing a round trip; a passing fault (a 5xx, a timeout)
 // is asked once more. A refusal of the request itself (400, 403) is not asked again.
-let spentDay = '';
-const utcDay = () => new Date().toISOString().slice(0, 10);
-export const aiSpent = () => spentDay === utcDay();
-export const resetSpent = () => { spentDay = ''; }; // for the tests
+// Cloudflare says the allowance renews at 00:00 UTC, but on 1 Nov it still answered «spent» at 00:21 UTC — so a
+// spent answer holds for an hour, not for the rest of the day: the retries later in the night can still make it.
+const SPENT_FOR = 60 * 60 * 1000;
+let spentAt = 0;
+export const aiSpent = () => Date.now() - spentAt < SPENT_FOR;
+export const resetSpent = () => { spentAt = 0; }; // for the tests
 export const SPENT = /neurons|daily free allocation|\b429\b/;
 async function ask(messages, maxTokens, model = MODEL, retry = 1) {
   if (aiSpent()) throw new Error('AI 429 daily neurons spent');
@@ -96,7 +98,7 @@ async function ask(messages, maxTokens, model = MODEL, retry = 1) {
   }
   if (!res.ok) {
     const msg = `AI ${res.status} ${JSON.stringify(data.errors || '').slice(0, 100)}`;
-    if (res.status === 429 || SPENT.test(msg)) { spentDay = utcDay(); throw new Error(msg); }
+    if (res.status === 429 || SPENT.test(msg)) { spentAt = Date.now(); throw new Error(msg); }
     if (res.status >= 500 && retry > 0) { await new Promise((r) => setTimeout(r, 1500)); return ask(messages, maxTokens, model, retry - 1); }
     throw new Error(msg);
   }
@@ -406,8 +408,8 @@ export async function newsGet(req) {
     // (real news, src/news/sample.js) is shown instead — never after its day has passed.
     const standIn = (doc) => (doc?.degraded && Date.parse(sample.for) === issueTime(now) ? { ...sample, standIn: true } : doc);
 
-    // The model's daily allowance is spent (it renews at 00:00 UTC): no point making the issue again before then.
-    const spent = cached?.degraded && SPENT.test(cached.editor?.err || '') && String(cached.at).slice(0, 10) === new Date(now).toISOString().slice(0, 10);
+    // The model's allowance was found spent within the last hour: no point asking again so soon.
+    const spent = cached?.degraded && SPENT.test(cached.editor?.err || '') && now - Date.parse(cached.at) < SPENT_FOR;
     if (spent) return json(200, standIn(cached));
 
     // Only one request makes it: the first to file the lock for this issue (and this ten minutes, so a failed
