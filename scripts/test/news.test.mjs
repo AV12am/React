@@ -93,8 +93,8 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
   const translated = [];
   const real = globalThis.fetch;
   const now = new Date().toUTCString();
-  const rss = (host) => `<rss xmlns:media="m"><item><title>${host} one</title><link>https://${host}/1</link><pubDate>${now}</pubDate><description>Text one about Ukraine and Russia’s military.</description>${host.includes('meduza') ? '' : `<media:thumbnail url="https://img.${host}/1.jpg"/>`}</item>
-    <item><title>${host} two</title><link>https://${host}/2</link><pubDate>${now}</pubDate><description>Text two on the conflict.</description></item></rss>`;
+  const rss = (host) => `<rss xmlns:media="m"><item><title>${host} strike one</title><link>https://${host}/1</link><pubDate>${now}</pubDate><description>Text one about Ukraine and Russia’s military.</description>${host.includes('meduza') ? '' : `<media:thumbnail url="https://img.${host}/1.jpg"/>`}</item>
+    <item><title>${host} strike two</title><link>https://${host}/2</link><pubDate>${now}</pubDate><description>Text two on the conflict.</description></item></rss>`;
   globalThis.fetch = async (url, opts = {}) => {
     const u = decodeURIComponent(String(url));
     const ok = (b) => new Response(b == null ? null : JSON.stringify(b), { status: b == null ? 204 : 200 });
@@ -158,7 +158,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     assert.deepEqual(j.sections.map((s) => s.id), SECTIONS.map((s) => s.id));
     assert.equal(j.for, new Date(issueTime()).toISOString());
     for (const s of j.sections) {
-      assert.ok(s.items.length >= 4 && s.items.length <= 5, `${s.id}: ${s.items.length}`);
+      assert.ok(s.items.length >= (s.id === 'key' ? 3 : 4) && s.items.length <= 5, `${s.id}: ${s.items.length}`); // the key news: only as many as the editor chose
       assert.ok(s.items.every((x) => x.image && x.summary && x.ai));
     }
     // No news twice: the key ones leave their sections, and a feed shared by two sections feeds only one.
@@ -170,7 +170,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     assert.equal(vision, j.sections.flatMap((s) => s.items).filter((x) => x.image && !x.lead).length);
     assert.equal(j.sections.find((s) => s.id === 'infospace').items[0].image, '/news-img/lead-ru.jpg');
     assert.equal(sortCalls, 7);
-    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined, feeds: undefined, airHeads: undefined, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, claudeCents: undefined, bySec: undefined, repeats: undefined }, { feeds: undefined, airHeads: undefined, sections: 7, judged: 7, events: true, short: 0, textPics: 0, picsChecked: true, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, claudeCents: undefined, bySec: undefined, repeats: undefined, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined, reports: { ru: 'used', ua: 'used' } });
+    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined, feeds: undefined, airHeads: undefined, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, claudeCents: undefined, bySec: undefined, repeats: undefined, noImage: undefined }, { feeds: undefined, airHeads: undefined, sections: 7, judged: 7, events: true, short: 0, textPics: 0, picsChecked: true, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, claudeCents: undefined, bySec: undefined, repeats: undefined, noImage: undefined, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined, reports: { ru: 'used', ua: 'used' } });
     // The night's reports open 2.1 and 2.2, in the fixed wording, with the day's own numbers.
     const [ru] = j.sections.find((s) => s.id === 'infospace').items;
     const [ua] = j.sections.find((s) => s.id === 'media').items;
@@ -252,8 +252,9 @@ test('the editor’s answers: keep or not for a section; same events; one news p
   assert.deepEqual([...dropRepeats(items, ev.groups).drop], [0]);
   assert.match(eventsPrompt(items)[0].content, /ту саму подію/);
   // A group the model lumps together is trusted only where the headlines share a telling word.
-  const heads = [{ title: 'US approves 500 Patriot missiles' }, { title: 'Zelenskyy urges faster Patriot deliveries' }, { title: 'Canada gives €500m to Ukraine' }, { title: 'Kabila turns rebel leader in Congo' }];
-  assert.deepEqual(checkGroups(heads, [[0, 1, 2, 3]]), [[0, 1]]); // «500» alone ties nothing
+  const heads = [{ title: 'US approves 500 Patriot missiles' }, { title: 'Washington approves Patriot missiles sale' }, { title: 'Canada gives €500m to Ukraine' }, { title: 'Zelenskyy urges faster Patriot deliveries' }];
+  assert.deepEqual(checkGroups(heads, [[0, 1, 2, 3]]), [[0, 1]]); // two telling words tie; «500» or «Patriot» alone does not
+  assert.deepEqual(checkGroups([...heads, ...heads], [[0, 1, 2, 3, 4, 5]]), []); // a whole topic lumped together: not one event
 });
 
 test('same event without the model: headlines in different languages that share telling words', () => {

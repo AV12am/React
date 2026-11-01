@@ -280,8 +280,11 @@ export function sharedWords(a, b, { numbers = true } = {}) {
 export function checkGroups(items, groups) {
   const out = [];
   for (const g of groups) {
+    // A «group» of many headlines is the model lumping a whole topic together, not one event: left aside.
+    if (g.length > 5) continue;
     for (let a = 0; a < g.length; a++) for (let b = a + 1; b < g.length; b++) {
-      if (sharedWords(items[g[a]], items[g[b]], { numbers: false }) >= 1) out.push([g[a], g[b]]);
+      // Two headlines of one event share at least two telling words (a name and a place, a weapon and a target).
+      if (sharedWords(items[g[a]], items[g[b]], { numbers: false }) >= 2) out.push([g[a], g[b]]);
     }
   }
   return out;

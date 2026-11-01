@@ -20,7 +20,7 @@ import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickIt
 
 
 const MIN = 60000;
-const VERSION = 16; // 16: the key-news rule; one more from a full section at most
+const VERSION = 17; // 17: fewer false repeats, the key news only as the editor chose, a photo for every news
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -370,12 +370,15 @@ export async function makeIssue(now = Date.now()) {
   const SPARE = 2; // candidates beyond five, for the news whose summary comes out shorter than two sentences
   // The key news: the editor's ranking, at most one from a section, and never from a section left with fewer than
   // three — the key news must not empty the chapters they come from.
-  const ranked = readPick(JSON.stringify({ pick: (events?.key || []).filter((i) => live.includes(i)).map((i) => i + 1) }), pool, live.length, roundRobin(own.map((s) => bySec[s.id])));
+  // Only the editor's own choice of key news; the plain round of sections only when the editor gave none at all
+  // (it filled the page with whatever came first — tank engines in Poland, a Gripen for Canada).
+  const editorKey = (events?.key || []).filter((i) => live.includes(i));
+  const ranked = readPick(JSON.stringify({ pick: editorKey.map((i) => i + 1) }), pool, live.length, editorKey.length ? [] : roundRobin(own.map((s) => bySec[s.id])));
   const key = [];
   const took = new Set();
   for (const i of ranked) {
     if (key.length >= KEY_COUNT + SPARE) break;
-    if (took.has(sec[i]) || bySec[sec[i]].length < 4) continue;
+    if (took.has(sec[i]) || bySec[sec[i]].length < 3) continue;
     key.push(i); took.add(sec[i]);
   }
   // Too few sections to give one each: one more (never more) from a section that has plenty — seven or more,
@@ -454,6 +457,19 @@ export async function makeIssue(now = Date.now()) {
     const general = left() > 8000 ? await commonsImage(SECTION_PHOTO[SECTIONS[k].id]) : '';
     return general ? { ...x, image: general, imageFrom: 'commons' } : { ...x, image: '', imageFrom: undefined };
   }))));
+
+  // Any news still without a picture (Commons slow or busy a moment ago): the section's general photo, looked up
+  // once per section.
+  const general = {};
+  for (const [k, l] of withPhotos.entries()) {
+    for (const x of l) {
+      if (x.image || left() < 5000) continue;
+      general[k] ??= commonsImage(SECTION_PHOTO[SECTIONS[k].id]);
+      const g = await general[k];
+      if (g) { x.image = g; x.imageFrom = 'commons'; }
+    }
+  }
+  note.noImage = withPhotos.flat().filter((x) => !x.image).length;
 
   const sections = SECTIONS.map((s, k) => ({
     id: s.id, part: s.part, title: s.title, en: s.en, sources: s.feeds.length,
