@@ -361,7 +361,8 @@ const plain = (s) => unesc(unesc(s).replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' 
 const tag = (block, name) => (new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, 'i').exec(block) || [])[1] || '';
 const attr = (block, re) => (re.exec(block) || [])[1] || '';
 export const host = (url) => { try { return new URL(url).hostname.replace(/^(www|feeds|rss|news)\./, ''); } catch { return ''; } };
-const httpUrl = (u) => (/^https?:\/\/[^\s"'<>]+$/i.test(u || '') && !/\/emoji\/|s\.w\.org\/images|pixel|spacer|1x1/i.test(u) ? u : '');
+// A picture's address has a path of its own (a bare «https://zn.ua» is the site, not a picture).
+const httpUrl = (u) => (/^https?:\/\/[^\s"'<>/]+\/[^\s"'<>]+$/i.test(u || '') && !/\/emoji\/|s\.w\.org\/images|pixel|spacer|1x1/i.test(u) ? u : '');
 
 /** The thumbnail an item carries: media:thumbnail / media:content / an image enclosure / the first <img>. */
 export function itemImage(block) {
