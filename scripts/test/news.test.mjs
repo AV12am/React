@@ -170,7 +170,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     assert.equal(vision, j.sections.flatMap((s) => s.items).filter((x) => x.image && !x.lead).length);
     assert.equal(j.sections.find((s) => s.id === 'infospace').items[0].image, '/news-img/lead-ru.jpg');
     assert.equal(sortCalls, 7);
-    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined, feeds: undefined, airHeads: undefined, secs: undefined, neurons: undefined, neuronsAll: undefined }, { feeds: undefined, airHeads: undefined, sections: 7, judged: 7, events: true, short: 0, textPics: 0, picsChecked: true, secs: undefined, neurons: undefined, neuronsAll: undefined, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined, reports: { ru: 'used', ua: 'used' } });
+    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined, feeds: undefined, airHeads: undefined, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined }, { feeds: undefined, airHeads: undefined, sections: 7, judged: 7, events: true, short: 0, textPics: 0, picsChecked: true, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined, reports: { ru: 'used', ua: 'used' } });
     // The night's reports open 2.1 and 2.2, in the fixed wording, with the day's own numbers.
     const [ru] = j.sections.find((s) => s.id === 'infospace').items;
     const [ua] = j.sections.find((s) => s.id === 'media').items;
@@ -407,4 +407,55 @@ test('the night report, not a tally of the month or the day; one saying «за �
   assert.ok(!nightReport({ title: 'Группировка "Север" за ночь уничтожила 183 беспилотника ВСУ' }, 'ru'));
   assert.equal(pick([['Дежурные средства ПВО перехватили и уничтожили 57 украинских БПЛА над территориями пяти областей', 50, 'm']], 'ru'), 'm');
   assert.ok(nightReport({ title: 'Силы ПВО за ночь уничтожили 433 украинских беспилотника' }, 'ru'));
+});
+
+test('Cloudflare spent: Claude Haiku answers the same requests, pictures sent as image blocks', async () => {
+  Object.assign(process.env, { SUPABASE_URL: 'https://sb.test', SUPABASE_SERVICE_ROLE_KEY: 'svc', CF_AI_TOKEN: 'cf', CF_ACCOUNT_ID: 'acc', ANTHROPIC_API_KEY: 'test-key' });
+  const { makeIssue, resetSpent, toClaude, hasText } = await import('../../api/_news.js');
+  const { SECTIONS } = await import('../../src/lib/news.js');
+  resetSpent();
+  const real = globalThis.fetch;
+  const now = new Date().toUTCString();
+  let cf = 0, claude = 0, sawImage = false;
+  const answer = (text) => new Response(JSON.stringify({ id: 'm', type: 'message', role: 'assistant', model: 'claude-haiku-5-5', stop_reason: 'end_turn', content: [{ type: 'text', text }], usage: { input_tokens: 10, output_tokens: 10 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+  globalThis.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    if (u.startsWith('https://sb.test')) return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
+    if (u.includes('api.cloudflare.com')) { cf++; return new Response(JSON.stringify({ errors: [{ message: 'you have used up your daily free allocation of 10,000 neurons' }] }), { status: 429 }); }
+    if (u.includes('api.anthropic.com')) {
+      claude++;
+      const b = JSON.parse(opts.body);
+      assert.equal(b.model, 'claude-haiku-5-5');
+      assert.equal(b.thinking.type, 'disabled');
+      const c = b.messages[0].content;
+      if (Array.isArray(c) && c.some((x) => x.type === 'image')) { sawImage = true; return answer('No'); }
+      const sys = String(b.system || '');
+      const text = typeof c === 'string' ? c : '';
+      const n = (text.match(/^\d+\./gm) || []).length;
+      if (sys.includes('стосується теми розділу')) return answer(JSON.stringify({ keep: Object.fromEntries(Array.from({ length: n }, (_, i) => [String(i + 1), 1])) }));
+      if (sys.includes('Знайди групи')) return answer('{"same": [], "key": [1, 2, 3, 4, 5]}');
+      if (sys.startsWith('Translate')) return answer(JSON.stringify({ t: Array.from({ length: n }, (_, i) => `Summary ${i + 1}. Second sentence.`), q: Array.from({ length: n }, () => 'Kyiv') }));
+      return answer(JSON.stringify({ summaries: Array.from({ length: n }, (_, i) => `Стислий виклад новини ${i + 1}. Друге речення викладу.`) }));
+    }
+    if (/commons\.wikimedia|upload\.wikimedia/.test(u)) return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
+    if (u.startsWith('https://img.')) return new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/jpeg' } });
+    const feed = SECTIONS.flatMap((s) => s.feeds).find((f) => f === u);
+    if (feed) {
+      const h = new URL(feed).hostname.replace(/\W+/g, '');
+      return new Response(`<rss xmlns:media="m">${Array.from({ length: 6 }, (_, i) => `<item><title>${h} news ${i} about Ukraine and Russia’s war</title><link>https://${h}.test/${i}</link><pubDate>${now}</pubDate><description>Text ${i} about Ukraine and Russia’s military and the war.</description><media:thumbnail url="https://img.${h}/${i}.jpg"/></item>`).join('')}</rss>`, { status: 200 });
+    }
+    return new Response('<html></html>', { status: 200, headers: { 'content-type': 'text/html' } });
+  };
+  try {
+    const conv = toClaude([{ role: 'system', content: 'S' }, { role: 'user', content: [{ type: 'text', text: 'T' }, { type: 'image_url', image_url: { url: 'data:image/png;base64,AAA=' } }] }]);
+    assert.equal(conv.system, 'S');
+    assert.deepEqual(conv.messages[0].content[1], { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'AAA=' } });
+    const issue = await makeIssue();
+    assert.ok(cf >= 1 && claude > 10, `cf ${cf}, claude ${claude}`);
+    assert.ok(!issue.degraded, JSON.stringify(issue.editor).slice(0, 300));
+    assert.equal(issue.editor.judged, 7);
+    assert.ok(issue.editor.claude > 10);
+    assert.ok(sawImage, 'pictures checked through Claude');
+    assert.equal(await hasText('https://img.x/1.jpg'), false);
+  } finally { globalThis.fetch = real; resetSpent(); delete process.env.ANTHROPIC_API_KEY; }
 });

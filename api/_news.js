@@ -14,6 +14,7 @@
 // Cloudflare Workers AI from the item's own feed text (src/lib/news.js), or that text shortened when the model
 // is not available. Section 1 is the day's key news, chosen by the model from the headlines of all the others.
 import { json, db, env } from './_core.js';
+import Anthropic from '@anthropic-ai/sdk';
 import sample from '../src/news/sample.js';
 import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, LEAD_IMAGE, ruPicture, nightReport } from '../src/lib/news.js';
 
@@ -86,7 +87,60 @@ export const SPENT = /neurons|daily free allocation|\b429\b/;
 let deadline = Infinity;
 const left = () => deadline - Date.now();
 export const setDeadline = (at) => { deadline = at; };
+// Claude Haiku 5.5 stands in when Cloudflare cannot answer (its free allowance spent, a fault, a refused model):
+// the same request, the same answer shape. Only on the server, with ANTHROPIC_API_KEY set in Vercel.
+const CLAUDE = 'claude-haiku-5-5';
+const claudeOn = () => Boolean(env.ANTHROPIC_API_KEY);
+let claudeClient = null;
+export const canAsk = () => (on() && !aiSpent()) || claudeOn();
+// Our requests are written chat-style ({ role: 'system' | 'user', content }); Claude takes the system text apart
+// and a picture as an image block.
+export function toClaude(messages) {
+  const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
+  const rest = messages.filter((m) => m.role !== 'system').map((m) => ({
+    role: m.role === 'assistant' ? 'assistant' : 'user',
+    content: Array.isArray(m.content) ? m.content.map((c) => {
+      if (c.type !== 'image_url') return { type: 'text', text: c.text };
+      const [, media, data] = /^data:([^;]+);base64,(.*)$/s.exec(c.image_url.url) || [];
+      return media ? { type: 'image', source: { type: 'base64', media_type: media, data } } : { type: 'image', source: { type: 'url', url: c.image_url.url } };
+    }) : m.content,
+  }));
+  return { system, messages: rest };
+}
+async function askClaude(messages, maxTokens) {
+  if (left() < 4000) { timedOut = true; throw new Error('AI time up'); }
+  claudeClient ||= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 1 });
+  const { system, messages: msgs } = toClaude(messages);
+  try {
+    const res = await claudeClient.messages.create({
+      model: CLAUDE,
+      max_tokens: maxTokens,
+      // Short, fixed-format answers (JSON, yes/no): no thinking, low effort — cheaper and faster.
+      thinking: { type: 'disabled' },
+      output_config: { effort: 'low' },
+      ...(system ? { system } : {}),
+      messages: msgs,
+    }, { timeout: Math.max(1000, Math.min(40000, left() - 2000)) });
+    if (res.stop_reason === 'refusal') throw new Error('Claude refused');
+    claudeUsed++;
+    return res.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
+  } catch (e) {
+    if (e instanceof Anthropic.APIError) throw new Error(`Claude ${e.status ?? ''} ${String(e.message).slice(0, 80)}`);
+    if (left() < 4000) timedOut = true;
+    throw e;
+  }
+}
+let claudeUsed = 0;
+
 async function ask(messages, maxTokens, model = MODEL, retry = 1) {
+  try { return await askCloudflare(messages, maxTokens, model, retry); } catch (e) {
+    // Cloudflare could not answer: Claude, if it is set up (but not when the making's time is up).
+    if (claudeOn() && !/time up/.test(String(e?.message))) return askClaude(messages, maxTokens);
+    throw e;
+  }
+}
+async function askCloudflare(messages, maxTokens, model = MODEL, retry = 1) {
+  if (!on()) throw new Error('AI off');
   if (aiSpent()) throw new Error('AI 429 daily neurons spent');
   if (left() < 4000) { timedOut = true; throw new Error('AI time up'); }
   let res, data;
@@ -99,14 +153,14 @@ async function ask(messages, maxTokens, model = MODEL, retry = 1) {
     });
     data = await res.json().catch(() => ({}));
   } catch (e) {
-    if (retry > 0 && left() > 20000) { await new Promise((r) => setTimeout(r, 1500)); return ask(messages, maxTokens, model, retry - 1); }
+    if (retry > 0 && left() > 20000) { await new Promise((r) => setTimeout(r, 1500)); return askCloudflare(messages, maxTokens, model, retry - 1); }
     if (left() < 4000) timedOut = true;
     throw new Error(`AI network ${String(e?.message || e).slice(0, 60)}`);
   }
   if (!res.ok) {
     const msg = `AI ${res.status} ${JSON.stringify(data.errors || '').slice(0, 100)}`;
     if (res.status === 429 || SPENT.test(msg)) { spentAt = Date.now(); throw new Error(msg); }
-    if (res.status >= 500 && retry > 0 && left() > 20000) { await new Promise((r) => setTimeout(r, 1500)); return ask(messages, maxTokens, model, retry - 1); }
+    if (res.status >= 500 && retry > 0 && left() > 20000) { await new Promise((r) => setTimeout(r, 1500)); return askCloudflare(messages, maxTokens, model, retry - 1); }
     throw new Error(msg);
   }
   spend(model, data.result?.usage, messages, data.result?.response);
@@ -119,7 +173,7 @@ const RATES = { 'llama-3.3': [26668, 204805], 'llama-4-scout': [24545, 77273], '
 let spent = 0;
 let timedOut = false;
 export const spentNeurons = () => Math.round(spent);
-export const resetNeurons = () => { spent = 0; timedOut = false; };
+export const resetNeurons = () => { spent = 0; timedOut = false; claudeUsed = 0; };
 function spend(model, usage, messages, answer) {
   const [rin, rout] = Object.entries(RATES).find(([k]) => model.includes(k))?.[1] || RATES['llama-3.3'];
   const tin = usage?.prompt_tokens ?? JSON.stringify(messages).length / 3;
@@ -127,23 +181,24 @@ function spend(model, usage, messages, answer) {
   spent += (tin * rin + tout * rout) / 1e6;
 }
 const on = () => Boolean(ACCOUNT && TOKEN);
+const any = () => on() || claudeOn(); // some model can be asked
 
 async function summarize(items, tries = 2) {
-  if (!on() || !items.length) return readSummaries('', items);
+  if (!any() || !items.length) return readSummaries('', items);
   try {
     const out = readSummaries(await ask(summaryPrompt(items), 2600), items);
     if (tries > 1 && left() > 35000 && out.filter((x) => x.ai).length < items.length / 2) return summarize(items, tries - 1); // the model fell short: once more
     return out;
-  } catch { return tries > 1 && left() > 35000 && !aiSpent() ? summarize(items, tries - 1) : readSummaries('', items); }
+  } catch { return tries > 1 && left() > 35000 && canAsk() ? summarize(items, tries - 1) : readSummaries('', items); }
 }
 async function translate(texts, tries = 2) {
   const none = { t: texts.map(() => ''), q: texts.map(() => '') };
-  if (!on() || !texts.length) return none;
+  if (!any() || !texts.length) return none;
   try {
     const out = readTranslations(await ask(translatePrompt(texts), 2200), texts);
     if (tries > 1 && left() > 30000 && out.t.filter(Boolean).length < texts.length) return translate(texts, tries - 1); // missing ones: once more
     return out;
-  } catch { return tries > 1 && left() > 30000 && !aiSpent() ? translate(texts, tries - 1) : none; }
+  } catch { return tries > 1 && left() > 30000 && canAsk() ? translate(texts, tries - 1) : none; }
 }
 
 // A news item with no picture of its own: a photo of its subject from Wikimedia Commons (an open,
@@ -175,8 +230,8 @@ export const TEXT_CHECK = 'Look at this picture. Is there any written text on it
 export let visionWhy = ''; // why the last check could not tell (for the imgcheck diagnosis)
 export async function hasText(url, deps = {}) {
   const run = deps.ask || ask;
-  const spent = !deps.ask && aiSpent();
-  if ((!deps.ask && !on()) || spent || !url || url.startsWith('/')) { visionWhy = spent ? 'spent' : 'off'; return null; }
+  const spent = !deps.ask && !canAsk();
+  if ((!deps.ask && !any()) || spent || !url || url.startsWith('/')) { visionWhy = spent ? 'spent' : 'off'; return null; }
   try {
     const { type, buf } = await (deps.fetchImage || fetchImage)(url);
     const data = `data:${type.split(';')[0]};base64,${Buffer.from(buf).toString('base64')}`;
@@ -237,11 +292,11 @@ export async function makeIssue(now = Date.now()) {
   const note = { sections: own.length, judged: 0, events: false };
   const [verdicts, events] = await Promise.all([
     Promise.all(own.map(async (s, k) => {
-      if (!on() || !cands[k].length) return null;
+      if (!any() || !cands[k].length) return null;
       try { return readKeep(await ask(keepPrompt(s, cands[k]), 300), cands[k]); } catch (e) { note.err = String(e.message || e).slice(0, 120); return null; }
     })),
     (async () => {
-      if (!on() || !pool.length) return null;
+      if (!any() || !pool.length) return null;
       try { return readEvents(await ask(eventsPrompt(pool), 500), pool); } catch (e) { note.err = String(e.message || e).slice(0, 120); return null; }
     })(),
   ]);
@@ -291,7 +346,7 @@ export async function makeIssue(now = Date.now()) {
   //    two or three sentences each (one-sentence ones only when nothing else is left), four or five a page.
   const lead = async (side) => {
     const r = reports[side];
-    if (!r || !on()) return null;
+    if (!r || !any()) return null;
     try {
       const [text, pic] = await Promise.all([r.article ? Promise.resolve(r.article) : articleText(r.url), withImage(r)]);
       const summary = composeReport(side, await ask(reportPrompt(side, `${r.title}\n${r.text || ''}\n${text}`), 300), r.at);
@@ -334,7 +389,7 @@ export async function makeIssue(now = Date.now()) {
   //    photo of the subject; if that one has words too, the news goes without a picture. The leads keep theirs.
   //    The check comes last and is the first to go: not when the allowance is spent, nor late in the making.
   note.textPics = 0;
-  const looks = !aiSpent() && left() > 35 * 1000 && spent < 7000;
+  const looks = canAsk() && left() > 35 * 1000 && (spent < 7000 || claudeOn());
   note.neurons = spentNeurons();
   note.picsChecked = looks;
   const withPhotos = await Promise.all(found.map((l, k) => Promise.all(l.map(async (x, i) => {
@@ -361,10 +416,11 @@ export async function makeIssue(now = Date.now()) {
   // The same when the allowance ran out half-way: too few news retold in Ukrainian, or the English mostly missing —
   // the issue is made again after 00:00 UTC rather than kept as the day's (it never replaces a good one).
   const items = sections.flatMap((s) => s.items);
-  if (aiSpent()) note.err = note.err || 'AI 429 daily neurons spent';
-  const thin = on() && (items.filter((x) => x.ai).length < 24 || note.translated < items.length / 2);
+  if (!canAsk()) note.err = note.err || 'AI 429 daily neurons spent';
+  note.claude = claudeUsed;
+  const thin = any() && (items.filter((x) => x.ai).length < 24 || note.translated < items.length / 2);
   if (timedOut) note.timedOut = true;
-  const degraded = on() && ((!note.judged && !note.events) || ((aiSpent() || timedOut) && thin));
+  const degraded = any() && ((!note.judged && !note.events) || ((!canAsk() || timedOut) && thin));
   setDeadline(Infinity);
   note.secs = Math.round((Date.now() - started) / 1000);
   note.neuronsAll = spentNeurons();
@@ -409,7 +465,7 @@ export async function newsGet(req) {
     // How the last making went (no model asked): when, for which 17:00, whether it was cut short and why.
     if (q.has('status')) {
       const items = (cached?.sections || []).flatMap((s) => s.items);
-      return json(200, { at: cached?.at || null, for: cached?.for || null, v: cached?.v ?? null, degraded: Boolean(cached?.degraded), items: items.length, ai: items.filter((x) => x.ai).length, editor: cached?.editor || null, spentNow: aiSpent() });
+      return json(200, { at: cached?.at || null, for: cached?.for || null, v: cached?.v ?? null, degraded: Boolean(cached?.degraded), items: items.length, ai: items.filter((x) => x.ai).length, editor: cached?.editor || null, spentNow: aiSpent(), claude: claudeOn() });
     }
 
     // A check of one of the issue's pictures for words on it (to see the picture model answer): yes / no / unknown.
@@ -450,7 +506,7 @@ export async function newsGet(req) {
     const standIn = (doc) => (doc?.degraded && Date.parse(sample.for) === issueTime(now) ? { ...sample, standIn: true } : doc);
 
     // The model's allowance was found spent within the last hour: no point asking again so soon.
-    const spent = cached?.degraded && SPENT.test(cached.editor?.err || '') && now - Date.parse(cached.at) < SPENT_FOR;
+    const spent = !claudeOn() && cached?.degraded && SPENT.test(cached.editor?.err || '') && now - Date.parse(cached.at) < SPENT_FOR;
     if (spent) return json(200, standIn(cached));
 
     // Only one request makes it: the first to file the lock for this issue (and this ten minutes, so a failed
