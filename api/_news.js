@@ -211,8 +211,12 @@ async function commonsImage(q) {
     const u = `https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search&gsrnamespace=6&gsrlimit=5&gsrsearch=${encodeURIComponent(`${q} filetype:bitmap`)}&prop=imageinfo&iiprop=url|mime&iiurlwidth=640`;
     const j = await (await get(u, 6000, 'application/json')).json();
     const pages = Object.values(j?.query?.pages || {}).sort((a, b) => (a.index || 0) - (b.index || 0));
-    const hit = pages.map((p) => p.imageinfo?.[0]).find((i) => i && /image\/(jpeg|png|webp)/.test(i.mime || '') && i.thumburl);
-    return hit?.thumburl || '';
+    // Only a photo whose own name has a word of the search in it: Commons' search also turns up files that merely
+    // mention a word in their description (a beach for «Zelensky Turkey generators»).
+    const words = q.toLowerCase().split(/[^\p{L}\d]+/u).filter((w) => w.length >= 4);
+    const named = (t) => { const n = String(t || '').toLowerCase().replace(/_/g, ' '); return words.some((w) => n.includes(w.slice(0, Math.max(4, w.length - 2)))); };
+    const hit = pages.find((p) => named(p.title) && p.imageinfo?.[0] && /image\/(jpeg|png|webp)/.test(p.imageinfo[0].mime || '') && p.imageinfo[0].thumburl);
+    return hit?.imageinfo[0].thumburl || '';
   } catch { return ''; }
 }
 
@@ -282,7 +286,7 @@ export async function makeIssue(now = Date.now()) {
   const norm = (x) => x.url.split('?')[0];
   const cands = own.map((s) => pickItems(
     s.feeds.flatMap((u) => (got.get(u) || []).map((x) => ({ ...x, outlet: host(u) }))).filter((x) => !offTopic(x)),
-    now, POOL,
+    now, s.pool || POOL, s.pool ? 8 : 4,
   ));
   // All candidates once (a feed two sections share gives the same news to both).
   const pool = [];

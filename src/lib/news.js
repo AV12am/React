@@ -23,7 +23,7 @@ const SOFT = /гороскоп|horoscope|свят[оа] |праздник|цер
 export const SECTIONS = [
   { id: 'key', code: '1', part: 'РОЗДІЛ 1 | КЛЮЧОВІ НОВИНИ ДОБИ', title: '', en: { part: 'SECTION 1 | KEY NEWS OF THE DAY', title: '' }, key: true, feeds: [] },
   {
-    id: 'infospace', code: '2.1', match: TOPIC.infospace, part: 'РОЗДІЛ 2 | СПЕЦОПЕРАЦІЇ ТА АКТУАЛЬНІ ПОДІЇ', title: '2.1 ІНФОПРОСТІР КРАЇНИ-АГРЕСОРА',
+    id: 'infospace', pool: 36, code: '2.1', match: TOPIC.infospace, part: 'РОЗДІЛ 2 | СПЕЦОПЕРАЦІЇ ТА АКТУАЛЬНІ ПОДІЇ', title: '2.1 ІНФОПРОСТІР КРАЇНИ-АГРЕСОРА',
     en: { part: 'SECTION 2 | SPECIAL OPERATIONS AND CURRENT EVENTS', title: '2.1 THE AGGRESSOR STATE’S INFORMATION SPACE' },
     about: 'інформаційний простір Росії: пропаганда, дезінформація, наративи й заяви кремлівських ЗМІ та посадовців, цензура, тиск на незалежні медіа',
     feeds: [
@@ -86,7 +86,7 @@ export const SECTIONS = [
     ],
   },
   {
-    id: 'abroad-war', code: '5.1', part: 'РОЗДІЛ 5 | ОГЛЯД ЗАКОРДОННИХ ЗМІ', title: '5.1 ІЗ ВПЛИВОМ НА РОСІЙСЬКО-УКРАЇНСЬКУ ВІЙНУ', match: WAR,
+    id: 'abroad-war', pool: 36, code: '5.1', part: 'РОЗДІЛ 5 | ОГЛЯД ЗАКОРДОННИХ ЗМІ', title: '5.1 ІЗ ВПЛИВОМ НА РОСІЙСЬКО-УКРАЇНСЬКУ ВІЙНУ', match: WAR,
     en: { part: 'SECTION 5 | FOREIGN MEDIA REVIEW', title: '5.1 AFFECTING THE RUSSIAN-UKRAINIAN WAR' },
     about: 'що пишуть закордонні ЗМІ про ситуацію в Україні та війну: репортажі, оцінки, аналітика, реакція світу, рішення інших держав щодо України й Росії',
     feeds: [
@@ -99,7 +99,7 @@ export const SECTIONS = [
     ],
   },
   {
-    id: 'abroad-other', code: '5.2', part: 'РОЗДІЛ 5 | ОГЛЯД ЗАКОРДОННИХ ЗМІ', title: '5.2 ІНШІ МІЖНАРОДНІ КОНФЛІКТИ', skip: WAR, match: TOPIC.conflicts,
+    id: 'abroad-other', pool: 36, code: '5.2', part: 'РОЗДІЛ 5 | ОГЛЯД ЗАКОРДОННИХ ЗМІ', title: '5.2 ІНШІ МІЖНАРОДНІ КОНФЛІКТИ', skip: WAR, match: TOPIC.conflicts,
     en: { part: 'SECTION 5 | FOREIGN MEDIA REVIEW', title: '5.2 OTHER INTERNATIONAL CONFLICTS' },
     about: 'інші збройні конфлікти й кризи у світі, не пов’язані з Україною та Росією: Близький Схід, Африка, Азія, Латинська Америка',
     feeds: [
@@ -133,6 +133,7 @@ export const ruPicture = (url) => { try { return /(^|\.)(ru|рф|su)$/i.test(new
 
 export const PER_SECTION = 5;
 /** Fresh news read from each section's feeds before the editor sorts them. */
+// Candidates the editor judges per section; the sections whose outlets carry much off-topic news get more.
 export const POOL = 20;
 /** Light news (holidays, films, horoscopes, sport) — kept out of every section. */
 export const offTopic = (x) => SOFT.test(x.title || '')
@@ -399,7 +400,7 @@ export function summaryPrompt(items) {
       content: 'Ти — редактор стислого огляду новин. Для кожної новини напиши українською рівно 2 або 3 повні речення (до 450 знаків): що сталося, де і чому це важливо. '
         + 'Спирайся ЛИШЕ на наданий заголовок і текст — нічого не додавай від себе, не вигадуй цифр, імен чи оцінок. '
         + 'Пиши лише українською (імена й назви — українською транслітерацією). Без порожніх фраз на кшталт «Це важливо, оскільки…» чи «Це сталося в …» — '
-        + 'пояснюй значення лише тоді, коли воно є в тексті. Кожне речення — нова інформація, без повторів сказаного. Відповідай лише JSON: {"summaries": ["…", "…"]} — по одному на новину, у тому ж порядку.',
+        + 'пояснюй значення лише тоді, коли воно є в тексті. Пиши про саму подію, а не про текст: без «у тексті не вказано», «джерело не уточнює», «стаття розглядає», «матеріал пояснює». Кожне речення — нова інформація, без повторів сказаного. Відповідай лише JSON: {"summaries": ["…", "…"]} — по одному на новину, у тому ж порядку.',
     },
     { role: 'user', content: items.map((x, i) => `${i + 1}. ${RU_STATE.has(x.outlet) ? '[російське провладне ЗМІ — перекажи як твердження: «Російські ЗМІ повідомляють, що…» / «За версією російських ЗМІ…», не як факт] ' : ''}${x.title}\n${x.text || ''}`.slice(0, 1400)).join('\n\n') },
   ];
@@ -443,8 +444,11 @@ export function sentences(text) {
 }
 /** A summary is two or three sentences: more are cut to three, an unfinished last one is left out;
  * `n` tells how many it has. */
+// A sentence about the text rather than the news («у наданому тексті відповіді немає», «джерело не уточнює…»).
+const META = /(у|в) (наданому )?текст\S* (не|немає|нема)|наданому тексті|джерел\S* не (уточню|наводить|вказу)|не уточнюється|деталей\S*[^.]*не (наведено|наводиться|зазначено)|(конкретн\S*|подробиц\S*)[^.]*не (вказано|зазначено|наведено)/i;
 export function shape(text) {
-  const list = sentences(text);
+  const all = sentences(text);
+  const list = all.filter((x) => !META.test(x)).length ? all.filter((x) => !META.test(x)) : all;
   if (list.length > 1 && (!/[.!?…»"')]$/.test(list.at(-1)) || /(\.\.\.|…)$/.test(list.at(-1)))) list.pop(); // unfinished or cut off with «…»
   return { text: list.slice(0, 3).join(' '), n: Math.min(list.length, 3) };
 }

@@ -139,7 +139,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
       }
       return ok({ success: true, result: { response: JSON.stringify({ summaries: Array.from({ length: n }, (_, i) => `Стислий виклад новини номер ${i + 1}. Друге речення викладу. Третє речення. Четверте зайве.`) }) } });
     }
-    if (u.startsWith('https://commons.wikimedia.org/')) { commons++; return ok({ query: { pages: { 1: { index: 1, imageinfo: [{ mime: 'image/jpeg', thumburl: 'https://upload.wikimedia.org/k.jpg' }] } } } }); }
+    if (u.startsWith('https://commons.wikimedia.org/')) { commons++; return ok({ query: { pages: { 1: { index: 1, title: 'File:Kyiv parliament building.jpg', imageinfo: [{ mime: 'image/jpeg', thumburl: 'https://upload.wikimedia.org/k.jpg' }] } } } }); }
     if (u.startsWith('https://img.') || u.startsWith('https://upload.wikimedia.org/')) return new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/jpeg' } });
     const feed = SECTIONS.flatMap((s) => s.feeds).find((f) => f === u);
     if (feed && /lenta\.ru/.test(feed)) return new Response(`<rss><item><title>ПВО за ночь перехватили и уничтожили 531 украинский беспилотник</title><link>https://lenta.ru/news/pvo</link><pubDate>${now}</pubDate><description>Минобороны России сообщило: над территориями Брянской, Курской областей и над акваторией Черного моря перехвачены 531 БПЛА.</description></item>${rss(`${new URL(feed).hostname}${new URL(feed).pathname}`.replace(/\W+/g, '')).replace(/^<rss[^>]*>/, '')}`, { status: 200 });
@@ -198,7 +198,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     assert.ok(commons > 0 && fromCommons.length && fromCommons.every((x) => x.image === 'https://upload.wikimedia.org/k.jpg'));
     const again = await (await call()).json(); // until the next 17:00: the same issue, the model not asked again
     assert.equal(again.at, j.at); assert.equal(ai, editor + 18);
-    const pic = j.sections[1].items.find((x) => x.image).image;
+    const pic = j.sections[1].items.find((x) => x.image && !x.image.startsWith('/')).image;
     assert.equal((await call(`?img=${encodeURIComponent(pic)}`)).status, 200);
     assert.equal((await call(`?img=${encodeURIComponent('https://evil.test/x.jpg')}`)).status, 404);
     // Open to anyone with the link, and nothing anyone sends makes it anew before 17:00.
@@ -458,4 +458,12 @@ test('Cloudflare spent: Claude Haiku answers the same requests, pictures sent as
     assert.ok(sawImage, 'pictures checked through Claude');
     assert.equal(await hasText('https://img.x/1.jpg'), false);
   } finally { globalThis.fetch = real; resetSpent(); delete process.env.ANTHROPIC_API_KEY; }
+});
+
+test('sentences about the text, not the news, are left out of a summary', async () => {
+  const { shape } = await import('../../src/lib/news.js');
+  const r = shape('Трамп заявив, що мирна угода наближається. Конкретних кроків чи строків у наданому тексті не зазначено. Він говорив у Маямі.');
+  assert.equal(r.text, 'Трамп заявив, що мирна угода наближається. Він говорив у Маямі.');
+  assert.equal(r.n, 2);
+  assert.equal(shape('Росіяни атакували Вінниччину. Джерело не уточнює масштаби руйнувань.').n, 1);
 });
