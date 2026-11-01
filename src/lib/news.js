@@ -3,13 +3,13 @@
 // (src/news/NewsPage.jsx: the issue, PDF and Word). Pure helpers only — tested in scripts/test/news.test.mjs.
 
 /** Things that tie a report to the Russian–Ukrainian war — for 5.1 (only these) and 5.2 (none of these). */
-export const WAR = /украї|ukrain|росі|russia|kremlin|кремл|путін|putin|зеленськ|zelensk|київ|kyiv|kiev|москв|moscow|донбас|donbas|крим|crimea/i;
+export const WAR = /украї|ukrain|зсу|окупант|zaporizh|запоріж|kharkiv|харків|kherson|херсон|odesa|одес|dnipro|дніпр|donetsk|донецьк|luhansk|луганськ|pokrovsk|покровськ|kupiansk|куп.янськ|росі|russia|kremlin|кремл|путін|putin|зеленськ|zelensk|київ|kyiv|kiev|москв|moscow|донбас|donbas|крим|crimea/i;
 
 /** What each section is about — items that match none of it stay out (a film review is not «infospace»). */
 const TOPIC = {
-  infospace: /ВСУ|поражен|уничтож|освобо|штурм|группировк|наступлен|пропаганд|propagand|фейк|fake|дезінформ|дезинформ|disinform|кремл|kremlin|путін|путин|putin|війн|войн|\bwar\b|армі|арми|military|військ|военн|санкц|sanction|репрес|repress|цензур|censor|вибор|выбор|election|дум[аиі]|duma|мобіліз|мобилиз|mobili[sz]|наратив|narrative|telegram|телеграм|z-|zelensk|зеленськ|зеленск|україн|украин|ukrain|окупац|оккупац|occup/i,
-  agenda: /росі|росси|russia|kremlin|кремл|путін|путин|putin|китай|china|chinese|xi\b|іран|иран|iran|кндр|north korea|pyongyang|білорус|беларус|belarus|лукашенк|lukashenk|армі|арми|army|військ|военн|military|оборон|defen[cs]e|ракет|missile|санкц|sanction|nuclear|ядерн|nato|нато|окупац|оккупац|occup/i,
-  conflicts: /\bwar\b|conflict|fighting|clash|attack|strike|airstrike|shelling|ceasefire|truce|rebel|militia|insurg|troops|army|military|killed|displaced|refugee|humanitarian|hostage|coup|terror|gaza|israel|hamas|hezbollah|lebanon|iran|syria|yemen|houthi|sudan|congo|sahel|mali|somalia|ethiopia|myanmar|taiwan|kashmir|haiti|venezuela|peacekeep|sanction/i,
+  infospace: /ВСУ|ВС РФ|вооружен|минобороны|ПВО|беспилот|БПЛА|дрон|ракет|удар|атак|фронт|СВО|спецопер|пленн|обмен|Херсон|Запорож|Донецк|ДНР|ЛНР|Харьков|Курск|Белгород|Брянск|Сумы|Днепропетров|Покровск|Купянск|Константиновк|Гуляйпол|Северск|Мирноград|Красноарм|поражен|уничтож|освобо|штурм|группировк|наступлен|пропаганд|propagand|фейк|fake|дезінформ|дезинформ|disinform|кремл|kremlin|путін|путин|putin|війн|войн|\bwar\b|армі|арми|military|військ|военн|санкц|sanction|репрес|repress|цензур|censor|вибор|выбор|election|дум[аиі]|duma|мобіліз|мобилиз|mobili[sz]|наратив|narrative|telegram|телеграм|z-|zelensk|зеленськ|зеленск|україн|украин|ukrain|окупац|оккупац|occup/i,
+  agenda: /ВПК|Ростех|Шойгу|Белоусов|Герасимов|Лавров|Песков|Медведев|Совбез|ОДКБ|CSTO|ШОС|БРИКС|BRICS|учени|exercise|drill|warship|флот|fleet|submarine|подлод|Сармат|Орешник|Oreshnik|Буревестник|Burevestnik|Посейдон|призыв|conscript|оборонзаказ|ОПК|арсенал|arsenal|weapon|оружи|зброя|зброї|росі|росси|russia|kremlin|кремл|путін|путин|putin|китай|china|chinese|xi\b|іран|иран|iran|кндр|north korea|pyongyang|білорус|беларус|belarus|лукашенк|lukashenk|армі|арми|army|військ|военн|military|оборон|defen[cs]e|ракет|missile|санкц|sanction|nuclear|ядерн|nato|нато|окупац|оккупац|occup/i,
+  conflicts: /drone|missile|bomb|gunmen|massacre|offensive|bombard|siege|famine|occupied|west bank|idf|\brsf\b|al-shabaab|boko|jihad|isis|islamic state|cartel|junta|taliban|afghanistan|pakistan|armenia|azerbaijan|kosovo|libya|nigeria|burkina|niger\b|chad|mozambique|colombia|ecuador|north korea|south china sea|philippines|\bwar\b|conflict|fighting|clash|attack|strike|airstrike|shelling|ceasefire|truce|rebel|militia|insurg|troops|army|military|killed|displaced|refugee|humanitarian|hostage|coup|terror|gaza|israel|hamas|hezbollah|lebanon|iran|syria|yemen|houthi|sudan|congo|sahel|mali|somalia|ethiopia|myanmar|taiwan|kashmir|haiti|venezuela|peacekeep|sanction/i,
 };
 const SOFT = /гороскоп|horoscope|свят[оа] |праздник|церковн|храм|богородиц|релігійн|религиозн|погода|weather|рецепт|recipe|фільм|фильм|\bfilm\b|movie|кіно|кино|серіал|сериал|оскар|oscar|football|футбол|halloween|хелловін|хэллоуин/i;
 
@@ -52,19 +52,20 @@ export const SECTIONS = [
     ],
   },
   {
-    id: 'agenda', code: '3', match: TOPIC.agenda, first: true, part: 'РОЗДІЛ 3 | ВІЙСЬКОВО-ПОЛІТИЧНА АДЖЕНДА КРАЇНИ-АГРЕСОРА ТА САТЕЛІТІВ', title: '',
+    id: 'agenda', pool: 36, code: '3', match: TOPIC.agenda, first: true, part: 'РОЗДІЛ 3 | ВІЙСЬКОВО-ПОЛІТИЧНА АДЖЕНДА КРАЇНИ-АГРЕСОРА ТА САТЕЛІТІВ', title: '',
     en: { part: 'SECTION 3 | MILITARY AND POLITICAL AGENDA OF THE AGGRESSOR STATE AND ITS SATELLITES', title: '' },
     about: 'військово-політичний порядок денний Росії та її союзників (Білорусь, Іран, КНДР, Китай): армія, оборонна промисловість, військова співпраця, санкції, ядерна риторика, рішення Кремля',
     feeds: [
-      'https://jamestown.org/feed/',
       'https://lenta.ru/rss/news',
+      'https://tass.com/rss/v2.xml',
+      'https://rss.dw.com/rdf/rss-ru-all',
       'https://mil.in.ua/uk/feed/',
       'https://feeds.bbci.co.uk/russian/rss.xml',
       'https://www.themoscowtimes.com/rss/news',
     ],
   },
   {
-    id: 'society', code: '4.1', part: 'РОЗДІЛ 4 | ОГЛЯД ВІЙСЬКОВО-ПОЛІТИЧНИХ ПОДІЙ В УКРАЇНІ', title: '4.1 СУСПІЛЬНО-ПОЛІТИЧНІ ПОДІЇ',
+    id: 'society', pool: 36, code: '4.1', part: 'РОЗДІЛ 4 | ОГЛЯД ВІЙСЬКОВО-ПОЛІТИЧНИХ ПОДІЙ В УКРАЇНІ', title: '4.1 СУСПІЛЬНО-ПОЛІТИЧНІ ПОДІЇ',
     en: { part: 'SECTION 4 | MILITARY AND POLITICAL EVENTS IN UKRAINE', title: '4.1 SOCIAL AND POLITICAL EVENTS' },
     about: 'суспільно-політичне життя України: Президент, Верховна Рада, уряд, реформи, антикорупція, енергетика, економіка, соціальні рішення, дипломатія України',
     feeds: [
@@ -72,6 +73,8 @@ export const SECTIONS = [
       'https://www.ukrinform.ua/rss/rubric-polytics',
       'https://interfax.com.ua/news/political.rss',
       'https://zn.ua/rss/full.rss',
+      'https://rss.unian.net/site/news_ukr.rss',
+      'https://www.eurointegration.com.ua/rss/',
     ],
   },
   {
@@ -87,7 +90,7 @@ export const SECTIONS = [
     ],
   },
   {
-    id: 'abroad-war', pool: 36, code: '5.1', part: 'РОЗДІЛ 5 | ОГЛЯД ЗАКОРДОННИХ ЗМІ', title: '5.1 ІЗ ВПЛИВОМ НА РОСІЙСЬКО-УКРАЇНСЬКУ ВІЙНУ', match: WAR,
+    id: 'abroad-war', pool: 40, code: '5.1', part: 'РОЗДІЛ 5 | ОГЛЯД ЗАКОРДОННИХ ЗМІ', title: '5.1 ІЗ ВПЛИВОМ НА РОСІЙСЬКО-УКРАЇНСЬКУ ВІЙНУ', match: WAR,
     en: { part: 'SECTION 5 | FOREIGN MEDIA REVIEW', title: '5.1 AFFECTING THE RUSSIAN-UKRAINIAN WAR' },
     about: 'що пишуть закордонні ЗМІ про ситуацію в Україні та війну: репортажі, оцінки, аналітика, реакція світу, рішення інших держав щодо України й Росії',
     feeds: [
@@ -97,6 +100,8 @@ export const SECTIONS = [
       'https://rss.dw.com/rdf/rss-en-world',
       'https://www.france24.com/en/europe/rss',
       'https://www.euronews.com/rss?level=theme&name=news',
+      'https://www.theguardian.com/world/rss',
+      'https://www.aljazeera.com/xml/rss/all.xml',
     ],
   },
   {
@@ -108,7 +113,7 @@ export const SECTIONS = [
       'https://feeds.bbci.co.uk/news/world/rss.xml',
       'https://news.un.org/feed/subscribe/en/news/topic/peace-and-security/feed/rss.xml',
       'https://www.france24.com/en/rss',
-      'https://www.crisisgroup.org/rss',
+      'https://www.theguardian.com/world/rss',
     ],
   },
 ];
@@ -133,13 +138,18 @@ export const withLeadImages = (issue) => (issue?.sections ? {
 export const ruPicture = (url) => { try { return /(^|\.)(ru|рф|su)$/i.test(new URL(url).hostname); } catch { return false; } };
 
 export const PER_SECTION = 5;
+/** «News of the day»: published within the last 24 hours. */
+export const FRESH = 24 * 3600000;
 /** Fresh news read from each section's feeds before the editor sorts them. */
 // Candidates the editor judges per section; the sections whose outlets carry much off-topic news get more.
 export const POOL = 20;
+// Not a fresh event: analysis, explainers, interviews, reviews, podcasts, weekly roundups, «what we know».
+const ANALYSIS = /^(analysis|explainer|explained|opinion|comment|podcast|interview|review|q&a|watch|video|photos|in pictures|briefing)\b|what we know|what to know|how .* works|the week in|week in review|on our radar|eurasia daily monitor|аналітик|аналитик|колонк|інтерв.ю|интервью|подкаст|пояснюємо|объясняем|що відомо про|что известно о|все, що (потрібно|треба) знати|огляд тижня|итоги недели|підсумки тижня|історія |история |хронологія|хронология|^мнение|^думка|^блог|лонгрид/i;
 /** Light news (holidays, films, horoscopes, sport) — kept out of every section. */
 export const offTopic = (x) => SOFT.test(x.title || '')
   || /^(захищено|protected|private)\s*:/i.test(x.title || '') // a password-protected post has no text to retell
   || /\/(commentisfree|opinions?|podcasts?|videos?|live)\//i.test(x.url || '') // columns, podcasts, videos, live pages: not news
+  || ANALYSIS.test(x.title || '') || /\/(analysis|explainers?|features?|longreads?|interviews?|opinion|blogs?|podcasts?|in-pictures|gallery)\//i.test(x.url || '') // analysis, explainers, interviews: not the day's news
   || !/[a-zа-яіїєґё]{3}/i.test(x.title || ''); // headlines in scripts the issue does not carry (Arabic, Chinese …)
 export const KEY_COUNT = 5;
 
@@ -177,6 +187,7 @@ export function keepPrompt(section, items) {
       content: `Ти — випусковий редактор щоденного огляду новин. Розділ огляду: «${[section.part, section.title].filter(Boolean).join(' ')}». `
         + `Тема розділу: ${section.about}.\n`
         + 'Для кожної новини нижче визнач, чи вона стосується теми розділу (1) чи ні (0). '
+        + 'Потрібна лише свіжа конкретна подія доби: заява, рішення, удар, бій, факт, цифра. Аналітика, огляди, пояснювальні статті, історичні довідки, інтерв’ю, думки й прогнози без нової події — 0. '
         + 'Культура, спорт, розваги, побут, свята, внутрішня політика чи економіка інших країн без зв’язку з темою — 0. '
         + `Відповідай лише JSON без пояснень, з відповіддю для кожного номера від 1 до ${items.length}: {"keep": {"1": 1, "2": 0, …}}`,
     },
@@ -243,10 +254,11 @@ export function sameEvents(items) {
   const ws = items.map((x) => words(x.title));
   const df = new Map();
   ws.forEach((list) => new Set(list.flat()).forEach((key) => df.set(key, (df.get(key) || 0) + 1)));
-  const common = Math.max(8, items.length * 0.15);
+  const common = Math.max(6, items.length * 0.05); // a word in many headlines («ВСУ», «беспилотник») tells nothing
   const tell = ws.map((list) => list.map((keys) => keys.filter((key) => df.get(key) <= common)).filter((keys) => keys.length));
   const parent = items.map((_, i) => i);
   const root = (i) => (parent[i] === i ? i : (parent[i] = root(parent[i])));
+  const pairs = [];
   for (let i = 0; i < items.length; i++) {
     for (let k = i + 1; k < items.length; k++) {
       // Word to word, each word of the other headline used once («операції» and «порятунку» must not both
@@ -257,12 +269,18 @@ export function sameEvents(items) {
         const at = free.findIndex((f) => f && keys.some((key) => f.has(key)));
         if (at >= 0) { free[at] = null; shared++; }
       }
-      if (shared >= 2) parent[root(k)] = root(i);
+      if (shared >= 2) pairs.push([i, k, shared]);
     }
   }
-  const g = new Map();
-  items.forEach((_, i) => { const r = root(i); g.set(r, [...(g.get(r) || []), i]); });
-  return [...g.values()].filter((x) => x.length > 1);
+  const join = (list) => {
+    parent.forEach((_, i) => { parent[i] = i; });
+    for (const [i, k] of list) parent[root(k)] = root(i);
+    const g = new Map();
+    items.forEach((_, i) => { const r = root(i); g.set(r, [...(g.get(r) || []), i]); });
+    return [...g.values()].filter((x) => x.length > 1);
+  };
+  // A long chain (A meets B, B meets C …) is a topic, not one event: within it only headlines sharing three words.
+  return join(pairs).flatMap((g) => (g.length <= 4 ? [g] : join(pairs.filter(([i, k, n]) => n >= 3 && g.includes(i) && g.includes(k)))));
 }
 /** How many telling words two headlines share (each word of the second used once). */
 export function sharedWords(a, b, { numbers = true } = {}) {
@@ -311,8 +329,9 @@ export function keyPrompt(items, n = KEY_COUNT) {
   return [
     {
       role: 'system',
-      content: `Ти — випусковий редактор. З поданого списку обери ${n} найважливіших новин доби для читача в Україні: `
-        + 'війна, безпека, політика, міжнародна підтримка. Не обирай дві новини про ту саму подію. '
+      content: `Ти — випусковий редактор. З поданого списку обери ${n} ключових новин доби — про різні події. `
+        + 'Ключові — найбільш резонансні новини для України (удари й втрати, події на фронті, рішення союзників про зброю, санкції, гроші, переговори про мир, великі рішення влади) та новини, що зачіпають світову безпеку (війни й конфлікти, ядерні загрози, рішення великих держав і НАТО, теракти). '
+        + 'Не ключові: техніка й огляди без нової події, аналітика, місцеві чи побутові новини. Не обирай дві новини про ту саму подію. '
         + `Відповідай лише JSON: {"pick": [номери]} — ${n} номерів зі списку, від найважливішої.`,
     },
     { role: 'user', content: items.map((x, i) => `${i + 1}. ${x.title}`).join('\n') },
@@ -367,11 +386,11 @@ export function parseNewsFeed(xml) {
   }).filter((x) => x.title && x.url);
 }
 
-/** The freshest of a section: the last two days, newest first, each source at most `cap` times, pictures preferred. */
+/** The freshest of a section: the last day (a news with no date is left out), newest first, each source at most `cap` times, pictures preferred. */
 export function pickItems(items, now = Date.now(), n = PER_SECTION, cap = 4) {
   const seen = new Set();
   const fresh = items
-    .filter((x) => !x.at || now - Date.parse(x.at) < 2 * 86400000)
+    .filter((x) => x.at && now - Date.parse(x.at) < FRESH && Date.parse(x.at) - now < 3600000)
     .filter((x) => { const k = x.url.split('?')[0]; if (seen.has(k)) return false; seen.add(k); return true; })
     .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
   const out = [];
@@ -436,7 +455,7 @@ export function readTranslations(raw, texts) {
 
 /** Russian pro-government outlets: read only to show the aggressor's own agenda — their news is retold as what
  * Russian media claim, never as fact. */
-export const RU_STATE = new Set(['lenta.ru', 'ria.ru', 'tass.ru']);
+export const RU_STATE = new Set(['lenta.ru', 'ria.ru', 'tass.ru', 'tass.com']);
 
 /** Ukrainian text: Cyrillic, with no letters only Russian has. A summary in another language never stands
  * in for a Ukrainian one. */

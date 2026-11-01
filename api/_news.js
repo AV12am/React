@@ -16,11 +16,11 @@
 import { json, db, env } from './_core.js';
 import Anthropic from '@anthropic-ai/sdk';
 import sample from '../src/news/sample.js';
-import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, LEAD_IMAGE, ruPicture, nightReport } from '../src/lib/news.js';
+import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, keyPrompt, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, LEAD_IMAGE, ruPicture, nightReport } from '../src/lib/news.js';
 
 
 const MIN = 60000;
-const VERSION = 17; // 17: fewer false repeats, the key news only as the editor chose, a photo for every news
+const VERSION = 18; // 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -239,7 +239,9 @@ async function commonsImage(q) {
     // Only a photo whose own name has a word of the search in it: Commons' search also turns up files that merely
     // mention a word in their description (a beach for «Zelensky Turkey generators»).
     const words = q.toLowerCase().split(/[^\p{L}\d]+/u).filter((w) => w.length >= 4);
-    const named = (t) => { const n = String(t || '').toLowerCase().replace(/_/g, ' '); return words.some((w) => n.includes(w.slice(0, Math.max(4, w.length - 2)))); };
+    // Two words of the search in the name when it has two or more («China Forum», not any file with «China»).
+    const need = Math.min(2, words.length);
+    const named = (t) => { const n = String(t || '').toLowerCase().replace(/_/g, ' '); return words.filter((w) => n.includes(w.slice(0, Math.max(4, w.length - 2)))).length >= need; };
     const hit = pages.find((p) => named(p.title) && p.imageinfo?.[0] && /image\/(jpeg|png|webp)/.test(p.imageinfo[0].mime || '') && p.imageinfo[0].thumburl);
     return hit?.imageinfo[0].thumburl || '';
   } catch { return ''; }
@@ -259,17 +261,20 @@ async function fetchImage(u) {
 // true / false; null when it could not be told (no model, the picture unreadable) — such a picture stays.
 export const TEXT_CHECK = 'Look at this picture. Is there any written text on it — a headline, caption, title, slogan, label, watermark with words, subtitles, a poster or a screenshot of text? Small text on a uniform or a vehicle number does not count. Answer only yes or no.';
 export let visionWhy = ''; // why the last check could not tell (for the imgcheck diagnosis)
-export async function hasText(url, deps = {}) {
+// For an archive photo found by search, also whether it shows the news' own subject (not the Kremlin for a forum in China).
+export const FIT_CHECK = (news) => `Look at this picture, meant to illustrate the news: «${String(news).slice(0, 300)}». Answer with two words. First: is there any written text on it — a headline, caption, title, slogan, label, watermark with words, subtitles, a poster or a screenshot of text (small text on a uniform or a vehicle number does not count)? yes or no. Second: does it plainly fit this news — its own place, country, people, organisation or kind of event, not another country's landmark or an unrelated person or scene? yes or no.`;
+/** true: the picture is not to be used (words on it, or — with `news` given — not about that news). */
+export async function hasText(url, deps = {}, news = '') {
   const run = deps.ask || ask;
   const spent = !deps.ask && !canAsk();
   if ((!deps.ask && !any()) || spent || !url || url.startsWith('/')) { visionWhy = spent ? 'spent' : 'off'; return null; }
   try {
     const { type, buf } = await (deps.fetchImage || fetchImage)(url);
     const data = `data:${type.split(';')[0]};base64,${Buffer.from(buf).toString('base64')}`;
-    const msg = [{ role: 'user', content: [{ type: 'text', text: TEXT_CHECK }, { type: 'image_url', image_url: { url: data } }] }];
+    const msg = [{ role: 'user', content: [{ type: 'text', text: news ? FIT_CHECK(news) : TEXT_CHECK }, { type: 'image_url', image_url: { url: data } }] }];
     let r;
     for (;;) {
-      try { r = await run(msg, 4, VISIONS[0]); break; } catch (e) {
+      try { r = await run(msg, news ? 8 : 4, VISIONS[0]); break; } catch (e) {
         // A model this account is not let in to, or one that takes no pictures: the next one, for good.
         if (VISIONS.length > 1 && /AI (403|400|404)/.test(String(e?.message))) { VISIONS.shift(); continue; }
         throw e;
@@ -277,6 +282,11 @@ export async function hasText(url, deps = {}) {
     }
     const a = String(r || '').trim().toLowerCase();
     visionWhy = `${VISIONS[0]}: ${a.slice(0, 40)}`;
+    if (news) {
+      const [t, f] = a.split(/[^a-zа-яії]+/).filter((w) => /^(yes|no|так|ні)$/.test(w));
+      if (!t || !f) return null;
+      return /^(yes|так)$/.test(t) || /^(no|ні)$/.test(f);
+    }
     return /^(yes|так)/.test(a) ? true : /^(no|ні)/.test(a) ? false : null;
   } catch (e) {
     visionWhy = `${VISIONS[0]}: ${String(e?.message || e).slice(0, 200)}`;
@@ -284,13 +294,9 @@ export async function hasText(url, deps = {}) {
   }
 }
 
-// When nothing on the news' own subject is found: an open photo for the section's general subject, so that
-// no news goes without a picture.
-const SECTION_PHOTO = {
-  key: 'Kyiv Maidan Nezalezhnosti', infospace: 'Moscow Kremlin', media: 'Armed Forces of Ukraine soldiers',
-  agenda: 'Moscow Kremlin Senate', society: 'Verkhovna Rada building', defence: 'Ukrainian Armed Forces equipment',
-  'abroad-war': 'War in Ukraine', 'abroad-other': 'United Nations Security Council',
-};
+// When nothing on the news' own subject is found, so that no news goes without a picture: not a general photo of a section's subject (the Kremlin under a forum in China misleads): the site's own plain
+// picture, the CONTEXT nib on black, with no words on it.
+export const PLAIN_IMAGE = '/news-img/plain.jpg';
 // A Commons search for a news item: the names in its English summary (places, people, systems), else its title.
 export function commonsQuery(x) {
   if (!x) return '';
@@ -316,8 +322,11 @@ export async function makeIssue(now = Date.now()) {
 
   // 1. Candidates: each section's freshest news from its own verified outlets only.
   const norm = (x) => x.url.split('?')[0];
+  // A section with a word list (2.1, 3, 5.1, 5.2) reads only the headlines that have its words: TASS and RIA give
+  // a hundred news a day, most of them not about the war.
+  const fits = (x, s) => (!s.match || s.match.test(`${x.title} ${x.text}`)) && (!s.skip || !s.skip.test(`${x.title} ${x.text}`));
   const cands = own.map((s) => pickItems(
-    s.feeds.flatMap((u) => (got.get(u) || []).map((x) => ({ ...x, outlet: host(u) }))).filter((x) => !offTopic(x)),
+    s.feeds.flatMap((u) => (got.get(u) || []).map((x) => ({ ...x, outlet: host(u) }))).filter((x) => !offTopic(x) && fits(x, s)),
     now, s.pool || POOL, s.pool ? (s.pool > 36 ? 12 : 8) : 4,
   ));
   // All candidates once (a feed two sections share gives the same news to both).
@@ -340,7 +349,6 @@ export async function makeIssue(now = Date.now()) {
   ]);
   note.judged = verdicts.filter(Boolean).length;
   note.events = Boolean(events);
-  const fits = (x, s) => (!s.match || s.match.test(`${x.title} ${x.text}`)) && (!s.skip || !s.skip.test(`${x.title} ${x.text}`));
   // Each news to the first section (Chapter 3 first) that keeps it; without the editor's answer, the section's keyword rule.
   const sec = pool.map(() => null);
   const order = own.map((s, k) => k).sort((a, b) => Number(Boolean(own[b].first)) - Number(Boolean(own[a].first)));
@@ -367,26 +375,36 @@ export async function makeIssue(now = Date.now()) {
   const isReport = (x) => Object.values(reports).some((r) => r && (norm(r) === norm(x) || sharedWords(r, x) >= 3));
   const live = pool.map((_, i) => i).filter((i) => sec[i] && !drop.has(i) && !isReport(pool[i]));
   const bySec = Object.fromEntries(own.map((s) => [s.id, pickItems(live.filter((i) => sec[i] === s.id).map((i) => ({ ...pool[i], i })), now, POOL).map((x) => x.i)]));
-  const SPARE = 2; // candidates beyond five, for the news whose summary comes out shorter than two sentences
+  const SPARE = 3; // candidates beyond five, for the news whose summary comes out shorter than two sentences
   // The key news: the editor's ranking, at most one from a section, and never from a section left with fewer than
   // three — the key news must not empty the chapters they come from.
   // Only the editor's own choice of key news; the plain round of sections only when the editor gave none at all
   // (it filled the page with whatever came first — tank engines in Poland, a Gripen for Canada).
+  // After the repeats are gone, the editor's own short pick of the key news from what is left — the first news of
+  // each section — so that a chosen news is never lost as a repeat. Its earlier pick, then the plain round of
+  // sections, only when this one gives nothing.
+  const shortlist = roundRobin(own.map((s) => bySec[s.id].slice(0, 8)));
+  let picked0 = [];
+  if (any() && shortlist.length) {
+    try { picked0 = readPick(await ask(keyPrompt(shortlist.map((i) => pool[i])), 120), shortlist, KEY_COUNT + 2).map((k) => shortlist[k]); } catch (e) { note.keyErr = String(e.message || e).slice(0, 120); }
+  }
+  note.keyPick = picked0.length;
   const editorKey = (events?.key || []).filter((i) => live.includes(i));
-  const ranked = readPick(JSON.stringify({ pick: editorKey.map((i) => i + 1) }), pool, live.length, editorKey.length ? [] : roundRobin(own.map((s) => bySec[s.id])));
+  const ranked = picked0.length ? [...picked0, ...editorKey.filter((i) => !picked0.includes(i))] : editorKey.length ? editorKey : roundRobin(own.map((s) => bySec[s.id]));
+  // At most one from a section, and only from one left with four of its own after it.
   const key = [];
   const took = new Set();
   for (const i of ranked) {
-    if (key.length >= KEY_COUNT + SPARE) break;
-    if (took.has(sec[i]) || bySec[sec[i]].length < 3) continue;
+    if (key.length >= KEY_COUNT) break;
+    if (took.has(sec[i]) || bySec[sec[i]].length < 5) continue;
     key.push(i); took.add(sec[i]);
   }
-  // Too few sections to give one each: one more (never more) from a section that has plenty — seven or more,
-  // so that it keeps at least five for its own page.
+  // Too few sections to give one each: one more (never more) from a section that has six or more, so that it
+  // keeps four for its own page.
   const second = new Set();
   for (const i of ranked) {
     if (key.length >= KEY_COUNT) break;
-    if (key.includes(i) || second.has(sec[i]) || bySec[sec[i]].length < 7) continue;
+    if (key.includes(i) || second.has(sec[i]) || bySec[sec[i]].length < 6) continue;
     key.push(i); second.add(sec[i]);
   }
   // Where each section's news went (to see why a page came out thin).
@@ -426,49 +444,44 @@ export async function makeIssue(now = Date.now()) {
 
   // 5. Still no picture: a photo of the subject from the open archive.
   //    A picture from a Russian site (blocked in Ukraine) is swapped for an open one the same way.
+  const queries = (x, k, i) => {
+    const words = commonsQuery({ ...x, summary_en: en[k].t[i] }).split(' ');
+    return [...new Set([en[k].q[i], words.join(' '), words.slice(0, 2).join(' ')])].filter((q) => q && q.trim());
+  };
   const found = await Promise.all(chosen.map((l, k) => Promise.all(l.map(async (x, i) => {
     if (x.lead || (x.image && !ruPicture(x.image))) return x; // its own picture (the check for words comes next)
-    if (left() < 15000) return { ...x, image: x.image && !ruPicture(x.image) ? x.image : '' }; // no time to look
-    const words = commonsQuery({ ...x, summary_en: en[k].t[i] }).split(' ');
-    for (const q of [...new Set([en[k].q[i], words.join(' '), words.slice(0, 2).join(' '), SECTION_PHOTO[SECTIONS[k].id]])].filter(Boolean)) {
+    if (left() < 15000) return { ...x, image: '' }; // no time to look
+    for (const q of queries(x, k, i)) {
       const alt = await commonsImage(q);
       if (alt) return { ...x, image: alt, imageFrom: 'commons' };
     }
     return { ...x, image: '' };
   }))));
 
-  // 6. Photos only, no words on them: a picture with a headline or caption laid over it gives way to an open
-  //    photo of the subject; if that one has words too, the news goes without a picture. The leads keep theirs.
-  //    The check comes last and is the first to go: not when the allowance is spent, nor late in the making.
+  // 6. Photos only, no words on them; and a photo found in the archive must show the news' own subject.
+  //    One that fails gives way to another archive photo that passes; else the site's plain picture.
+  //    The leads keep theirs. The check is the first to go: not when the allowance is spent, nor late in the making.
   note.textPics = 0;
+  note.unfit = 0;
   const looks = canAsk() && left() > 35 * 1000 && (spent < 7000 || claudeOn());
   note.neurons = spentNeurons();
   note.picsChecked = looks;
   const withPhotos = await Promise.all(found.map((l, k) => Promise.all(l.map(async (x, i) => {
-    if (!looks || x.lead || !x.image || (await hasText(x.image)) !== true) return x;
-    note.textPics++;
-    const words = commonsQuery({ ...x, summary_en: en[k].t[i] }).split(' ');
-    for (const q of [...new Set([en[k].q[i], words.join(' '), words.slice(0, 2).join(' '), SECTION_PHOTO[SECTIONS[k].id]])].filter(Boolean)) {
+    if (!looks || x.lead || !x.image) return x;
+    const news = en[k].t[i] || x.title;
+    if ((await hasText(x.image, {}, x.imageFrom === 'commons' ? news : '')) !== true) return x;
+    if (x.imageFrom === 'commons') note.unfit++; else note.textPics++;
+    for (const q of queries(x, k, i)) {
       if (left() < 15000) break;
       const alt = await commonsImage(q);
-      if (alt && alt !== x.image && (await hasText(alt)) !== true) return { ...x, image: alt, imageFrom: 'commons' };
+      if (alt && alt !== x.image && (await hasText(alt, {}, news)) !== true) return { ...x, image: alt, imageFrom: 'commons' };
     }
-    // Nothing clean on the subject: the section's general photo (a place or an institution, no words on it).
-    const general = left() > 8000 ? await commonsImage(SECTION_PHOTO[SECTIONS[k].id]) : '';
-    return general ? { ...x, image: general, imageFrom: 'commons' } : { ...x, image: '', imageFrom: undefined };
+    return { ...x, image: PLAIN_IMAGE, imageFrom: 'plain' };
   }))));
 
-  // Any news still without a picture (Commons slow or busy a moment ago): the section's general photo, looked up
-  // once per section.
-  const general = {};
-  for (const [k, l] of withPhotos.entries()) {
-    for (const x of l) {
-      if (x.image || left() < 5000) continue;
-      general[k] ??= commonsImage(SECTION_PHOTO[SECTIONS[k].id]);
-      const g = await general[k];
-      if (g) { x.image = g; x.imageFrom = 'commons'; }
-    }
-  }
+  // Any news still without a picture: the site's plain picture — never a photo of something else.
+  for (const l of withPhotos) for (const x of l) if (!x.image) { x.image = PLAIN_IMAGE; x.imageFrom = 'plain'; }
+  note.plain = withPhotos.flat().filter((x) => x.image === PLAIN_IMAGE).length;
   note.noImage = withPhotos.flat().filter((x) => !x.image).length;
 
   const sections = SECTIONS.map((s, k) => ({

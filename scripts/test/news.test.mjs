@@ -132,6 +132,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
         editorSaw = [lines[a], lines[b]];
         return ok({ success: true, result: { response: JSON.stringify({ same: [[a + 1, b + 1]], key: [1, 3, 5, 7, 9] }) } });
       }
+      if (m[0].content.includes('З поданого списку')) return ok({ success: true, result: { response: JSON.stringify({ pick: [1, 2, 3, 4, 5, 6, 7] }) } }); // the key news, after the repeats
       const n = (m[1].content.match(/^\d+\./gm) || []).length;
       if (m[0].content.startsWith('Translate')) {
         translated.push(...m[1].content.split('\n\n').map((l) => l.replace(/^\d+\. /, '')));
@@ -164,13 +165,13 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     // No news twice: the key ones leave their sections, and a feed shared by two sections feeds only one.
     const urls = j.sections.flatMap((s) => s.items.map((x) => x.url));
     assert.equal(new Set(urls).size, urls.length);
-    const editor = sortCalls + 1; // the batches sorted into sections + one look over all headlines
+    const editor = sortCalls + 2; // the batches sorted into sections + one look over all headlines + the key news
     assert.equal(ai, editor + 18); // + 8 sections in Ukrainian and in English + the two night reports
     // every picture but the two leads' own is looked at for words on it
     assert.equal(vision, j.sections.flatMap((s) => s.items).filter((x) => x.image && !x.lead).length);
     assert.equal(j.sections.find((s) => s.id === 'infospace').items[0].image, '/news-img/lead-ru.jpg');
     assert.equal(sortCalls, 7);
-    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined, feeds: undefined, airHeads: undefined, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, claudeCents: undefined, bySec: undefined, repeats: undefined, noImage: undefined }, { feeds: undefined, airHeads: undefined, sections: 7, judged: 7, events: true, short: 0, textPics: 0, picsChecked: true, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, claudeCents: undefined, bySec: undefined, repeats: undefined, noImage: undefined, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined, reports: { ru: 'used', ua: 'used' } });
+    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined, feeds: undefined, airHeads: undefined, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, claudeCents: undefined, bySec: undefined, repeats: undefined, noImage: undefined, unfit: undefined, plain: undefined, keyPick: undefined }, { feeds: undefined, airHeads: undefined, sections: 7, judged: 7, events: true, short: 0, textPics: 0, picsChecked: true, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, claudeCents: undefined, bySec: undefined, repeats: undefined, noImage: undefined, unfit: undefined, plain: undefined, keyPick: undefined, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined, reports: { ru: 'used', ua: 'used' } });
     // The night's reports open 2.1 and 2.2, in the fixed wording, with the day's own numbers.
     const [ru] = j.sections.find((s) => s.id === 'infospace').items;
     const [ua] = j.sections.find((s) => s.id === 'media').items;
@@ -444,7 +445,10 @@ test('Claude Haiku first (Cloudflare spent too): the same requests answered, pic
     const feed = SECTIONS.flatMap((s) => s.feeds).find((f) => f === u);
     if (feed) {
       const h = new URL(feed).hostname.replace(/\W+/g, '');
-      return new Response(`<rss xmlns:media="m">${Array.from({ length: 6 }, (_, i) => `<item><title>${h} news ${i} about Ukraine and Russia’s war</title><link>https://${h}.test/${i}</link><pubDate>${now}</pubDate><description>Text ${i} about Ukraine and Russia’s military and the war.</description><media:thumbnail url="https://img.${h}/${i}.jpg"/></item>`).join('')}</rss>`, { status: 200 });
+      // 5.2 reads only the conflicts away from Ukraine: two of its feeds give those
+      const far = /news\.un\.org/.test(feed);
+      const away = ['Sudan clashes', 'Gaza ceasefire', 'Myanmar junta', 'Haiti gangs', 'Somalia militants', 'Congo rebels'];
+      return new Response(`<rss xmlns:media="m">${Array.from({ length: 6 }, (_, i) => `<item><title>${far ? `${away[i]} ${i}` : `${h} news ${i} about Ukraine and Russia’s war`}</title><link>https://${h}.test/${i}</link><pubDate>${now}</pubDate><description>${far ? `Text ${i} on ${away[i]}.` : `Text ${i} about Ukraine and Russia’s military and the war.`}</description><media:thumbnail url="https://img.${h}/${i}.jpg"/></item>`).join('')}</rss>`, { status: 200 });
     }
     return new Response('<html></html>', { status: 200, headers: { 'content-type': 'text/html' } });
   };
@@ -459,7 +463,7 @@ test('Claude Haiku first (Cloudflare spent too): the same requests answered, pic
     assert.equal(issue.editor.judged, 7);
     assert.ok(issue.editor.claude > 10);
     assert.ok(sawImage, 'pictures checked through Claude');
-    assert.ok(issue.sections.filter((s) => s.id !== 'key').every((s) => s.items.length >= 3), JSON.stringify(issue.sections.map((s) => s.items.length)));
+    assert.ok(issue.sections.filter((s) => s.id !== 'key').every((s) => s.items.length >= 4), JSON.stringify(issue.sections.map((s) => s.items.length)));
     assert.ok(!(issue.editor.sumErrs || []).some((e) => /without a retelling/.test(e)), JSON.stringify(issue.editor.sumErrs));
     assert.equal(await hasText('https://img.x/1.jpg'), false);
   } finally { globalThis.fetch = real; resetSpent(); delete process.env.ANTHROPIC_API_KEY; }
@@ -474,4 +478,37 @@ test('sentences about the text, not the news, are left out of a summary', async 
   // the model thinking aloud
   assert.equal(shape('Канцлер Меркель... Merz під час поїздки до Азії говорив про безпеку Європи. Його пропозиція натрапляє на перешкоди.').text, 'Merz під час поїздки до Азії говорив про безпеку Європи. Його пропозиція натрапляє на перешкоди.');
   assert.equal(shape('КПК провела з 1 по 4 жовтня... — ні, у тексті сказано, що форум був наприкінці жовтня. На нього прибули представники 97 країн.').n, 1);
+});
+
+test('only the day’s news: dated, within 24 hours, no analysis, explainers or interviews', async () => {
+  const { offTopic } = await import('../../src/lib/news.js');
+  const now = Date.parse('2026-11-01T15:00:00Z');
+  const items = [
+    { title: 'Fresh', url: 'https://a/1', domain: 'a', at: '2026-11-01T10:00:00Z' },
+    { title: 'Yesterday morning', url: 'https://a/2', domain: 'a', at: '2026-10-31T09:00:00Z' },
+    { title: 'Undated report', url: 'https://a/3', domain: 'a', at: null },
+  ];
+  assert.deepEqual(pickItems(items, now, 5, 5).map((x) => x.title), ['Fresh']);
+  assert.ok(offTopic({ title: 'Analysis: what Russia wants from the talks', url: 'https://x/1' }));
+  assert.ok(offTopic({ title: 'Що відомо про нову ракету', url: 'https://x/2' }));
+  assert.ok(offTopic({ title: 'Ukraine talks', url: 'https://www.bbc.com/news/articles/analysis/x' }));
+  assert.ok(!offTopic({ title: 'Ukraine strikes refinery in Ryazan', url: 'https://x/3' }));
+});
+
+test('a long chain of headlines sharing a word or two is a topic, not one event', () => {
+  const items = [
+    'Russian drones hit Odesa port overnight', 'Odesa port fire after drone attack', 'Drone attack on Kharkiv port depot',
+    'Kharkiv depot burns after attack', 'Depot near Dnipro burns overnight', 'Dnipro bridge damaged overnight',
+  ].map((title) => ({ title }));
+  const groups = sameEvents(items);
+  assert.ok(groups.every((g) => g.length <= 4), JSON.stringify(groups));
+});
+
+test('an archive photo must fit the news as well as carry no words', async () => {
+  const { hasText } = await import('../../api/_news.js');
+  const deps = (answer) => ({ ask: async () => answer, fetchImage: async () => ({ type: 'image/jpeg', buf: new Uint8Array([1]) }) });
+  assert.equal(await hasText('https://x/k.jpg', deps('No, no.'), 'Global Governance Forum opens in Beijing'), true); // the Kremlin for China
+  assert.equal(await hasText('https://x/k.jpg', deps('no yes'), 'Global Governance Forum opens in Beijing'), false);
+  assert.equal(await hasText('https://x/k.jpg', deps('yes yes'), 'x'), true);
+  assert.equal(await hasText('https://x/k.jpg', deps('No'), ''), false);
 });
