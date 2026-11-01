@@ -7,7 +7,7 @@ export const WAR = /украї|ukrain|росі|russia|kremlin|кремл|пут�
 
 /** What each section is about — items that match none of it stay out (a film review is not «infospace»). */
 const TOPIC = {
-  infospace: /пропаганд|propagand|фейк|fake|дезінформ|дезинформ|disinform|кремл|kremlin|путін|путин|putin|війн|войн|\bwar\b|армі|арми|military|військ|военн|санкц|sanction|репрес|repress|цензур|censor|вибор|выбор|election|дум[аиі]|duma|мобіліз|мобилиз|mobili[sz]|наратив|narrative|telegram|телеграм|z-|zelensk|зеленськ|зеленск|україн|украин|ukrain|окупац|оккупац|occup/i,
+  infospace: /ВСУ|поражен|уничтож|освобо|штурм|группировк|наступлен|пропаганд|propagand|фейк|fake|дезінформ|дезинформ|disinform|кремл|kremlin|путін|путин|putin|війн|войн|\bwar\b|армі|арми|military|військ|военн|санкц|sanction|репрес|repress|цензур|censor|вибор|выбор|election|дум[аиі]|duma|мобіліз|мобилиз|mobili[sz]|наратив|narrative|telegram|телеграм|z-|zelensk|зеленськ|зеленск|україн|украин|ukrain|окупац|оккупац|occup/i,
   agenda: /росі|росси|russia|kremlin|кремл|путін|путин|putin|китай|china|chinese|xi\b|іран|иран|iran|кндр|north korea|pyongyang|білорус|беларус|belarus|лукашенк|lukashenk|армі|арми|army|військ|военн|military|оборон|defen[cs]e|ракет|missile|санкц|sanction|nuclear|ядерн|nato|нато|окупац|оккупац|occup/i,
   conflicts: /\bwar\b|conflict|fighting|clash|attack|strike|airstrike|shelling|ceasefire|truce|rebel|militia|insurg|troops|army|military|killed|displaced|refugee|humanitarian|hostage|coup|terror|gaza|israel|hamas|hezbollah|lebanon|iran|syria|yemen|houthi|sudan|congo|sahel|mali|somalia|ethiopia|myanmar|taiwan|kashmir|haiti|venezuela|peacekeep|sanction/i,
 };
@@ -25,7 +25,7 @@ export const SECTIONS = [
   {
     id: 'infospace', pool: 36, code: '2.1', match: TOPIC.infospace, part: 'РОЗДІЛ 2 | СПЕЦОПЕРАЦІЇ ТА АКТУАЛЬНІ ПОДІЇ', title: '2.1 ІНФОПРОСТІР КРАЇНИ-АГРЕСОРА',
     en: { part: 'SECTION 2 | SPECIAL OPERATIONS AND CURRENT EVENTS', title: '2.1 THE AGGRESSOR STATE’S INFORMATION SPACE' },
-    about: 'інформаційний простір Росії: пропаганда, дезінформація, наративи й заяви кремлівських ЗМІ та посадовців, цензура, тиск на незалежні медіа',
+    about: 'війна проти України так, як її подають російські ЗМІ та Міноборони рф: заявлені ураження збройними силами рф позицій, об’єктів і техніки ЗСУ, «успіхи» армії рф на фронті, захоплення населених пунктів, інші військові події, пов’язані з Україною (усе — як твердження російської сторони). Не підходить: внутрішнє життя Росії без зв’язку з війною (медицина, економіка, суди, культура)',
     feeds: [
       'https://lenta.ru/rss/news',
       'https://meduza.io/rss/all',
@@ -40,7 +40,7 @@ export const SECTIONS = [
   {
     id: 'media', code: '2.2', part: 'РОЗДІЛ 2 | СПЕЦОПЕРАЦІЇ ТА АКТУАЛЬНІ ПОДІЇ', title: '2.2 УКРАЇНСЬКІ ТА СВІТОВІ ЗМІ',
     en: { part: 'SECTION 2 | SPECIAL OPERATIONS AND CURRENT EVENTS', title: '2.2 UKRAINIAN AND WORLD MEDIA' },
-    about: 'поточні події війни за повідомленнями українських і світових ЗМІ: удари, бойові дії, спецоперації, ураження об’єктів у Росії, евакуації, полонені',
+    about: 'дії Сил оборони України: спецоперації ЗСУ, СБУ, ГУР, ССО, Сил безпілотних систем; ураження українськими силами ворожих позицій, техніки, складів, НПЗ, заводів і аеродромів, зокрема в Росії; успіхи на фронті, звільнення територій, втрати противника. Не підходить: російські обстріли українських міст і їхні наслідки, політика, дипломатія, енергетика',
     feeds: [
       'https://www.ukrinform.ua/rss/block-lastnews',
       'https://interfax.com.ua/news/general.rss',
@@ -48,6 +48,7 @@ export const SECTIONS = [
       'https://kyivindependent.com/news-archive/rss/',
       'https://www.pravda.com.ua/rss/view_news/',
       'https://mil.in.ua/uk/feed/',
+      'https://armyinform.com.ua/feed/',
     ],
   },
   {
