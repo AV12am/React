@@ -20,7 +20,7 @@ import { SECTIONS, PER_SECTION, POOL, offTopic, KEY_COUNT, parseNewsFeed, pickIt
 
 
 const MIN = 60000;
-const VERSION = 13;
+const VERSION = 14; // 14: retellings asked again where missing, a photo for every news
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -183,7 +183,7 @@ const RATES = { 'llama-3.3': [26668, 204805], 'llama-4-scout': [24545, 77273], '
 let spent = 0;
 let timedOut = false;
 export const spentNeurons = () => Math.round(spent);
-export const resetNeurons = () => { spent = 0; timedOut = false; claudeUsed = 0; claudeUSD = 0; };
+export const resetNeurons = () => { spent = 0; timedOut = false; claudeUsed = 0; claudeUSD = 0; sumErrs.length = 0; };
 function spend(model, usage, messages, answer) {
   const [rin, rout] = Object.entries(RATES).find(([k]) => model.includes(k))?.[1] || RATES['llama-3.3'];
   const tin = usage?.prompt_tokens ?? JSON.stringify(messages).length / 3;
@@ -193,13 +193,30 @@ function spend(model, usage, messages, answer) {
 const on = () => Boolean(ACCOUNT && TOKEN);
 const any = () => on() || claudeOn(); // some model can be asked
 
+// Every news gets its Ukrainian retelling: one request for the section, then the ones it left without a
+// retelling (a reply cut short, a malformed list) asked again, three at a time. Why any stayed without one is noted.
+const sumErrs = [];
 async function summarize(items, tries = 2) {
   if (!any() || !items.length) return readSummaries('', items);
-  try {
-    const out = readSummaries(await ask(summaryPrompt(items), 2600), items);
-    if (tries > 1 && left() > 35000 && out.filter((x) => x.ai).length < items.length / 2) return summarize(items, tries - 1); // the model fell short: once more
-    return out;
-  } catch { return tries > 1 && left() > 35000 && canAsk() ? summarize(items, tries - 1) : readSummaries('', items); }
+  let out;
+  try { out = readSummaries(await ask(summaryPrompt(items), 4000), items); } catch (e) {
+    sumErrs.push(String(e?.message || e).slice(0, 80));
+    out = readSummaries('', items);
+  }
+  for (let round = 1; round < tries + 1; round++) {
+    const missing = out.map((x, i) => (x.ai ? -1 : i)).filter((i) => i >= 0);
+    if (!missing.length || left() < 30000 || !canAsk()) break;
+    for (let a = 0; a < missing.length; a += 3) {
+      const part = missing.slice(a, a + 3);
+      try {
+        const again = readSummaries(await ask(summaryPrompt(part.map((i) => items[i])), 2000), part.map((i) => items[i]));
+        part.forEach((i, j) => { if (again[j].ai) out[i] = again[j]; });
+      } catch (e) { sumErrs.push(String(e?.message || e).slice(0, 80)); }
+    }
+  }
+  const left_ = out.filter((x) => !x.ai).length;
+  if (left_) sumErrs.push(`${left_} of ${items.length} without a retelling`);
+  return out;
 }
 async function translate(texts, tries = 2) {
   const none = { t: texts.map(() => ''), q: texts.map(() => '') };
@@ -267,6 +284,13 @@ export async function hasText(url, deps = {}) {
   }
 }
 
+// When nothing on the news' own subject is found: an open photo for the section's general subject, so that
+// no news goes without a picture.
+const SECTION_PHOTO = {
+  key: 'Kyiv Maidan Nezalezhnosti', infospace: 'Moscow Kremlin', media: 'Armed Forces of Ukraine soldiers',
+  agenda: 'Moscow Kremlin Senate', society: 'Verkhovna Rada building', defence: 'Ukrainian Armed Forces equipment',
+  'abroad-war': 'War in Ukraine', 'abroad-other': 'United Nations Security Council',
+};
 // A Commons search for a news item: the names in its English summary (places, people, systems), else its title.
 export function commonsQuery(x) {
   if (!x) return '';
@@ -354,6 +378,12 @@ export async function makeIssue(now = Date.now()) {
     if (took.has(sec[i]) || bySec[sec[i]].length < 4) continue;
     key.push(i); took.add(sec[i]);
   }
+  // Too few sections to give one each: a second from the sections that have plenty (seven or more).
+  for (const i of ranked) {
+    if (key.length >= KEY_COUNT + SPARE) break;
+    if (key.includes(i) || bySec[sec[i]].length < 7) continue;
+    key.push(i);
+  }
   const picked = SECTIONS.map((s) => (s.key ? key : bySec[s.id].filter((i) => !key.includes(i)).slice(0, PER_SECTION + SPARE)).map((i) => pool[i]));
 
   // 3. Pictures from the article pages and the Ukrainian summaries, side by side; then the news to keep:
@@ -389,10 +419,10 @@ export async function makeIssue(now = Date.now()) {
   // 5. Still no picture: a photo of the subject from the open archive.
   //    A picture from a Russian site (blocked in Ukraine) is swapped for an open one the same way.
   const found = await Promise.all(chosen.map((l, k) => Promise.all(l.map(async (x, i) => {
-    if (x.lead || (x.image && !ruPicture(x.image))) return x;
+    if (x.lead || (x.image && !ruPicture(x.image))) return x; // its own picture (the check for words comes next)
     if (left() < 15000) return { ...x, image: x.image && !ruPicture(x.image) ? x.image : '' }; // no time to look
     const words = commonsQuery({ ...x, summary_en: en[k].t[i] }).split(' ');
-    for (const q of [...new Set([en[k].q[i], words.join(' '), words.slice(0, 2).join(' ')])].filter(Boolean)) {
+    for (const q of [...new Set([en[k].q[i], words.join(' '), words.slice(0, 2).join(' '), SECTION_PHOTO[SECTIONS[k].id]])].filter(Boolean)) {
       const alt = await commonsImage(q);
       if (alt) return { ...x, image: alt, imageFrom: 'commons' };
     }
@@ -410,7 +440,7 @@ export async function makeIssue(now = Date.now()) {
     if (!looks || x.lead || !x.image || (await hasText(x.image)) !== true) return x;
     note.textPics++;
     const words = commonsQuery({ ...x, summary_en: en[k].t[i] }).split(' ');
-    for (const q of [...new Set([en[k].q[i], words.join(' '), words.slice(0, 2).join(' ')])].filter(Boolean)) {
+    for (const q of [...new Set([en[k].q[i], words.join(' '), words.slice(0, 2).join(' '), SECTION_PHOTO[SECTIONS[k].id]])].filter(Boolean)) {
       if (left() < 15000) break;
       const alt = await commonsImage(q);
       if (alt && alt !== x.image && (await hasText(alt)) !== true) return { ...x, image: alt, imageFrom: 'commons' };
@@ -432,6 +462,7 @@ export async function makeIssue(now = Date.now()) {
   const items = sections.flatMap((s) => s.items);
   if (!canAsk()) note.err = note.err || 'AI 429 daily neurons spent';
   note.claude = claudeUsed;
+  if (sumErrs.length) note.sumErrs = [...new Set(sumErrs)].slice(0, 8);
   note.claudeCents = Math.round(claudeUSD * 10000) / 100;
   const thin = any() && (items.filter((x) => x.ai).length < 24 || note.translated < items.length / 2);
   if (timedOut) note.timedOut = true;

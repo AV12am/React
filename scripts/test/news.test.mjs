@@ -435,7 +435,8 @@ test('Claude Haiku first (Cloudflare spent too): the same requests answered, pic
       if (sys.includes('стосується теми розділу')) return answer(JSON.stringify({ keep: Object.fromEntries(Array.from({ length: n }, (_, i) => [String(i + 1), 1])) }));
       if (sys.includes('Знайди групи')) return answer('{"same": [], "key": [1, 2, 3, 4, 5]}');
       if (sys.startsWith('Translate')) return answer(JSON.stringify({ t: Array.from({ length: n }, (_, i) => `Summary ${i + 1}. Second sentence.`), q: Array.from({ length: n }, () => 'Kyiv') }));
-      return answer(JSON.stringify({ summaries: Array.from({ length: n }, (_, i) => `Стислий виклад новини ${i + 1}. Друге речення викладу.`) }));
+      // a long list answered only in part (as a reply cut short): the rest must be asked again
+      return answer(JSON.stringify({ summaries: Array.from({ length: n > 3 ? 2 : n }, (_, i) => `Стислий виклад новини ${i + 1}. Друге речення викладу.`) }));
     }
     if (/commons\.wikimedia|upload\.wikimedia/.test(u)) return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
     if (u.startsWith('https://img.')) return new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/jpeg' } });
@@ -457,6 +458,8 @@ test('Claude Haiku first (Cloudflare spent too): the same requests answered, pic
     assert.equal(issue.editor.judged, 7);
     assert.ok(issue.editor.claude > 10);
     assert.ok(sawImage, 'pictures checked through Claude');
+    assert.ok(issue.sections.filter((s) => s.id !== 'key').every((s) => s.items.length >= 3), JSON.stringify(issue.sections.map((s) => s.items.length)));
+    assert.ok(!(issue.editor.sumErrs || []).some((e) => /without a retelling/.test(e)), JSON.stringify(issue.editor.sumErrs));
     assert.equal(await hasText('https://img.x/1.jpg'), false);
   } finally { globalThis.fetch = real; resetSpent(); delete process.env.ANTHROPIC_API_KEY; }
 });
