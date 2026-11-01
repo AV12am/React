@@ -90,7 +90,9 @@ export const setDeadline = (at) => { deadline = at; };
 // Claude Haiku 5.5 stands in when Cloudflare cannot answer (its free allowance spent, a fault, a refused model):
 // the same request, the same answer shape. Only on the server, with ANTHROPIC_API_KEY set in Vercel.
 const CLAUDE = 'claude-haiku-5-5';
-const claudeOn = () => Boolean(env.ANTHROPIC_API_KEY);
+// The key's variable in Vercel: ANTHROPIC_API_KEY, or context_new (the name it was first saved under).
+const claudeKey = () => env.ANTHROPIC_API_KEY || env.context_new || '';
+const claudeOn = () => Boolean(claudeKey());
 let claudeClient = null;
 export const canAsk = () => (on() && !aiSpent()) || claudeOn();
 // Our requests are written chat-style ({ role: 'system' | 'user', content }); Claude takes the system text apart
@@ -109,7 +111,7 @@ export function toClaude(messages) {
 }
 async function askClaude(messages, maxTokens) {
   if (left() < 4000) { timedOut = true; throw new Error('AI time up'); }
-  claudeClient ||= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 1 });
+  claudeClient ||= new Anthropic({ apiKey: claudeKey(), maxRetries: 1 });
   const { system, messages: msgs } = toClaude(messages);
   try {
     const res = await claudeClient.messages.create({
