@@ -159,7 +159,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     assert.deepEqual(j.sections.map((s) => s.id), SECTIONS.map((s) => s.id));
     assert.equal(j.for, new Date(issueTime()).toISOString());
     for (const s of j.sections) {
-      assert.ok(s.items.length >= (s.id === 'key' ? 3 : 4) && s.items.length <= 5, `${s.id}: ${s.items.length}`); // the key news: only as many as the editor chose
+      assert.ok(s.items.length >= 3 && s.items.length <= 5, `${s.id}: ${s.items.length}`); // two news a feed here: a key news may leave its section three
       assert.ok(s.items.every((x) => x.image && x.summary && x.ai));
     }
     // No news twice: the key ones leave their sections, and a feed shared by two sections feeds only one.

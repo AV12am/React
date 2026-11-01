@@ -394,22 +394,8 @@ export async function makeIssue(now = Date.now()) {
   note.keyPick = picked0.length;
   const editorKey = (events?.key || []).filter((i) => live.includes(i));
   const ranked = picked0.length ? [...picked0, ...editorKey.filter((i) => !picked0.includes(i))] : editorKey.length ? editorKey : roundRobin(own.map((s) => bySec[s.id]));
-  // At most one from a section, and only from one that has four or more.
-  const key = [];
-  const took = new Set();
-  for (const i of ranked) {
-    if (key.length >= KEY_COUNT) break;
-    if (took.has(sec[i]) || bySec[sec[i]].length < 4) continue;
-    key.push(i); took.add(sec[i]);
-  }
-  // Too few sections to give one each: one more (never more) from a section that has six or more, so that it
-  // keeps four for its own page.
-  const second = new Set();
-  for (const i of ranked) {
-    if (key.length >= KEY_COUNT) break;
-    if (key.includes(i) || second.has(sec[i]) || bySec[sec[i]].length < 6) continue;
-    key.push(i); second.add(sec[i]);
-  }
+  // The key news are simply the editor's most resonant ones, from whichever sections they come.
+  const key = ranked.slice(0, KEY_COUNT);
   // Where each section's news went (to see why a page came out thin).
   note.bySec = Object.fromEntries(own.map((s) => [s.id, bySec[s.id].length]));
   note.repeats = drop.size;
