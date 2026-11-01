@@ -239,7 +239,7 @@ test('off-topic news, emoji pictures and empty phrases stay out', async () => {
   assert.ok(offTopic({ title: 'Hear me out: maybe Norway should give the prize', url: 'https://www.theguardian.com/commentisfree/2026/oct/31/x' }));
   assert.equal(itemImage('<item><media:thumbnail url="https://s.w.org/images/core/emoji/17.0.2/72x72/25ab.png"/></item>'), '');
   const [s] = readSummaries('{"summaries":["Армія РФ завдала удару по Харкову. Це сталося в Харкові. Київ вимагає更多 перехоплювачів."]}', [{ title: 'x' }]);
-  assert.equal(s.text, 'Армія РФ завдала удару по Харкову. Київ вимагає перехоплювачів.');
+  assert.equal(s.text, 'Армія рф завдала удару по Харкову. Київ вимагає перехоплювачів.');
 });
 
 test('the editor’s answers: keep or not for a section; same events; one news per event, the pictured one kept', () => {
@@ -518,4 +518,10 @@ test('of two news on one event the one in the thinner section stays', () => {
   const items = [{ title: 'a', image: 'https://p/a.jpg', at: '2026-11-01T10:00:00Z' }, { title: 'b', image: '', at: '2026-11-01T09:00:00Z' }];
   assert.deepEqual([...dropRepeats(items, [[0, 1]]).drop], [1]);
   assert.deepEqual([...dropRepeats(items, [[0, 1]], (i) => [9, 2][i]).drop], [0]);
+});
+
+test('«рф», «росія», «путін» with a small letter, a capital only where a sentence begins', async () => {
+  const { lowerRu } = await import('../../src/lib/news.js');
+  assert.equal(lowerRu('Удар по Росії. Путін заявив, що РФ і Росія готові; за словами Путіна, ВС РФ наступають.'), 'Удар по росії. Путін заявив, що рф і росія готові; за словами путіна, ВС рф наступають.');
+  assert.equal(lowerRu('Росіяни й Російська мова'), 'Росіяни й Російська мова'); // only the three words
 });

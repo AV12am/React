@@ -130,7 +130,8 @@ export function outlets(id) {
 export const LEAD_IMAGE = { ru: '/news-img/lead-ru.jpg', ua: '/news-img/lead-ua.jpg' };
 export const withLeadImages = (issue) => (issue?.sections ? {
   ...issue,
-  sections: issue.sections.map((s) => ({ ...s, items: s.items.map((x) => (x.lead && LEAD_IMAGE[x.lead] ? { ...x, image: LEAD_IMAGE[x.lead] } : x)) })),
+  // An issue made before a style rule still reads in today's style («рф», «росія», «путін»).
+  sections: issue.sections.map((s) => ({ ...s, items: s.items.map((x) => ({ ...(x.lead && LEAD_IMAGE[x.lead] ? { ...x, image: LEAD_IMAGE[x.lead] } : x), summary: lowerRu(x.summary) })) })),
 } : issue);
 
 // A picture from a Russian site: such sites are blocked in Ukraine, so a reader there never sees it — an open
@@ -424,7 +425,7 @@ export function summaryPrompt(items) {
       role: 'system',
       content: 'Ти — редактор стислого огляду новин. Для кожної новини напиши українською рівно 2 або 3 повні речення (до 450 знаків): що сталося, де і чому це важливо. '
         + 'Спирайся ЛИШЕ на наданий заголовок і текст — нічого не додавай від себе, не вигадуй цифр, імен чи оцінок. '
-        + 'Пиши лише українською (імена й назви — українською транслітерацією). Без порожніх фраз на кшталт «Це важливо, оскільки…» чи «Це сталося в …» — '
+        + 'Пиши лише українською (імена й назви — українською транслітерацією); «рф», «росія», «путін» — з малої літери. Без порожніх фраз на кшталт «Це важливо, оскільки…» чи «Це сталося в …» — '
         + 'пояснюй значення лише тоді, коли воно є в тексті. Пиши про саму подію, а не про текст: без «у тексті не вказано», «джерело не уточнює», «стаття розглядає», «матеріал пояснює». Кожне речення — нова інформація, без повторів сказаного. Відповідай лише JSON: {"summaries": ["…", "…"]} — по одному на новину, у тому ж порядку.',
     },
     { role: 'user', content: items.map((x, i) => `${i + 1}. ${RU_STATE.has(x.outlet) ? '[російське провладне ЗМІ — перекажи як твердження: «Російські ЗМІ повідомляють, що…» / «За версією російських ЗМІ…», не як факт; хто кого атакував, уразив чи захопив — точно як у джерелі: «ВС РФ» / «российские войска» — це армія рф, «ВСУ» — Збройні сили України] ' : ''}${x.title}\n${x.text || ''}`.slice(0, 1400)).join('\n\n') },
@@ -473,12 +474,18 @@ export function sentences(text) {
 // The model thinking aloud in its answer («Канцлер Меркель... Merz», «з 1 по 4 жовтня... — ні, у тексті сказано»).
 const ALOUD = /\.\.\.|…\s*\S|—\s*ні[,.]|\bні, у тексті|\bточніше,/i;
 const META = /(у|в) (наданому )?текст\S* (не|немає|нема)|наданому тексті|джерел\S* не (уточню|наводить|вказу)|не уточнюється|деталей\S*[^.]*не (наведено|наводиться|зазначено)|(конкретн\S*|подробиц\S*)[^.]*не (вказано|зазначено|наведено)/i;
+/** The issue's own style: «рф», «росія», «путін» with a small letter (a capital only where a sentence begins). */
+export function lowerRu(text) {
+  return String(text || '')
+    .replace(/(?<![\p{L}])РФ(?![\p{L}])/gu, 'рф')
+    .replace(/(?<!(?:^|[.!?…]\s+))(Росі(?:я|ї|ю|єю)|Путін(?:а|у|им|ові|і)?)(?![\p{L}])/gu, (w) => w[0].toLowerCase() + w.slice(1));
+}
 export function shape(text) {
   const all = sentences(text);
   const bad = (x) => META.test(x) || ALOUD.test(x);
   const list = all.filter((x) => !bad(x)).length ? all.filter((x) => !bad(x)) : all;
   if (list.length > 1 && (!/[.!?…»"')]$/.test(list.at(-1)) || /(\.\.\.|…)$/.test(list.at(-1)))) list.pop(); // unfinished or cut off with «…»
-  return { text: list.slice(0, 3).join(' '), n: Math.min(list.length, 3) };
+  return { text: lowerRu(list.slice(0, 3).join(' ')), n: Math.min(list.length, 3) };
 }
 
 /** The model's answer → one summary per item; where it gave none, the item's own text, shortened. */
