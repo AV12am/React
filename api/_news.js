@@ -563,9 +563,36 @@ async function captured(now) {
   if (doc?.day !== dayKey(now)) return {};
   return { ru: nightReport(doc.ru, 'ru') ? doc.ru : null, ua: nightReport(doc.ua, 'ua') ? doc.ua : null };
 }
+// The morning's reports go onto the page at once: the issue on show gets the night's figures in its 2.1 and 2.2 leads
+// (two short model answers and one translation — a fraction of a cent), without waiting for the 17:00 issue.
+async function refreshLeads(reports, now) {
+  const issue = await read();
+  if (!issue?.sections || !any()) return 0;
+  setDeadline(Date.now() + 60 * 1000);
+  const where = { ru: 'infospace', ua: 'media' };
+  let changed = 0;
+  for (const side of ['ru', 'ua']) {
+    const r = reports[side];
+    const sec = issue.sections.find((x) => x.id === where[side]);
+    if (!r || !sec) continue;
+    const at = sec.items.findIndex((x) => x.lead === side);
+    if (at >= 0 && sec.items[at].url === r.url) continue; // already the night's own report
+    try {
+      const summary = composeReport(side, await ask(reportPrompt(side, `${r.title}\n${r.text || ''}\n${r.article || ''}`), 300), r.at);
+      if (!summary) continue;
+      const en = await translate([summary]);
+      const item = { title: r.title, url: r.url, domain: r.domain || host(r.url), at: r.at, image: LEAD_IMAGE[side], summary, summary_en: en.t[0] || summary, ai: true, lead: side };
+      if (at >= 0) sec.items[at] = item; else sec.items.unshift(item);
+      changed++;
+    } catch { /* the lead stays as it was */ }
+  }
+  if (changed) await keep({ ...issue, leadsAt: new Date(now).toISOString() });
+  return changed;
+}
+
 export async function captureReports(now = Date.now()) {
   const have = await captured(now);
-  if (have.ru && have.ua) return have;
+  if (have.ru && have.ua) { await refreshLeads(have, now); return have; }
   const urls = [...new Set(SECTIONS.flatMap((s) => s.feeds))];
   const items = (await Promise.all(urls.map(feed))).flat();
   const out = { ...have };
@@ -574,7 +601,10 @@ export async function captureReports(now = Date.now()) {
     const r = findReport(items, side, now);
     if (r) out[side] = { ...r, article: await articleText(r.url) };
   }
-  if (out.ru || out.ua) await keep({ day: dayKey(now), ru: out.ru || null, ua: out.ua || null }, 'reports');
+  if (out.ru || out.ua) {
+    await keep({ day: dayKey(now), ru: out.ru || null, ua: out.ua || null }, 'reports');
+    await refreshLeads(out, now);
+  }
   return out;
 }
 
