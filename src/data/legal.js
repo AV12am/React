@@ -5,7 +5,7 @@
 export const OWNER = {
   name: '', // the legal name of the platform's owner — e.g. «ТОВ «…»»
   address: '', // the registered address
-  email: '', // the contact address for privacy questions
+  email: 'privacy@reactioncore.uk', // the contact address for privacy questions (Cloudflare Email Routing)
 };
 const who = () => OWNER.name || 'власник платформи Reaction Core (далі — Оператор)';
 const contact = () => (OWNER.email ? `на адресу ${OWNER.email}` : 'через адміністратора платформи (CUSTOS) або через свого керівника');
