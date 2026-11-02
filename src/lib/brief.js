@@ -274,6 +274,7 @@ export function insightsHtml(ins, ai = null, news = []) {
   const develop = ins.develop.length ? ins.develop.map((x) => p(`<b>${esc(x.title)}</b> <span style="color:#777">· ${esc(x.state)}</span><br><span style="color:#555">${esc(x.why)}${steps.get(x.title) ? `. Наступний крок: ${esc(steps.get(x.title))}` : ''}</span>`)).join('') : p('Усі проєкти рухаються за планом — нових сигналів немає.', '#999');
   const newsRows = news.length ? head('Ключові новини доби · CONTEXT') + news.map((n) => p(`· ${esc(n)}`)).join('') : '';
   return `
+    ${p('<span style="font-size:13px;color:#777">Повний бриф із графіками й схемами — у PDF у вкладенні.</span>')}
     ${head('Аналітичні висновки')}${conclusions}
     ${head('Активність за 7 днів')}<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${act}</table></td></tr>
     ${p(`<span style="font-size:13px;color:#777">Створено, змінено записів і додано записів у роботу над проєктами. Цього тижня: ${ins.thisWeek}${ins.prevWeek ? `, минулого: ${ins.prevWeek}` : ''}.</span>`)}

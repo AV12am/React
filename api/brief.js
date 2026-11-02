@@ -13,6 +13,7 @@
 // Needs RESEND_API_KEY and BRIEF_FROM (e.g. "Reaction Core <brief@your-domain>") in the environment,
 // plus SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY. APP_URL is the link in the letter (optional).
 import Anthropic from '@anthropic-ai/sdk';
+import { briefPdf } from '../src/lib/briefPdf.js';
 import { buildBrief, briefHtml, briefText, buildInsights, insightsHtml, insightsText, insightsPrompt, readInsights } from '../src/lib/brief.js';
 import { env, json, db, caller, SB_URL, SERVICE } from './_core.js';
 import { sendPush, pushReady } from './_push.js';
@@ -65,20 +66,33 @@ const insightsFor = (m, data, now) => buildInsights({
   records: data.records, tasks: data.tasks, now, nameUpTo: 0,
   me: { id: m.id, role: m.doc?.role, clearance: Math.max(0, Math.min(2, +m.doc?.clearance || 0)) },
 });
-async function letter(m, data, now, news) {
+// The designed PDF goes with the letter (charts, schemes, the full analysis). Its font (Noto Serif, with Cyrillic)
+// is the site's own, read once per run.
+let fontsP = null;
+const pdfFonts = (appUrl) => (fontsP ||= Promise.all(['Regular', 'Bold'].map(async (w) => {
+  const res = await fetch(`${appUrl.replace(/\/$/, '')}/fonts/NotoSerif-${w}.ttf`);
+  if (!res.ok) throw new Error(`font ${res.status}`);
+  return new Uint8Array(await res.arrayBuffer());
+})).catch((e) => { fontsP = null; throw e; }));
+async function letter(m, data, now, news, appUrl) {
   const b = briefFor(m, data, now);
   const ins = insightsFor(m, data, now);
   const ai = await analyse(ins, b);
-  return { b, ins, extra: insightsHtml(ins, ai, news), extraText: insightsText(ins, ai, news), ai: Boolean(ai) };
+  let pdf = null;
+  try {
+    const bytes = await briefPdf({ brief: b, insights: ins, ai, news, name: m.doc?.name || '', fonts: await pdfFonts(appUrl) });
+    pdf = { filename: `Reaction-brief-${new Date(now).toISOString().slice(0, 10)}.pdf`, content: Buffer.from(bytes).toString('base64') };
+  } catch { pdf = null; } // the letter goes without the PDF rather than not at all
+  return { b, ins, pdf, extra: insightsHtml(ins, ai, news), extraText: insightsText(ins, ai, news), ai: Boolean(ai) };
 }
 
 const subjectOf = (b) => `Ранковий бриф · ${new Date(b.until).toLocaleDateString('uk-UA', { timeZone: 'Europe/Kyiv', day: 'numeric', month: 'long' })}${b.attention ? ` · потребує уваги: ${b.attention}` : ''}`;
 
-async function send(to, b, name, appUrl, extra = '', extraText = '') {
+async function send(to, b, name, appUrl, extra = '', extraText = '', pdf = null) {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: FROM, to: [to], subject: subjectOf(b), html: briefHtml(b, { name, appUrl, extra }), text: briefText(b, { name, appUrl, extraText }) }),
+    body: JSON.stringify({ from: FROM, to: [to], subject: subjectOf(b), html: briefHtml(b, { name, appUrl, extra }), text: briefText(b, { name, appUrl, extraText }), ...(pdf ? { attachments: [pdf] } : {}) }),
   });
   if (!res.ok) throw new Error(`mail ${res.status} ${(await res.text().catch(() => '')).slice(0, 200)}`);
 }
@@ -110,10 +124,10 @@ export async function GET(req) {
       const d = m.doc || {};
       const to = mailOf(m);
       if (!to || d.status !== 'active' || d.brief === false) { skipped++; continue; }
-      const { b, ins, extra, extraText } = await letter(m, data, now, news);
+      const { b, ins, extra, extraText, pdf } = await letter(m, data, now, news, appUrlOf(req));
       // Sent when there is something to read: the day's items, or a week with projects, tasks or activity.
       if (!b.total && !ins.projects.total && !ins.tasks.open && !ins.thisWeek) { skipped++; continue; }
-      try { await send(to, b, d.name || '', appUrlOf(req), extra, extraText); sent++; } catch (e) { errors.push(e.message); }
+      try { await send(to, b, d.name || '', appUrlOf(req), extra, extraText, pdf); sent++; } catch (e) { errors.push(e.message); }
       if (b.attention && pushReady()) await sendPush([m.id], { title: 'Ранковий бриф', body: `Потребує уваги: ${b.attention}. Відкрийте «Огляд».`, url: '/#/overview', tag: 'brief' }).catch(() => {});
     }
     return json(200, { sent, skipped, errors });
@@ -132,9 +146,9 @@ export async function POST(req) {
     const data = await load();
     const to = mailOf(m);
     if (!to) return json(400, { error: 'no_mail', message: 'Додайте адресу для листів у «Налаштуваннях» → «Ранковий бриф»' });
-    const { b, extra, extraText, ai } = await letter(m, data, Date.now(), await keyNews());
-    await send(to, b, m.doc?.name || '', appUrlOf(req), extra, extraText);
-    return json(200, { sent: true, to, total: b.total, ai });
+    const { b, extra, extraText, ai, pdf } = await letter(m, data, Date.now(), await keyNews(), appUrlOf(req));
+    await send(to, b, m.doc?.name || '', appUrlOf(req), extra, extraText, pdf);
+    return json(200, { sent: true, to, total: b.total, ai, pdf: Boolean(pdf) });
   } catch (e) {
     return json(500, { error: 'error', message: e.message });
   }

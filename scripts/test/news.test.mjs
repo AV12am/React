@@ -566,3 +566,18 @@ test('the brief’s analysis: activity, projects to develop, a forecast — no c
   assert.deepEqual(ai.develop, [{ project: 'Atlas', next: 'Призначити наступний етап' }]); // only projects it was given
   assert.ok(insightsHtml(ins, ai).includes('Наступний крок: Призначити наступний етап'));
 });
+
+test('the brief as a PDF: pages with charts, and no classified name in it', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { buildBrief, buildInsights } = await import('../../src/lib/brief.js');
+  const { briefPdf } = await import('../../src/lib/briefPdf.js');
+  const { PDFDocument } = await import('pdf-lib');
+  const now = Date.parse('2026-11-02T08:00:00Z');
+  const records = [{ id: 'p1', div: 'prj', col: 'projects', name: 'TopSecretName', state: 'Триває', clearance: 1, at: '2026-10-01T00:00:00Z', updated: '2026-10-20T00:00:00Z' }];
+  const me = { id: 'u', role: 'admin', clearance: 2 };
+  const fonts = ['Regular', 'Bold'].map((w) => readFileSync(new URL(`../../public/fonts/NotoSerif-${w}.ttf`, import.meta.url)));
+  const bytes = await briefPdf({ brief: buildBrief({ records, me, now, nameUpTo: 0 }), insights: buildInsights({ records, me, now, nameUpTo: 0 }), fonts });
+  const doc = await PDFDocument.load(bytes);
+  assert.ok(doc.getPageCount() >= 3);
+  assert.ok(!Buffer.from(bytes).toString('latin1').includes('TopSecretName'));
+});
