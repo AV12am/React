@@ -1,8 +1,11 @@
 // «Інформація»: the company's documents and certificates (an administrator files them, everyone reads them)
 // and the rules of the platform. The rules are written from what the platform actually enforces —
 // the classification scale, sign-in, the audit log — not from anything assumed about the company.
+import { useState } from 'react';
 import { useStore } from '../store.jsx';
-import { Panel, ClassBadge, SealBadge } from '../components/ui.jsx';
+import { Panel, ClassBadge, SealBadge, Drawer } from '../components/ui.jsx';
+import { Icon } from '../components/Icon.jsx';
+import { LEGAL, LEGAL_DATE } from '../data/legal.js';
 import { Attachments } from '../components/Attachments.jsx';
 import { LEVELS, SEAL, CUSTOS } from '../data/clearance.js';
 
@@ -20,8 +23,27 @@ const RULES = [
   ['Сховище', 'До 9,75 ГБ файлів. Великі файли — до 50 МБ кожен.'],
 ];
 
+// One legal document, read inside the platform (a side panel), not downloaded.
+function LegalDoc({ doc, onClose }) {
+  return (
+    <Drawer title={doc.title} onClose={onClose}>
+      <article className="legal">
+        <div className="vx-hint">Редакція від {LEGAL_DATE}</div>
+        <p className="legal__lead">{doc.lead}</p>
+        {doc.sections.map((s) => (
+          <section key={s.h}>
+            <h3 className="legal__h">{s.h}</h3>
+            {s.p.map((t, i) => <p key={i} className="legal__p">{t}</p>)}
+          </section>
+        ))}
+      </article>
+    </Drawer>
+  );
+}
+
 export function Info() {
   const { state, me, dispatch } = useStore();
+  const [legal, setLegal] = useState(null);
   const lib = (state.records || []).find((r) => r.id === INFO_ID);
   const canEdit = me.role === 'admin';
   const setFiles = (files) => {
@@ -43,6 +65,16 @@ export function Info() {
           ? <Attachments value={lib?.files || []} onChange={setFiles} canEdit={canEdit} clearance={0} division="info" record={INFO_ID} />
           : <div className="vx-empty"><div>Документів ще немає</div></div>}
       </Panel>
+
+      <Panel title="Правові документи" bodyClass="vx-panel__body info-rules">
+        {LEGAL.map((d) => (
+          <button type="button" className="info-rule legal-link" key={d.id} onClick={() => setLegal(d)}>
+            <div className="info-rule__t"><Icon name="book" size={14} /> {d.title}</div>
+            <div className="info-rule__d">{d.lead} <span className="legal-link__go">Читати <Icon name="chevron" size={12} /></span></div>
+          </button>
+        ))}
+      </Panel>
+      {legal && <LegalDoc doc={legal} onClose={() => setLegal(null)} />}
 
       <Panel title="Правила платформи" bodyClass="vx-panel__body info-rules">
         {RULES.map(([t, text]) => (

@@ -435,3 +435,15 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 }
 /* the heading's «News» as the opening writes it: italic, a shade softer */
 .news__brand-news { font-style: italic; color: var(--ink-2); margin-left: .12em; }
+
+/* Legal documents in «Інформація»: a list that opens each in the side panel */
+.legal-link { all: unset; display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+.legal-link:last-child { border-bottom: 0; }
+.legal-link:hover .info-rule__t, .legal-link:focus-visible .info-rule__t { text-decoration: underline; text-underline-offset: 3px; }
+.legal-link:focus-visible { outline: 2px solid var(--accent, currentColor); outline-offset: 2px; }
+.legal-link__go { white-space: nowrap; font-weight: 600; color: var(--ink); }
+.legal { max-width: 720px; }
+.legal__lead { font-size: 15px; line-height: 1.6; color: var(--ink); margin: 8px 0 4px; }
+.legal__h { font-size: 15px; font-weight: 600; margin: 22px 0 8px; }
+.legal__p { font-size: 14px; line-height: 1.65; color: var(--ink-2); margin: 0 0 10px; }
+@media (max-width: 640px) { .legal-link { grid-template-columns: 1fr; gap: 4px; } }
