@@ -17,7 +17,7 @@ import { json, db, env } from './_core.js';
 import Anthropic from '@anthropic-ai/sdk';
 import sample from '../src/news/sample.js';
 import { refreshAlerts } from './_alerts.js';
-import { SECTIONS, PER_SECTION, POOL, FRESH, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, keyPrompt, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, LEAD_IMAGE, ruPicture, nightReport, airTally } from '../src/lib/news.js';
+import { SECTIONS, PER_SECTION, POOL, FRESH, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, keyPrompt, eventsPrompt, repeatsPrompt, readRepeats, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, LEAD_IMAGE, ruPicture, nightReport, airTally } from '../src/lib/news.js';
 
 
 const MIN = 60000;
@@ -421,7 +421,10 @@ export async function makeIssue(now = Date.now()) {
   // After the repeats are gone, the editor's own short pick of the key news from what is left — the first news of
   // each section — so that a chosen news is never lost as a repeat. Its earlier pick, then the plain round of
   // sections, only when this one gives nothing.
-  const shortlist = roundRobin(own.map((s) => bySec[s.id].slice(0, 8)));
+  // The key news are of the last day: a news of the day before stays in its section, never on top of the page.
+  const today = (i) => now - Date.parse(pool[i].at) < FRESH;
+  const roster = roundRobin(own.map((s) => bySec[s.id].slice(0, 8)));
+  const shortlist = roster.filter(today).length >= KEY_COUNT ? roster.filter(today) : roster;
   let picked0 = [];
   if (any() && shortlist.length) {
     try { picked0 = readPick(await ask(keyPrompt(shortlist.map((i) => pool[i])), 120), shortlist, KEY_COUNT + 2).map((k) => shortlist[k]); } catch (e) { note.keyErr = String(e.message || e).slice(0, 120); }
@@ -454,12 +457,36 @@ export async function makeIssue(now = Date.now()) {
     lead('ua'),
   ]);
   note.reports = { ru: reports.ru ? (leadRu ? 'used' : 'unread') : 'none', ua: reports.ua ? (leadUa ? 'used' : 'unread') : 'none' };
-  const chosen = pictured.map((l, k) => {
+  const full = pictured.map((l, k) => {
     const rows = l.map((x, i) => ({ ...x, summary: uk[k][i].text, ai: uk[k][i].ai, n: uk[k][i].n }));
     const good = rows.filter((x) => x.n >= 2);
     const first = SECTIONS[k].id === 'infospace' ? leadRu : SECTIONS[k].id === 'media' ? leadUa : null;
-    return fitItems([...(first ? [first] : []), ...good, ...rows.filter((x) => x.n === 1)].slice(0, PER_SECTION)); // n 0: not Ukrainian — left out
+    return [...(first ? [first] : []), ...good, ...rows.filter((x) => x.n === 1)]; // n 0: not Ukrainian — left out
   });
+  // The same event told twice across the page (one outlet in Ukrainian, another in English; the key news and its
+  // section): the editor reads the summaries once more, and the later one gives way to a spare. The aggressor's
+  // own view (2.1, 3) of an event told in Ukraine's sections is no repeat; the leads and the key news always stay.
+  const RU_SIDE = new Set(['infospace', 'agenda']);
+  const shown = () => full.flatMap((l, k) => l.slice(0, PER_SECTION).map((x) => ({ x, k })));
+  if (any()) {
+    try {
+      const now0 = shown();
+      const pairs = readRepeats(await ask(repeatsPrompt(now0.map((r) => r.x)), 200), now0.map((r) => r.x));
+      const gone = new Set();
+      for (const [a, b] of pairs) {
+        const [p, q] = [now0[a], now0[b]];
+        if (RU_SIDE.has(SECTIONS[p.k].id) !== RU_SIDE.has(SECTIONS[q.k].id)) continue;
+        if (gone.has(p.x) || gone.has(q.x)) continue;
+        const later = q.x.lead || SECTIONS[q.k].key ? p : q; // the second one, unless it is a lead or a key news
+        if (later.x.lead || SECTIONS[later.k].key) continue;
+        if (full[later.k].filter((x) => !gone.has(x)).length <= 4) continue; // never below four in a section
+        gone.add(later.x);
+      }
+      if (gone.size) full.forEach((l, k) => { full[k] = l.filter((x) => !gone.has(x)); });
+      note.twice = gone.size;
+    } catch (e) { note.twiceErr = String(e.message || e).slice(0, 120); }
+  }
+  const chosen = full.map((l) => fitItems(l.slice(0, PER_SECTION)));
   note.short = chosen.flat().filter((x) => x.n < 2).length;
 
   // 4. The English issue: the Ukrainian summaries translated; with them, the photo queries.

@@ -234,6 +234,32 @@ export function eventsPrompt(items, n = KEY_COUNT) {
     { role: 'user', content: items.map((x, i) => `${i + 1}. ${x.title}`).join('\n') },
   ];
 }
+/** The issue's Ukrainian summaries, all sections together: which of them tell the same event a second time. */
+export function repeatsPrompt(items) {
+  return [
+    {
+      role: 'system',
+      content: 'Ти — випусковий редактор. Нижче короткі новини одного випуску. Знайди пари новин, які розповідають про ту саму подію '
+        + '(той самий факт, удар, заяву, рішення, інцидент — навіть якщо з різних джерел чи під іншим кутом). Новини лише на одну тему, але про різні події, — не пара. '
+        + 'Відповідай лише JSON без пояснень: {"same": [[1, 4], [7, 12]]}',
+    },
+    { role: 'user', content: items.map((x, i) => `${i + 1}. ${String(x.summary || x.title).slice(0, 320)}`).join('\n') },
+  ];
+}
+/** → [[a, b]] index pairs the summaries themselves bear out (three telling words in common), or []. */
+export function readRepeats(raw, items) {
+  let j;
+  try { j = parseJson(raw); } catch { return []; }
+  const ok = (v) => Number.isInteger(v) && v >= 0 && v < items.length;
+  const text = (x) => ({ title: x.summary || x.title });
+  return (Array.isArray(j?.same) ? j.same : []).flatMap((g) => {
+    const ix = (Array.isArray(g) ? g : []).map((v) => Number(v) - 1).filter(ok);
+    const out = [];
+    for (let a = 0; a < ix.length; a++) for (let b = a + 1; b < ix.length; b++) if (ix[a] !== ix[b] && sharedWords(text(items[ix[a]]), text(items[ix[b]])) >= 3) out.push([ix[a], ix[b]]);
+    return out;
+  });
+}
+
 /** → { groups: [[indices]], key: [indices] }, or null when unreadable. */
 export function readEvents(raw, items) {
   let j;
@@ -393,7 +419,9 @@ export function parseNewsFeed(xml) {
   const blocks = String(xml || '').match(/<(item|entry)[\s>][\s\S]*?<\/(item|entry)>/gi) || [];
   return blocks.map((b) => {
     const href = attr(b, /<link[^>]+href="([^"]+)"/i);
-    const url = httpUrl(unesc(href || plain(tag(b, 'link')) || plain(tag(b, 'guid'))).trim());
+    // Some feeds glue the site in front of an already full link («https://www.ukrinform.uahttps://www.ukrinform.ua/…»): the last one counts.
+    const raw = unesc(href || plain(tag(b, 'link')) || plain(tag(b, 'guid'))).trim();
+    const url = httpUrl(raw.slice(Math.max(0, raw.search(/https?:\/\/(?!.*https?:\/\/)/i))));
     const when = plain(tag(b, 'pubDate') || tag(b, 'dc:date') || tag(b, 'updated') || tag(b, 'published'));
     const t = Date.parse(when);
     const text = plain(tag(b, 'description') || tag(b, 'summary') || tag(b, 'content:encoded') || tag(b, 'content'));

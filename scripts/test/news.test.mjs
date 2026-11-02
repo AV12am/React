@@ -165,13 +165,13 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     // No news twice: the key ones leave their sections, and a feed shared by two sections feeds only one.
     const urls = j.sections.flatMap((s) => s.items.map((x) => x.url));
     assert.equal(new Set(urls).size, urls.length);
-    const editor = sortCalls + 2; // the batches sorted into sections + one look over all headlines + the key news
+    const editor = sortCalls + 3; // the batches sorted into sections + one look over all headlines + the key news + the repeats
     assert.equal(ai, editor + 18); // + 8 sections in Ukrainian and in English + the two night reports
     // every picture but the two leads' own is looked at for words on it
     assert.equal(vision, j.sections.flatMap((s) => s.items).filter((x) => x.image && !x.lead).length);
     assert.equal(j.sections.find((s) => s.id === 'infospace').items[0].image, '/news-img/lead-ru.jpg');
     assert.equal(sortCalls, 7);
-    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined, feeds: undefined, airHeads: undefined, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, claudeCents: undefined, bySec: undefined, repeats: undefined, noImage: undefined, unfit: undefined, plain: undefined, keyPick: undefined, said: undefined, from: undefined }, { feeds: undefined, airHeads: undefined, sections: 7, judged: 7, events: true, short: 0, textPics: 0, picsChecked: true, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, claudeCents: undefined, bySec: undefined, repeats: undefined, noImage: undefined, unfit: undefined, plain: undefined, keyPick: undefined, said: undefined, from: undefined, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined, reports: { ru: 'used', ua: 'used' } });
+    assert.deepEqual({ ...j.editor, kept: undefined, pool: undefined, feeds: undefined, airHeads: undefined, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, claudeCents: undefined, bySec: undefined, repeats: undefined, noImage: undefined, unfit: undefined, plain: undefined, keyPick: undefined, said: undefined, from: undefined, twice: undefined }, { feeds: undefined, airHeads: undefined, sections: 7, judged: 7, events: true, short: 0, textPics: 0, picsChecked: true, secs: undefined, neurons: undefined, neuronsAll: undefined, claude: undefined, claudeCents: undefined, bySec: undefined, repeats: undefined, noImage: undefined, unfit: undefined, plain: undefined, keyPick: undefined, said: undefined, from: undefined, twice: undefined, translated: j.sections.flatMap((s) => s.items).length, kept: undefined, pool: undefined, reports: { ru: 'used', ua: 'used' } });
     // The night's reports open 2.1 and 2.2, in the fixed wording, with the day's own numbers.
     const [ru] = j.sections.find((s) => s.id === 'infospace').items;
     const [ua] = j.sections.find((s) => s.id === 'media').items;
@@ -623,4 +623,22 @@ test('oblast names from any source meet one key (for the map)', async () => {
   assert.equal(uaKeyOf('Autonomous Republic of Crimea'), 'Крим');
   assert.equal(uaKeyOf('Zaporizhzhia Oblast'), 'Запорізька');
   assert.equal(uaKeyOf('Івано-Франківська область'), 'Івано-Франківська');
+});
+
+test('feeds: a link glued after the site is read from its last full address', async () => {
+  const { parseNewsFeed } = await import('../../src/lib/news.js');
+  const [x] = parseNewsFeed('<rss><channel><item><title>Рекорд</title><link>https://www.ukrinform.uahttps://www.ukrinform.ua/rubric-ato/4180482-x.html</link><pubDate>Mon, 02 Nov 2026 13:43:00 GMT</pubDate></item></channel></rss>');
+  assert.equal(x.url, 'https://www.ukrinform.ua/rubric-ato/4180482-x.html');
+  assert.equal(x.domain, 'ukrinform.ua');
+});
+
+test('repeats: the editor’s pairs stay only where the summaries share telling words', async () => {
+  const { readRepeats } = await import('../../src/lib/news.js');
+  const items = [
+    { summary: 'Королівський флот Великої Британії перехопив біля узбережжя Шотландії російське розвідувальне судно, що стежило за навчаннями НАТО.' },
+    { summary: 'Британські гелікоптери відстежували російський розвідувальний корабель, який стежив за навчаннями НАТО біля узбережжя Шотландії.' },
+    { summary: 'Міністр назвав терміни, коли Україна може отримати винищувачі Gripen від Швеції.' },
+  ];
+  assert.deepEqual(readRepeats('{"same": [[1, 2], [2, 3]]}', items), [[0, 1]]);
+  assert.deepEqual(readRepeats('nonsense', items), []);
 });
