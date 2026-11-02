@@ -9,6 +9,7 @@ import { ask } from '../components/Dialog.jsx';
 import { workspaceAccess } from '../lib/access.js';
 import { DateInput } from '../components/DateInput.jsx';
 import { needsReview } from '../lib/provenance.js';
+import { toHash } from '../lib/routes.js';
 import { wordFor } from '../lib/forecast.js';
 import { RecordExtras, ReportButtons, ReviewView, ForecastsView, reviewCount } from './Analysis.jsx';
 import { WatchView } from './Watch.jsx';
@@ -302,8 +303,8 @@ function RecordDrawer({ d, reg, record, access, onClose, go, onCreated, startEdi
             </section>
           ))}
           <RecordExtras reg={reg} record={record} canEdit={access.canEdit} go={go} />
-          <RecordTasks target={record.id} label={titleOf(reg, record)} level={record.clearance} link={`#/divisions/${record.div}/${record.col}:${record.id}`} go={go} />
-          <Discussion target={record.id} label={titleOf(reg, record)} level={record.clearance} link={`#/divisions/${record.div}/${record.col}:${record.id}`} />
+          <RecordTasks target={record.id} label={titleOf(reg, record)} level={record.clearance} link={`#${toHash({ view: 'divisions', sub: record.div, id: `${record.col}:${record.id}` }, record.clearance > 0 ? '' : titleOf(reg, record))}`} go={go} />
+          <Discussion target={record.id} label={titleOf(reg, record)} level={record.clearance} link={`#${toHash({ view: 'divisions', sub: record.div, id: `${record.col}:${record.id}` }, record.clearance > 0 ? '' : titleOf(reg, record))}`} />
         </>
       )}
     </Drawer>
@@ -404,6 +405,12 @@ function RecordPage({ d, reg, record, access, go }) {
   const [editing, setEditing] = useState(false);
   const where = `${d.name} · ${reg.name}`;
   const title = titleOf(reg, record);
+  // The address carries the record's name (once it is known): #/proiekty/rubint-v2~<id>. Only for LUMEN — the name of
+  // a classified record stays out of addresses, browser history and shared links, as it stays out of the brief letter.
+  useEffect(() => {
+    const h = toHash({ view: 'divisions', sub: d.id, id: `${reg.id}:${record.id}` }, record.clearance > 0 ? '' : title);
+    if (location.hash.replace(/^#/, '') !== h) history.replaceState(history.state, '', `#${h}`);
+  }, [d.id, reg.id, record.id, record.clearance, title]);
   const entries = Array.isArray(record.entries) ? record.entries : [];
   const patch = (p, note) => dispatch({ type: 'record/update', id: record.id, patch: p, where, label: title, note });
   const addEntry = (e) => {
@@ -416,7 +423,7 @@ function RecordPage({ d, reg, record, access, go }) {
   const filesField = reg.fields.find((f) => f.type === 'files');
   const facts = reg.fields.filter((f) => !f.hidden && f.type !== 'files' && f.type !== 'image' && f.id !== reg.title && f.id !== reg.about && record[f.id] != null && record[f.id] !== '');
   const coverField = reg.fields.find((f) => f.type === 'image');
-  const link = `#/divisions/${d.id}/${reg.id}:${record.id}`;
+  const link = `#${toHash({ view: 'divisions', sub: d.id, id: `${reg.id}:${record.id}` }, record.clearance > 0 ? '' : title)}`;
   return (
     <div className="stack rp">
       <button className="vx-eyebrow ws-back" onClick={() => go('divisions', d.id, reg.id)}><Icon name="chevron" size={12} className="ws-back__icon" /> {reg.name}</button>

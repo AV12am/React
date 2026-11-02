@@ -533,3 +533,17 @@ test('the brief goes to the address given for letters; the sign-in address only 
   assert.equal(mailOf({ email: 'me@example.com', doc: {} }), 'me@example.com');
   assert.equal(mailOf({ email: 'x@y.com', doc: { mailTo: 'broken' } }), ''); // a wrong address is not swapped for the login
 });
+
+test('readable addresses: division, register and the record’s name, the old form still opens', async () => {
+  const { toHash, fromHash, slug } = await import('../../src/lib/routes.js');
+  const r = { view: 'divisions', sub: 'prj', id: 'projects:w-mvxk9oy9g088' };
+  assert.equal(toHash(r, 'rubINT v.2'), '/proiekty/rubint-v-2~w-mvxk9oy9g088');
+  assert.deepEqual(fromHash('#/proiekty/rubint-v-2~w-mvxk9oy9g088'), r);
+  assert.deepEqual(fromHash('#/proiekty/any-new-name~w-mvxk9oy9g088'), r); // renamed: the id still finds it
+  assert.deepEqual(fromHash('#/divisions/prj/projects%3Aw-mvxk9oy9g088'), r);
+  assert.equal(toHash({ view: 'divisions', sub: 'int', id: 'sources' }), '/rozvidka/dzherela');
+  assert.deepEqual(fromHash('#/rozvidka/dzherela'), { view: 'divisions', sub: 'int', id: 'sources' });
+  assert.equal(toHash({ view: 'divisions', sub: 'prj', id: 'projects:x1' }, ''), '/proiekty/~x1'); // a classified one: no name
+  assert.deepEqual(fromHash('#/settings'), { view: 'settings', sub: null, id: null });
+  assert.equal(slug('Щастя Їжака'), 'shchastia-izhaka');
+});

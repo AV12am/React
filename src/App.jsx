@@ -20,6 +20,7 @@ import { registerOf } from './data/workspaces.js';
 import { titleOfRecord } from './lib/brief.js';
 import { snippet } from './lib/textract.js';
 import { LOCALE } from './lib/locale.js';
+import { toHash, fromHash } from './lib/routes.js';
 
 // The map ships its own geography (~1 MB), so it loads only when opened.
 // Every section but the overview loads when first opened: the first screen comes up faster, on phones especially.
@@ -125,10 +126,10 @@ function Root() {
 }
 
 const readHash = () => {
-  const [view = 'overview', sub = null, id = null] = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent);
+  const { view, sub, id } = fromHash(location.hash);
   // CONTEXT News lives on its own page now (news.html): the old in-platform link leads there.
   if (view === 'news') { location.replace(new URL('news', document.baseURI)); }
-  return { view: view || 'overview', sub, id };
+  return { view, sub, id };
 };
 
 function Shell() {
@@ -156,7 +157,7 @@ function Shell() {
   const pending = state.requests.filter((r) => r.status === 'pending').length;
 
   const go = useCallback((v, s = null, i = null) => {
-    location.hash = `/${v}${s ? `/${encodeURIComponent(s)}` : ''}${i ? `/${encodeURIComponent(i)}` : ''}`;
+    location.hash = toHash({ view: v, sub: s, id: i }); // readable: #/proiekty/<name>~<id>
     setRoute({ view: v, sub: s, id: i });
     setMenu(false);
     setPalette(false);
