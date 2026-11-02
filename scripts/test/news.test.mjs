@@ -525,3 +525,11 @@ test('«рф», «росія», «путін» with a small letter, a capital on
   assert.equal(lowerRu('Удар по Росії. Путін заявив, що РФ і Росія готові; за словами Путіна, ВС РФ наступають.'), 'Удар по росії. Путін заявив, що рф і росія готові; за словами путіна, ВС рф наступають.');
   assert.equal(lowerRu('Росіяни й Російська мова'), 'Росіяни й Російська мова'); // only the three words
 });
+
+test('the brief goes to the address given for letters; the sign-in address only when none is given', async () => {
+  Object.assign(process.env, { SUPABASE_URL: 'https://sb.test', SUPABASE_SERVICE_ROLE_KEY: 'svc' });
+  const { mailOf } = await import('../../api/brief.js');
+  assert.equal(mailOf({ email: 'login@reaction.local', doc: { mailTo: 'me@example.com' } }), 'me@example.com');
+  assert.equal(mailOf({ email: 'me@example.com', doc: {} }), 'me@example.com');
+  assert.equal(mailOf({ email: 'x@y.com', doc: { mailTo: 'broken' } }), ''); // a wrong address is not swapped for the login
+});

@@ -18,6 +18,9 @@ function BriefMail() {
   const { me, dispatch, toast } = useStore();
   const [busy, setBusy] = useState(false);
   const on = me.brief !== false;
+  const [mail, setMail] = useState(me.mailTo || '');
+  const mailOk = !mail.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail.trim());
+  const saveMail = () => { if (mailOk && mail.trim() !== (me.mailTo || '')) { dispatch({ type: 'user/update', id: me.id, patch: { mailTo: mail.trim() } }); toast(mail.trim() ? `Листи надходитимуть на ${mail.trim()}` : 'Адресу для листів прибрано'); } };
   const sendNow = async () => {
     setBusy(true);
     try {
@@ -31,7 +34,11 @@ function BriefMail() {
     <Panel title="Ранковий бриф">
       <div className="stack">
         <Switch checked={on} onChange={(v) => dispatch({ type: 'user/update', id: me.id, patch: { brief: v } })} label="Щоранку о 8:00 на пошту" />
-        <div className="vx-hint">{me.email ? `Адреса: ${me.email}. ` : ''}Лист приходить, лише коли є що повідомити. Назви записів вище грифа LUMEN у листі не показуються — лише їх кількість.</div>
+        {/* The sign-in name is only a login; letters go to the address given here. */}
+        <label className="vx-label" htmlFor="brief-mail">Адреса для листів</label>
+        <input id="brief-mail" className="vx-input" type="email" inputMode="email" autoComplete="email" placeholder="name@example.com" value={mail} onChange={(e) => setMail(e.target.value)} onBlur={saveMail} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} aria-invalid={!mailOk} />
+        {!mailOk && <div className="vx-hint" style={{ color: 'var(--danger, #c0392b)' }}>Перевірте адресу: наприклад, name@example.com</div>}
+        <div className="vx-hint">{me.mailTo ? `Бриф приходить на ${me.mailTo}. ` : 'Вкажіть адресу, на яку надсилати бриф. '}Лист приходить, лише коли є що повідомити. Назви записів вище грифа LUMEN у листі не показуються — лише їх кількість.</div>
         {supabaseOn && <button className="vx-btn vx-btn--sm" onClick={sendNow} disabled={busy}><Icon name="bell" /> {busy ? 'Надсилаю…' : 'Надіслати мені зараз'}</button>}
       </div>
     </Panel>

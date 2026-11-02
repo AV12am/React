@@ -48,6 +48,10 @@ const briefFor = (m, data, now) => buildBrief({
   records: data.records, requests: data.requests, tasks: data.tasks, comments: data.comments, users: data.members.map((x) => ({ id: x.id, name: x.doc?.name })), now, nameUpTo: 0,
   me: { id: m.id, role: m.doc?.role, clearance: Math.max(0, Math.min(2, +m.doc?.clearance || 0)) },
 });
+// Where the letter goes: the address the person gave for letters; the sign-in address (a login, not always a real
+// mailbox) only when none is given.
+const MAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+export const mailOf = (m) => { const own = String(m?.doc?.mailTo || '').trim(); return MAIL.test(own) ? own : own ? '' : (MAIL.test(m?.email || '') ? m.email : ''); };
 const appUrlOf = (req) => env.APP_URL || `https://${req.headers.get('host') || ''}`;
 const notReady = () => (!SB_URL || !SERVICE ? 'Потрібні SUPABASE_URL і SUPABASE_SERVICE_ROLE_KEY'
   : !RESEND || !FROM ? 'Поштова розсилка не налаштована: додайте RESEND_API_KEY і BRIEF_FROM у Vercel' : '');
@@ -64,10 +68,11 @@ export async function GET(req) {
     let sent = 0; let skipped = 0; const errors = [];
     for (const m of data.members) {
       const d = m.doc || {};
-      if (!m.email || d.status !== 'active' || d.brief === false) { skipped++; continue; }
+      const to = mailOf(m);
+      if (!to || d.status !== 'active' || d.brief === false) { skipped++; continue; }
       const b = briefFor(m, data, now);
       if (!b.total) { skipped++; continue; }
-      try { await send(m.email, b, d.name || '', appUrlOf(req)); sent++; } catch (e) { errors.push(e.message); }
+      try { await send(to, b, d.name || '', appUrlOf(req)); sent++; } catch (e) { errors.push(e.message); }
       if (b.attention && pushReady()) await sendPush([m.id], { title: 'Ранковий бриф', body: `Потребує уваги: ${b.attention}. Відкрийте «Огляд».`, url: '/#/overview', tag: 'brief' }).catch(() => {});
     }
     return json(200, { sent, skipped, errors });
@@ -85,8 +90,10 @@ export async function POST(req) {
     if (why) return json(503, { error: 'not_configured', message: why });
     const data = await load();
     const b = briefFor(m, data, Date.now());
-    await send(m.email, b, m.doc?.name || '', appUrlOf(req));
-    return json(200, { sent: true, to: m.email, total: b.total });
+    const to = mailOf(m);
+    if (!to) return json(400, { error: 'no_mail', message: 'Додайте адресу для листів у «Налаштуваннях» → «Ранковий бриф»' });
+    await send(to, b, m.doc?.name || '', appUrlOf(req));
+    return json(200, { sent: true, to, total: b.total });
   } catch (e) {
     return json(500, { error: 'error', message: e.message });
   }
