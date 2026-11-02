@@ -170,7 +170,7 @@ export const offTopic = (x) => SOFT.test(x.title || '')
   || /\/(commentisfree|opinions?|podcasts?|videos?|live)\//i.test(x.url || '') // columns, podcasts, videos, live pages: not news
   || ANALYSIS.test(x.title || '') || /\/(analysis|explainers?|features?|longreads?|interviews?|opinion|blogs?|podcasts?|in-pictures|gallery)\//i.test(x.url || '') // analysis, explainers, interviews: not the day's news
   || !/[a-zа-яіїєґё]{3}/i.test(x.title || ''); // headlines in scripts the issue does not carry (Arabic, Chinese …)
-export const KEY_COUNT = 5;
+export const KEY_COUNT = 4; // four key news are enough; one more stays in its section
 
 /** The time the current issue belongs to: the latest 17:00 in Kyiv at or before `now`. */
 export function issueTime(now = Date.now()) {

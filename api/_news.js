@@ -471,7 +471,7 @@ export async function makeIssue(now = Date.now()) {
   // section): the editor reads the summaries once more, and the later one gives way to a spare. The aggressor's
   // own view (2.1, 3) of an event told in Ukraine's sections is no repeat; the leads and the key news always stay.
   const RU_SIDE = new Set(['infospace', 'agenda']);
-  const shown = () => full.flatMap((l, k) => l.slice(0, PER_SECTION).map((x) => ({ x, k })));
+  const shown = () => full.flatMap((l, k) => l.slice(0, SECTIONS[k].key ? KEY_COUNT : PER_SECTION).map((x) => ({ x, k })));
   if (any()) {
     try {
       const now0 = shown();
@@ -493,8 +493,8 @@ export async function makeIssue(now = Date.now()) {
   }
   // The key news finally shown leave their sections (a spare key news, when it was needed, among them).
   const keyAt = SECTIONS.findIndex((s) => s.key);
-  const shownKey = new Set(full[keyAt].slice(0, PER_SECTION).map((x) => x.url));
-  const chosen = full.map((l, k) => fitItems((k === keyAt ? l : l.filter((x) => !shownKey.has(x.url))).slice(0, PER_SECTION)));
+  const shownKey = new Set(full[keyAt].slice(0, KEY_COUNT).map((x) => x.url));
+  const chosen = full.map((l, k) => fitItems(k === keyAt ? l.slice(0, KEY_COUNT) : l.filter((x) => !shownKey.has(x.url)).slice(0, PER_SECTION)));
   note.short = chosen.flat().filter((x) => x.n < 2).length;
 
   // 4. The English issue: the Ukrainian summaries translated; with them, the photo queries.
