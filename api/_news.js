@@ -16,6 +16,7 @@
 import { json, db, env } from './_core.js';
 import Anthropic from '@anthropic-ai/sdk';
 import sample from '../src/news/sample.js';
+import { refreshAlerts } from './_alerts.js';
 import { SECTIONS, PER_SECTION, POOL, FRESH, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, keyPrompt, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, LEAD_IMAGE, ruPicture, nightReport, airTally } from '../src/lib/news.js';
 
 
@@ -635,7 +636,7 @@ export async function newsGet(req) {
   try {
     const q = new URL(req.url).searchParams;
     if (q.has('capture')) {
-      const r = await captureReports();
+      const [r] = await Promise.all([captureReports(), refreshAlerts(25000).catch(() => null)]); // the brief's alerts map too
       return json(200, { day: dayKey(Date.now()), ru: r.ru ? r.ru.title : null, ua: r.ua ? r.ua.title : null });
     }
     const cached = await read();

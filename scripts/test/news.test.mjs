@@ -594,3 +594,23 @@ test('air-defence tallies told apart: the day’s one stays beside the night rep
   assert.ok(airTally({ title: 'ПВО за день сбила 47 украинских беспилотников' }, true)); // the day's: stays
   assert.ok(!airTally({ title: 'Повітряні сили ЗСУ знищили й подавили 154 ворожі БпЛА цієї ночі' }, true)); // the night's: a repeat of the lead
 });
+
+test('the brief’s security picture: alert hours by oblast, GPR week against month', async () => {
+  const { hoursUnder } = await import('../../api/_alerts.js');
+  const { alertTiles, gprPicture, worldHtml } = await import('../../src/lib/brief.js');
+  const now = Date.parse('2026-11-02T08:00:00Z'); const H = 3600e3;
+  const list = [
+    { alert_type: 'air_raid', started_at: new Date(now - 30 * H).toISOString(), finished_at: new Date(now - 20 * H).toISOString() }, // 6 h inside the last 24 h
+    { alert_type: 'air_raid', started_at: new Date(now - 2 * H).toISOString(), finished_at: null }, // still on: 2 h
+    { alert_type: 'artillery_shelling', started_at: new Date(now - 5 * H).toISOString(), finished_at: new Date(now - 4 * H).toISOString() },
+  ];
+  assert.equal(hoursUnder(list, now - 24 * H, now), 6);
+  assert.equal(hoursUnder(list, now - 7 * 24 * H, now), 12);
+  const tiles = alertTiles({ byOblast: { 'Харківська область': { h7: 80 }, 'м. Київ': { h7: 20 } } });
+  assert.equal(tiles.find((t) => t.key === 'Харківська').h7, 80);
+  assert.equal(tiles.find((t) => t.key === 'Київ').h7, 20);
+  assert.ok(tiles.find((t) => t.key === 'Крим').occupied);
+  const g = gprPicture(Array.from({ length: 30 }, (_, i) => ({ date: `2026-10-${String(i + 1).padStart(2, '0')}`, value: i < 23 ? 100 : 200 })));
+  assert.equal(g.week, 200);
+  assert.ok(worldHtml({ gpr: [], alerts: null }) === ''); // nothing to show: no section
+});

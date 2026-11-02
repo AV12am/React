@@ -302,3 +302,66 @@ export function insightsText(ins, ai = null, news = []) {
   if (news.length) lines.push('', 'КЛЮЧОВІ НОВИНИ ДОБИ · CONTEXT', ...news.map((n) => `  · ${n}`));
   return lines.join('\n');
 }
+
+/* ---------- Security picture: the GPR index and the oblasts' official air-raid alerts ---------- */
+
+// A schematic map of Ukraine: one tile per oblast in its rough place (west → east, north → south). A tile map reads
+// at a glance in a letter and needs no borders; it is a scheme, not a geographic map.
+export const UA_GRID = [
+  ['Волинська', 1, 0], ['Рівненська', 2, 0], ['Житомирська', 3, 0], ['Київська', 4, 0], ['Чернігівська', 5, 0], ['Сумська', 6, 0],
+  ['Львівська', 0, 1], ['Тернопільська', 1, 1], ['Хмельницька', 2, 1], ['Вінницька', 3, 1], ['Київ', 4, 1], ['Полтавська', 5, 1], ['Харківська', 6, 1], ['Луганська', 7, 1],
+  ['Закарпатська', 0, 2], ['Івано-Франківська', 1, 2], ['Чернівецька', 2, 2], ['Кіровоградська', 3, 2], ['Черкаська', 4, 2], ['Дніпропетровська', 5, 2], ['Донецька', 6, 2],
+  ['Одеська', 3, 3], ['Миколаївська', 4, 3], ['Херсонська', 5, 3], ['Запорізька', 6, 3],
+  ['Севастополь', 4, 4], ['Крим', 5, 4],
+];
+const OCCUPIED = new Set(['Крим', 'Севастополь']); // temporarily occupied: no alerts data, shown apart
+const keyOf = (name) => String(name || '').replace(/^м\.\s*|^місто\s*/i, '').replace(/\s*(область|обл\.?)$/i, '').replace(/^Автономна Республіка\s*/i, '').trim();
+/** Tiles with the oblasts' alert hours (7 days and 24 hours); null where no data was read. */
+export function alertTiles(alerts) {
+  const by = new Map(Object.entries(alerts?.byOblast || {}).map(([n, v]) => [keyOf(n), v]));
+  return UA_GRID.map(([key, c, r]) => ({ key, c, r, occupied: OCCUPIED.has(key), h7: by.get(key)?.h7 ?? null, h24: by.get(key)?.h24 ?? null }));
+}
+/** The GPR picture: the last 30 days (raw daily values), the week's mean against the month's. */
+export function gprPicture(series) {
+  const s = (series || []).filter((p) => Number.isFinite(p?.value)).slice(-30);
+  if (s.length < 10) return null;
+  const mean = (l) => l.reduce((a, p) => a + p.value, 0) / (l.length || 1);
+  const week = mean(s.slice(-7)); const month = mean(s);
+  return { days: s, week: Math.round(week), month: Math.round(month), change: Math.round(((week - month) / month) * 100), last: s.at(-1).date };
+}
+// A tile's colour: the brand crimson at a strength that follows the hours (semi-transparent over the page).
+export const heat = (h, max) => (h == null || !max ? 0 : Math.max(0.08, Math.min(1, h / max)));
+const mix = (a) => { const c = [140, 28, 50]; const w = [255, 255, 255]; return `#${c.map((v, i) => Math.round(w[i] + (v - w[i]) * a).toString(16).padStart(2, '0')).join('')}`; };
+
+export function worldHtml({ gpr, alerts } = {}) {
+  const head = (t) => `<tr><td style="padding:22px 0 8px;font:600 13px/18px Georgia,serif;letter-spacing:.06em;text-transform:uppercase;color:#8c1c32">◆ ${esc(t)}</td></tr>`;
+  const note = (t) => `<tr><td style="padding:4px 0;font:12px/17px Georgia,serif;color:#777">${t}</td></tr>`;
+  let out = '';
+  const g = gprPicture(gpr);
+  if (g) {
+    const max = Math.max(...g.days.map((d) => d.value));
+    const bars = g.days.map((d) => `<td style="vertical-align:bottom;padding:0 1px"><div style="height:${Math.max(2, Math.round((d.value / max) * 56))}px;background:${d.value >= g.month ? '#8c1c32' : '#c9b48f'}"></div></td>`).join('');
+    out += head('Індекс геополітичного ризику (GPR)')
+      + `<tr><td style="font:15px/22px Georgia,serif;color:#1a1a1a">Середнє за тиждень <b>${g.week}</b> · за місяць ${g.month} · ${g.change >= 0 ? 'вище' : 'нижче'} місячного на ${Math.abs(g.change)}%</td></tr>`
+      + `<tr><td style="padding-top:6px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="height:58px"><tr>${bars}</tr></table></td></tr>`
+      + note(`Щоденний індекс Caldara–Iacoviello за 30 днів (100 — середній рівень 1985–2019), останній день у даних — ${esc(g.last)}. Бордовим — дні вище місячного середнього.`);
+  }
+  const tiles = alertTiles(alerts);
+  const known = tiles.filter((t) => t.h7 != null);
+  if (known.length) {
+    const max = Math.max(1, ...known.map((t) => t.h7));
+    const rows = [0, 1, 2, 3, 4].map((r) => `<tr>${Array.from({ length: 8 }, (_, c) => {
+      const t = tiles.find((x) => x.r === r && x.c === c);
+      if (!t) return '<td style="width:12.5%;padding:2px"></td>';
+      const bg = t.occupied ? '#e4e1dc' : t.h7 == null ? '#f4f3f1' : mix(heat(t.h7, max));
+      const dark = !t.occupied && t.h7 != null && heat(t.h7, max) > 0.55;
+      return `<td style="width:12.5%;padding:2px"><div style="background:${bg};border:1px solid ${t.occupied ? '#cfcac2' : '#e2e0dc'};height:46px;padding:4px;font:10px/12px Georgia,serif;color:${dark ? '#fff' : '#333'}">${esc(t.key.slice(0, 10))}<br><b style="font-size:13px">${t.occupied ? 'окуп.' : t.h7 == null ? '—' : `${Math.round(t.h7)} год`}</b></div></td>`;
+    }).join('')}</tr>`).join('');
+    const top = [...known].filter((t) => !t.occupied).sort((a, b) => b.h7 - a.h7).slice(0, 3);
+    out += head('Повітряні тривоги за 7 днів')
+      + `<tr><td style="font:15px/22px Georgia,serif;color:#1a1a1a">Найдовше під тривогою: ${top.map((t) => `<b>${esc(t.key)}</b> (${Math.round(t.h7)} год)`).join(', ')}.</td></tr>`
+      + `<tr><td style="padding-top:6px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table></td></tr>`
+      + note('Схема областей, не карта. Насиченість — сумарні години офіційних повітряних тривог за тиждень (дані alerts.in.ua). Це огляд минулого тижня, а не прогноз; тимчасово окуповані території — сірим.');
+  }
+  return out;
+}

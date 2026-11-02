@@ -14,7 +14,8 @@
 // plus SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY. APP_URL is the link in the letter (optional).
 import Anthropic from '@anthropic-ai/sdk';
 import { briefPdf } from '../src/lib/briefPdf.js';
-import { buildBrief, briefHtml, briefText, buildInsights, insightsHtml, insightsText, insightsPrompt, readInsights } from '../src/lib/brief.js';
+import { refreshAlerts, readAlerts } from './_alerts.js';
+import { buildBrief, briefHtml, briefText, buildInsights, insightsHtml, worldHtml, insightsText, insightsPrompt, readInsights } from '../src/lib/brief.js';
 import { env, json, db, caller, SB_URL, SERVICE } from './_core.js';
 import { sendPush, pushReady } from './_push.js';
 
@@ -74,16 +75,25 @@ const pdfFonts = (appUrl) => (fontsP ||= Promise.all(['Regular', 'Bold'].map(asy
   if (!res.ok) throw new Error(`font ${res.status}`);
   return new Uint8Array(await res.arrayBuffer());
 })).catch((e) => { fontsP = null; throw e; }));
-async function letter(m, data, now, news, appUrl) {
+// The security picture for every letter of the run: the GPR series the platform already keeps, and the oblasts'
+// air-raid alerts (refreshed here as far as the API lets; what was read before stands otherwise).
+async function worldOf(refresh) {
+  const [gprRow, alerts] = await Promise.all([
+    db('core_docs?kind=eq.pulse&id=eq.gpr&select=doc').catch(() => []),
+    refresh ? refreshAlerts(30000).catch(() => readAlerts()) : readAlerts(),
+  ]);
+  return { gpr: gprRow?.[0]?.doc?.series || [], alerts };
+}
+async function letter(m, data, now, news, appUrl, world = {}) {
   const b = briefFor(m, data, now);
   const ins = insightsFor(m, data, now);
   const ai = await analyse(ins, b);
   let pdf = null;
   try {
-    const bytes = await briefPdf({ brief: b, insights: ins, ai, news, name: m.doc?.name || '', fonts: await pdfFonts(appUrl) });
+    const bytes = await briefPdf({ brief: b, insights: ins, ai, news, world, name: m.doc?.name || '', fonts: await pdfFonts(appUrl) });
     pdf = { filename: `Reaction-brief-${new Date(now).toISOString().slice(0, 10)}.pdf`, content: Buffer.from(bytes).toString('base64') };
   } catch { pdf = null; } // the letter goes without the PDF rather than not at all
-  return { b, ins, pdf, extra: insightsHtml(ins, ai, news), extraText: insightsText(ins, ai, news), ai: Boolean(ai) };
+  return { b, ins, pdf, extra: insightsHtml(ins, ai, news) + worldHtml(world), extraText: insightsText(ins, ai, news), ai: Boolean(ai) };
 }
 
 const subjectOf = (b) => `Ранковий бриф · ${new Date(b.until).toLocaleDateString('uk-UA', { timeZone: 'Europe/Kyiv', day: 'numeric', month: 'long' })}${b.attention ? ` · потребує уваги: ${b.attention}` : ''}`;
@@ -119,12 +129,12 @@ export async function GET(req) {
     const data = await load();
     const now = Date.now();
     let sent = 0; let skipped = 0; const errors = [];
-    const news = await keyNews();
+    const [news, world] = await Promise.all([keyNews(), worldOf(true)]);
     for (const m of data.members) {
       const d = m.doc || {};
       const to = mailOf(m);
       if (!to || d.status !== 'active' || d.brief === false) { skipped++; continue; }
-      const { b, ins, extra, extraText, pdf } = await letter(m, data, now, news, appUrlOf(req));
+      const { b, ins, extra, extraText, pdf } = await letter(m, data, now, news, appUrlOf(req), world);
       // Sent when there is something to read: the day's items, or a week with projects, tasks or activity.
       if (!b.total && !ins.projects.total && !ins.tasks.open && !ins.thisWeek) { skipped++; continue; }
       try { await send(to, b, d.name || '', appUrlOf(req), extra, extraText, pdf); sent++; } catch (e) { errors.push(e.message); }
@@ -146,7 +156,8 @@ export async function POST(req) {
     const data = await load();
     const to = mailOf(m);
     if (!to) return json(400, { error: 'no_mail', message: 'Додайте адресу для листів у «Налаштуваннях» → «Ранковий бриф»' });
-    const { b, extra, extraText, ai, pdf } = await letter(m, data, Date.now(), await keyNews(), appUrlOf(req));
+    const [news, world] = await Promise.all([keyNews(), worldOf(true)]);
+    const { b, extra, extraText, ai, pdf } = await letter(m, data, Date.now(), news, appUrlOf(req), world);
     await send(to, b, m.doc?.name || '', appUrlOf(req), extra, extraText, pdf);
     return json(200, { sent: true, to, total: b.total, ai, pdf: Boolean(pdf) });
   } catch (e) {

@@ -5,7 +5,7 @@
 // appear — the analysis (src/lib/brief.js) gives only «засекречений проєкт N».
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
-import { plainConclusions } from './brief.js';
+import { plainConclusions, gprPicture, alertTiles, heat } from './brief.js';
 
 const A4 = [595.28, 841.89];
 const M = 48; // side margin
@@ -17,7 +17,7 @@ const C = {
 const STATE_COLOR = { 'Планується': [0.62, 0.55, 0.42], 'Триває': [0.55, 0.11, 0.2], 'На паузі': [0.45, 0.47, 0.52], 'Завершено': [0.18, 0.42, 0.25] };
 const DAYS = ['нд', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
 
-export async function briefPdf({ brief, insights: ins, ai = null, news = [], name = '', fonts: [regBytes, boldBytes] }) {
+export async function briefPdf({ brief, insights: ins, ai = null, news = [], name = '', world = {}, fonts: [regBytes, boldBytes] }) {
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
   const F = await doc.embedFont(regBytes, { subset: true });
@@ -127,6 +127,67 @@ export async function briefPdf({ brief, insights: ins, ai = null, news = [], nam
   });
   y -= 2 * ch + 16 + 30;
   text('Цифри — з даних платформи в межах вашого допуску. Назви записів вище LUMEN не показуються.', M, y, { size: 8, color: [0.5, 0.49, 0.47] });
+
+  /* ---------- Security picture: GPR and the oblasts' air-raid alerts ---------- */
+  const g = gprPicture(world.gpr);
+  const tiles = alertTiles(world.alerts);
+  const known = tiles.filter((t) => t.h7 != null);
+  if (g || known.length) {
+    newPage();
+    heading('Безпекова обстановка', 'ГЕОПОЛІТИЧНИЙ РИЗИК І ПОВІТРЯНІ ТРИВОГИ');
+    if (g) {
+      panel(200, (top) => {
+        text('Індекс геополітичного ризику (GPR)', M + 16, top - 26, { size: 14 });
+        text(`ЩОДЕННИЙ, 30 ДНІВ · ДО ${g.last}`, M + 16, top - 40, { size: 7.5, font: B, color: C.muted });
+        const big = String(g.week); text(big, M + W - 16 - width(big, 22), top - 30, { size: 22, color: C.crimson });
+        const lab = `СЕРЕДНЄ ЗА ТИЖДЕНЬ · ${g.change >= 0 ? '+' : '−'}${Math.abs(g.change)}% ДО МІСЯЦЯ`;
+        text(lab, M + W - 16 - width(lab, 6.8, B), top - 42, { size: 6.8, font: B, color: C.muted });
+        const x0 = M + 40; const y0 = top - 170; const cw = W - 64; const ch = 106;
+        const mx = Math.max(...g.days.map((d) => d.value)) * 1.1; const step = cw / (g.days.length - 1);
+        for (let k = 0; k <= 3; k++) { const yy = y0 + (ch * k) / 3; page.drawLine({ start: { x: x0, y: yy }, end: { x: x0 + cw, y: yy }, thickness: 0.4, color: col(C.line) }); const l = String(Math.round((mx * k) / 3)); text(l, x0 - 6 - width(l, 6.5), yy - 2, { size: 6.5, color: C.faint }); }
+        // the month's mean as a dashed reference line
+        const my = y0 + (g.month / mx) * ch;
+        page.drawLine({ start: { x: x0, y: my }, end: { x: x0 + cw, y: my }, thickness: 0.8, color: col(C.gold), dashArray: [3, 3] });
+        text(`середнє за місяць ${g.month}`, x0 + cw - width(`середнє за місяць ${g.month}`, 6.5), my + 3, { size: 6.5, color: C.gold });
+        const pts = g.days.map((d, k) => `${k ? 'L' : 'M'} ${k * step} ${-(d.value / mx) * ch}`).join(' ');
+        page.drawSvgPath(`${pts} L ${cw} 0 L 0 0 Z`, { x: x0, y: y0, color: col([0.93, 0.85, 0.86]) });
+        page.drawSvgPath(pts, { x: x0, y: y0, borderColor: col(C.crimson), borderWidth: 1.6 });
+        [0, Math.floor(g.days.length / 2), g.days.length - 1].forEach((k) => { const d = g.days[k].date.slice(5).split('-').reverse().join('.'); text(d, x0 + k * step - width(d, 6.5) / 2, y0 - 11, { size: 6.5, color: C.muted }); });
+        source('Джерело: Caldara & Iacoviello, Geopolitical Risk Index (100 — середнє 1985–2019)', top - 192);
+      });
+    }
+    if (known.length) {
+      const max = Math.max(1, ...known.map((t) => t.h7));
+      panel(352, (top) => {
+        text('Повітряні тривоги за 7 днів', M + 16, top - 26, { size: 14 });
+        text('СХЕМА ОБЛАСТЕЙ · СУМАРНІ ГОДИНИ ОФІЦІЙНИХ ТРИВОГ', M + 16, top - 40, { size: 7.5, font: B, color: C.muted });
+        const tw = (W - 32 - 7 * 6) / 8; const th = 44; const gx = M + 16; const gy = top - 60;
+        for (const t of tiles) {
+          const x = gx + t.c * (tw + 6); const y = gy - t.r * (th + 6) - th;
+          const a = heat(t.h7, max);
+          if (t.occupied) {
+            page.drawRectangle({ x, y, width: tw, height: th, color: col([0.9, 0.89, 0.87]), borderColor: col([0.78, 0.76, 0.72]), borderWidth: 0.6 });
+            for (let k = 6; k < tw + th; k += 6) page.drawLine({ start: { x: x + Math.max(0, k - th), y: y + Math.min(th, k) }, end: { x: x + Math.min(tw, k), y: y + Math.max(0, k - tw) }, thickness: 0.4, color: col([0.78, 0.76, 0.72]) });
+          } else {
+            page.drawRectangle({ x, y, width: tw, height: th, color: col(C.paper), borderColor: col(C.line), borderWidth: 0.6 });
+            if (a) page.drawRectangle({ x, y, width: tw, height: th, color: col(C.crimson), opacity: a * 0.9 }); // semi-transparent by the hours
+          }
+          const light = !t.occupied && a > 0.55;
+          text(t.key.length > 11 ? `${t.key.slice(0, 10)}.` : t.key, x + 4, y + th - 11, { size: 6.5, color: light ? [1, 1, 1] : C.slate });
+          text(t.occupied ? 'окуп.' : t.h7 == null ? '—' : `${Math.round(t.h7)} год`, x + 4, y + 6, { size: 9, font: B, color: light ? [1, 1, 1] : C.ink });
+        }
+        // legend
+        const ly = top - 322;
+        [0.15, 0.4, 0.7, 1].forEach((v, k) => { page.drawRectangle({ x: M + 16 + k * 22, y: ly, width: 20, height: 8, color: col(C.crimson), opacity: v * 0.9 }); });
+        text(`менше – більше годин (найбільше: ${Math.round(max)} год)`, M + 16 + 4 * 22 + 6, ly + 1, { size: 7, color: C.muted });
+        text('Огляд минулого тижня, не прогноз. Дані alerts.in.ua. Тимчасово окуповані території — сірим.', M + 16, ly - 13, { size: 6.8, color: C.muted });
+      });
+      const topList = known.filter((t) => !t.occupied).sort((a, b) => b.h7 - a.h7).slice(0, 5);
+      room(40);
+      text('Найдовше під тривогою:', M, y, { size: 9.5, font: B, color: C.slate }); y -= 14;
+      para(topList.map((t) => `${t.key} — ${Math.round(t.h7)} год за тиждень${t.h24 != null ? `, ${Math.round(t.h24)} год за добу` : ''}`).join('; ') + '.', M, 9.5, W, { color: C.ink });
+    }
+  }
 
   /* ---------- Conclusions ---------- */
   newPage();
