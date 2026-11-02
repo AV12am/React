@@ -114,6 +114,12 @@ export const SECTIONS = [
       'https://www.euronews.com/rss?level=theme&name=news',
       'https://www.theguardian.com/world/rss',
       'https://www.aljazeera.com/xml/rss/all.xml',
+      // More foreign newsrooms: most of their war news repeat what Ukraine's own media already told, so 5.1 needs a wide net.
+      'https://rss.nytimes.com/services/xml/rss/nyt/World.xml',
+      'https://feeds.npr.org/1004/rss.xml',
+      'https://feeds.skynews.com/feeds/rss/world.xml',
+      'https://www.lemonde.fr/en/international/rss_full.xml',
+      'https://www.independent.co.uk/news/world/europe/rss',
     ],
   },
   {
@@ -246,7 +252,7 @@ export function repeatsPrompt(items) {
     { role: 'user', content: items.map((x, i) => `${i + 1}. ${String(x.summary || x.title).slice(0, 320)}`).join('\n') },
   ];
 }
-/** → [[a, b]] index pairs the summaries themselves bear out (three telling words in common), or []. */
+/** → [[a, b]] index pairs the summaries themselves bear out (two telling words in common), or []. */
 export function readRepeats(raw, items) {
   let j;
   try { j = parseJson(raw); } catch { return []; }
@@ -255,7 +261,7 @@ export function readRepeats(raw, items) {
   return (Array.isArray(j?.same) ? j.same : []).flatMap((g) => {
     const ix = (Array.isArray(g) ? g : []).map((v) => Number(v) - 1).filter(ok);
     const out = [];
-    for (let a = 0; a < ix.length; a++) for (let b = a + 1; b < ix.length; b++) if (ix[a] !== ix[b] && sharedWords(text(items[ix[a]]), text(items[ix[b]])) >= 3) out.push([ix[a], ix[b]]);
+    for (let a = 0; a < ix.length; a++) for (let b = a + 1; b < ix.length; b++) if (ix[a] !== ix[b] && sharedWords(text(items[ix[a]]), text(items[ix[b]])) >= 2) out.push([ix[a], ix[b]]);
     return out;
   });
 }
