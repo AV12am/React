@@ -312,8 +312,11 @@ test('night reports: only the day’s own, and nothing composed without the numb
   assert.equal(findReport(items, 'ru', now).url, 'https://r/1');
   assert.equal(findReport(items.slice(0, 1), 'ua', now), null);
   assert.equal(composeReport('ua', '{"drones": null, "downed": 100}', '2026-10-28T07:00:00Z'), '');
-  assert.equal(composeReport('ru', '{"count": 531, "regions": null}', ''), '');
-  assert.equal(composeReport('ru', '{"count": 531, "regions": "Брянской области"}', ''), ''); // Russian, not Ukrainian
+  // No regions named (or named in Russian): the claim is told without them, never with Russian forms.
+  const bare = 'Протягом минулої ночі черговими силами ППО рф було перехоплено та знищено 531 українських безпілотних літальних апаратів літакового типу.';
+  assert.equal(composeReport('ru', '{"count": 531, "regions": null}', ''), bare);
+  assert.equal(composeReport('ru', '{"count": 531, "regions": "Брянской области"}', ''), bare);
+  assert.equal(composeReport('ru', '{"count": null, "regions": "Брянської області"}', ''), '');
   assert.doesNotMatch(composeReport('ua', '{"ballistic": 0, "cruise": 0, "drones": 120, "downed": 100}', '2026-10-28T07:00:00Z'), /ракет/);
 });
 

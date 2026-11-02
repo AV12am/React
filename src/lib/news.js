@@ -597,8 +597,10 @@ export function composeReport(side, raw, at) {
     const n = num(j?.count);
     const regions = String(j?.regions || '').replace(/\s+/g, ' ').trim().replace(/[.;]+$/, '');
     // Ukrainian forms only («Брянської області», not «Брянской области»).
-    if (!n || !/[а-яіїєґ]{4}/i.test(regions) || /[ыэъё]|област[иь](?![а-яіїєґ])|ской(?![а-яіїєґ])|(?<![а-яіїєґ])края(?![а-яіїєґ])/i.test(regions) || regions.length > 600) return '';
-    return `Протягом минулої ночі черговими силами ППО рф було перехоплено та знищено ${n} українських безпілотних літальних апаратів літакового типу над територіями ${regions}.`;
+    if (!n) return '';
+    // The regions only in their Ukrainian forms; a claim that names none (or names them in Russian) is told without them.
+    const ok = /[а-яіїєґ]{4}/i.test(regions) && !/[ыэъё]|област[иь](?![а-яіїєґ])|ской(?![а-яіїєґ])|(?<![а-яіїєґ])края(?![а-яіїєґ])/i.test(regions) && regions.length <= 600;
+    return `Протягом минулої ночі черговими силами ППО рф було перехоплено та знищено ${n} українських безпілотних літальних апаратів літакового типу${ok ? ` над територіями ${regions}` : ''}.`;
   }
   const drones = num(j?.drones);
   const downed = num(j?.downed);
