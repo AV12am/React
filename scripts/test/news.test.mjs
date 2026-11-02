@@ -547,3 +547,22 @@ test('readable addresses: division, register and the record’s name, the old fo
   assert.deepEqual(fromHash('#/settings'), { view: 'settings', sub: null, id: null });
   assert.equal(slug('Щастя Їжака'), 'shchastia-izhaka');
 });
+
+test('the brief’s analysis: activity, projects to develop, a forecast — no classified name ever', async () => {
+  const { buildInsights, plainConclusions, readInsights, insightsHtml, insightsPrompt } = await import('../../src/lib/brief.js');
+  const now = Date.parse('2026-11-02T08:00:00Z');
+  const records = [
+    { id: 'p1', div: 'prj', col: 'projects', name: 'rubINT v.2', state: 'Триває', clearance: 1, at: '2026-10-01T00:00:00Z', updated: '2026-10-20T00:00:00Z', deadline: '2026-11-10' },
+    { id: 'p2', div: 'prj', col: 'projects', name: 'Atlas', state: 'Триває', clearance: 0, at: '2026-10-25T00:00:00Z', updated: '2026-11-01T00:00:00Z', entries: [{ at: '2026-10-30T00:00:00Z' }, { at: '2026-10-31T00:00:00Z' }, { at: '2026-11-01T00:00:00Z' }] },
+  ];
+  const ins = buildInsights({ records, tasks: [{ id: 't', assignee: 'u', status: 'open', due: '2026-10-30', at: '2026-10-29T00:00:00Z' }], me: { id: 'u', clearance: 2 }, now, nameUpTo: 0 });
+  assert.equal(ins.activity.length, 7);
+  assert.deepEqual(ins.develop.map((x) => x.title), ['засекречений проєкт 1', 'Atlas']);
+  assert.equal(ins.tasks.overdue, 1);
+  assert.ok(plainConclusions(ins).some((c) => /Прострочених завдань: 1/.test(c)));
+  const all = JSON.stringify(insightsPrompt(ins)) + insightsHtml(ins);
+  assert.ok(!all.includes('rubINT'), 'a classified project’s name goes neither to the model nor into the letter');
+  const ai = readInsights('{"conclusions":["Активність зросла втричі за тиждень."],"forecast":"Черга зросте.","develop":[{"project":"Atlas","next":"Призначити наступний етап"},{"project":"Вигадка","next":"x"}]}', ins);
+  assert.deepEqual(ai.develop, [{ project: 'Atlas', next: 'Призначити наступний етап' }]); // only projects it was given
+  assert.ok(insightsHtml(ins, ai).includes('Наступний крок: Призначити наступний етап'));
+});
