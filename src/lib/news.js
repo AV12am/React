@@ -89,7 +89,11 @@ export const SECTIONS = [
     about: 'озброєння і військова техніка (ОіВТ) для Сил оборони України: модернізація ОіВТ, українські винаходи й розробки (дрони, ракети, РЕБ, роботизовані системи), вітчизняне оборонне виробництво й ОПК (Мінстратегпром, Brave1, оборонні компанії, контракти, закупівлі), співпраця з партнерами в обороні (спільне виробництво, коаліції, Рамштайн, угоди), підтримка партнерів (пакети військової допомоги, постачання зброї й техніки, фінансування, навчання військових). Не підходить: оборонні новини інших країн без зв’язку з Україною, бойові дії й обстріли, аналітичні огляди та пояснювальні статті без нової події',
     feeds: [
       'https://mil.in.ua/uk/feed/',
-      'https://www.ukrinform.ua/rss/rubric-defense',
+      // The big Ukrainian newsrooms carry most of the day's supply, Brave1 and defence-industry news; only the
+      // items with 4.2's words (arms, production, support — and Ukraine) are read from them.
+      'https://rss.unian.net/site/news_ukr.rss',
+      'https://www.ukrinform.ua/rss/block-lastnews',
+      'https://interfax.com.ua/news/general.rss',
       'https://armyinform.com.ua/feed/',
       'https://defence-ua.com/rss/feed.xml',
       'https://breakingdefense.com/feed/',
