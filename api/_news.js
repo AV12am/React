@@ -701,7 +701,7 @@ export async function newsGet(req) {
     }
     // The current issue holds until the next 17:00 Kyiv.
     // An issue made in the two hours before 17:00 (a remake asked for then) already is that 17:00's issue.
-    const current = cached?.v === VERSION && cached.sections?.length && (Date.parse(cached.for) >= issueTime(now) || Date.parse(cached.at) >= issueTime(now) - 2 * 3600 * 1000);
+    const current = cached?.v === VERSION && cached.sections?.length && (Date.parse(cached.for) >= issueTime(now) || (!cached.degraded && Date.parse(cached.at) >= issueTime(now) - 2 * 3600 * 1000 && Date.parse(cached.at) < issueTime(now)));
     if (current) return json(200, cached);
     // While the day's issue is only a stand-in made without the model, the hand-made test issue of the same day
     // (real news, src/news/sample.js) is shown instead — never after its day has passed.
