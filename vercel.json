@@ -80,6 +80,14 @@
   ],
   "crons": [
     {
+      "path": "/api/pulse?news=1&prep=eet",
+      "schedule": "5 14 * * *"
+    },
+    {
+      "path": "/api/pulse?news=1&prep=eest",
+      "schedule": "5 13 * * *"
+    },
+    {
       "path": "/api/watch",
       "schedule": "40 4 * * *"
     },

@@ -608,6 +608,23 @@ export async function captureReports(now = Date.now()) {
   return out;
 }
 
+// The next issue, made in the hour before its 17:00 (only then, only once): kept as «next» until it is due.
+async function prepare(now) {
+  const due = issueTime(now + 86400000); // the coming 17:00 Kyiv
+  const ahead = due - now;
+  if (ahead <= 0 || ahead > 2 * 3600 * 1000) return { prep: 'not-now', due: new Date(due).toISOString() };
+  const have = await read('next');
+  if (have?.v === VERSION && Date.parse(have.for) === due && have.sections?.length) return { prep: 'ready', due: have.for };
+  const id = `make-prep-${due}-${Math.floor(now / (10 * MIN))}`;
+  const mark = `${now}-${Math.random().toString(36).slice(2)}`;
+  await db('core_docs?on_conflict=kind,id', { method: 'POST', prefer: 'resolution=ignore-duplicates,return=minimal', body: { kind: 'news', id, doc: { id, mark, clearance: 0 } } }).catch(() => {});
+  if ((await read(id))?.mark !== mark) return { prep: 'busy' };
+  const issue = await makeIssue(now);
+  if (issue.degraded || !issue.sections.some((s) => s.items.length)) return { prep: 'failed', degraded: Boolean(issue.degraded) }; // the 17:00 cron makes it then
+  await keep({ ...issue, for: new Date(due).toISOString(), preparedAt: issue.at }, 'next');
+  return { prep: 'made', due: new Date(due).toISOString() };
+}
+
 export async function newsGet(req) {
   try {
     const q = new URL(req.url).searchParams;
@@ -652,8 +669,18 @@ export async function newsGet(req) {
       return json(502, { error: 'img', message: 'Джерело не віддало зображення' });
     }
 
-    // The current issue holds until the next 17:00 Kyiv.
+    // Vercel's free plan fires a cron anywhere within its hour: «17:02» may come at 17:50. So the issue is made
+    // ahead, in the hour before (prep), kept aside, and shown from 17:00 sharp — by the first reader after it.
     const now = Date.now();
+    if (q.has('prep')) return json(200, await prepare(now));
+    if (!(cached && Date.parse(cached.for) >= issueTime(now))) {
+      const next = await read('next');
+      if (next?.v === VERSION && next.sections?.length && Date.parse(next.for) === issueTime(now)) {
+        await keep(next);
+        return json(200, next);
+      }
+    }
+    // The current issue holds until the next 17:00 Kyiv.
     const current = cached?.v === VERSION && cached.sections?.length && Date.parse(cached.for) >= issueTime(now);
     if (current) return json(200, cached);
     // While the day's issue is only a stand-in made without the model, the hand-made test issue of the same day
