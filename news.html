@@ -7,7 +7,13 @@
     <meta name="robots" content="noindex, nofollow" />
     <title>CONTEXT News</title>
     <link rel="icon" href="/context-icon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/news-img/context-touch.png" />
+    <!-- Installed the same way as Reaction (a web app, not a bookmark), so the phone draws both tiles alike. -->
+    <link rel="manifest" href="/news.webmanifest" />
+    <link rel="apple-touch-icon" href="/news-img/context-touch.png?v=2" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="CONTEXT News" />
   </head>
   <body>
     <div id="root"></div>
