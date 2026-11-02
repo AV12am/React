@@ -157,7 +157,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     const j = await r.json();
     assert.equal(r.status, 200);
     assert.deepEqual(j.sections.map((s) => s.id), SECTIONS.map((s) => s.id));
-    assert.equal(j.for, new Date(issueTime()).toISOString());
+    assert.equal(j.for, new Date(issueTime(Date.now() + 2 * 3600e3)).toISOString()); // made within two hours before 17:00: that 17:00's
     for (const s of j.sections) {
       assert.ok(s.items.length >= 3 && s.items.length <= 5, `${s.id}: ${s.items.length}`); // two news a feed here: a key news may leave its section three
       assert.ok(s.items.every((x) => x.image && x.summary && x.ai));
