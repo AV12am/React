@@ -299,6 +299,19 @@ async function removeKey(ctx, body) {
   return { ok: true };
 }
 
+// A code for oneself: whoever has just confirmed the sign-in with their own key may pair one more device or a new
+// address of the site (a key belongs to the address it was made on) — without CUSTOS. One hour, one use, audited.
+const SELF_CODE_HOURS = 1;
+async function selfCode(ctx) {
+  await requireVerified(ctx);
+  const me = ctx.member;
+  await db(`core_codes?member_id=eq.${q(me.id)}&kind=eq.enroll&used_at=is.null`, { method: 'DELETE' });
+  const code = newCode(10);
+  await db('core_codes', { method: 'POST', prefer: 'return=minimal', body: { hash: sha(normCode(code)), member_id: me.id, kind: 'enroll', created_by: me.id, expires_at: later(SELF_CODE_HOURS) } });
+  await audit(me.id, `Видано собі код прив’язки нового пристрою (${SELF_CODE_HOURS} год)`);
+  return { code, expiresHours: SELF_CODE_HOURS };
+}
+
 async function issueCode(ctx, body) {
   await requireVerified(ctx);
   if (!ctx.member.custos) throw new Fail(403, 'custos', 'Лише CUSTOS видає коди й скидає ключі');
@@ -319,7 +332,7 @@ async function issueCode(ctx, body) {
 
 const OPS = {
   status, 'register-options': registerOptions, 'register-verify': registerVerify,
-  'login-options': loginOptions, 'login-verify': loginVerify, keys: listKeys, 'remove-key': removeKey, 'issue-code': issueCode, sessions: listSessions, 'end-sessions': endSessions,
+  'login-options': loginOptions, 'login-verify': loginVerify, keys: listKeys, 'remove-key': removeKey, 'issue-code': issueCode, 'self-code': selfCode, sessions: listSessions, 'end-sessions': endSessions,
 };
 
 export async function POST(req) {

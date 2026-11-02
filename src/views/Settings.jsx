@@ -7,8 +7,9 @@ import { MAX_LEVEL, CUSTOS } from '../data/clearance.js';
 import { supabaseOn, authHeaders } from '../lib/supabase.js';
 import { isTouch, useInstall } from '../lib/mobile.js';
 import { missingFor } from '../data/academy/meta.js';
-import { listKeys, enroll, removeKey, passkeyError, listSessions, endSessions } from '../lib/passkey.js';
+import { listKeys, enroll, removeKey, passkeyError, listSessions, endSessions, selfCode } from '../lib/passkey.js';
 import { clearBlobs } from '../vaultdb.js';
+import { copyText } from '../lib/io.js';
 
 const LEVEL = ['Немає', 'Перегляд', 'Редагування', 'Керування'];
 const touch = isTouch();
@@ -206,6 +207,13 @@ function Keys() {
     setBusy(true); setErr('');
     try { await enroll(); toast('Ключ цього пристрою додано'); await load(); } catch (e) { setErr(passkeyError(e)); } finally { setBusy(false); }
   };
+  // A one-time code for oneself, to pair another device or the site's new address (a key works only on the
+  // address it was made on).
+  const [code, setCode] = useState(null);
+  const getCode = async () => {
+    setBusy(true); setErr('');
+    try { setCode(await selfCode()); } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
   const drop = async (id) => {
     try { await removeKey(id); toast('Ключ видалено'); await load(); } catch (e) { setErr(e.message); }
   };
@@ -221,7 +229,15 @@ function Keys() {
             </div>
           ))}
         </div> : !err && <div className="vx-hint">Завантаження…</div>}
-        <button className="vx-btn" disabled={busy} onClick={add}><Icon name="plus" /> Додати цей пристрій</button>
+        <div className="toolbar">
+          <button className="vx-btn" disabled={busy} onClick={add}><Icon name="plus" /> Додати цей пристрій</button>
+          <button className="vx-btn vx-btn--ghost" disabled={busy} onClick={getCode}><Icon name="key" /> Код для іншого пристрою</button>
+        </div>
+        {code && <>
+          <div className="pk-code-box">{code.code}</div>
+          <div className="vx-hint">Введіть цей код на іншому пристрої або на новій адресі сайту (reactioncore.uk) після пароля — у полі «Code» → «Pair a device». Діє {code.expiresHours} год, один раз. Нікому не передавайте.</div>
+          <button className="vx-btn vx-btn--sm" onClick={() => copyText(code.code)}><Icon name="copy" /> Скопіювати</button>
+        </>}
         {me.custos && <div className="vx-hint">Ви — {CUSTOS.name}, {CUSTOS.gloss}. Якщо втратите всі пристрої, допоможуть лише резервні коди, які ви зберегли при першому ключі.</div>}
         {err && <div className="vx-error">{err}</div>}
       </div>
