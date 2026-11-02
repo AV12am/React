@@ -680,6 +680,16 @@ export async function newsGet(req) {
     // ahead, in the hour before (prep), kept aside, and shown from 17:00 sharp — by the first reader after it.
     const now = Date.now();
     if (q.has('prep')) return json(200, await prepare(now));
+    // Show the prepared issue now, before its 17:00 (only one already made, due within two hours).
+    if (q.has('publish')) {
+      const next = await read('next');
+      const ahead = next ? Date.parse(next.for) - now : -1;
+      if (next?.v === VERSION && next.sections?.length && ahead > 0 && ahead <= 2 * 3600 * 1000 && !(cached && Date.parse(cached.for) >= Date.parse(next.for))) {
+        await keep(next);
+        return json(200, { published: next.for });
+      }
+      return json(200, { published: false });
+    }
     if (!(cached && Date.parse(cached.for) >= issueTime(now))) {
       const next = await read('next');
       if (next?.v === VERSION && next.sections?.length && Date.parse(next.for) === issueTime(now)) {
