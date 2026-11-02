@@ -7,6 +7,9 @@ export const WAR = /украї|ukrain|зсу|окупант|zaporizh|запор�
 
 /** What each section is about — items that match none of it stay out (a film review is not «infospace»). */
 const TOPIC = {
+  // 2.2: Ukraine's own operations against Russia — strikes deep in Russia and on the occupied land, the special
+  // services' operations, the enemy's losses — and what follows from them (fires, fuel shortages, closed airports).
+  specops: /(ГУР|СБУ|ССО|Сил\S* безпілотн|СБС|Сил\S* оборони|ЗСУ|далекобійн|НПЗ|нафтопереробн|нафтобаз|аеродром|летовищ|склад\S* (боєприпас|БК|паливн)|уражен|уразил|знищен|знищил|атакува\S* (дрон|безпілот|БпЛА)|дрон\S* атакува|вибух\S* (у|в|на) (рос|Крим|окупован)|пожеж\S* (у|в|на) (рос|Крим)|бавовн|диверс|партизан|рекорд\S* втрат|втрат\S* (ворог|противник|окупант|рос)|окупант\S* втратил|Су-\d|Ту-\d|Іл-\d|Ка-\d|Мі-\d|С-\d00|Панцир|звільн\S* (сел|насел|територ)|спецоперац|ВСУ (атаковал|нанесл)|беспилотник\S* атаковал|refiner|oil depot|airfield|air base|HUR|SBU|sabotage|long-range (strike|drone)|drone (strike|attack)s? (on|in|hit) (Russia|Crimea)|Ukrain\S* (strike|drone|attack)s? (on|hit)|struck|destroyed|losses|Russia\S* (lost|loses)|Su-\d)/i,
   // Arms for Ukraine's Defence Forces: home production and inventions, modernisation, partners' supplies and joint work —
   // and always tied to Ukraine (a French tank crew learning FPV is not 4.2).
   defence: /(?=[\s\S]*(україн|украин|ukrain|ЗСУ|ВСУ|Сил\S* оборони|вітчизнян|Brave1|Мінстратегпром|Міноборони|Kyiv|Київ|Рамштайн|Ramstein|PURL))(?=[\s\S]*(озброєн|зброя|зброї|техні|модерніз|винах|розробк|виробни|виготов|завод|ОПК|оборонн\S* (компан|промисл|індустр|контракт)|контракт|закупів|постач|постав|передал|передасть|пакет|допомог|фінансув|спільн\S* виробниц|коаліц|угод|дрон|БпЛА|безпілот|ракет|снаряд|артилер|РЕБ|роботизован|наземн\S* роботи|ППО|Patriot|IRIS|NASAMS|F-16|Mirage|Gripen|Leopard|Bradley|weapon|arms|ammunition|missile|drone|air defen[cs]e|aid package|military|deliver|production|manufactur|joint venture|contract|procure))/i,
@@ -43,11 +46,13 @@ export const SECTIONS = [
     ],
   },
   {
-    id: 'media', pool: 48, code: '2.2', part: 'РОЗДІЛ 2 | СПЕЦОПЕРАЦІЇ ТА АКТУАЛЬНІ ПОДІЇ', title: '2.2 УКРАЇНСЬКІ ТА СВІТОВІ ЗМІ',
+    id: 'media', pool: 48, code: '2.2', match: TOPIC.specops, first: true, part: 'РОЗДІЛ 2 | СПЕЦОПЕРАЦІЇ ТА АКТУАЛЬНІ ПОДІЇ', title: '2.2 УКРАЇНСЬКІ ТА СВІТОВІ ЗМІ',
     en: { part: 'SECTION 2 | SPECIAL OPERATIONS AND CURRENT EVENTS', title: '2.2 UKRAINIAN AND WORLD MEDIA' },
-    about: 'дії Сил оборони України: спецоперації ЗСУ, СБУ, ГУР, ССО, Сил безпілотних систем; ураження українськими силами ворожих позицій, техніки, складів, НПЗ, заводів і аеродромів, зокрема в Росії; успіхи на фронті, звільнення територій, втрати противника. Не підходить: російські обстріли українських міст і їхні наслідки, політика, дипломатія, енергетика',
+    about: 'спецоперації України проти Росії за останню добу: удари й операції ЗСУ, СБУ, ГУР, ССО, Сил безпілотних систем по ворожих позиціях, техніці, складах, НПЗ, заводах, аеродромах і кораблях — у Росії, в Криму й на окупованих територіях; диверсії, успіхи на фронті, звільнення територій, втрати противника; а також супутнє — наслідки цих ударів для Росії (пожежі, дефіцит пального, закриті аеропорти, знищена техніка) і реакція на них. Не підходить: російські обстріли українських міст і їхні наслідки, події інших країн (Іран, Близький Схід), розвідка й навчання НАТО, політика, дипломатія, енергетика України',
     feeds: [
       'https://www.ukrinform.ua/rss/block-lastnews',
+      'https://www.ukrinform.ua/rss/rubric-ato',
+      'https://www.unian.net/site/news_ukr.rss',
       'https://interfax.com.ua/news/general.rss',
       'https://feeds.bbci.co.uk/ukrainian/rss.xml',
       'https://kyivindependent.com/news-archive/rss/',

@@ -93,8 +93,8 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
   const translated = [];
   const real = globalThis.fetch;
   const now = new Date().toUTCString();
-  const rss = (host) => `<rss xmlns:media="m"><item><title>${host} strike one</title><link>https://${host}/1</link><pubDate>${now}</pubDate><description>Text one about Ukraine and Russia’s military.</description>${host.includes('meduza') ? '' : `<media:thumbnail url="https://img.${host}/1.jpg"/>`}</item>
-    <item><title>${host} strike two</title><link>https://${host}/2</link><pubDate>${now}</pubDate><description>Text two on the conflict.</description></item></rss>`;
+  const rss = (host) => `<rss xmlns:media="m"><item><title>${host} strike one</title><link>https://${host}/1</link><pubDate>${now}</pubDate><description>Text one about Ukraine and Russia’s military losses.</description>${host.includes('meduza') ? '' : `<media:thumbnail url="https://img.${host}/1.jpg"/>`}</item>
+    <item><title>${host} strike two</title><link>https://${host}/2</link><pubDate>${now}</pubDate><description>Text two on the conflict and its losses.</description></item></rss>`;
   globalThis.fetch = async (url, opts = {}) => {
     const u = decodeURIComponent(String(url));
     const ok = (b) => new Response(b == null ? null : JSON.stringify(b), { status: b == null ? 204 : 200 });
@@ -452,7 +452,7 @@ test('Claude Haiku first (Cloudflare spent too): the same requests answered, pic
       // 5.2 reads only the conflicts away from Ukraine: two of its feeds give those
       const far = /news\.un\.org/.test(feed);
       const away = ['Sudan clashes', 'Gaza ceasefire', 'Myanmar junta', 'Haiti gangs', 'Somalia militants', 'Congo rebels'];
-      return new Response(`<rss xmlns:media="m">${Array.from({ length: 6 }, (_, i) => `<item><title>${far ? `${away[i]} ${i}` : `${h} news ${i} about Ukraine and Russia’s war`}</title><link>https://${h}.test/${i}</link><pubDate>${now}</pubDate><description>${far ? `Text ${i} on ${away[i]}.` : `Text ${i} about Ukraine and Russia’s military and the war.`}</description><media:thumbnail url="https://img.${h}/${i}.jpg"/></item>`).join('')}</rss>`, { status: 200 });
+      return new Response(`<rss xmlns:media="m">${Array.from({ length: 6 }, (_, i) => `<item><title>${far ? `${away[i]} ${i}` : `${h} news ${i} about Ukraine and Russia’s war`}</title><link>https://${h}.test/${i}</link><pubDate>${now}</pubDate><description>${far ? `Text ${i} on ${away[i]}.` : `Text ${i} about Ukraine and Russia’s military losses and the war.`}</description><media:thumbnail url="https://img.${h}/${i}.jpg"/></item>`).join('')}</rss>`, { status: 200 });
     }
     return new Response('<html></html>', { status: 200, headers: { 'content-type': 'text/html' } });
   };
