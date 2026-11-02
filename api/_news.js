@@ -413,7 +413,7 @@ export async function makeIssue(now = Date.now()) {
   const nightAgain = (x) => nightReport(x, 'ru') || nightReport(x, 'ua');
   const live = pool.map((_, i) => i).filter((i) => sec[i] && !drop.has(i) && !isReport(pool[i]) && !((sec[i] === 'infospace' || sec[i] === 'media') && nightAgain(pool[i]) && !airTally(pool[i], true)));
   const bySec = Object.fromEntries(own.map((s) => [s.id, pickItems(live.filter((i) => sec[i] === s.id).map((i) => ({ ...pool[i], i })), now, POOL, 4, 2 * FRESH).map((x) => x.i)]));
-  const SPARE = 3; // candidates beyond five, for the news whose summary comes out shorter than two sentences
+  const SPARE = 5; // candidates beyond five, for the news whose summary comes out shorter than two sentences
   // The key news: the editor's ranking, at most one from a section, and never from a section left with fewer than
   // three — the key news must not empty the chapters they come from.
   // Only the editor's own choice of key news; the plain round of sections only when the editor gave none at all
@@ -434,10 +434,11 @@ export async function makeIssue(now = Date.now()) {
   const ranked = picked0.length ? [...picked0, ...editorKey.filter((i) => !picked0.includes(i))] : editorKey.length ? editorKey : roundRobin(own.map((s) => bySec[s.id]));
   // The key news are simply the editor's most resonant ones, from whichever sections they come.
   const key = ranked.slice(0, KEY_COUNT);
+  const keySpare = ranked.slice(0, KEY_COUNT + 2); // two more, should a key news turn out to repeat another one
   // Where each section's news went (to see why a page came out thin).
   note.bySec = Object.fromEntries(own.map((s) => [s.id, bySec[s.id].length]));
   note.repeats = drop.size;
-  const picked = SECTIONS.map((s) => (s.key ? key : bySec[s.id].filter((i) => !key.includes(i)).slice(0, PER_SECTION + SPARE)).map((i) => pool[i]));
+  const picked = SECTIONS.map((s) => (s.key ? keySpare : bySec[s.id].filter((i) => !key.includes(i)).slice(0, PER_SECTION + SPARE)).map((i) => pool[i]));
 
   // 3. Pictures from the article pages and the Ukrainian summaries, side by side; then the news to keep:
   //    two or three sentences each (one-sentence ones only when nothing else is left), four or five a page.
@@ -461,7 +462,10 @@ export async function makeIssue(now = Date.now()) {
     const rows = l.map((x, i) => ({ ...x, summary: uk[k][i].text, ai: uk[k][i].ai, n: uk[k][i].n }));
     const good = rows.filter((x) => x.n >= 2);
     const first = SECTIONS[k].id === 'infospace' ? leadRu : SECTIONS[k].id === 'media' ? leadUa : null;
-    return [...(first ? [first] : []), ...good, ...rows.filter((x) => x.n === 1)]; // n 0: not Ukrainian — left out
+    // The last day's news first; one of the day before only where the day gave too few. n 0: not Ukrainian — left out.
+    const day = (x) => now - Date.parse(x.at) < FRESH;
+    const short = rows.filter((x) => x.n === 1);
+    return [...(first ? [first] : []), ...good.filter(day), ...short.filter(day), ...good.filter((x) => !day(x)), ...short.filter((x) => !day(x))];
   });
   // The same event told twice across the page (one outlet in Ukrainian, another in English; the key news and its
   // section): the editor reads the summaries once more, and the later one gives way to a spare. The aggressor's
@@ -477,8 +481,9 @@ export async function makeIssue(now = Date.now()) {
         const [p, q] = [now0[a], now0[b]];
         if (RU_SIDE.has(SECTIONS[p.k].id) !== RU_SIDE.has(SECTIONS[q.k].id)) continue;
         if (gone.has(p.x) || gone.has(q.x)) continue;
-        const later = q.x.lead || SECTIONS[q.k].key ? p : q; // the second one, unless it is a lead or a key news
-        if (later.x.lead || SECTIONS[later.k].key) continue;
+        // The second one gives way — unless it is a lead, or a key news repeated in a section (then the section's goes).
+        const later = q.x.lead || (SECTIONS[q.k].key && !SECTIONS[p.k].key) ? p : q;
+        if (later.x.lead) continue;
         if (full[later.k].filter((x) => !gone.has(x)).length <= 4) continue; // never below four in a section
         gone.add(later.x);
       }
@@ -486,7 +491,10 @@ export async function makeIssue(now = Date.now()) {
       note.twice = gone.size;
     } catch (e) { note.twiceErr = String(e.message || e).slice(0, 120); }
   }
-  const chosen = full.map((l) => fitItems(l.slice(0, PER_SECTION)));
+  // The key news finally shown leave their sections (a spare key news, when it was needed, among them).
+  const keyAt = SECTIONS.findIndex((s) => s.key);
+  const shownKey = new Set(full[keyAt].slice(0, PER_SECTION).map((x) => x.url));
+  const chosen = full.map((l, k) => fitItems((k === keyAt ? l : l.filter((x) => !shownKey.has(x.url))).slice(0, PER_SECTION)));
   note.short = chosen.flat().filter((x) => x.n < 2).length;
 
   // 4. The English issue: the Ukrainian summaries translated; with them, the photo queries.
