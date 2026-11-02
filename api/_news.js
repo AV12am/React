@@ -16,7 +16,7 @@
 import { json, db, env } from './_core.js';
 import Anthropic from '@anthropic-ai/sdk';
 import sample from '../src/news/sample.js';
-import { SECTIONS, PER_SECTION, POOL, FRESH, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, keyPrompt, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, LEAD_IMAGE, ruPicture, nightReport } from '../src/lib/news.js';
+import { SECTIONS, PER_SECTION, POOL, FRESH, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, keyPrompt, eventsPrompt, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, LEAD_IMAGE, ruPicture, nightReport, airTally } from '../src/lib/news.js';
 
 
 const MIN = 60000;
@@ -408,7 +408,7 @@ export async function makeIssue(now = Date.now()) {
   note.airHeads = [...got.values()].flat().filter((x) => /ППО|ПВО|протиповітрян|Повітрян\S* сил|беспилотн|БПЛА|БпЛА|drones?\b/i.test(x.title) && /\d{2,}/.test(x.title))
     .sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 10).map((x) => `${String(x.at).slice(5, 16)} ${x.domain}: ${x.title.slice(0, 110)}`);
   const isReport = (x) => Object.values(reports).some((r) => r && (norm(r) === norm(x) || sharedWords(r, x) >= 3));
-  const live = pool.map((_, i) => i).filter((i) => sec[i] && !drop.has(i) && !isReport(pool[i]));
+  const live = pool.map((_, i) => i).filter((i) => sec[i] && !drop.has(i) && !isReport(pool[i]) && !((sec[i] === 'infospace' || sec[i] === 'media') && airTally(pool[i])));
   const bySec = Object.fromEntries(own.map((s) => [s.id, pickItems(live.filter((i) => sec[i] === s.id).map((i) => ({ ...pool[i], i })), now, POOL, 4, 2 * FRESH).map((x) => x.i)]));
   const SPARE = 3; // candidates beyond five, for the news whose summary comes out shorter than two sentences
   // The key news: the editor's ranking, at most one from a section, and never from a section left with fewer than
@@ -575,6 +575,10 @@ async function refreshLeads(reports, now) {
     const r = reports[side];
     const sec = issue.sections.find((x) => x.id === where[side]);
     if (!r || !sec) continue;
+    // Other air-defence tallies (the day's, Sunday's) beside the night's report only confuse the numbers: out.
+    const before = sec.items.length;
+    sec.items = sec.items.filter((x) => x.lead || !airTally(x));
+    if (sec.items.length !== before) changed++;
     const at = sec.items.findIndex((x) => x.lead === side);
     if (at >= 0 && sec.items[at].url === r.url) continue; // already the night's own report
     try {

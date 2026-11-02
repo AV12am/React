@@ -545,6 +545,16 @@ const PERIOD = {
   ua: /за (жовт|листопад|груд|січ|лют|берез|квіт|трав|черв|лип|серп|верес|місяц|тижд|рік|добу|день)|упродовж (дня|доби|суботи|неділі|понеділка|вівторка|середи|четверга|п.ятниці)|протягом (дня|доби)|з початку|тисяч/i,
 };
 const NIGHT = { ru: /за ночь|ночью|в ночь|минувшей ночью|в течение ночи/i, ua: /за ніч|вночі|у ніч|в ніч|протягом ночі|минулої ночі/i };
+// Any air-defence tally — the night's, the day's, Sunday's («ППО в неділю знешкодила 274…», «ПВО за день сбила 47…»):
+// beside the night's report that opens 2.1 and 2.2 it only gives other numbers for another period, so it stays out.
+// A strike on air-defence systems («уразили об'єкти ППО на $70 млн») is news, not a tally.
+export const airTally = (x) => {
+  const t = String(x?.title || '');
+  if (!/\d{2,}/.test(t) || /об.єкт\S* ППО|систем\S* ППО|комплекс|уразил|уражен|Зеленськ/i.test(t)) return false;
+  const ua = /(ППО|Повітрян\S* сил|протиповітрян)/i.test(t) && /(збил|збито|знешкод|подавл|перехоп|знищ)/i.test(t) && /(дрон|БпЛА|БПЛА|безпілот|ракет|цілей|Бандерол)/i.test(t);
+  const ru = /(ПВО|средства ПВО|дежурн|над (регион|территори|Росси))/i.test(t) && /(сбил|сбит|перехвач|уничтож)/i.test(t) && /(беспилотн|БПЛА|дрон|ракет)/i.test(t) && !/группировк/i.test(t);
+  return ua || ru;
+};
 /** Whether an item is the night's report for its side and not a tally of a longer period. */
 export const nightReport = (x, side) => REPORTS[side].test(x?.title || '') && !PERIOD[side].test(x?.title || '') && (side !== 'ru' || RU_DEFENCE(x.title));
 // The Russian report is the air defence's own (ПВО, «над территориями…»), not a troop grouping's claim about
