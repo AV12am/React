@@ -250,6 +250,21 @@ async function commonsImage(q) {
   } catch { return ''; }
 }
 
+// Openverse: openly licensed photos from Flickr and other collections (many more than Commons alone), with the
+// author and licence kept for the credit line. Photographs only, and a word of the search in the title.
+async function openverseImage(q) {
+  if (!q) return null;
+  try {
+    const u = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(q)}&page_size=8&category=photograph&mature=false`;
+    const j = await (await get(u, 6000, 'application/json')).json();
+    const words = q.toLowerCase().split(/[^\p{L}\d]+/u).filter((w) => w.length >= 4);
+    const named = (t) => { const n = String(t || '').toLowerCase(); return words.some((w) => n.includes(w.slice(0, Math.max(4, w.length - 2)))); };
+    const hit = (j?.results || []).find((r) => named(r.title) && !/\b(map|flag|logo|diagram|chart|poster|screenshot)\b/i.test(r.title || '') && (r.thumbnail || r.url));
+    if (!hit) return null;
+    return { url: hit.thumbnail || hit.url, credit: [hit.creator, hit.license && `CC ${String(hit.license).toUpperCase()}`, hit.source].filter(Boolean).join(' · ') };
+  } catch { return null; }
+}
+
 const COMMON_CAPS = /^(The|This|That|These|According|After|Before|During|Ukraine’s|Russia’s|January|February|March|April|May|June|July|August|September|October|November|December|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|President|Minister|Deputy|Office|Head|Leader|Supreme|Separate|Express|Federation|General|Staff|Defence|Forces|Ministry|Foreign|Republic)$/;
 // A picture's bytes, only when it is one (and small enough to pass on).
 async function fetchImage(u) {
@@ -383,7 +398,7 @@ export async function makeIssue(now = Date.now()) {
   note.pool = pool.length;
   // One news per event — the editor's groups and the shared-words rule together.
   // The copy kept is the one in the section with fewest news (a news of no section is the last to be kept).
-  const { drop } = dropRepeats(pool, [...checkGroups(pool, events?.groups || []), ...sameEvents(pool)], (i) => (sec[i] ? note.kept[sec[i]] : 1e9));
+  const { drop, root: eventOf } = dropRepeats(pool, [...checkGroups(pool, events?.groups || []), ...sameEvents(pool)], (i) => (sec[i] ? note.kept[sec[i]] : 1e9));
   // The night's air-defence reports that open 2.1 (Russian claim) and 2.2 (Ukrainian Air Force) — never twice.
   // The morning capture keeps the day's reports (the feeds move on by 17:00); otherwise look in today's feeds.
   const kept = await captured(now);
@@ -448,26 +463,45 @@ export async function makeIssue(now = Date.now()) {
   const en = await Promise.all(chosen.map((l) => translate(l.map((x) => x.summary))));
   note.translated = en.flatMap((e) => e.t).filter(Boolean).length;
 
-  // 5. Still no picture: a photo of the subject from the open archive.
-  //    A picture from a Russian site (blocked in Ukraine) is swapped for an open one the same way.
+  // 5. Still no picture: first the photo another outlet ran with the same event today (fresh, and of this very
+  //    event), then an open photo of the subject — Openverse (Flickr and other open collections, far more photos),
+  //    then Wikimedia Commons. Each one found this way is checked to fit the news before it stays (step 6).
   const queries = (x, k, i) => {
     const words = commonsQuery({ ...x, summary_en: en[k].t[i] }).split(' ');
     return [...new Set([en[k].q[i], words.join(' '), words.slice(0, 2).join(' ')])].filter((q) => q && q.trim());
   };
+  const everything = [...got.values()].flat();
+  const sameEventPictures = (x) => {
+    const p = at.get(norm(x));
+    const out = [];
+    if (p != null) pool.forEach((y, j) => { if (j !== p && eventOf(j) === eventOf(p) && y.image) out.push(y.image); });
+    // Not grouped, but three telling words in common with a fresh headline elsewhere in today's feeds.
+    for (const y of everything) {
+      if (out.length >= 4) break;
+      if (y.image && norm(y) !== norm(x) && y.at && now - Date.parse(y.at) < 2 * FRESH && sharedWords(x, y, { numbers: false }) >= 3) out.push(y.image);
+    }
+    return [...new Set(out)].filter((u) => u !== x.image);
+  };
+  async function* candidates(x, k, i) {
+    for (const u of sameEventPictures(x)) yield { image: u, imageFrom: 'event' };
+    for (const q of queries(x, k, i)) {
+      const o = await openverseImage(q);
+      if (o) yield { image: o.url, imageFrom: 'openverse', imageCredit: o.credit };
+      const c = await commonsImage(q);
+      if (c) yield { image: c, imageFrom: 'commons' };
+    }
+  }
   const found = await Promise.all(chosen.map((l, k) => Promise.all(l.map(async (x, i) => {
     // Its own picture — a Russian site's too: the page shows it through the site's own server (blocked in Ukraine
     // otherwise), and the check for words comes next.
     if (x.lead || x.image) return x;
     if (left() < 15000) return { ...x, image: '' }; // no time to look
-    for (const q of queries(x, k, i)) {
-      const alt = await commonsImage(q);
-      if (alt) return { ...x, image: alt, imageFrom: 'commons' };
-    }
+    for await (const c of candidates(x, k, i)) return { ...x, ...c };
     return { ...x, image: '' };
   }))));
 
-  // 6. Photos only, no words on them; and a photo found in the archive must show the news' own subject.
-  //    One that fails gives way to another archive photo that passes; else the site's plain picture.
+  // 6. Photos only, no words on them; and a photo not the news' own must show the news' own subject.
+  //    One that fails gives way to the next candidate that passes; else the site's plain picture.
   //    The leads keep theirs. The check is the first to go: not when the allowance is spent, nor late in the making.
   note.textPics = 0;
   note.unfit = 0;
@@ -477,15 +511,16 @@ export async function makeIssue(now = Date.now()) {
   const withPhotos = await Promise.all(found.map((l, k) => Promise.all(l.map(async (x, i) => {
     if (!looks || x.lead || !x.image) return x;
     const news = en[k].t[i] || x.title;
-    if ((await hasText(x.image, {}, x.imageFrom === 'commons' ? news : '')) !== true) return x;
-    if (x.imageFrom === 'commons') note.unfit++; else note.textPics++;
-    for (const q of queries(x, k, i)) {
-      if (left() < 15000) break;
-      const alt = await commonsImage(q);
-      if (alt && alt !== x.image && (await hasText(alt, {}, news)) !== true) return { ...x, image: alt, imageFrom: 'commons' };
+    if ((await hasText(x.image, {}, x.imageFrom ? news : '')) !== true) return x;
+    if (x.imageFrom) note.unfit++; else note.textPics++;
+    let tries = 0;
+    for await (const c of candidates(x, k, i)) {
+      if (left() < 15000 || ++tries > 5) break;
+      if (c.image !== x.image && (await hasText(c.image, {}, news)) !== true) return { ...x, imageCredit: undefined, ...c };
     }
-    return { ...x, image: PLAIN_IMAGE, imageFrom: 'plain' };
+    return { ...x, image: PLAIN_IMAGE, imageFrom: 'plain', imageCredit: undefined };
   }))));
+  note.from = withPhotos.flat().reduce((m, x) => { const f = x.lead ? 'lead' : x.imageFrom || 'own'; m[f] = (m[f] || 0) + 1; return m; }, {});
 
   // Any news still without a picture: the site's plain picture — never a photo of something else.
   for (const l of withPhotos) for (const x of l) if (!x.image) { x.image = PLAIN_IMAGE; x.imageFrom = 'plain'; }
@@ -495,7 +530,7 @@ export async function makeIssue(now = Date.now()) {
   const sections = SECTIONS.map((s, k) => ({
     id: s.id, part: s.part, title: s.title, en: s.en, sources: s.feeds.length,
     items: withPhotos[k].map((x, i) => ({
-      title: x.title, url: x.url, domain: x.domain, at: x.at, image: x.image || null, ...(x.imageFrom && x.image ? { imageFrom: x.imageFrom } : {}),
+      title: x.title, url: x.url, domain: x.domain, at: x.at, image: x.image || null, ...(x.imageFrom && x.image ? { imageFrom: x.imageFrom } : {}), ...(x.imageCredit ? { imageCredit: x.imageCredit } : {}),
       summary: x.summary, summary_en: en[k].t[i] || x.summary, ai: x.ai, ...(x.lead ? { lead: x.lead } : {}),
     })),
   }));
