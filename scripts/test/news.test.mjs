@@ -614,3 +614,13 @@ test('the brief’s security picture: alert hours by oblast, GPR week against mo
   assert.equal(g.week, 200);
   assert.ok(worldHtml({ gpr: [], alerts: null }) === ''); // nothing to show: no section
 });
+
+test('oblast names from any source meet one key (for the map)', async () => {
+  const { uaKeyOf } = await import('../../src/lib/brief.js');
+  assert.equal(uaKeyOf('Kharkiv Oblast'), 'Харківська');
+  assert.equal(uaKeyOf('Kyiv Oblast'), 'Київська');
+  assert.equal(uaKeyOf('Kyiv'), 'Київ');
+  assert.equal(uaKeyOf('Autonomous Republic of Crimea'), 'Крим');
+  assert.equal(uaKeyOf('Zaporizhzhia Oblast'), 'Запорізька');
+  assert.equal(uaKeyOf('Івано-Франківська область'), 'Івано-Франківська');
+});

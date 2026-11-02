@@ -4,6 +4,7 @@
 // Pure pdf-lib (works on the server): fonts come in as bytes (Noto Serif, with Cyrillic). Names above LUMEN never
 // appear — the analysis (src/lib/brief.js) gives only «засекречений проєкт N».
 import { PDFDocument, rgb } from 'pdf-lib';
+import { geoMercator, geoPath } from 'd3-geo';
 import fontkit from '@pdf-lib/fontkit';
 import { plainConclusions, gprPicture, alertTiles, heat } from './brief.js';
 
@@ -160,9 +161,37 @@ export async function briefPdf({ brief, insights: ins, ai = null, news = [], nam
       const max = Math.max(1, ...known.map((t) => t.h7));
       panel(352, (top) => {
         text('Повітряні тривоги за 7 днів', M + 16, top - 26, { size: 14 });
-        text('СХЕМА ОБЛАСТЕЙ · СУМАРНІ ГОДИНИ ОФІЦІЙНИХ ТРИВОГ', M + 16, top - 40, { size: 7.5, font: B, color: C.muted });
+        text(world.shapes?.length >= 20 ? 'ОБЛАСТІ УКРАЇНИ · СУМАРНІ ГОДИНИ ОФІЦІЙНИХ ТРИВОГ' : 'СХЕМА ОБЛАСТЕЙ · СУМАРНІ ГОДИНИ ОФІЦІЙНИХ ТРИВОГ', M + 16, top - 40, { size: 7.5, font: B, color: C.muted });
         const tw = (W - 32 - 7 * 6) / 8; const th = 44; const gx = M + 16; const gy = top - 60;
-        for (const t of tiles) {
+        // The real map when the oblasts' outlines are at hand (geoBoundaries); the tile scheme otherwise.
+        if (world.shapes?.length >= 20) {
+          // d3-geo wants the outer ring clockwise (the GeoJSON standard gives it the other way round), holes the other way.
+          const area = (r) => r.reduce((acc, p, i) => { const q = r[(i + 1) % r.length]; return acc + (p[0] * q[1] - q[0] * p[1]); }, 0);
+          const wind = (poly) => poly.map((r, i) => ((i === 0) === (area(r) > 0) ? [...r].reverse() : r));
+          const fc = { type: 'FeatureCollection', features: world.shapes.map((sh) => ({ type: 'Feature', properties: { key: sh.key }, geometry: { type: 'MultiPolygon', coordinates: sh.rings.map(wind) } })) };
+          const mw = W - 32; const mh = 250;
+          const proj = geoMercator().fitExtent([[0, 0], [mw, mh]], fc);
+          const path = geoPath(proj);
+          const ox = M + 16; const oy = top - 52; // the map's top-left corner (SVG paths run downward from it)
+          for (const f of fc.features) {
+            const t = tiles.find((x) => x.key === f.properties.key);
+            const d = path(f);
+            if (!d) continue;
+            const occ = t?.occupied; const a = t ? heat(t.h7, max) : 0;
+            page.drawSvgPath(d, { x: ox, y: oy, color: col(occ ? [0.9, 0.89, 0.87] : C.paper), borderColor: col([0.72, 0.7, 0.66]), borderWidth: 0.5 });
+            if (!occ && a) page.drawSvgPath(d, { x: ox, y: oy, color: col(C.crimson), opacity: a * 0.85, borderColor: col([1, 1, 1]), borderWidth: 0.4 });
+          }
+          // labels: the oblast's short name and hours at its centre
+          for (const f of fc.features) {
+            const t = tiles.find((x) => x.key === f.properties.key);
+            if (!t) continue;
+            const [cx, cy] = path.centroid(f);
+            if (!Number.isFinite(cx)) continue;
+            const light = !t.occupied && heat(t.h7, max) > 0.55;
+            const v = t.occupied ? 'окуп.' : t.h7 == null ? '' : `${Math.round(t.h7)}`;
+            if (v) text(v, ox + cx - width(v, 7.5, B) / 2, oy - cy - 3, { size: 7.5, font: B, color: light ? [1, 1, 1] : C.ink });
+          }
+        } else for (const t of tiles) {
           const x = gx + t.c * (tw + 6); const y = gy - t.r * (th + 6) - th;
           const a = heat(t.h7, max);
           if (t.occupied) {
@@ -180,7 +209,7 @@ export async function briefPdf({ brief, insights: ins, ai = null, news = [], nam
         const ly = top - 322;
         [0.15, 0.4, 0.7, 1].forEach((v, k) => { page.drawRectangle({ x: M + 16 + k * 22, y: ly, width: 20, height: 8, color: col(C.crimson), opacity: v * 0.9 }); });
         text(`менше – більше годин (найбільше: ${Math.round(max)} год)`, M + 16 + 4 * 22 + 6, ly + 1, { size: 7, color: C.muted });
-        text('Огляд минулого тижня, не прогноз. Дані alerts.in.ua. Тимчасово окуповані території — сірим.', M + 16, ly - 13, { size: 6.8, color: C.muted });
+        text(`Огляд минулого тижня, не прогноз. Дані alerts.in.ua${world.shapes?.length >= 20 ? '; межі областей — geoBoundaries (CC BY 4.0)' : ''}. Тимчасово окуповані території — сірим.`, M + 16, ly - 13, { size: 6.8, color: C.muted });
       });
       const topList = known.filter((t) => !t.occupied).sort((a, b) => b.h7 - a.h7).slice(0, 5);
       room(40);

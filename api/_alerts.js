@@ -6,6 +6,7 @@
 // one oblast at a time and the API limits how often, so each run (the brief's and the morning crons') refreshes the
 // oblasts read longest ago until it is told to wait or its time runs out; what it read is kept (pulse / alerts).
 import { env, db } from './_core.js';
+import { uaKeyOf } from '../src/lib/brief.js';
 
 const TOKEN = () => env.ALERTS_IN_UA_TOKEN || '';
 export const alertsOn = () => Boolean(TOKEN());
@@ -56,3 +57,27 @@ export async function refreshAlerts(budgetMs = 25000, now = Date.now()) {
   return doc;
 }
 export const readAlerts = read;
+
+// ── The oblasts' outlines for the brief's map ─────────────────────────────────────────────────────────────────
+// geoBoundaries (open, CC BY 4.0): Ukraine's first-level divisions, simplified. Fetched once and kept (pulse /
+// ua-adm1) in a light form: each oblast's key and its rings, the points rounded to 0.01°.
+const GB_API = 'https://www.geoboundaries.org/api/current/gbOpen/UKR/ADM1/';
+export async function uaShapes() {
+  const row = (await db('core_docs?kind=eq.pulse&id=eq.ua-adm1&select=doc').catch(() => []))[0]?.doc;
+  if (row?.shapes?.length >= 20) return row.shapes;
+  try {
+    const meta = await (await fetch(GB_API, { headers: { 'User-Agent': 'ReactionCore/1.0 (morning brief map)' }, signal: AbortSignal.timeout(10000) })).json();
+    const url = meta?.simplifiedGeometryGeoJSON || meta?.gjDownloadURL;
+    if (!url) return [];
+    const gj = await (await fetch(url, { headers: { 'User-Agent': 'ReactionCore/1.0 (morning brief map)' }, signal: AbortSignal.timeout(20000) })).json();
+    const round = (p) => [Math.round(p[0] * 100) / 100, Math.round(p[1] * 100) / 100];
+    const ring = (r) => r.map(round).filter((p, i, a) => !i || p[0] !== a[i - 1][0] || p[1] !== a[i - 1][1]);
+    const shapes = (gj.features || []).map((f) => {
+      const g = f.geometry || {};
+      const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+      return { key: uaKeyOf(f.properties?.shapeName || ''), rings: polys.map((poly) => poly.map(ring).filter((r) => r.length > 3)).filter((p) => p.length) };
+    }).filter((s) => s.key && s.rings.length);
+    if (shapes.length >= 20) await db('core_docs?on_conflict=kind,id', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: { kind: 'pulse', id: 'ua-adm1', doc: { id: 'ua-adm1', clearance: 0, shapes, source: 'geoBoundaries (CC BY 4.0)' } } }).catch(() => {});
+    return shapes;
+  } catch { return []; }
+}

@@ -315,6 +315,18 @@ export const UA_GRID = [
   ['Севастополь', 4, 4], ['Крим', 5, 4],
 ];
 const OCCUPIED = new Set(['Крим', 'Севастополь']); // temporarily occupied: no alerts data, shown apart
+// An oblast's key from its name in any spelling the sources use (Ukrainian, with «область»; English, with «Oblast»).
+const EN = [[/vinn/i, 'Вінницька'], [/volyn/i, 'Волинська'], [/dnipro/i, 'Дніпропетровська'], [/donet/i, 'Донецька'], [/zhyt|zhit/i, 'Житомирська'],
+  [/zakarp|transcarp/i, 'Закарпатська'], [/zapor/i, 'Запорізька'], [/ivano|frank/i, 'Івано-Франківська'], [/kirov|kropyv/i, 'Кіровоградська'], [/luhan|lugan/i, 'Луганська'],
+  [/lviv|lvov/i, 'Львівська'], [/mykol|nikol/i, 'Миколаївська'], [/odes/i, 'Одеська'], [/poltav/i, 'Полтавська'], [/rivn|rovn/i, 'Рівненська'], [/sumy|sumsk/i, 'Сумська'],
+  [/ternop/i, 'Тернопільська'], [/khark|kharkov/i, 'Харківська'], [/kherson/i, 'Херсонська'], [/khmel/i, 'Хмельницька'], [/cherkas/i, 'Черкаська'], [/chernivt|chernovt/i, 'Чернівецька'],
+  [/chernih|chernig/i, 'Чернігівська'], [/sevast/i, 'Севастополь'], [/crimea|krym/i, 'Крим']];
+export function uaKeyOf(name) {
+  const n = String(name || '');
+  if (/[а-яіїєґ]/i.test(n)) return keyOf(n);
+  if (/kyiv|kiev/i.test(n)) return /oblast|region|province/i.test(n) ? 'Київська' : 'Київ';
+  return EN.find(([re]) => re.test(n))?.[1] || '';
+}
 const keyOf = (name) => String(name || '').replace(/^м\.\s*|^місто\s*/i, '').replace(/\s*(область|обл\.?)$/i, '').replace(/^Автономна Республіка\s*/i, '').trim();
 /** Tiles with the oblasts' alert hours (7 days and 24 hours); null where no data was read. */
 export function alertTiles(alerts) {
@@ -350,18 +362,12 @@ export function worldHtml({ gpr, alerts } = {}) {
   const known = tiles.filter((t) => t.h7 != null);
   if (known.length) {
     const max = Math.max(1, ...known.map((t) => t.h7));
-    const rows = [0, 1, 2, 3, 4].map((r) => `<tr>${Array.from({ length: 8 }, (_, c) => {
-      const t = tiles.find((x) => x.r === r && x.c === c);
-      if (!t) return '<td style="width:12.5%;padding:2px"></td>';
-      const bg = t.occupied ? '#e4e1dc' : t.h7 == null ? '#f4f3f1' : mix(heat(t.h7, max));
-      const dark = !t.occupied && t.h7 != null && heat(t.h7, max) > 0.55;
-      return `<td style="width:12.5%;padding:2px"><div style="background:${bg};border:1px solid ${t.occupied ? '#cfcac2' : '#e2e0dc'};height:46px;padding:4px;font:10px/12px Georgia,serif;color:${dark ? '#fff' : '#333'}">${esc(t.key.slice(0, 10))}<br><b style="font-size:13px">${t.occupied ? 'окуп.' : t.h7 == null ? '—' : `${Math.round(t.h7)} год`}</b></div></td>`;
-    }).join('')}</tr>`).join('');
+    const barCell = (n, m) => `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%"><tr><td style="height:12px;width:${Math.max(2, Math.round((n / m) * 100))}%;background:${mix(heat(n, m))}"></td><td></td></tr></table>`;
     const top = [...known].filter((t) => !t.occupied).sort((a, b) => b.h7 - a.h7).slice(0, 3);
     out += head('Повітряні тривоги за 7 днів')
       + `<tr><td style="font:15px/22px Georgia,serif;color:#1a1a1a">Найдовше під тривогою: ${top.map((t) => `<b>${esc(t.key)}</b> (${Math.round(t.h7)} год)`).join(', ')}.</td></tr>`
-      + `<tr><td style="padding-top:6px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table></td></tr>`
-      + note('Схема областей, не карта. Насиченість — сумарні години офіційних повітряних тривог за тиждень (дані alerts.in.ua). Це огляд минулого тижня, а не прогноз; тимчасово окуповані території — сірим.');
+      + `<tr><td style="padding-top:6px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${[...known].filter((t) => !t.occupied).sort((a, b) => b.h7 - a.h7).slice(0, 8).map((t) => `<tr><td style="width:150px;font:13px Georgia,serif;color:#333;padding:2px 8px 2px 0">${esc(t.key)}</td><td style="padding:2px 0">${barCell(t.h7, max)}</td><td style="width:56px;text-align:right;font:12px Georgia,serif;color:#555">${Math.round(t.h7)} год</td></tr>`).join('')}</table></td></tr>`
+      + note('Сумарні години офіційних повітряних тривог за тиждень (дані alerts.in.ua) — огляд минулого, не прогноз. Карта областей — у PDF у вкладенні.');
   }
   return out;
 }

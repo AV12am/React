@@ -14,7 +14,7 @@
 // plus SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY. APP_URL is the link in the letter (optional).
 import Anthropic from '@anthropic-ai/sdk';
 import { briefPdf } from '../src/lib/briefPdf.js';
-import { refreshAlerts, readAlerts } from './_alerts.js';
+import { refreshAlerts, readAlerts, uaShapes } from './_alerts.js';
 import { buildBrief, briefHtml, briefText, buildInsights, insightsHtml, worldHtml, insightsText, insightsPrompt, readInsights } from '../src/lib/brief.js';
 import { env, json, db, caller, SB_URL, SERVICE } from './_core.js';
 import { sendPush, pushReady } from './_push.js';
@@ -82,7 +82,9 @@ async function worldOf(refresh) {
     db('core_docs?kind=eq.pulse&id=eq.gpr&select=doc').catch(() => []),
     refresh ? refreshAlerts(30000).catch(() => readAlerts()) : readAlerts(),
   ]);
-  return { gpr: gprRow?.[0]?.doc?.series || [], alerts };
+  // The oblasts' outlines only when there are alerts to show on them.
+  const shapes = Object.keys(alerts?.byOblast || {}).length ? await uaShapes() : [];
+  return { gpr: gprRow?.[0]?.doc?.series || [], alerts, shapes };
 }
 async function letter(m, data, now, news, appUrl, world = {}) {
   const b = briefFor(m, data, now);
