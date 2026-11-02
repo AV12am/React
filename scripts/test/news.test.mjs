@@ -585,10 +585,12 @@ test('the brief as a PDF: pages with charts, and no classified name in it', asyn
   assert.ok(!Buffer.from(bytes).toString('latin1').includes('TopSecretName'));
 });
 
-test('beside the night report, other air-defence tallies stay out of 2.1 and 2.2', async () => {
+test('air-defence tallies told apart: the day’s one stays beside the night report', async () => {
   const { airTally } = await import('../../src/lib/news.js');
   assert.ok(airTally({ title: 'ППО в неділю знешкодила 274 ударних дрони і всі "Бандеролі" – Повітряні сили' }));
   assert.ok(airTally({ title: 'ПВО за день сбила 47 украинских беспилотников' }));
   assert.ok(!airTally({ title: "Зеленський: Сили оборони уразили російські об'єкти ППО на $70 млн та ракетний завод" }));
   assert.ok(!airTally({ title: 'Группировка "Север" за ночь уничтожила 183 беспилотника' }));
+  assert.ok(airTally({ title: 'ПВО за день сбила 47 украинских беспилотников' }, true)); // the day's: stays
+  assert.ok(!airTally({ title: 'Повітряні сили ЗСУ знищили й подавили 154 ворожі БпЛА цієї ночі' }, true)); // the night's: a repeat of the lead
 });

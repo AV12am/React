@@ -545,11 +545,13 @@ const PERIOD = {
   ua: /за (жовт|листопад|груд|січ|лют|берез|квіт|трав|черв|лип|серп|верес|місяц|тижд|рік|добу|день)|упродовж (дня|доби|суботи|неділі|понеділка|вівторка|середи|четверга|п.ятниці)|протягом (дня|доби)|з початку|тисяч/i,
 };
 const NIGHT = { ru: /за ночь|ночью|в ночь|минувшей ночью|в течение ночи/i, ua: /за ніч|вночі|у ніч|в ніч|протягом ночі|минулої ночі/i };
-// Any air-defence tally — the night's, the day's, Sunday's («ППО в неділю знешкодила 274…», «ПВО за день сбила 47…»):
-// beside the night's report that opens 2.1 and 2.2 it only gives other numbers for another period, so it stays out.
+// An air-defence tally — the night's, the day's, Sunday's («ППО в неділю знешкодила 274…», «ПВО за день сбила 47…»).
+// With dayOnly: whether it is a tally of the day (which stays beside the night's report) rather than the night's own.
 // A strike on air-defence systems («уразили об'єкти ППО на $70 млн») is news, not a tally.
-export const airTally = (x) => {
+export const airTally = (x, dayOnly = false) => {
   const t = String(x?.title || '');
+  // dayOnly: a tally of the day or of a named weekday (not the night's report).
+  if (dayOnly) return /за день|за сутки|в течение дня|протягом дня|за добу|упродовж дня|в (неділю|суботу|понеділок|вівторок|середу|четвер|п.ятницю)|у (неділю|суботу|понеділок|вівторок|середу|четвер|п.ятницю)/i.test(t);
   if (!/\d{2,}/.test(t) || /об.єкт\S* ППО|систем\S* ППО|комплекс|уразил|уражен|Зеленськ/i.test(t)) return false;
   const ua = /(ППО|Повітрян\S* сил|протиповітрян)/i.test(t) && /(збил|збито|знешкод|подавл|перехоп|знищ)/i.test(t) && /(дрон|БпЛА|БПЛА|безпілот|ракет|цілей|Бандерол)/i.test(t);
   const ru = /(ПВО|средства ПВО|дежурн|над (регион|территори|Росси))/i.test(t) && /(сбил|сбит|перехвач|уничтож)/i.test(t) && /(беспилотн|БПЛА|дрон|ракет)/i.test(t) && !/группировк/i.test(t);
