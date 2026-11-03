@@ -266,6 +266,30 @@ async function openverseImage(q) {
   } catch { return null; }
 }
 
+// GDELT: the world's news of the last two days, searched by words — a fresh photo of this very event from another
+// newsroom (its page's own picture), where the feeds and the archives gave none. GDELT answers one question in five
+// seconds, so the questions of one making wait their turn, and only the first few are asked.
+const GDELT_DOC = 'https://api.gdeltproject.org/api/v2/doc/doc';
+let gdeltNext = 0;
+let gdeltAsked = 0;
+export const resetGdelt = () => { gdeltAsked = 0; };
+async function gdeltImages(q) {
+  if (!q || gdeltAsked >= 8) return [];
+  gdeltAsked++;
+  const wait = Math.max(0, gdeltNext - Date.now());
+  gdeltNext = Math.max(Date.now(), gdeltNext) + 5200;
+  if (wait) await new Promise((r) => setTimeout(r, wait));
+  if (left() < 20000) return [];
+  try {
+    const u = `${GDELT_DOC}?${new URLSearchParams({ query: q, mode: 'artlist', format: 'json', timespan: '2d', maxrecords: '10', sort: 'datedesc' })}`;
+    const res = await get(u, 8000, 'application/json');
+    const j = JSON.parse(await res.text());
+    const words = q.toLowerCase().split(/[^\p{L}\d]+/u).filter((w) => w.length >= 4);
+    const named = (t) => { const n = String(t || '').toLowerCase(); return words.filter((w) => n.includes(w.slice(0, Math.max(4, w.length - 2)))).length >= Math.min(2, words.length); };
+    return (j?.articles || []).filter((a) => /^https:\/\//.test(a.socialimage || '') && named(a.title) && !/logo|placeholder|default|favicon|sprite/i.test(a.socialimage)).map((a) => a.socialimage).slice(0, 3);
+  } catch { return []; }
+}
+
 const COMMON_CAPS = /^(The|This|That|These|According|After|Before|During|Ukraine’s|Russia’s|January|February|March|April|May|June|July|August|September|October|November|December|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|President|Minister|Deputy|Office|Head|Leader|Supreme|Separate|Express|Federation|General|Staff|Defence|Forces|Ministry|Foreign|Republic)$/;
 // A picture's bytes, only when it is one (and small enough to pass on).
 async function fetchImage(u) {
@@ -337,6 +361,7 @@ function roundRobin(lists) {
 export async function makeIssue(now = Date.now()) {
   const started = Date.now(); // the whole making must end within the function's 120 s
   resetNeurons();
+  resetGdelt();
   setDeadline(started + 105 * 1000);
   const own = SECTIONS.filter((s) => !s.key);
   const urls = [...new Set(own.flatMap((s) => s.feeds))];
@@ -522,6 +547,8 @@ export async function makeIssue(now = Date.now()) {
   };
   async function* candidates(x, k, i) {
     for (const u of sameEventPictures(x)) yield { image: u, imageFrom: 'event' };
+    // A fresh photo of the event from the world's news before any archive photo of its subject.
+    for (const u of await gdeltImages(queries(x, k, i)[0])) yield { image: u, imageFrom: 'fresh' };
     for (const q of queries(x, k, i)) {
       const o = await openverseImage(q);
       if (o) yield { image: o.url, imageFrom: 'openverse', imageCredit: o.credit };
