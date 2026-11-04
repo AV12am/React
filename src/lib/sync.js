@@ -12,7 +12,7 @@
 //     row-level security) is reverted by the next pull, and onError reports it.
 //   · The audit log is append-only: entries are added, never pushed as deletions.
 
-export const SHARED_KINDS = ['users', 'records', 'requests', 'audit', 'comments', 'tasks'];
+export const SHARED_KINDS = ['users', 'records', 'requests', 'audit', 'comments', 'tasks', 'boards'];
 
 const json = (d) => JSON.stringify(d);
 

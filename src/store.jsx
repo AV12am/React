@@ -22,6 +22,7 @@ const initial = () => ({
   records: [], // division workspaces (src/data/workspaces.js)
   comments: [], // discussion on records: { id, target, text, author, at, mentions[], clearance }
   tasks: [], // { id, title, assignee, due, status: open|done, target?, author, at, updated, clearance }
+  boards: [], // SITUATION dashboards (src/lib/situation.js): { id, name, owner, shared, clearance, filters, widgets[] }
   seen: {},
   audit: SEED_AUDIT,
   settings: { theme: 'matte', sensitive: true, lockMinutes: 0, hideLock: -1, lockV: 3 },
@@ -286,6 +287,15 @@ function reducer(state, a) {
       if (!t) return state;
       return withAudit({ ...state, tasks: state.tasks.filter((x) => x.id !== a.id) }, me, 'work', `Видалено завдання «${t.title}»`, t.clearance);
     }
+    case 'board/add':
+      return withAudit({ ...state, boards: [...(state.boards || []), a.board] }, me, 'work', `SITUATION: створено дашборд «${a.board.name}»`, a.board.clearance);
+    case 'board/update':
+      return { ...state, boards: (state.boards || []).map((b) => (b.id === a.id ? { ...b, ...a.patch, updated: new Date().toISOString() } : b)) };
+    case 'board/delete': {
+      const b = (state.boards || []).find((x) => x.id === a.id);
+      if (!b) return state;
+      return withAudit({ ...state, boards: state.boards.filter((x) => x.id !== a.id) }, me, 'work', `SITUATION: видалено дашборд «${b.name}»`, b.clearance);
+    }
     case 'map/log':
       return withAudit(state, me, 'map', a.text);
     case 'seen':
@@ -300,6 +310,7 @@ function reducer(state, a) {
       const items = a.kind === 'records' ? [...a.items].sort(by('updated'))
         : a.kind === 'requests' ? [...a.items].sort(by('at'))
           : a.kind === 'tasks' ? [...a.items].sort(by('updated'))
+          : a.kind === 'boards' ? [...a.items].sort((x, y) => String(x.at).localeCompare(String(y.at)))
           : a.kind === 'comments' ? [...a.items].sort((x, y) => String(x.at).localeCompare(String(y.at)))
           : a.kind === 'audit' ? [...a.items].sort(by('at')).slice(0, 500)
             : a.items;
@@ -383,7 +394,7 @@ export function StoreProvider({ children }) {
     });
     return () => { live = false; engine?.stop(); syncRef.current = null; };
   }, [backend, loggedIn, sbSession, verified]);
-  useEffect(() => { syncRef.current?.changed(); }, [state.users, state.records, state.requests, state.audit, state.comments, state.tasks]);
+  useEffect(() => { syncRef.current?.changed(); }, [state.users, state.records, state.requests, state.audit, state.comments, state.tasks, state.boards]);
 
   // A request I have just made reaches those who decide it on their phones too (api/push.js).
   const knownReq = useRef(null);
