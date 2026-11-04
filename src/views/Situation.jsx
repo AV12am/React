@@ -6,19 +6,26 @@ import { useStore, fmtAgo } from '../store.jsx';
 import { Panel, Trend, Avatar, Drawer, InfoTip, ClassBadge } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { Pulse } from '../components/Pulse.jsx';
+import { Spark, Columns, Lines, Donut, Heat, Gauge, SERIES } from '../components/charts.jsx';
 import { ask } from '../components/Dialog.jsx';
 import { LEVELS } from '../data/clearance.js';
 import { VISIBLE_DIVISIONS } from '../data/seed.js';
 import { METRICS, TEMPLATES, PERIODS, newBoard, boardsFor, scope, compute, addWidget, moveWidget, placeWidget, resizeWidget, removeWidget } from '../lib/situation.js';
 
-const KIND_LABEL = { kpi: 'Показник', line: 'Динаміка', bars: 'Порівняння', table: 'Таблиця', feed: 'Стрічка', pulse: 'Індекс', news: 'Новини' };
+const KIND_LABEL = { kpi: 'Показник', columns: 'Стовпчики', lines: 'Лінії', line: 'Динаміка', donut: 'Частки', gauge: 'Шкала', heat: 'Теплова карта', bars: 'Порівняння', table: 'Таблиця', feed: 'Стрічка', pulse: 'Індекс', news: 'Новини' };
 
+// A KPI card as the BI platforms draw it: the number, its change with an arrow, the last twelve weeks.
 function Kpi({ v }) {
+  const bad = v.bad && v.value;
   return (
     <div className="sit-kpi">
-      <div className={`sit-kpi__value vx-num ${v.bad && v.value ? 'is-bad' : ''}`}>{v.value}</div>
-      {v.delta != null && <div className={`sit-kpi__delta vx-num ${v.delta > 0 ? 'is-up' : v.delta < 0 ? 'is-down' : ''}`}>{v.delta > 0 ? '+' : ''}{v.delta} до попереднього періоду</div>}
-      {v.note && <div className="vx-hint">{v.note}</div>}
+      <div className="sit-kpi__row">
+        <div className={`sit-kpi__value vx-num ${bad ? 'is-bad' : ''}`}>{v.value}</div>
+        {v.delta != null && <span className={`sit-delta vx-num ${v.delta > 0 ? 'is-up' : v.delta < 0 ? 'is-down' : ''}`}>{v.delta > 0 ? '▲' : v.delta < 0 ? '▼' : '■'} {v.delta > 0 ? '+' : ''}{v.delta}</span>}
+        {bad ? <span className="sit-delta is-bad">▲ потребує уваги</span> : null}
+      </div>
+      {v.spark && <Spark data={v.spark} color={bad ? 'var(--sit-critical)' : 'var(--sit-c1)'} />}
+      <div className="vx-hint sit-kpi__note">{v.note || (v.delta != null ? 'до попереднього періоду' : '12 тижнів')}</div>
     </div>
   );
 }
@@ -31,7 +38,7 @@ function Bars({ v, active, onPick }) {
       {v.rows.map((r) => (
         <button type="button" key={r.id} className={`sit-bar ${active === r.id ? 'is-active' : ''}`} onClick={onPick ? () => onPick(r.id) : undefined} disabled={!onPick}>
           <span className="sit-bar__label">{r.label}</span>
-          <span className="sit-bar__track"><span style={{ width: `${(r.value / max) * 100}%` }} /></span>
+          <span className="sit-bar__track"><span style={{ width: `${(r.value / max) * 100}%`, background: r.color || 'var(--sit-c1)' }} /></span>
           <span className="sit-bar__value vx-num">{r.value}</span>
         </button>
       ))}
@@ -126,9 +133,15 @@ function Widget({ wg, data, edit, filters, setFilter, open, go, board, save, dra
   } : {};
   const cls = `sit-widget sit-w${wg.w} ${edit ? 'is-edit' : ''} ${drag === wg.id ? 'is-drag' : ''}`;
   if (m.kind === 'pulse') return <div className={cls} {...dnd}>{controls}<Pulse go={go} /></div>;
+  const divColor = (rows) => rows.map((r) => ({ ...r, color: SERIES[VISIBLE_DIVISIONS.findIndex((d) => d.id === r.id)] }));
   const body = m.kind === 'kpi' ? <Kpi v={v} />
     : m.kind === 'line' ? <Trend data={v.data} labels={v.labels} height={180} />
-      : m.kind === 'bars' ? <Bars v={v} active={m.filters === 'div' ? filters.div : null} onPick={m.filters === 'div' ? (id) => setFilter({ div: filters.div === id ? '' : id }) : null} />
+      : m.kind === 'columns' ? <Columns labels={v.labels} series={v.series} unit="записів" />
+      : m.kind === 'lines' ? <Lines labels={v.labels} series={v.series} />
+      : m.kind === 'donut' ? <Donut rows={v.rows} />
+      : m.kind === 'gauge' ? (v.empty ? <div className="vx-hint">Завдань із терміном у періоді немає.</div> : <><Gauge value={v.value} label={m.label} /><div className="vx-hint sit-center">{v.note}</div></>)
+      : m.kind === 'heat' ? <Heat cells={v.cells} unit="дій" />
+      : m.kind === 'bars' ? <Bars v={m.filters === 'div' ? { rows: divColor(v.rows) } : v} active={m.filters === 'div' ? filters.div : null} onPick={m.filters === 'div' ? (id) => setFilter({ div: filters.div === id ? '' : id }) : null} />
         : m.kind === 'table' ? <Table v={v} open={open} />
           : m.kind === 'feed' ? <Feed v={v} />
             : m.kind === 'news' ? <News /> : null;
@@ -228,7 +241,7 @@ export function Situation({ focus, go }) {
     <div className="page sit" ref={box}>
       <header className="page__head">
         <div>
-          <div className="vx-eyebrow">SITUATION · дашборди</div>
+          <div className="vx-eyebrow">SITUATION · дашборди · оновлено {new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}</div>
           {edit && mine
             ? <input className="vx-input sit-name" value={board.name} onChange={(e) => patch({ name: e.target.value })} aria-label="Назва дашборда" />
             : <h1 className="vx-h1">{board.name}</h1>}
@@ -263,6 +276,7 @@ export function Situation({ focus, go }) {
           </select>
           <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => patch({ filters })}>Зберегти фільтри</button>
           <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => setAdding(true)}><Icon name="plus" size={14} /> Віджет</button>
+          {TEMPLATES.find((t) => t.id === board.template)?.widgets().length > 0 && <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={async () => { if (await ask('Віджети дашборда заміняться віджетами шаблону в його нинішньому вигляді.', { title: 'Оновити за шаблоном?', ok: 'Оновити' })) save({ ...board, widgets: TEMPLATES.find((t) => t.id === board.template).widgets() }); }}><Icon name="refresh" size={14} /> За шаблоном</button>}
           <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={remove}><Icon name="trash" size={14} /> Видалити</button>
         </>}
         {!edit && <span className="vx-hint">{board.shared ? 'Спільний' : 'Особистий'} · <ClassBadge level={board.clearance ?? 0} /> <InfoTip end>Числа пораховано з даних, які ви бачите за своїм допуском. Натисніть стовпчик напряму — увесь дашборд відфільтрується.</InfoTip></span>}

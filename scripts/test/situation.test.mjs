@@ -33,7 +33,8 @@ test('every template builds widgets the catalog knows', () => {
 test('numbers come only from what the person may see, within the period', () => {
   const s = scope(state, me, { days: 30 }, NOW);
   assert.equal(compute('records.total', s).value, 3); // r4 is above the clearance
-  assert.deepEqual(compute('records.new', s), { value: 2, delta: 1, note: 'попередній період: 1' }); // r2 is 40 days old: the period before
+  assert.deepEqual({ ...compute('records.new', s), spark: undefined }, { value: 2, delta: 1, note: 'попередній період: 1', spark: undefined });
+  assert.equal(compute('records.new', s).spark.length, 12); // r2 is 40 days old: the period before
   assert.equal(compute('tasks.open', s).value, 2);
   assert.equal(compute('tasks.overdue', s).value, 1);
   assert.equal(compute('tasks.done', s).value, 1);
@@ -67,4 +68,18 @@ test('widgets are moved, placed, resized and removed', () => {
 test('a person sees their own dashboards and the shared ones within their clearance', () => {
   const boards = [{ id: 'b1', owner: 'u1', at: '1' }, { id: 'b2', owner: 'u2', shared: true, at: '2' }, { id: 'b3', owner: 'u2', at: '3' }, { id: 'b4', owner: 'u2', shared: true, clearance: 2, at: '4' }];
   assert.deepEqual(boardsFor(boards, me).map((b) => b.id), ['b1', 'b2']);
+});
+
+test('the BI charts get their shapes: stacked columns by division, three lines, task states, on-time share, a weekday × hour map', () => {
+  const s = scope(state, me, { days: 30 }, NOW);
+  const cols = compute('records.byWeekDiv', s);
+  assert.equal(cols.labels.length, 12);
+  assert.ok(cols.series.find((x) => x.label === 'Проєкти'));
+  assert.equal(compute('work.lines', s).series.length, 3);
+  assert.deepEqual(compute('tasks.status', s).rows.map((r) => r.value), [1, 1, 0, 1]);
+  const rate = compute('tasks.rate', s);
+  assert.equal(rate.value, 0); // t1 was due on Nov 1 and is still open
+  const heat = compute('audit.heat', s).cells;
+  assert.equal(heat.length, 7);
+  assert.equal(heat.flat().reduce((a, b) => a + b, 0), 1);
 });

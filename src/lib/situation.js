@@ -23,6 +23,12 @@ export const METRICS = {
   'forecasts.open': { kind: 'kpi', label: 'Відкриті прогнози', about: 'Прогнози, результат яких ще не перевірено.' },
   'users.active': { kind: 'kpi', label: 'Активні люди', about: 'Облікові записи зі статусом «активний».' },
   'audit.events': { kind: 'kpi', label: 'Дії на платформі', about: 'Записи журналу аудиту за період.' },
+  'records.byWeekDiv': { kind: 'columns', label: 'Нові записи за тижнями й напрямами', about: 'Стовпчик — тиждень, колір — напрям. Наведіть, щоб побачити розклад.' },
+  'work.lines': { kind: 'lines', label: 'Робота за тижнями', about: 'Нові записи, поставлені й виконані завдання щотижня — на одній шкалі.' },
+  'projects.donut': { kind: 'donut', label: 'Проєкти за станом', about: 'Частка проєктів у кожному стані.' },
+  'tasks.status': { kind: 'donut', label: 'Завдання за станом', about: 'Відкриті вчасно, прострочені, без терміну та виконані за період.' },
+  'tasks.rate': { kind: 'gauge', label: 'Виконання вчасно', about: 'Частка завдань із терміном у періоді, виконаних не пізніше терміну. Ціль — 80%.' },
+  'audit.heat': { kind: 'heat', label: 'Коли працюємо', about: 'Дії на платформі за днями тижня й годинами (за київським часом) за період.' },
   'records.byWeek': { kind: 'line', label: 'Нові записи за тижнями', about: 'Скільки записів додано щотижня.' },
   'tasks.doneByWeek': { kind: 'line', label: 'Виконані завдання за тижнями', about: 'Скільки завдань виконано щотижня.' },
   'audit.byWeek': { kind: 'line', label: 'Активність за тижнями', about: 'Записи журналу аудиту щотижня.' },
@@ -46,16 +52,17 @@ export const TEMPLATES = [
   {
     id: 'exec', name: 'Огляд керівника', about: 'Ключові показники зі зміною за період, тренд, напрями, найближчі терміни.',
     widgets: () => [w('records.new', 3), w('tasks.open', 3), w('tasks.overdue', 3), w('projects.active', 3),
-      w('records.byWeek', 6), w('records.byDivision', 6), w('tasks.upcoming', 6), w('audit.recent', 6)],
+      w('records.byWeekDiv', 8), w('tasks.status', 4), w('work.lines', 6), w('records.byDivision', 6),
+      w('audit.heat', 8), w('tasks.rate', 4), w('tasks.upcoming', 6), w('audit.recent', 6)],
   },
   {
     id: 'projects', name: 'Проєкти й завдання', about: 'Стан проєктів, навантаження людей, прострочене й найближче.',
     widgets: () => [w('projects.active', 3), w('tasks.open', 3), w('tasks.overdue', 3), w('tasks.done', 3),
-      w('projects.byState', 6), w('tasks.byAssignee', 6), w('projects.list', 12), w('tasks.doneByWeek', 6), w('tasks.upcoming', 6)],
+      w('projects.donut', 4), w('tasks.byAssignee', 4), w('tasks.rate', 4), w('projects.list', 12), w('work.lines', 6), w('tasks.upcoming', 6)],
   },
   {
     id: 'situation', name: 'Обстановка', about: 'Геополітичний ризик, ключові новини доби, свіжі записи й прогнози.',
-    widgets: () => [w('pulse.gpr', 12), w('news.key', 6), w('records.recent', 6), w('forecasts.open', 3), w('records.new', 3), w('audit.events', 3), w('records.total', 3)],
+    widgets: () => [w('forecasts.open', 3), w('records.new', 3), w('audit.events', 3), w('records.total', 3), w('pulse.gpr', 12), w('news.key', 6), w('records.recent', 6), w('records.byWeekDiv', 8), w('audit.heat', 4)],
   },
   { id: 'blank', name: 'Порожній дашборд', about: 'Почніть з чистої сітки й додайте віджети самі.', widgets: () => [] },
 ];
@@ -67,7 +74,7 @@ export function newBoard(templateId, me, name) {
   return { id: `bd-${Date.now().toString(36)}${(n++).toString(36)}`, name: name || tpl.name, template: tpl.id, owner: me.id, shared: false, clearance: 0,
     filters: { days: 30, div: '' }, widgets: tpl.widgets(), at: now, updated: now };
 }
-export const addWidget = (board, metric) => ({ ...board, widgets: [...board.widgets, w(metric, METRICS[metric]?.kind === 'kpi' ? 3 : 6)] });
+export const addWidget = (board, metric) => ({ ...board, widgets: [...board.widgets, w(metric, { kpi: 3, donut: 4, gauge: 4, pulse: 12 }[METRICS[metric]?.kind] || 6)] });
 
 /** The dashboards a person sees: their own, and the shared ones within their clearance. */
 export const boardsFor = (boards, me) => (boards || []).filter((b) => (b.clearance ?? 0) <= me.clearance && (b.owner === me.id || b.shared))
@@ -119,7 +126,22 @@ const today = (now) => new Date(now).toISOString().slice(0, 10);
 const doneAt = (x) => t(x.done || (x.status === 'done' ? x.updated : ''));
 
 /** One widget's numbers. → kpi { value, delta?, note? } · line { data, labels } · bars { rows:[{id,label,value}] } · table { cols, rows:[{id, cells, to?}] } · feed { rows }. */
+/** One widget's numbers, with the last twelve weeks under a KPI that has them. */
 export function compute(metric, s) {
+  const v = count(metric, s);
+  const spark = SPARK[metric];
+  return v && spark ? { ...v, spark: weekly(spark.items(s), spark.at, s.now).data } : v;
+}
+const SPARK = {
+  'records.new': { items: (s) => s.records, at: (r) => t(r.at) },
+  'records.total': { items: (s) => s.records, at: (r) => t(r.at) },
+  'tasks.open': { items: (s) => s.tasks, at: (x) => t(x.at) },
+  'tasks.overdue': { items: (s) => s.tasks.filter((x) => x.status !== 'done' && x.due), at: (x) => t(`${x.due}T12:00:00Z`) },
+  'tasks.done': { items: (s) => s.tasks.filter((x) => x.status === 'done'), at: (x) => doneAt(x) },
+  'audit.events': { items: (s) => s.audit, at: (e) => t(e.at) },
+  'forecasts.open': { items: (s) => s.records.filter((r) => r.outcome), at: (r) => t(r.at) },
+};
+function count(metric, s) {
   const inPeriod = (v) => v > s.from && v <= s.now;
   const inPrev = (v) => v > s.from - s.days * DAY && v <= s.from;
   const open = s.tasks.filter((x) => x.status !== 'done');
@@ -144,6 +166,47 @@ export function compute(metric, s) {
     case 'users.active': return { value: s.users.filter((u) => u.status === 'active').length };
     case 'audit.events': return { value: s.audit.filter((e) => inPeriod(t(e.at))).length };
     case 'records.byWeek': return weekly(s.records, (r) => t(r.at), s.now);
+    case 'records.byWeekDiv': {
+      const labels = weekly([], () => 0, s.now).labels;
+      const divs = VISIBLE_DIVISIONS.filter((d) => !s.div || d.id === s.div);
+      return { labels, series: divs.map((d) => ({ label: d.name, data: weekly(s.records.filter((r) => r.div === d.id), (r) => t(r.at), s.now).data })) };
+    }
+    case 'work.lines': {
+      const a = weekly(s.records, (r) => t(r.at), s.now);
+      return { labels: a.labels, series: [
+        { label: 'Нові записи', data: a.data },
+        { label: 'Поставлено завдань', data: weekly(s.tasks, (x) => t(x.at), s.now).data },
+        { label: 'Виконано завдань', data: weekly(s.tasks.filter((x) => x.status === 'done'), doneAt, s.now).data },
+      ] };
+    }
+    case 'projects.donut': {
+      const states = registerOf('prj', 'projects')?.fields.find((f) => f.id === 'state')?.options || [];
+      return { rows: states.map((st) => ({ id: st, label: st, value: projects.filter((r) => r.state === st).length })) };
+    }
+    case 'tasks.status': {
+      const day = today(s.now);
+      return { rows: [
+        { id: 'ontime', label: 'Відкриті вчасно', value: open.filter((x) => x.due && x.due >= day).length },
+        { id: 'late', label: 'Прострочені', value: open.filter((x) => x.due && x.due < day).length },
+        { id: 'nodue', label: 'Без терміну', value: open.filter((x) => !x.due).length },
+        { id: 'done', label: 'Виконані за період', value: s.tasks.filter((x) => x.status === 'done' && inPeriod(doneAt(x))).length },
+      ] };
+    }
+    case 'tasks.rate': {
+      const due = s.tasks.filter((x) => x.due && inPeriod(t(`${x.due}T23:59:59Z`)) && t(`${x.due}T23:59:59Z`) <= s.now);
+      const ok = due.filter((x) => x.status === 'done' && doneAt(x) <= t(`${x.due}T23:59:59Z`)).length;
+      return { value: due.length ? (ok / due.length) * 100 : 0, note: `${ok} з ${due.length} завдань із терміном у періоді`, empty: !due.length };
+    }
+    case 'audit.heat': {
+      const cells = Array.from({ length: 7 }, () => Array(24).fill(0));
+      for (const e of s.audit) {
+        const v = t(e.at);
+        if (!inPeriod(v)) continue;
+        const k = new Date(v + 2 * 3600e3); // Kyiv, near enough for a heat map (winter time)
+        cells[(k.getUTCDay() + 6) % 7][k.getUTCHours()]++;
+      }
+      return { cells };
+    }
     case 'tasks.doneByWeek': return weekly(s.tasks.filter((x) => x.status === 'done'), doneAt, s.now);
     case 'audit.byWeek': return weekly(s.audit, (e) => t(e.at), s.now);
     case 'records.byDivision': {
