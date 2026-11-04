@@ -207,8 +207,8 @@ function Visual({ kind, v, label = '', filters = {}, setFilter, divFilter = fals
     case 'donut': return <Donut rows={v.rows} onPick={onPick ? (id) => onPick(id, v.rows.find((r) => r.id === id)?.label) : undefined} />;
     case 'slicer': return <Slicer v={v} sel={filters.sel} onPick={onPick || (() => {})} />;
     case 'card': return v.items?.length ? (
-      <dl className="sit-card">{v.items.map((x) => <div key={x.label}><dt>{x.label}</dt><dd>{/^https?:\/\//.test(x.value) ? <a href={x.value} target="_blank" rel="noopener noreferrer">{x.value.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40)}</a> : x.value}</dd></div>)}
-        {v.url && <div><dt>Джерело</dt><dd><a href={v.url} target="_blank" rel="noopener noreferrer">реєстр (Opendatabot)</a></dd></div>}</dl>
+      <dl className="sit-card">{v.outside && <div className="sit-card__note vx-hint">{v.note}</div>}{v.items.map((x) => <div key={x.label}><dt>{x.label}</dt><dd>{/^https?:\/\//.test(x.value) ? <a href={x.value} target="_blank" rel="noopener noreferrer">{x.value.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40)}</a> : x.value}</dd></div>)}
+        {v.url && <div><dt>{v.outside ? 'Реєстр' : 'Джерело'}</dt><dd><a href={v.url} target="_blank" rel="noopener noreferrer">{v.outside ? 'відкрити в Opendatabot' : 'реєстр (Opendatabot)'}</a></dd></div>}</dl>
     ) : <div className="vx-hint">{v.note || 'Немає даних.'}</div>;
     case 'gauge': return v.empty ? <div className="vx-hint">Завдань із терміном у періоді немає.</div> : <><Gauge value={v.value} label={label} /><div className="vx-hint sit-center">{v.note}</div></>;
     case 'heat': return <Heat cells={v.cells} unit="дій" />;

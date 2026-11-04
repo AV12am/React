@@ -177,3 +177,19 @@ test('the world’s media about a subject: GDELT asked once, kept six hours; a �
   const busy = async () => new Response('Please limit requests to one every 5 seconds', { status: 429 });
   await assert.rejects(() => subjectMedia('vol', '"Poland"', Date.now(), busy), (e) => e.status === 429);
 });
+
+test('a company outside the register: its own card from what was entered, no other company’s data, peers once a sector is given', async () => {
+  const { subjectBoard } = await import('../../src/lib/situation.js');
+  const { resolveCfg, computeCustom } = await import('../../src/lib/situation-custom.js');
+  const b = subjectBoard({ kind: 'company', label: 'ТОВ «Ромашка»', code: '12345678', sector: '', q: '"Romashka"' }, me);
+  const at = (title) => computeCustom(resolveCfg(b.widgets.find((x) => x.title === title).cfg, b.subject), state, me, { days: 30 }, NOW);
+  const card = at('Картка компанії');
+  assert.equal(card.outside, true);
+  assert.deepEqual(card.items.map((x) => x.value), ['ТОВ «Ромашка»', '12345678']);
+  assert.equal(card.url, 'https://opendatabot.ua/c/12345678');
+  assert.equal(at('Конкуренти в галузі').empty, true); // not all 200 companies
+  assert.equal(at('Компанії тієї ж галузі за містами').empty, true);
+  const withSector = subjectBoard({ ...b.subject, sector: 'Банки' }, me);
+  const rivals = computeCustom(resolveCfg(withSector.widgets.find((x) => x.title === 'Конкуренти в галузі').cfg, withSector.subject), state, me, { days: 30 }, NOW);
+  assert.ok(rivals.rows.length > 5 && rivals.rows.every((r) => r.cells.includes('Банки')));
+});

@@ -99,6 +99,7 @@ export function defaultCfg(source, state) {
 export function rowsOf(source, state, me, filters = {}, cfg = { source }) {
   let rows = baseRows(source, state, me, filters, cfg);
   // A widget bound to its subject: only the rows whose field has the subject's value (a sector, a code, a name).
+  if (cfg.match?.field && !cfg.match.value) return []; // the subject lacks that field: no rows rather than all of them
   if (cfg.match?.field && cfg.match.value) {
     const v = String(cfg.match.value).toLowerCase();
     rows = rows.filter((r) => { const x = String(r[cfg.match.field] ?? '').toLowerCase(); return cfg.match.exact ? x === v : x.includes(v); });
@@ -176,6 +177,8 @@ export function computeCustom(cfg, state, me, filters = {}, now = Date.now()) {
   const byWeek = (rs) => Array.from({ length: n }, (_, i) => { const [lo, hi] = span(i); return measureOf(rs.filter((r) => { const v = at(r); return v >= lo && v < hi; }), cfg); });
   const inPeriod = (r) => !time || cfg.span === 'all' || (at(r) > from && at(r) <= now);
 
+  // Bound to a field the subject does not have (a company outside the register: no sector): nothing, and why.
+  if (cfg.match?.field && !cfg.match.value && cfg.visual !== 'card') return { empty: true, note: cfg.match.field === 'sector' ? 'Вкажіть галузь об’єкта («Змінити об’єкт»), щоб побачити компанії галузі.' : 'Об’єкту бракує даних для цього віджета («Змінити об’єкт»).' };
   if (!rows.length && EXTERNAL[cfg.source] && cfg.visual !== 'card') return { empty: true, note: 'Даних від джерела ще немає (воно відповідає за кілька секунд або не знайшло нічого за запитом).' };
   switch (cfg.visual) {
     case 'kpi': {
@@ -222,7 +225,12 @@ export function computeCustom(cfg, state, me, filters = {}, now = Date.now()) {
     }
     case 'card': {
       const r = rows[0];
-      if (!r) return { items: [], note: 'Немає даних про об’єкт у джерелі.' };
+      // Not in the register of leading companies: what is known of it (the name, the code, the sector) and where to read the rest.
+      if (!r) {
+        const items = Object.entries(cfg.fallback || {}).filter(([, v]) => v).map(([label, value]) => ({ label, value }));
+        const code = cfg.fallback?.['ЄДРПОУ'];
+        return { items, url: code ? `https://opendatabot.ua/c/${code}` : '', note: 'Компанії немає в довіднику 200 провідних. Повні дані — в реєстрі за кодом ЄДРПОУ.', outside: true };
+      }
       return { items: fields.filter((f) => r[f.id] != null && r[f.id] !== '').map((f) => ({ label: f.label, value: labelOf(f, r[f.id], state) })), url: r.url || r.source || '' };
     }
     case 'slicer': {

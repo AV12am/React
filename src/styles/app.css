@@ -1177,3 +1177,4 @@ kbd {
 .sit-card dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
 .sit-card a { color: var(--sit-c1); }
 .sit-template .vx-eyebrow { margin-bottom: 2px; }
+.sit-card > .sit-card__note { display: block; margin-bottom: 4px; }

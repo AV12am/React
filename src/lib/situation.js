@@ -110,7 +110,7 @@ export const SUBJECTS = [
     ] },
   { kind: 'company', name: 'Перевірка контрагента', what: 'Компанія', about: 'Картка з відкритих даних, згадки й тон у світових медіа, статті, ваші знахідки й записи про компанію, конкуренти в галузі.',
     widgets: () => [
-      c('Картка компанії', 4, { source: 'ext:orgs', visual: 'card', match: { field: 'code', value: '$code', exact: true } }),
+      c('Картка компанії', 4, { source: 'ext:orgs', visual: 'card', match: { field: 'code', value: '$code', exact: true }, fallback: { 'Компанія': '$name', 'ЄДРПОУ': '$code', 'Галузь': '$sector' } }),
       c('Увага медіа', 8, media('vol', 'lines')),
       c('Статті тижня', 8, media('arts', 'table', { measure: 'count', field: '', time: '' })), c('Тон публікацій', 4, media('tone', 'kpi', { span: 'all' })),
       c('Ваші записи про компанію', 6, { source: 'records', visual: 'table', match: { field: 'name', value: '$name' } }),
