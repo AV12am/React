@@ -61,7 +61,7 @@ function Table({ v, open }) {
         <thead><tr>{v.cols.map((c) => <th key={c}>{c}</th>)}</tr></thead>
         <tbody>
           {v.rows.map((r) => (
-            <tr key={r.id} className={`${r.to ? 'is-link' : ''} ${r.late ? 'is-late' : ''}`} onClick={r.to ? () => open(r.to) : undefined}>
+            <tr key={r.id} className={`${r.to || r.href ? 'is-link' : ''} ${r.late ? 'is-late' : ''}`} onClick={r.to ? () => open(r.to) : r.href ? () => window.open(r.href, '_blank', 'noopener,noreferrer') : undefined}>
               {r.cells.map((c, i) => <td key={i}>{v.bars === i && typeof c === 'number' ? <span className="sit-databar"><span style={{ width: `${(c / Math.max(1, ...v.rows.map((x) => x.cells[i]))) * 100}%` }} /><b className="vx-num">{c}</b></span> : c}</td>)}
             </tr>
           ))}
@@ -148,6 +148,13 @@ async function fetchExt(cfg) {
           await new Promise((r) => setTimeout(r, 7000));
         }
         throw new Error('GDELT зайнятий — спробуйте за хвилину');
+      }
+      if (cfg.source === 'ext:prozorro') {
+        if (!/^\d{8}$/.test(cfg.code || '')) throw new Error('вкажіть ЄДРПОУ компанії («Змінити об’єкт»)');
+        const res = await fetch(new URL(`api/pulse?prozorro=${cfg.code}`, document.baseURI), { headers: supabaseOn ? await authHeaders() : {} });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(j.message || `HTTP ${res.status}`);
+        return j.rows || [];
       }
       if (cfg.source === 'ext:wb') {
         const [ind, countries] = [cfg.ind || WB_INDICATORS[0][0], (cfg.countries || ['UKR']).join(';')];

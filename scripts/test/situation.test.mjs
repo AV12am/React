@@ -193,3 +193,16 @@ test('a company outside the register: its own card from what was entered, no oth
   const rivals = computeCustom(resolveCfg(withSector.widgets.find((x) => x.title === 'Конкуренти в галузі').cfg, withSector.subject), state, me, { days: 30 }, NOW);
   assert.ok(rivals.rows.length > 5 && rivals.rows.every((r) => r.cells.includes('Банки')));
 });
+
+test('Prozorro: the tenders of a buyer by its code, read loosely; an answer that ignores the code is refused', async () => {
+  const { normProzorro, companyTenders } = await import('../../api/pulse.js');
+  const sample = { data: [{ tenderID: 'UA-2026-10-01-000123-a', title: 'Шпали залізобетонні', status: 'active.tendering', value: { amount: 1250000, currency: 'UAH' }, date: '2026-10-01T09:00:00+03:00', procuringEntity: { name: 'АТ «Укрзалізниця»', identifier: { id: '40075815' } }, procurementMethodType: 'aboveThresholdUA' }] };
+  assert.deepEqual(normProzorro(sample)[0], { id: 'UA-2026-10-01-000123-a', title: 'Шпали залізобетонні', status: 'Подання пропозицій', amount: 1250000, currency: 'UAH', date: '2026-10-01', buyer: 'АТ «Укрзалізниця»', buyerCode: '40075815', method: 'aboveThresholdUA', url: 'https://prozorro.gov.ua/tender/UA-2026-10-01-000123-a' });
+  let n = 0;
+  const first400 = async () => { n++; return n === 1 ? new Response('no', { status: 400 }) : new Response(JSON.stringify(sample), { status: 200 }); };
+  const r = await companyTenders('40075815', Date.now(), first400);
+  assert.equal(n, 2); // the second form of the request
+  assert.equal(r.rows.length, 1);
+  const others = { data: [{ ...sample.data[0], procuringEntity: { name: 'Інший', identifier: { id: '11111111' } } }] };
+  await assert.rejects(() => companyTenders('22222222', Date.now(), async () => new Response(JSON.stringify(others), { status: 200 })), /не врахував код/);
+});

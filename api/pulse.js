@@ -129,8 +129,62 @@ export async function subjectMedia(kind, q, now = Date.now(), fetchImpl = fetch)
   return doc;
 }
 
+// SITUATION: a company's public procurement (Prozorro) — the tenders where it is the buyer, found by its EDRPOU code
+// through Prozorro's own search (the one prozorro.gov.ua uses). Its exact request form is not documented, so the
+// usual ones are tried in turn and the answer is read loosely; kept twelve hours per code.
+//   GET /api/pulse?prozorro=<8-digit code>   Authorization: Bearer <Supabase access token>
+const PROZORRO_SEARCH = process.env.PROZORRO_SEARCH_URL || 'https://prozorro.gov.ua/api/search/tenders';
+const STATUS_UA = { 'active.enquiries': 'Уточнення', 'active.tendering': 'Подання пропозицій', 'active.pre-qualification': 'Прекваліфікація', 'active.auction': 'Аукціон', 'active.qualification': 'Кваліфікація', 'active.awarded': 'Пропозиції розглянуто', active: 'Активна', complete: 'Завершена', unsuccessful: 'Не відбулася', cancelled: 'Скасована', draft: 'Чернетка' };
+export function normProzorro(j) {
+  const list = Array.isArray(j) ? j : j?.data || j?.items || j?.results || j?.tenders || j?.hits?.hits?.map((h) => h._source) || [];
+  return list.filter((t) => t && typeof t === 'object').map((t) => {
+    const value = t.value || t.contracts?.[0]?.value || {};
+    const pe = t.procuringEntity || t.buyer || {};
+    const id = t.tenderID || t.tender_id || t.id || '';
+    return {
+      id: String(id), title: String(t.title || t.description || '').slice(0, 240), status: STATUS_UA[t.status] || t.status || '',
+      amount: Number.isFinite(+value.amount) ? +value.amount : null, currency: value.currency || 'UAH',
+      date: String(t.date || t.dateCreated || t.tenderPeriod?.startDate || t.dateModified || '').slice(0, 10),
+      buyer: pe.name || pe.identifier?.legalName || '', buyerCode: pe.identifier?.id || '',
+      method: t.procurementMethodType || '', url: t.id && /^[0-9a-f]{32}$/.test(t.id) ? `https://prozorro.gov.ua/tender/${t.tenderID || t.id}` : id ? `https://prozorro.gov.ua/tender/${id}` : '',
+    };
+  }).filter((t) => t.id || t.title);
+}
+export async function companyTenders(code, now = Date.now(), fetchImpl = fetch) {
+  const id = `pz-${code}`;
+  const kept = await read(id);
+  if (kept?.at && now - Date.parse(kept.at) < 12 * HOUR) return kept;
+  const head = { 'User-Agent': 'ReactionCore/1.0 (situation dashboards)', Accept: 'application/json' };
+  const tries = [
+    () => fetchImpl(PROZORRO_SEARCH, { method: 'POST', headers: { ...head, 'Content-Type': 'application/json' }, body: JSON.stringify({ edrpou: [code], page: 1 }), signal: AbortSignal.timeout(15000) }),
+    () => fetchImpl(PROZORRO_SEARCH, { method: 'POST', headers: { ...head, 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ edrpou: code, page: '1' }).toString(), signal: AbortSignal.timeout(15000) }),
+    () => fetchImpl(`${PROZORRO_SEARCH}?${new URLSearchParams({ edrpou: code, page: '1' })}`, { headers: head, signal: AbortSignal.timeout(15000) }),
+  ];
+  let last = '';
+  for (const go of tries) {
+    try {
+      const res = await go();
+      if (!res.ok) { last = `HTTP ${res.status}`; continue; }
+      const rows = normProzorro(await res.json());
+      // An answer that ignores the code (the latest tenders of everyone) is no answer.
+      const own = rows.filter((r) => !r.buyerCode || r.buyerCode === code);
+      if (rows.length && !own.length) { last = 'пошук не врахував код'; continue; }
+      const doc = { at: new Date(now).toISOString(), code, rows: own };
+      await keep(id, doc);
+      return doc;
+    } catch (e) { last = e.message; }
+  }
+  throw new Error(`Prozorro не відповів: ${last}`);
+}
+
 export async function GET(req) {
   const sp = new URL(req.url).searchParams;
+  if (sp.has('prozorro')) {
+    const code = String(sp.get('prozorro') || '').replace(/\D/g, '');
+    if (!/^\d{8}$/.test(code)) return json(400, { error: 'code', message: 'Потрібен код ЄДРПОУ (8 цифр)' });
+    if (!(await caller(req))) return json(401, { error: 'signin', message: 'Потрібен вхід із підтвердженням ключем' });
+    try { return json(200, await companyTenders(code)); } catch (e) { return json(502, { error: 'prozorro', message: e.message }); }
+  }
   if (sp.has('news')) return newsGet(req); // CONTEXT News (api/_news.js)
   if (sp.has('gdelt')) {
     const kind = sp.get('gdelt');

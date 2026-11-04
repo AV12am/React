@@ -25,11 +25,13 @@ export const EXTERNAL = {
   'ext:gdelt-vol': { label: 'Світові медіа · обсяг згадок (GDELT)', fields: [{ id: 'date', label: 'Дата', type: 'date' }, { id: 'value', label: 'Частка згадок, %', type: 'number' }] },
   'ext:gdelt-tone': { label: 'Світові медіа · тон публікацій (GDELT)', fields: [{ id: 'date', label: 'Дата', type: 'date' }, { id: 'value', label: 'Тон', type: 'number' }] },
   'ext:gdelt-arts': { label: 'Світові медіа · статті тижня (GDELT)', fields: [{ id: 'title', label: 'Заголовок', type: 'text' }, { id: 'domain', label: 'Видання', type: 'select' }, { id: 'country', label: 'Країна видання', type: 'select' }, { id: 'language', label: 'Мова', type: 'select' }, { id: 'date', label: 'Дата', type: 'date' }] },
+  'ext:prozorro': { label: 'Prozorro · закупівлі компанії як замовника', fields: [{ id: 'title', label: 'Предмет закупівлі', type: 'text' }, { id: 'status', label: 'Стан', type: 'select' }, { id: 'amount', label: 'Очікувана вартість, грн', type: 'number' }, { id: 'date', label: 'Дата', type: 'date' }, { id: 'method', label: 'Процедура', type: 'select' }, { id: 'id', label: 'Номер', type: 'text' }] },
   'ext:wb': { label: 'Світовий банк · показники країн', fields: [{ id: 'country', label: 'Країна', type: 'select' }, { id: 'date', label: 'Рік', type: 'date' }, { id: 'value', label: 'Значення', type: 'number' }] },
 };
 /** Where an outside source's rows are kept (`state.ext`): one key per source and its settings. */
 export const extKey = (cfg) => (cfg.source === 'ext:wb' ? `wb:${cfg.ind || WB_INDICATORS[0][0]}:${(cfg.countries || ['UKR']).join(';')}`
-  : cfg.source.startsWith('ext:gdelt-') ? `gd:${cfg.source.slice(10)}:${cfg.q || ''}` : cfg.source);
+  : cfg.source.startsWith('ext:gdelt-') ? `gd:${cfg.source.slice(10)}:${cfg.q || ''}`
+    : cfg.source === 'ext:prozorro' ? `pz:${cfg.code || ''}` : cfg.source);
 
 // ── The subject of a dashboard: what is being analysed ─────────────────────────────────────────────────────────────
 // { kind: country|company|sector|topic, label, iso3?, code?, sector?, q } — `q` is the query for the world's media.
@@ -221,7 +223,7 @@ export function computeCustom(cfg, state, me, filters = {}, now = Date.now()) {
         return { cols: [group.label, MEASURES.find((m) => m[0] === cfg.measure)?.[1] || 'Кількість'], rows: out, bars: 1 };
       }
       const cols = fields.filter((f) => f.type !== 'links' && f.type !== 'coords').slice(0, 5);
-      return { cols: cols.map((f) => f.label), rows: shown.slice(0, 20).map((r, i) => ({ id: r.id || String(i), cells: cols.map((f) => labelOf(f, r[f.id], state)), to: r.div && r.col ? { div: r.div, id: `${r.col}:${r.id}` } : null })) };
+      return { cols: cols.map((f) => f.label), rows: shown.slice(0, 20).map((r, i) => ({ id: r.id || String(i), cells: cols.map((f) => labelOf(f, r[f.id], state)), to: r.div && r.col ? { div: r.div, id: `${r.col}:${r.id}` } : null, href: /^https:\/\//.test(r.url || '') ? r.url : '' })) };
     }
     case 'card': {
       const r = rows[0];
