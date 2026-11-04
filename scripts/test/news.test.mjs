@@ -113,7 +113,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     if (u.includes('api.cloudflare.com') && spent) return new Response(JSON.stringify({ errors: [{ message: 'you have used up your daily free allocation of 10,000 neurons' }] }), { status: 429 });
     if (u.includes('api.cloudflare.com')) {
       const m = JSON.parse(opts.body).messages;
-      if (Array.isArray(m[0].content)) { vision++; return ok({ success: true, result: { response: 'No' } }); } // the words-on-picture check
+      if (Array.isArray(m[0].content)) { vision++; return ok({ success: true, result: { response: /meant to illustrate/.test(JSON.stringify(m[0].content)) ? 'No yes' : 'No' } }); } // the words-on-picture check
       ai++;
       const lines = m[1].content.split('\n').filter((l) => /^\d+\. /.test(l));
       if (m[0].content.includes('Міноборони РФ')) return ok({ success: true, result: { response: '{"count": 531, "regions": "Брянської, Курської областей та над акваторією Чорного моря"}' } });
@@ -641,4 +641,11 @@ test('repeats: the editor’s pairs stay only where the summaries share telling 
   ];
   assert.deepEqual(readRepeats('{"same": [[1, 2], [2, 3]]}', items), [[0, 1]]);
   assert.deepEqual(readRepeats('nonsense', items), []);
+});
+
+test('summaries: a sentence about what the source does not say goes; the first sentence always stays', async () => {
+  const { dropFiller } = await import('../../src/lib/news.js');
+  assert.equal(dropFiller('«Узор» координуватиме полювання на дрони. Деталі щодо способу координації та масштабів у джерелі не наведено.'), '«Узор» координуватиме полювання на дрони.');
+  assert.equal(dropFiller('Електромонтери поранені під час атаки. Інших подробиць про обставини атаки у повідомленні немає.'), 'Електромонтери поранені під час атаки.');
+  assert.equal(dropFiller('Зеленський заявив про переговори. Він не назвав дату зустрічі.'), 'Зеленський заявив про переговори. Він не назвав дату зустрічі.');
 });

@@ -308,7 +308,7 @@ async function fetchImage(u) {
 export const TEXT_CHECK = 'Look at this picture. Is it mainly text or does large text cover a big part of it — a headline card, a quote or caption laid across the image, a poster, an infographic or a screenshot of text? A small logo or watermark in a corner, street signs, text on uniforms, vehicles or buildings do not count. Answer only yes or no.';
 export let visionWhy = ''; // why the last check could not tell (for the imgcheck diagnosis)
 // For an archive photo found by search, also whether it shows the news' own subject (not the Kremlin for a forum in China).
-export const FIT_CHECK = (news) => `Look at this picture, meant to illustrate the news: «${String(news).slice(0, 300)}». Answer with two words. First: is it mainly text, or does large text cover a big part of it — a headline card, a quote laid across it, a poster, an infographic or a screenshot (a small corner logo or watermark, signs, text on uniforms or vehicles do not count)? yes or no. Second: is it a real photograph (not a map, flag, emblem, diagram or drawing) that plainly fits this news — its own place, country, people, organisation or kind of event, not another country's landmark or an unrelated person or scene? yes or no.`;
+export const FIT_CHECK = (news) => `Look at this picture, meant to illustrate the news: «${String(news).slice(0, 300)}». Answer with two words. First: is it mainly text, or does large text cover a big part of it — a headline card, a quote laid across it, a poster, an infographic or a screenshot (a small corner logo or watermark, signs, text on uniforms or vehicles do not count)? yes or no. Second: is it a real photograph (not a map, flag, emblem, diagram or drawing) that shows this news' own subject — the very person, weapon or equipment, place, organisation or event named in it? A generic scene (a hospital corridor, an office, a street, people in folk costume, a landscape), another country's landmark or an unrelated person is no. Answer yes only when a reader would see at once that the photo is about this news. yes or no.`;
 /** true: the picture is not to be used (words on it, or — with `news` given — not about that news). */
 export async function hasText(url, deps = {}, news = '') {
   const run = deps.ask || ask;
@@ -573,15 +573,23 @@ export async function makeIssue(now = Date.now()) {
   const looks = canAsk() && left() > 35 * 1000 && (spent < 7000 || claudeOn());
   note.neurons = spentNeurons();
   note.picsChecked = looks;
+  // A photo found by search (not the news' own, nor another outlet's of the same event) stays only when the check
+  // said plainly that it fits: unchecked or undecided, the plain picture is better than a photo of something else.
+  const searched = (f) => f === 'openverse' || f === 'commons' || f === 'fresh';
+  const photoFits = async (image, news, from) => {
+    const r = await hasText(image, {}, from ? news : '');
+    return searched(from) ? r === false : r !== true;
+  };
   const withPhotos = await Promise.all(found.map((l, k) => Promise.all(l.map(async (x, i) => {
-    if (!looks || x.lead || !x.image) return x;
+    if (x.lead || !x.image) return x;
+    if (!looks) return searched(x.imageFrom) ? { ...x, image: PLAIN_IMAGE, imageFrom: 'plain', imageCredit: undefined } : x;
     const news = en[k].t[i] || x.title;
-    if ((await hasText(x.image, {}, x.imageFrom ? news : '')) !== true) return x;
+    if (await photoFits(x.image, news, x.imageFrom)) return x;
     if (x.imageFrom) note.unfit++; else note.textPics++;
     let tries = 0;
     for await (const c of candidates(x, k, i)) {
       if (left() < 15000 || ++tries > 5) break;
-      if (c.image !== x.image && (await hasText(c.image, {}, news)) !== true) return { ...x, imageCredit: undefined, ...c };
+      if (c.image !== x.image && (await photoFits(c.image, news, c.imageFrom))) return { ...x, imageCredit: undefined, ...c };
     }
     return { ...x, image: PLAIN_IMAGE, imageFrom: 'plain', imageCredit: undefined };
   }))));
