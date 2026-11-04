@@ -211,3 +211,44 @@ export function Gauge({ value, good = 80, warn = 50, label = '' }) {
     </div>
   );
 }
+
+/** Records and their links (the «звідки ми це знаємо» chain), laid out by force; a node opens its record. */
+export function Graph({ nodes, edges, open, colorOf, height = 340 }) {
+  const [ref, w] = useWidth();
+  const [hover, setHover] = useState(null);
+  const [pos, setPos] = useState(null);
+  useEffect(() => {
+    let live = true;
+    import('d3-force').then(({ forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide }) => {
+      const ns = nodes.map((n) => ({ ...n }));
+      const ls = edges.map((e) => ({ source: e.a, target: e.b }));
+      const sim = forceSimulation(ns).force('link', forceLink(ls).id((d) => d.id).distance(60)).force('charge', forceManyBody().strength(-160))
+        .force('center', forceCenter(w / 2, height / 2)).force('collide', forceCollide(16)).stop();
+      for (let i = 0; i < 220; i++) sim.tick();
+      const fit = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+      if (live) setPos(new Map(ns.map((n) => [n.id, { x: fit(n.x, 14, w - 14), y: fit(n.y, 14, height - 14) }])));
+    });
+    return () => { live = false; };
+  }, [nodes, edges, w, height]);
+  const deg = new Map();
+  for (const e of edges) { deg.set(e.a, (deg.get(e.a) || 0) + 1); deg.set(e.b, (deg.get(e.b) || 0) + 1); }
+  const near = hover ? new Set([hover, ...edges.filter((e) => e.a === hover || e.b === hover).flatMap((e) => [e.a, e.b])]) : null;
+  return (
+    <div className="vx-chart" ref={ref}>
+      <svg height={height} role="img" aria-label="Граф зв'язків">
+        {pos && edges.map((e, i) => { const a = pos.get(e.a), b = pos.get(e.b); return a && b ? <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} className={`sit-edge ${near && !(near.has(e.a) && near.has(e.b)) ? 'is-dim' : ''}`} /> : null; })}
+        {pos && nodes.map((n) => {
+          const p = pos.get(n.id);
+          if (!p) return null;
+          const r = 5 + Math.min(7, (deg.get(n.id) || 0) * 1.5);
+          return (
+            <g key={n.id} transform={`translate(${p.x},${p.y})`} className={`sit-node ${near && !near.has(n.id) ? 'is-dim' : ''}`} onMouseEnter={() => setHover(n.id)} onMouseLeave={() => setHover(null)} onClick={() => open(n.to)}>
+              <circle r={r} style={{ fill: colorOf(n) }} />
+              {(deg.get(n.id) || 0) >= 3 || hover === n.id ? <text y={-r - 4} textAnchor="middle">{n.label.slice(0, 28)}</text> : null}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}

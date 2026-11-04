@@ -23,7 +23,7 @@ const state = {
 };
 
 test('every template builds widgets the catalog knows', () => {
-  for (const t of TEMPLATES) for (const w of t.widgets()) assert.ok(METRICS[w.metric], `${t.id}: ${w.metric}`);
+  for (const t of TEMPLATES) for (const w of t.widgets()) assert.ok(METRICS[w.metric] || (w.metric === 'custom' && w.cfg?.visual), `${t.id}: ${w.metric}`);
   const b = newBoard('exec', me);
   assert.equal(b.name, 'Огляд керівника');
   assert.equal(b.owner, 'u1');
@@ -82,4 +82,35 @@ test('the BI charts get their shapes: stacked columns by division, three lines, 
   const heat = compute('audit.heat', s).cells;
   assert.equal(heat.length, 7);
   assert.equal(heat.flat().reduce((a, b) => a + b, 0), 1);
+});
+
+test('the widget editor: any source, grouped, summed, by week; a table of one’s own with its types guessed', async () => {
+  const { computeCustom, datasetFrom, sourcesOf, fieldsOf, defaultCfg } = await import('../../src/lib/situation-custom.js');
+  const ds = datasetFrom('Витрати', ['Дата', 'Стаття', 'Сума', 'lat', 'lon'], [
+    ['01.11.2026', 'Оренда', '1200', '50.45', '30.52'], ['02.11.2026', 'Зв’язок', '300,5', '49.84', '24.03'], ['15.10.2026', 'Оренда', '1200', '', ''],
+  ], me);
+  assert.deepEqual(ds.columns.map((c) => c.type), ['date', 'select', 'number', 'number', 'number']);
+  const st = { ...state, datasets: [ds] };
+  assert.ok(sourcesOf(st, me).some((x) => x.id === `ds:${ds.id}`));
+  assert.equal(fieldsOf(`ds:${ds.id}`, st).length, 5);
+  const base = { source: `ds:${ds.id}`, group: 'c1', measure: 'sum', field: 'c2', time: 'c0' };
+  assert.deepEqual(computeCustom({ ...base, visual: 'bars' }, st, me, { days: 30 }, NOW).rows, [{ id: 'Оренда', label: 'Оренда', value: 2400 }, { id: 'Зв’язок', label: 'Зв’язок', value: 300.5 }]);
+  const kpi = computeCustom({ ...base, visual: 'kpi' }, st, me, { days: 7 }, NOW);
+  assert.equal(kpi.value, 1500.5);
+  assert.equal(computeCustom({ ...base, visual: 'columns' }, st, me, { days: 30 }, NOW).series.length, 2);
+  assert.equal(computeCustom({ ...base, visual: 'map' }, st, me, { days: 30 }, NOW).points.length, 2);
+  const tasks = computeCustom({ ...defaultCfg('tasks', st), visual: 'donut', group: 'status', time: '' }, st, me, { days: 90 }, NOW);
+  assert.deepEqual(tasks.rows.map((r) => r.label).sort(), ['Виконано', 'Відкрито']);
+});
+
+test('the link chart: records and the records their «basis» points to', async () => {
+  const { computeCustom } = await import('../../src/lib/situation-custom.js');
+  const st = { ...state, records: [
+    { id: 'p1', div: 'ana', col: 'products', title: 'Оцінка', basis: ['int:intake:i1', 'int:sources:s1'], at: day(2), clearance: 0 },
+    { id: 'i1', div: 'int', col: 'intake', title: 'Надходження', at: day(3), clearance: 0 },
+    { id: 's1', div: 'int', col: 'sources', title: 'Джерело', at: day(3), clearance: 2 },
+  ] };
+  const g = computeCustom({ source: 'records', visual: 'graph' }, st, me, { days: 30 }, NOW);
+  assert.deepEqual(g.nodes.map((n) => n.id).sort(), ['i1', 'p1']); // s1 is above the clearance
+  assert.equal(g.edges.length, 1);
 });

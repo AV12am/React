@@ -62,7 +62,10 @@ export const TEMPLATES = [
   },
   {
     id: 'situation', name: 'Обстановка', about: 'Геополітичний ризик, ключові новини доби, свіжі записи й прогнози.',
-    widgets: () => [w('forecasts.open', 3), w('records.new', 3), w('audit.events', 3), w('records.total', 3), w('pulse.gpr', 12), w('news.key', 6), w('records.recent', 6), w('records.byWeekDiv', 8), w('audit.heat', 4)],
+    widgets: () => [w('forecasts.open', 3), w('records.new', 3), w('audit.events', 3), w('records.total', 3), w('pulse.gpr', 12), w('news.key', 6), w('records.recent', 6),
+      w('custom', 6, { title: 'Карта записів', cfg: { source: 'records', visual: 'map', group: 'div', measure: 'count', field: '', time: '', color: 0 } }),
+      w('custom', 6, { title: 'Зв\'язки записів', cfg: { source: 'records', visual: 'graph', group: '', measure: 'count', field: '', time: '', color: 0 } }),
+      w('records.byWeekDiv', 8), w('audit.heat', 4)],
   },
   { id: 'blank', name: 'Порожній дашборд', about: 'Почніть з чистої сітки й додайте віджети самі.', widgets: () => [] },
 ];
@@ -74,6 +77,8 @@ export function newBoard(templateId, me, name) {
   return { id: `bd-${Date.now().toString(36)}${(n++).toString(36)}`, name: name || tpl.name, template: tpl.id, owner: me.id, shared: false, clearance: 0,
     filters: { days: 30, div: '' }, widgets: tpl.widgets(), at: now, updated: now };
 }
+export const addCustom = (board, cfg, title) => ({ ...board, widgets: [...board.widgets, w('custom', { kpi: 3, donut: 4 }[cfg.visual] || 6, { cfg, title })] });
+export const setCustom = (board, id, cfg, title) => ({ ...board, widgets: board.widgets.map((x) => (x.id === id ? { ...x, cfg, title } : x)) });
 export const addWidget = (board, metric) => ({ ...board, widgets: [...board.widgets, w(metric, { kpi: 3, donut: 4, gauge: 4, pulse: 12 }[METRICS[metric]?.kind] || 6)] });
 
 /** The dashboards a person sees: their own, and the shared ones within their clearance. */

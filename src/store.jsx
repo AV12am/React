@@ -22,6 +22,7 @@ const initial = () => ({
   records: [], // division workspaces (src/data/workspaces.js)
   comments: [], // discussion on records: { id, target, text, author, at, mentions[], clearance }
   tasks: [], // { id, title, assignee, due, status: open|done, target?, author, at, updated, clearance }
+  datasets: [], // SITUATION: tables of one's own (CSV, Excel, Google Sheets): { id, name, columns[], rows[], owner, shared, clearance }
   boards: [], // SITUATION dashboards (src/lib/situation.js): { id, name, owner, shared, clearance, filters, widgets[] }
   seen: {},
   audit: SEED_AUDIT,
@@ -296,6 +297,15 @@ function reducer(state, a) {
       if (!b) return state;
       return withAudit({ ...state, boards: state.boards.filter((x) => x.id !== a.id) }, me, 'work', `SITUATION: видалено дашборд «${b.name}»`, b.clearance);
     }
+    case 'dataset/add':
+      return withAudit({ ...state, datasets: [...(state.datasets || []), a.dataset] }, me, 'work', `SITUATION: завантажено дані «${a.dataset.name}» (${a.dataset.rows.length} рядків)`, a.dataset.clearance);
+    case 'dataset/update':
+      return { ...state, datasets: (state.datasets || []).map((d) => (d.id === a.id ? { ...d, ...a.patch, updated: new Date().toISOString() } : d)) };
+    case 'dataset/delete': {
+      const d = (state.datasets || []).find((x) => x.id === a.id);
+      if (!d) return state;
+      return withAudit({ ...state, datasets: state.datasets.filter((x) => x.id !== a.id) }, me, 'work', `SITUATION: видалено дані «${d.name}»`, d.clearance);
+    }
     case 'map/log':
       return withAudit(state, me, 'map', a.text);
     case 'seen':
@@ -310,7 +320,7 @@ function reducer(state, a) {
       const items = a.kind === 'records' ? [...a.items].sort(by('updated'))
         : a.kind === 'requests' ? [...a.items].sort(by('at'))
           : a.kind === 'tasks' ? [...a.items].sort(by('updated'))
-          : a.kind === 'boards' ? [...a.items].sort((x, y) => String(x.at).localeCompare(String(y.at)))
+          : a.kind === 'boards' || a.kind === 'datasets' ? [...a.items].sort((x, y) => String(x.at).localeCompare(String(y.at)))
           : a.kind === 'comments' ? [...a.items].sort((x, y) => String(x.at).localeCompare(String(y.at)))
           : a.kind === 'audit' ? [...a.items].sort(by('at')).slice(0, 500)
             : a.items;
@@ -394,7 +404,7 @@ export function StoreProvider({ children }) {
     });
     return () => { live = false; engine?.stop(); syncRef.current = null; };
   }, [backend, loggedIn, sbSession, verified]);
-  useEffect(() => { syncRef.current?.changed(); }, [state.users, state.records, state.requests, state.audit, state.comments, state.tasks, state.boards]);
+  useEffect(() => { syncRef.current?.changed(); }, [state.users, state.records, state.requests, state.audit, state.comments, state.tasks, state.boards, state.datasets]);
 
   // A request I have just made reaches those who decide it on their phones too (api/push.js).
   const knownReq = useRef(null);

@@ -1,18 +1,22 @@
 // SITUATION — the platform's dashboards: a grid of widgets the analyst arranges, from templates the popular platforms
 // ship (an executive overview, projects and tasks, the situation). Every number is counted from what the person may
 // see (src/lib/situation.js); a bar filters the whole dashboard, a row opens its record.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, fmtAgo } from '../store.jsx';
 import { Panel, Trend, Avatar, Drawer, InfoTip, ClassBadge } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
 import { Pulse } from '../components/Pulse.jsx';
-import { Spark, Columns, Lines, Donut, Heat, Gauge, SERIES } from '../components/charts.jsx';
+import { Spark, Columns, Lines, Donut, Heat, Gauge, Graph, SERIES } from '../components/charts.jsx';
+import { readTable } from '../lib/importer.js';
+import { VISUALS, MEASURES, sourcesOf, fieldsOf, defaultCfg, computeCustom, datasetFrom } from '../lib/situation-custom.js';
 import { ask } from '../components/Dialog.jsx';
 import { LEVELS } from '../data/clearance.js';
 import { VISIBLE_DIVISIONS } from '../data/seed.js';
-import { METRICS, TEMPLATES, PERIODS, newBoard, boardsFor, scope, compute, addWidget, moveWidget, placeWidget, resizeWidget, removeWidget } from '../lib/situation.js';
+import { METRICS, TEMPLATES, PERIODS, newBoard, boardsFor, scope, compute, addWidget, addCustom, setCustom, moveWidget, placeWidget, resizeWidget, removeWidget } from '../lib/situation.js';
 
-const KIND_LABEL = { kpi: 'Показник', columns: 'Стовпчики', lines: 'Лінії', line: 'Динаміка', donut: 'Частки', gauge: 'Шкала', heat: 'Теплова карта', bars: 'Порівняння', table: 'Таблиця', feed: 'Стрічка', pulse: 'Індекс', news: 'Новини' };
+const SitMap = lazy(() => import('../components/SitMap.jsx').then((m) => ({ default: m.SitMap })));
+
+const KIND_LABEL = { map: 'Карта', graph: 'Граф зв\'язків', kpi: 'Показник', columns: 'Стовпчики', lines: 'Лінії', line: 'Динаміка', donut: 'Частки', gauge: 'Шкала', heat: 'Теплова карта', bars: 'Порівняння', table: 'Таблиця', feed: 'Стрічка', pulse: 'Індекс', news: 'Новини' };
 
 // A KPI card as the BI platforms draw it: the number, its change with an arrow, the last twelve weeks.
 function Kpi({ v }) {
@@ -55,7 +59,7 @@ function Table({ v, open }) {
         <tbody>
           {v.rows.map((r) => (
             <tr key={r.id} className={`${r.to ? 'is-link' : ''} ${r.late ? 'is-late' : ''}`} onClick={r.to ? () => open(r.to) : undefined}>
-              {r.cells.map((c, i) => <td key={i}>{c}</td>)}
+              {r.cells.map((c, i) => <td key={i}>{v.bars === i && typeof c === 'number' ? <span className="sit-databar"><span style={{ width: `${(c / Math.max(1, ...v.rows.map((x) => x.cells[i]))) * 100}%` }} /><b className="vx-num">{c}</b></span> : c}</td>)}
             </tr>
           ))}
         </tbody>
@@ -112,8 +116,35 @@ function News() {
   );
 }
 
-function Widget({ wg, data, edit, filters, setFilter, open, go, board, save, drag, setDrag }) {
-  const m = METRICS[wg.metric];
+const divColor = (rows) => rows.map((r) => ({ ...r, color: SERIES[VISIBLE_DIVISIONS.findIndex((d) => d.id === r.id)] }));
+const nodeColor = (n) => SERIES[Math.max(0, VISIBLE_DIVISIONS.findIndex((d) => d.id === n.div)) % 5];
+
+/** One visual from its numbers — the same for the built-in widgets and the ones made in the editor. */
+function Visual({ kind, v, label = '', filters = {}, setFilter, divFilter = false, open }) {
+  if (kind === 'news') return <News />;
+  if (!v) return <div className="vx-hint">Немає даних.</div>;
+  if (v.note && ((kind === 'columns' || kind === 'lines') && !v.series?.length)) return <div className="vx-hint">{v.note}</div>;
+  switch (kind) {
+    case 'kpi': return <Kpi v={v} />;
+    case 'line': return <Trend data={v.data} labels={v.labels} height={180} />;
+    case 'columns': return <Columns labels={v.labels} series={v.series} />;
+    case 'lines': return <Lines labels={v.labels} series={v.series} />;
+    case 'donut': return <Donut rows={v.rows} />;
+    case 'gauge': return v.empty ? <div className="vx-hint">Завдань із терміном у періоді немає.</div> : <><Gauge value={v.value} label={label} /><div className="vx-hint sit-center">{v.note}</div></>;
+    case 'heat': return <Heat cells={v.cells} unit="дій" />;
+    case 'bars': return <Bars v={divFilter ? { rows: divColor(v.rows) } : v} active={divFilter ? filters.div : null} onPick={divFilter ? (id) => setFilter({ div: filters.div === id ? '' : id }) : null} />;
+    case 'table': return <Table v={v} open={open} />;
+    case 'feed': return <Feed v={v} />;
+    case 'news': return <News />;
+    case 'map': return v.points?.length ? <Suspense fallback={<div className="sit-map" />}><SitMap points={v.points} open={open} /></Suspense> : <div className="vx-hint">{v.note}</div>;
+    case 'graph': return v.nodes?.length ? <Graph nodes={v.nodes} edges={v.edges} open={open} colorOf={nodeColor} /> : <div className="vx-hint">{v.note}</div>;
+    default: return null;
+  }
+}
+
+function Widget({ wg, data, edit, filters, setFilter, open, go, board, save, drag, setDrag, onEdit }) {
+  const custom = wg.metric === 'custom';
+  const m = custom ? { kind: wg.cfg?.visual, label: wg.title || 'Віджет', about: 'Віджет із конструктора: джерело, поле групування й значення обрано в «Налаштувати».' } : METRICS[wg.metric];
   if (!m) return null;
   const v = data;
   const controls = edit && (
@@ -121,6 +152,7 @@ function Widget({ wg, data, edit, filters, setFilter, open, go, board, save, dra
       <button type="button" className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" title="Раніше" aria-label="Перемістити раніше" onClick={() => save(moveWidget(board, wg.id, -1))}><Icon name="chevron" size={14} /></button>
       <button type="button" className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" title="Пізніше" aria-label="Перемістити пізніше" onClick={() => save(moveWidget(board, wg.id, 1))}><Icon name="chevron" size={14} /></button>
       <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm vx-num" title="Ширина" onClick={() => save(resizeWidget(board, wg.id))}>{wg.w}/12</button>
+      {custom && <button type="button" className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" title="Налаштувати" aria-label="Налаштувати віджет" onClick={() => onEdit(wg)}><Icon name="settings" size={14} /></button>}
       <button type="button" className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" title="Прибрати" aria-label="Прибрати віджет" onClick={() => save(removeWidget(board, wg.id))}><Icon name="trash" size={14} /></button>
     </div>
   );
@@ -133,18 +165,7 @@ function Widget({ wg, data, edit, filters, setFilter, open, go, board, save, dra
   } : {};
   const cls = `sit-widget sit-w${wg.w} ${edit ? 'is-edit' : ''} ${drag === wg.id ? 'is-drag' : ''}`;
   if (m.kind === 'pulse') return <div className={cls} {...dnd}>{controls}<Pulse go={go} /></div>;
-  const divColor = (rows) => rows.map((r) => ({ ...r, color: SERIES[VISIBLE_DIVISIONS.findIndex((d) => d.id === r.id)] }));
-  const body = m.kind === 'kpi' ? <Kpi v={v} />
-    : m.kind === 'line' ? <Trend data={v.data} labels={v.labels} height={180} />
-      : m.kind === 'columns' ? <Columns labels={v.labels} series={v.series} unit="записів" />
-      : m.kind === 'lines' ? <Lines labels={v.labels} series={v.series} />
-      : m.kind === 'donut' ? <Donut rows={v.rows} />
-      : m.kind === 'gauge' ? (v.empty ? <div className="vx-hint">Завдань із терміном у періоді немає.</div> : <><Gauge value={v.value} label={m.label} /><div className="vx-hint sit-center">{v.note}</div></>)
-      : m.kind === 'heat' ? <Heat cells={v.cells} unit="дій" />
-      : m.kind === 'bars' ? <Bars v={m.filters === 'div' ? { rows: divColor(v.rows) } : v} active={m.filters === 'div' ? filters.div : null} onPick={m.filters === 'div' ? (id) => setFilter({ div: filters.div === id ? '' : id }) : null} />
-        : m.kind === 'table' ? <Table v={v} open={open} />
-          : m.kind === 'feed' ? <Feed v={v} />
-            : m.kind === 'news' ? <News /> : null;
+  const body = <Visual kind={m.kind} v={v} label={m.label} filters={filters} setFilter={setFilter} divFilter={m.filters === 'div'} open={open} />;
   return (
     <div className={cls} {...dnd}>
       <Panel title={wg.title || m.label} info={m.about} action={controls} className="sit-panel">{body}</Panel>
@@ -167,11 +188,13 @@ function TemplatePicker({ onPick, onClose }) {
   );
 }
 
-function WidgetPicker({ onPick, onClose }) {
+function WidgetPicker({ onPick, onBuild, onClose }) {
   const groups = Object.entries(METRICS).reduce((m, [id, x]) => { (m[x.kind] ||= []).push([id, x]); return m; }, {});
   return (
     <Drawer title="Додати віджет" onClose={onClose}>
       <div className="stack">
+        <button type="button" className="sit-template sit-template--main" onClick={onBuild}><b>Конструктор віджета</b><span className="vx-hint">Самі оберіть джерело (реєстр, завдання, журнал або ваші дані), вид — показник, стовпчики, лінії, смуги, кільце, таблиця, карта чи граф, — поле групування й значення.</span></button>
+        <div className="vx-eyebrow">Готові віджети</div>
         {Object.entries(groups).map(([kind, list]) => (
           <div key={kind} className="stack">
             <div className="vx-eyebrow">{KIND_LABEL[kind]}</div>
@@ -185,6 +208,117 @@ function WidgetPicker({ onPick, onClose }) {
   );
 }
 
+/** The widget editor, as in Power BI: source, visual, fields; the widget is drawn live as it is set. */
+function WidgetEditor({ initial, onSave, onClose, filters, open }) {
+  const { state, me } = useStore();
+  const [cfg, setCfg] = useState(initial?.cfg || defaultCfg('records', state));
+  const [title, setTitle] = useState(initial?.title || '');
+  const sources = sourcesOf(state, me);
+  const fields = fieldsOf(cfg.source, state);
+  const set = (p) => setCfg((c) => ({ ...c, ...p }));
+  const v = useMemo(() => computeCustom(cfg, state, me, filters), [cfg, state, me, filters]);
+  const groupable = fields.filter((f) => ['select', 'user', 'text'].includes(f.type));
+  const numbers = fields.filter((f) => f.type === 'number');
+  const dates = fields.filter((f) => f.type === 'date');
+  const needs = { group: ['columns', 'lines', 'bars', 'donut', 'table', 'map'].includes(cfg.visual), time: ['kpi', 'columns', 'lines', 'bars', 'donut', 'table', 'map'].includes(cfg.visual), measure: ['kpi', 'columns', 'lines', 'bars', 'donut', 'table'].includes(cfg.visual) };
+  const sourceLabel = sources.find((x) => x.id === cfg.source)?.label || '';
+  const auto = `${VISUALS.find((x) => x[0] === cfg.visual)?.[1]} · ${sourceLabel}${cfg.group && needs.group ? ` за «${fields.find((f) => f.id === cfg.group)?.label}»` : ''}`;
+  return (
+    <Drawer title={initial ? 'Налаштувати віджет' : 'Конструктор віджета'} onClose={onClose}
+      footer={<><button type="button" className="vx-btn vx-btn--ghost" onClick={onClose}>Скасувати</button><button type="button" className="vx-btn vx-btn--primary" onClick={() => onSave(cfg, title.trim() || auto)}>{initial ? 'Зберегти' : 'Додати на дашборд'}</button></>}>
+      <div className="stack sit-editor">
+        <label className="vx-field"><span className="vx-label">Назва</span><input className="vx-input" value={title} placeholder={auto} onChange={(e) => setTitle(e.target.value)} /></label>
+        <label className="vx-field"><span className="vx-label">Джерело даних</span>
+          <select className="vx-select" value={cfg.source} onChange={(e) => setCfg({ ...defaultCfg(e.target.value, state), visual: cfg.visual })}>{sources.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select></label>
+        <div className="vx-field"><span className="vx-label">Вид</span>
+          <div className="sit-visuals">{VISUALS.map(([id, l]) => <button type="button" key={id} className={`vx-tag ${cfg.visual === id ? 'is-active' : ''}`} onClick={() => set({ visual: id })}>{l}</button>)}</div></div>
+        {needs.group && <label className="vx-field"><span className="vx-label">{cfg.visual === 'columns' || cfg.visual === 'lines' ? 'Розбити за (серії)' : cfg.visual === 'map' ? 'Колір точок за' : 'Групувати за'}</span>
+          <select className="vx-select" value={cfg.group} onChange={(e) => set({ group: e.target.value })}><option value="">{cfg.visual === 'columns' || cfg.visual === 'lines' || cfg.visual === 'map' ? '— одна серія —' : '— без групування —'}</option>{groupable.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}</select></label>}
+        {needs.measure && <div className="sit-editor__row">
+          <label className="vx-field"><span className="vx-label">Значення</span>
+            <select className="vx-select" value={cfg.measure} onChange={(e) => set({ measure: e.target.value, field: e.target.value === 'count' ? '' : cfg.field || numbers[0]?.id || '' })}>{MEASURES.filter((m) => m[0] === 'count' || numbers.length).map(([id, l]) => <option key={id} value={id}>{l}</option>)}</select></label>
+          {cfg.measure !== 'count' && <label className="vx-field"><span className="vx-label">Поле</span>
+            <select className="vx-select" value={cfg.field} onChange={(e) => set({ field: e.target.value })}>{numbers.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}</select></label>}
+        </div>}
+        {needs.time && <label className="vx-field"><span className="vx-label">Поле дати (період і тижні)</span>
+          <select className="vx-select" value={cfg.time} onChange={(e) => set({ time: e.target.value })}><option value="">— без дати: усі рядки —</option>{dates.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}</select></label>}
+        <div className="vx-eyebrow">Попередній перегляд</div>
+        <div className="sit sit-preview"><Panel title={title || auto} className="sit-panel"><Visual kind={cfg.visual} v={v} label={title || auto} open={open} /></Panel></div>
+      </div>
+    </Drawer>
+  );
+}
+
+// «Дані», as «Отримати дані» in Power BI: a table of one's own from a CSV / Excel file or a Google Sheet.
+const sheetCsv = (url) => {
+  const m = /docs\.google\.com\/spreadsheets\/d\/([\w-]+)/.exec(url);
+  if (!m) return /^https:\/\//.test(url) ? url : '';
+  const gid = /[#&?]gid=(\d+)/.exec(url)?.[1] || '0';
+  return `https://docs.google.com/spreadsheets/d/${m[1]}/export?format=csv&gid=${gid}`;
+};
+function DataDrawer({ onClose }) {
+  const { state, me, dispatch, toast } = useStore();
+  const mine = (state.datasets || []).filter((d) => (d.clearance ?? 0) <= me.clearance && (d.owner === me.id || d.shared));
+  const input = useRef(null);
+  const [url, setUrl] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const keep = (name, head, rows, extra = {}) => {
+    const d = { ...datasetFrom(name, head, rows, me), ...extra };
+    if (JSON.stringify(d).length > 900000) throw new Error('Таблиця завелика: до ~900 КБ (близько 2000 рядків). Залиште потрібні стовпці.');
+    return d;
+  };
+  const fromFile = async (f) => {
+    if (!f) return;
+    setBusy(true); setErr('');
+    try { const { head, rows } = await readTable(f); dispatch({ type: 'dataset/add', dataset: keep(f.name.replace(/\.(csv|xlsx)$/i, ''), head, rows) }); toast(`Завантажено: ${rows.length} рядків`); } catch (e) { setErr(e.message); }
+    setBusy(false);
+  };
+  const fetchSheet = async (link) => {
+    const csv = sheetCsv(link);
+    if (!csv) throw new Error('Потрібне посилання на Google Таблицю (доступ «Усі, хто має посилання») або на CSV.');
+    const res = await fetch(csv);
+    if (!res.ok) throw new Error(`Таблиця не відкрилася (HTTP ${res.status}). Відкрийте доступ «Усі, хто має посилання».`);
+    return readTable(new File([await res.text()], 'sheet.csv'));
+  };
+  const fromSheet = async () => {
+    setBusy(true); setErr('');
+    try { const { head, rows } = await fetchSheet(url); dispatch({ type: 'dataset/add', dataset: keep('Google Таблиця', head, rows, { url }) }); setUrl(''); toast(`Завантажено: ${rows.length} рядків`); } catch (e) { setErr(e.message); }
+    setBusy(false);
+  };
+  const refresh = async (d) => {
+    setBusy(true); setErr('');
+    try { const { head, rows } = await fetchSheet(d.url); const n = keep(d.name, head, rows); dispatch({ type: 'dataset/update', id: d.id, patch: { columns: n.columns, rows: n.rows } }); toast(`Оновлено: ${rows.length} рядків`); } catch (e) { setErr(e.message); }
+    setBusy(false);
+  };
+  return (
+    <Drawer title="Дані" onClose={onClose}>
+      <div className="stack">
+        <p className="vx-hint">Ваші таблиці для віджетів: фінанси, продажі, будь-які списки. Перший рядок — назви стовпців; типи (число, дата, категорія) визначаються самі. Стовпці lat і lon дають точки на карті.</p>
+        <input ref={input} type="file" accept=".csv,.xlsx,text/csv" hidden onChange={(e) => { fromFile(e.target.files[0]); e.target.value = ''; }} />
+        <button type="button" className="vx-btn" disabled={busy} onClick={() => input.current.click()}><Icon name="upload" size={14} /> CSV або Excel</button>
+        <div className="sit-editor__row">
+          <input className="vx-input" placeholder="Посилання на Google Таблицю" value={url} onChange={(e) => setUrl(e.target.value)} />
+          <button type="button" className="vx-btn" disabled={busy || !url.trim()} onClick={fromSheet}>Підключити</button>
+        </div>
+        {err && <div className="vx-error">{err}</div>}
+        {mine.map((d) => (
+          <div key={d.id} className="sit-dataset">
+            <div><b>{d.name}</b><div className="vx-hint">{d.rows.length} рядків · {d.columns.map((c) => c.label).slice(0, 5).join(', ')}{d.columns.length > 5 ? '…' : ''}</div></div>
+            {d.owner === me.id && <div className="toolbar">
+              <input className="vx-input sit-dataset__name" value={d.name} onChange={(e) => dispatch({ type: 'dataset/update', id: d.id, patch: { name: e.target.value } })} aria-label="Назва" />
+              {d.url && <button type="button" className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" title="Оновити з таблиці" aria-label="Оновити" disabled={busy} onClick={() => refresh(d)}><Icon name="refresh" size={14} /></button>}
+              <label className="vx-check"><input type="checkbox" checked={!!d.shared} onChange={(e) => dispatch({ type: 'dataset/update', id: d.id, patch: { shared: e.target.checked } })} /> спільні</label>
+              <button type="button" className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" title="Видалити" aria-label="Видалити" onClick={async () => { if (await ask(`Віджети, що читають «${d.name}», стануть порожніми.`, { title: 'Видалити дані?', ok: 'Видалити', danger: true })) dispatch({ type: 'dataset/delete', id: d.id }); }}><Icon name="trash" size={14} /></button>
+            </div>}
+          </div>
+        ))}
+        {!mine.length && <div className="vx-hint">Ще немає жодної таблиці.</div>}
+      </div>
+    </Drawer>
+  );
+}
+
 export function Situation({ focus, go }) {
   const { state, me, dispatch, toast } = useStore();
   const boards = useMemo(() => boardsFor(state.boards, me), [state.boards, me]);
@@ -193,6 +327,8 @@ export function Situation({ focus, go }) {
   const [adding, setAdding] = useState(false);
   const [edit, setEdit] = useState(false);
   const [drag, setDrag] = useState(null);
+  const [editing, setEditing] = useState(null); // { wg } or { wg: null } for a new one
+  const [dataOpen, setDataOpen] = useState(false);
   const [filters, setFilters] = useState({ days: 30, div: '' });
   const box = useRef(null);
   useEffect(() => { if (board) setFilters({ days: board.filters?.days || 30, div: board.filters?.div || '' }); }, [board?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -219,7 +355,7 @@ export function Situation({ focus, go }) {
   const full = () => { const el = box.current; if (!el) return; if (document.fullscreenElement) document.exitFullscreen?.(); else el.requestFullscreen?.(); };
 
   const s = useMemo(() => scope(state, me, filters), [state, me, filters]);
-  const data = useMemo(() => Object.fromEntries((board?.widgets || []).map((wg) => [wg.id, compute(wg.metric, s)])), [board?.widgets, s]);
+  const data = useMemo(() => Object.fromEntries((board?.widgets || []).map((wg) => [wg.id, wg.metric === 'custom' ? computeCustom(wg.cfg || {}, state, me, filters) : compute(wg.metric, s)])), [board?.widgets, s, state, me, filters]);
 
   if (!board) {
     return (
@@ -248,6 +384,7 @@ export function Situation({ focus, go }) {
         </div>
         <div className="toolbar">
           {mine && <button type="button" className={`vx-btn ${edit ? 'vx-btn--primary' : 'vx-btn--ghost'} vx-btn--sm`} onClick={() => setEdit(!edit)}><Icon name={edit ? 'check' : 'settings'} size={14} /> {edit ? 'Готово' : 'Редагувати'}</button>}
+          <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => setDataOpen(true)}><Icon name="file" size={14} /> Дані</button>
           <button type="button" className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" onClick={full} title="На весь екран" aria-label="На весь екран"><Icon name="expand" size={14} /></button>
           <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => setPicking(true)}><Icon name="plus" size={14} /> Новий</button>
         </div>
@@ -285,12 +422,15 @@ export function Situation({ focus, go }) {
       {!board.widgets.length && <div className="vx-empty"><Icon name="overview" /><div>Віджетів ще немає</div>{mine && <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => { setEdit(true); setAdding(true); }}><Icon name="plus" size={14} /> Додати віджет</button>}</div>}
       <div className="sit-grid">
         {board.widgets.map((wg) => (
-          <Widget key={wg.id} wg={wg} data={data[wg.id]} edit={edit && mine} filters={filters} setFilter={setFilter} open={openRecord} go={go} board={board} save={save} drag={drag} setDrag={setDrag} />
+          <Widget key={wg.id} wg={wg} data={data[wg.id]} edit={edit && mine} filters={filters} setFilter={setFilter} open={openRecord} go={go} board={board} save={save} drag={drag} setDrag={setDrag} onEdit={(x) => setEditing({ wg: x })} />
         ))}
       </div>
 
       {picking && <TemplatePicker onPick={create} onClose={() => setPicking(false)} />}
-      {adding && <WidgetPicker onPick={(id) => { save(addWidget(board, id)); setAdding(false); }} onClose={() => setAdding(false)} />}
+      {adding && <WidgetPicker onPick={(id) => { save(addWidget(board, id)); setAdding(false); }} onBuild={() => { setAdding(false); setEditing({ wg: null }); }} onClose={() => setAdding(false)} />}
+      {editing && <WidgetEditor initial={editing.wg} filters={filters} open={openRecord} onClose={() => setEditing(null)}
+        onSave={(cfg, title) => { save(editing.wg ? setCustom(board, editing.wg.id, cfg, title) : addCustom(board, cfg, title)); setEditing(null); }} />}
+      {dataOpen && <DataDrawer onClose={() => setDataOpen(false)} />}
     </div>
   );
 }

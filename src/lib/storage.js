@@ -153,7 +153,7 @@ function supabaseBackend() {
       // poll asks for documents updated since the last one seen, and once a minute for the list of ids
       // alone, to notice deletions. A kind with nothing new is not handed on, so the screen stays still.
       watch(onKind) {
-        const KINDS = ['records', 'requests', 'comments', 'tasks', 'boards'];
+        const KINDS = ['records', 'requests', 'comments', 'tasks', 'boards', 'datasets'];
         let cache = null; // kind -> Map(id -> doc)
         let audit = new Map();
         let cursor = '';
