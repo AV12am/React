@@ -67,6 +67,30 @@ export const TEMPLATES = [
       w('custom', 6, { title: 'Зв\'язки записів', cfg: { source: 'records', visual: 'graph', group: '', measure: 'count', field: '', time: '', color: 0 } }),
       w('records.byWeekDiv', 8), w('audit.heat', 4)],
   },
+  {
+    id: 'outside', name: 'Зовнішнє середовище', about: 'Геополітичний ризик, економіка й безпека країн (Світовий банк), новини доби за розділами й виданнями.',
+    widgets: () => [
+      w('custom', 3, { title: 'GPR · середнє за період', cfg: { source: 'ext:gpr', visual: 'kpi', measure: 'avg', field: 'value', time: 'date', grain: 'week', span: 'board' } }),
+      w('custom', 9, { title: 'Геополітичний ризик за тижнями', cfg: { source: 'ext:gpr', visual: 'lines', group: '', measure: 'avg', field: 'value', time: 'date', grain: 'week', span: 'all' } }),
+      w('custom', 6, { title: 'Зростання ВВП, %', cfg: { source: 'ext:wb', visual: 'lines', group: 'country', measure: 'avg', field: 'value', time: 'date', grain: 'year', span: 'all', ind: 'NY.GDP.MKTP.KD.ZG', countries: ['UKR', 'POL', 'DEU', 'RUS'] } }),
+      w('custom', 6, { title: 'Військові видатки, % ВВП', cfg: { source: 'ext:wb', visual: 'lines', group: 'country', measure: 'avg', field: 'value', time: 'date', grain: 'year', span: 'all', ind: 'MS.MIL.XPND.GD.ZS', countries: ['UKR', 'POL', 'DEU', 'RUS'] } }),
+      w('custom', 4, { title: 'Новини доби за розділами', cfg: { source: 'ext:news', visual: 'donut', group: 'section', measure: 'count', field: '', time: '', span: 'all' } }),
+      w('custom', 4, { title: 'Видання', cfg: { source: 'ext:news', visual: 'bars', group: 'domain', measure: 'count', field: '', time: '', span: 'all' } }),
+      w('custom', 4, { title: 'Інфляція, %', cfg: { source: 'ext:wb', visual: 'bars', group: 'country', measure: 'avg', field: 'value', time: 'date', grain: 'year', span: 'all', ind: 'FP.CPI.TOTL.ZG', countries: ['UKR', 'POL', 'DEU', 'ROU', 'MDA'] } }),
+    ],
+  },
+  {
+    id: 'companies', name: 'Компанії й ринок', about: 'Провідні компанії України за галузями й містами, з фільтром-зрізом, і ваші організації під наглядом.',
+    widgets: () => [
+      w('custom', 3, { title: 'Галузь', cfg: { source: 'ext:orgs', visual: 'slicer', group: 'sector', measure: 'count', field: '', time: '', span: 'all' } }),
+      w('custom', 3, { title: 'Компаній', cfg: { source: 'ext:orgs', visual: 'kpi', measure: 'count', field: '', time: '', span: 'all' } }),
+      w('custom', 6, { title: 'Компанії за містами', cfg: { source: 'ext:orgs', visual: 'bars', group: 'city', measure: 'count', field: '', time: '', span: 'all' } }),
+      w('custom', 6, { title: 'Компанії за галузями', cfg: { source: 'ext:orgs', visual: 'donut', group: 'sector', measure: 'count', field: '', time: '', span: 'all' } }),
+      w('custom', 6, { title: 'Перелік', cfg: { source: 'ext:orgs', visual: 'table', group: '', measure: 'count', field: '', time: '', span: 'all' } }),
+      w('custom', 6, { title: 'Організації під наглядом', cfg: { source: 'reg:int/orgs', visual: 'table', group: '', measure: 'count', field: '', time: '', span: 'all' } }),
+      w('custom', 6, { title: 'Зв\'язки', cfg: { source: 'records', visual: 'graph' } }),
+    ],
+  },
   { id: 'blank', name: 'Порожній дашборд', about: 'Почніть з чистої сітки й додайте віджети самі.', widgets: () => [] },
 ];
 

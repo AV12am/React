@@ -4,6 +4,26 @@
 import { VISIBLE_DIVISIONS } from '../data/seed.js';
 import { registerOf, registersOf } from '../data/workspaces.js';
 import { parseCoords } from '../map/coords.js';
+import { ORGS_UA, factsOf } from '../data/orgs-ua.js';
+
+// ── Outside sources: processes and companies beyond the platform's own records ─────────────────────────────────────
+// World Bank indicators (open API, no key): a few that describe a country's economy and security.
+export const WB_INDICATORS = [
+  ['NY.GDP.MKTP.CD', 'ВВП, поточні дол. США'], ['NY.GDP.MKTP.KD.ZG', 'Зростання ВВП, %'], ['FP.CPI.TOTL.ZG', 'Інфляція, %'],
+  ['SL.UEM.TOTL.ZS', 'Безробіття, %'], ['MS.MIL.XPND.GD.ZS', 'Військові видатки, % ВВП'], ['MS.MIL.XPND.CD', 'Військові видатки, дол. США'],
+  ['BX.KLT.DINV.CD.WD', 'Прямі іноземні інвестиції, дол. США'], ['NE.EXP.GNFS.CD', 'Експорт, дол. США'], ['GC.DOD.TOTL.GD.ZS', 'Держборг, % ВВП'], ['SP.POP.TOTL', 'Населення'],
+];
+export const WB_COUNTRIES = [['UKR', 'Україна'], ['POL', 'Польща'], ['DEU', 'Німеччина'], ['FRA', 'Франція'], ['GBR', 'Велика Британія'], ['USA', 'США'], ['RUS', 'росія'], ['BLR', 'Білорусь'],
+  ['ROU', 'Румунія'], ['MDA', 'Молдова'], ['TUR', 'Туреччина'], ['CHN', 'Китай'], ['LTU', 'Литва'], ['CZE', 'Чехія'], ['EUU', 'Європейський Союз']];
+export const EXTERNAL = {
+  'ext:orgs': { label: 'Компанії України · 200 провідних', fields: [{ id: 'name', label: 'Компанія', type: 'text' }, { id: 'sector', label: 'Галузь', type: 'select' }, { id: 'city', label: 'Місто', type: 'select' }, { id: 'founded', label: 'Рік заснування', type: 'number' }, { id: 'code', label: 'ЄДРПОУ', type: 'text' }] },
+  'ext:news': { label: 'CONTEXT News · сьогоднішній випуск', fields: [{ id: 'section', label: 'Розділ', type: 'select' }, { id: 'domain', label: 'Видання', type: 'select' }, { id: 'title', label: 'Заголовок', type: 'text' }, { id: 'at', label: 'Опубліковано', type: 'date' }] },
+  'ext:gpr': { label: 'Індекс геополітичного ризику (GPR)', fields: [{ id: 'date', label: 'Дата', type: 'date' }, { id: 'value', label: 'Значення', type: 'number' }] },
+  'ext:wb': { label: 'Світовий банк · показники країн', fields: [{ id: 'country', label: 'Країна', type: 'select' }, { id: 'date', label: 'Рік', type: 'date' }, { id: 'value', label: 'Значення', type: 'number' }] },
+};
+/** Where an outside source's rows are kept (`state.ext`): one key per source and its settings. */
+export const extKey = (cfg) => (cfg.source === 'ext:wb' ? `wb:${cfg.ind || WB_INDICATORS[0][0]}:${(cfg.countries || ['UKR']).join(';')}` : cfg.source);
+const ORG_ROWS = () => ORGS_UA.map((o) => ({ id: o.code, name: o.name, sector: o.sector, city: o.city, code: o.code, founded: +factsOf(o.code).founded || '' }));
 
 const DAY = 86400000;
 const WEEK = 7 * DAY;
@@ -11,7 +31,7 @@ const t = (v) => { if (v == null || v === '') return 0; const s = String(v); con
 const num = (v) => { const x = parseFloat(String(v ?? '').replace(/\s/g, '').replace(',', '.')); return Number.isFinite(x) ? x : null; };
 
 export const VISUALS = [
-  ['kpi', 'Показник'], ['columns', 'Стовпчики'], ['lines', 'Лінії'], ['bars', 'Смуги'], ['donut', 'Кільце'], ['table', 'Таблиця'], ['map', 'Карта'], ['graph', 'Граф зв\'язків'],
+  ['kpi', 'Показник'], ['slicer', 'Фільтр'], ['columns', 'Стовпчики'], ['lines', 'Лінії'], ['bars', 'Смуги'], ['donut', 'Кільце'], ['table', 'Таблиця'], ['map', 'Карта'], ['graph', 'Граф зв\'язків'],
 ];
 export const MEASURES = [['count', 'Кількість'], ['sum', 'Сума'], ['avg', 'Середнє']];
 
@@ -19,7 +39,8 @@ export const MEASURES = [['count', 'Кількість'], ['sum', 'Сума'], [
 export function sourcesOf(state, me) {
   const regs = VISIBLE_DIVISIONS.flatMap((d) => registersOf(d.id).map((r) => ({ id: `reg:${d.id}/${r.id}`, label: `${d.name} · ${r.name}` })));
   const ds = (state.datasets || []).filter((x) => (x.clearance ?? 0) <= me.clearance && (x.owner === me.id || x.shared)).map((x) => ({ id: `ds:${x.id}`, label: `Мої дані · ${x.name}` }));
-  return [{ id: 'records', label: 'Усі записи платформи' }, ...regs, { id: 'tasks', label: 'Завдання' }, { id: 'audit', label: 'Журнал аудиту' }, ...ds];
+  const ext = Object.entries(EXTERNAL).map(([id, x]) => ({ id, label: `Зовнішні · ${x.label}` }));
+  return [{ id: 'records', label: 'Усі записи платформи' }, ...regs, { id: 'tasks', label: 'Завдання' }, { id: 'audit', label: 'Журнал аудиту' }, ...ext, ...ds];
 }
 
 /** The fields of a source: [{ id, label, type: text|select|user|date|number|coords|links|ref }]. */
@@ -35,6 +56,7 @@ export function fieldsOf(source, state) {
     return [...(reg?.stages ? [{ id: 'stage', label: 'Етап', type: 'select' }] : []), ...own, { id: 'owner', label: 'Автор', type: 'user' }, { id: 'at', label: 'Створено', type: 'date' }, { id: 'updated', label: 'Змінено', type: 'date' }];
   }
   if (source.startsWith('ds:')) return (state.datasets || []).find((x) => `ds:${x.id}` === source)?.columns || [];
+  if (EXTERNAL[source]) return EXTERNAL[source].fields;
   return [];
 }
 
@@ -43,12 +65,24 @@ export function defaultCfg(source, state) {
   const f = fieldsOf(source, state);
   const group = f.find((x) => x.type === 'select' || x.type === 'user') || f.find((x) => x.type === 'text');
   const time = f.find((x) => x.type === 'date');
+  if (source === 'ext:wb') return { source, visual: 'lines', group: 'country', measure: 'avg', field: 'value', time: 'date', grain: 'year', span: 'all', ind: WB_INDICATORS[0][0], countries: ['UKR', 'POL', 'DEU'] };
+  if (source === 'ext:gpr') return { source, visual: 'lines', group: '', measure: 'avg', field: 'value', time: 'date', grain: 'week', span: 'board' };
+  if (source === 'ext:orgs') return { source, visual: 'bars', group: 'sector', measure: 'count', field: '', time: '', span: 'all' };
+  if (source === 'ext:news') return { source, visual: 'donut', group: 'section', measure: 'count', field: '', time: '', span: 'all' };
   return { source, visual: 'columns', group: group?.id || '', measure: 'count', field: '', time: time?.id || '', color: 0 };
 }
 
 /** The rows of a source a person may see, within the dashboard's filters. */
-export function rowsOf(source, state, me, filters = {}) {
+export function rowsOf(source, state, me, filters = {}, cfg = { source }) {
+  const rows = baseRows(source, state, me, filters, cfg);
+  // The dashboard's cross-filter: a value picked on any chart narrows every widget whose source has that field.
+  const sel = (filters.sel || []).filter((x) => fieldsOf(source, state).some((f) => f.id === x.field));
+  return sel.length ? rows.filter((r) => sel.every((x) => String(r[x.field] ?? '') === String(x.value))) : rows;
+}
+function baseRows(source, state, me, filters, cfg) {
   const see = (x) => (x.clearance ?? 0) <= me.clearance;
+  if (source === 'ext:orgs') return ORG_ROWS();
+  if (EXTERNAL[source]) return state.ext?.[extKey(cfg)] || [];
   if (source === 'records') return (state.records || []).filter((r) => see(r) && (!filters.div || r.div === filters.div) && VISIBLE_DIVISIONS.some((d) => d.id === r.div));
   if (source.startsWith('reg:')) { const [div, col] = source.slice(4).split('/'); return (state.records || []).filter((r) => see(r) && r.div === div && r.col === col); }
   if (source === 'tasks') return (state.tasks || []).filter(see);
@@ -95,18 +129,29 @@ export function computeCustom(cfg, state, me, filters = {}, now = Date.now()) {
   const days = filters.days || 30;
   const from = now - days * DAY;
   const time = F(cfg.time);
-  let rows = rowsOf(cfg.source, state, me, filters);
+  // A slicer is not narrowed by its own field, so the other values stay to pick from (as in Power BI).
+  const own = cfg.visual === 'slicer' ? { ...filters, sel: (filters.sel || []).filter((x) => x.field !== cfg.group) } : filters;
+  const rows = rowsOf(cfg.source, state, me, own, cfg);
   const at = (r) => t(r[cfg.time]);
   const group = F(cfg.group);
-  const weeks = 12;
-  const labels = Array.from({ length: weeks }, (_, i) => (i === weeks - 1 ? 'Цей' : `Т-${weeks - 1 - i}`));
-  const byWeek = (rs) => Array.from({ length: weeks }, (_, i) => { const hi = now - (weeks - 1 - i) * WEEK; return measureOf(rs.filter((r) => { const v = at(r); return v <= hi && v > hi - WEEK; }), cfg); });
-  const inPeriod = (r) => !time || (at(r) > from && at(r) <= now);
+  // Time buckets: 12 weeks or 12 months to now; years — every year the source has (the last 20).
+  const grain = cfg.grain || 'week';
+  const years = grain === 'year' ? [...new Set(rows.map((r) => new Date(at(r)).getUTCFullYear()).filter((y) => y > 1900))].sort().slice(-20) : [];
+  const n = grain === 'year' ? years.length : 12;
+  const MONTHS = ['січ', 'лют', 'бер', 'кві', 'тра', 'чер', 'лип', 'сер', 'вер', 'жов', 'лис', 'гру'];
+  const span = (i) => {
+    if (grain === 'year') return [Date.UTC(years[i], 0, 1), Date.UTC(years[i] + 1, 0, 1)];
+    if (grain === 'month') { const d = new Date(now); const m = d.getUTCMonth() - (11 - i); return [Date.UTC(d.getUTCFullYear(), m, 1), Date.UTC(d.getUTCFullYear(), m + 1, 1)]; }
+    const hi = now - (11 - i) * WEEK; return [hi - WEEK, hi];
+  };
+  const labels = Array.from({ length: n }, (_, i) => (grain === 'year' ? String(years[i]) : grain === 'month' ? MONTHS[new Date(span(i)[0]).getUTCMonth()] : i === 11 ? 'Цей' : `Т-${11 - i}`));
+  const byWeek = (rs) => Array.from({ length: n }, (_, i) => { const [lo, hi] = span(i); return measureOf(rs.filter((r) => { const v = at(r); return v >= lo && v < hi; }), cfg); });
+  const inPeriod = (r) => !time || cfg.span === 'all' || (at(r) > from && at(r) <= now);
 
   switch (cfg.visual) {
     case 'kpi': {
       const cur = rows.filter(inPeriod);
-      const prev = time ? rows.filter((r) => at(r) > from - days * DAY && at(r) <= from) : null;
+      const prev = time && cfg.span !== 'all' ? rows.filter((r) => at(r) > from - days * DAY && at(r) <= from) : null;
       const value = measureOf(cur, cfg);
       return { value, ...(prev ? { delta: Math.round((value - measureOf(prev, cfg)) * 100) / 100, note: `попередній період: ${measureOf(prev, cfg)}`, spark: byWeek(rows) } : { note: 'усього' }) };
     }
@@ -119,8 +164,13 @@ export function computeCustom(cfg, state, me, filters = {}, now = Date.now()) {
     case 'bars':
     case 'donut': {
       if (!group) return { rows: [] };
-      const gs = groups(rows.filter(inPeriod), group, state, cfg.visual === 'donut' ? 5 : 10);
-      return { rows: gs.map((g) => ({ id: g.id, label: g.label, value: measureOf(g.rows, cfg) })).sort((a, b) => b.value - a.value) };
+      // A yearly series (the World Bank) compares the latest year each one has, not the mean of all years.
+      const last = grain === 'year' && time ? Math.max(0, ...rows.map((r) => new Date(at(r)).getUTCFullYear())) : 0;
+      const gs = groups(rows.filter(inPeriod).filter((r) => !last || new Date(at(r)).getUTCFullYear() === last), group, state, cfg.visual === 'donut' ? 5 : 10);
+      const out = gs.map((g) => ({ id: g.id, label: g.label, value: measureOf(g.rows, cfg) }));
+      // The largest first («Інші» last); a division keeps its own place, as its colour does.
+      if (group.id !== 'div') out.sort((a, b) => (a.id === '__other') - (b.id === '__other') || b.value - a.value);
+      return { rows: out };
     }
     case 'table': {
       const shown = rows.filter(inPeriod);
@@ -131,6 +181,10 @@ export function computeCustom(cfg, state, me, filters = {}, now = Date.now()) {
       }
       const cols = fields.filter((f) => f.type !== 'links' && f.type !== 'coords').slice(0, 5);
       return { cols: cols.map((f) => f.label), rows: shown.slice(0, 20).map((r, i) => ({ id: r.id || String(i), cells: cols.map((f) => labelOf(f, r[f.id], state)), to: r.div && r.col ? { div: r.div, id: `${r.col}:${r.id}` } : null })) };
+    }
+    case 'slicer': {
+      if (!group) return { rows: [] };
+      return { field: group.id, fieldLabel: group.label, rows: groups(rows.filter(inPeriod), group, state, 30).filter((g) => g.id !== '__other').map((g) => ({ id: g.id, label: g.label, value: g.rows.length })) };
     }
     case 'map': {
       // Points: a coords field of a register, or lat / lon columns of a table of one's own.
@@ -195,3 +249,13 @@ export function datasetFrom(name, head, rows, me) {
     rows: rows.slice(0, 2000).map((r, k) => Object.fromEntries([['id', `r${k}`], ...ids.map((id, i) => [id, r[i] ?? ''])])),
   };
 }
+
+/** The rows behind a widget, for «Показати дані» and the CSV download: [{ label → value }] with readable values. */
+export function drillRows(cfg, state, me, filters = {}, now = Date.now()) {
+  const fields = fieldsOf(cfg.source, state).filter((f) => f.type !== 'links');
+  const time = fields.find((f) => f.id === cfg.time);
+  const from = now - (filters.days || 30) * DAY;
+  const rows = rowsOf(cfg.source, state, me, filters, cfg).filter((r) => !time || cfg.span === 'all' || (t(r[cfg.time]) > from && t(r[cfg.time]) <= now));
+  return { cols: fields.map((f) => f.label), rows: rows.slice(0, 2000).map((r) => fields.map((f) => (f.type === 'coords' && r[f.id] && typeof r[f.id] === 'object' ? `${r[f.id].lat}, ${r[f.id].lon}` : labelOf(f, r[f.id], state)))), total: rows.length };
+}
+export const toCsv = ({ cols, rows }) => [cols, ...rows].map((r) => r.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');

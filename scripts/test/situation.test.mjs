@@ -114,3 +114,32 @@ test('the link chart: records and the records their «basis» points to', async 
   assert.deepEqual(g.nodes.map((n) => n.id).sort(), ['i1', 'p1']); // s1 is above the clearance
   assert.equal(g.edges.length, 1);
 });
+
+test('outside sources and the cross-filter: companies by sector, a picked value narrows every widget that has the field', async () => {
+  const { computeCustom, defaultCfg, drillRows, toCsv, extKey } = await import('../../src/lib/situation-custom.js');
+  const st = { ...state, ext: { 'wb:NY.GDP.MKTP.KD.ZG:UKR;POL': [
+    { country: 'Україна', date: '2022-07-01', value: -28.8 }, { country: 'Україна', date: '2023-07-01', value: 5.3 }, { country: 'Польща', date: '2023-07-01', value: 0.2 },
+  ] } };
+  const orgs = computeCustom({ ...defaultCfg('ext:orgs', st), visual: 'bars' }, st, me, { days: 30 }, NOW);
+  assert.ok(orgs.rows.length > 3 && orgs.rows.at(-1).id === '__other');
+  const energy = computeCustom({ ...defaultCfg('ext:orgs', st), visual: 'kpi' }, st, me, { days: 30, sel: [{ field: 'sector', value: 'Енергетика' }] }, NOW);
+  assert.ok(energy.value > 0 && energy.value < 200);
+  // A source without that field is not narrowed.
+  assert.equal(computeCustom({ source: 'tasks', visual: 'kpi', measure: 'count' }, st, me, { days: 30, sel: [{ field: 'sector', value: 'Енергетика' }] }, NOW).value, 3);
+  const wb = { source: 'ext:wb', ind: 'NY.GDP.MKTP.KD.ZG', countries: ['UKR', 'POL'], group: 'country', measure: 'avg', field: 'value', time: 'date', grain: 'year', span: 'all' };
+  assert.equal(extKey(wb), 'wb:NY.GDP.MKTP.KD.ZG:UKR;POL');
+  const lines = computeCustom({ ...wb, visual: 'lines' }, st, me, { days: 30 }, NOW);
+  assert.deepEqual(lines.labels, ['2022', '2023']);
+  assert.deepEqual(computeCustom({ ...wb, visual: 'bars' }, st, me, { days: 30 }, NOW).rows.map((r) => r.value), [5.3, 0.2]); // the latest year
+  const d = drillRows({ ...defaultCfg('ext:orgs', st) }, st, me, { days: 30 });
+  assert.equal(d.total, 200);
+  assert.ok(toCsv({ cols: ['a'], rows: [['x"y']] }).includes('"x""y"'));
+});
+
+test('a slicer keeps every value of its own field while the rest of the dashboard is narrowed', async () => {
+  const { computeCustom } = await import('../../src/lib/situation-custom.js');
+  const sel = [{ field: 'sector', value: 'Енергетика' }];
+  const all = computeCustom({ source: 'ext:orgs', visual: 'slicer', group: 'sector' }, state, me, { days: 30 }, NOW).rows.length;
+  assert.equal(computeCustom({ source: 'ext:orgs', visual: 'slicer', group: 'sector' }, state, me, { days: 30, sel }, NOW).rows.length, all);
+  assert.equal(computeCustom({ source: 'ext:orgs', visual: 'slicer', group: 'city' }, state, me, { days: 30, sel }, NOW).rows.length < all + 50, true);
+});
