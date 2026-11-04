@@ -10,11 +10,12 @@ import { Icon } from '../components/Icon.jsx';
 import { Pulse } from '../components/Pulse.jsx';
 import { Spark, Columns, Lines, Donut, Heat, Gauge, Graph, SERIES } from '../components/charts.jsx';
 import { readTable } from '../lib/importer.js';
-import { VISUALS, MEASURES, WB_INDICATORS, WB_COUNTRIES, EXTERNAL, extKey, sourcesOf, fieldsOf, defaultCfg, computeCustom, datasetFrom, drillRows, toCsv } from '../lib/situation-custom.js';
+import { VISUALS, MEASURES, WB_INDICATORS, WB_COUNTRIES, EXTERNAL, extKey, resolveCfg, sourcesOf, fieldsOf, defaultCfg, computeCustom, datasetFrom, drillRows, toCsv } from '../lib/situation-custom.js';
 import { ask } from '../components/Dialog.jsx';
 import { LEVELS } from '../data/clearance.js';
 import { VISIBLE_DIVISIONS } from '../data/seed.js';
-import { METRICS, TEMPLATES, PERIODS, newBoard, boardsFor, scope, compute, addWidget, addCustom, setCustom, moveWidget, placeWidget, resizeWidget, removeWidget } from '../lib/situation.js';
+import { ORGS_UA, ORG_SECTORS } from '../data/orgs-ua.js';
+import { METRICS, TEMPLATES, SUBJECTS, subjectBoard, subjectTitle, PERIODS, newBoard, boardsFor, scope, compute, addWidget, addCustom, setCustom, moveWidget, placeWidget, resizeWidget, removeWidget } from '../lib/situation.js';
 
 const SitMap = lazy(() => import('../components/SitMap.jsx').then((m) => ({ default: m.SitMap })));
 
@@ -120,6 +121,8 @@ function News() {
 
 // ── Outside data, fetched when a widget asks for it and kept for the session ─────────────────────────────────────
 const EXT_CACHE = new Map(); // key → Promise<rows>
+let gdeltChain = Promise.resolve();
+const gdeltTurn = (fn) => { const p = gdeltChain.then(fn); gdeltChain = p.then(() => new Promise((r) => setTimeout(r, 5500)), () => new Promise((r) => setTimeout(r, 5500))); return p; };
 async function fetchExt(cfg) {
   const key = extKey(cfg);
   if (!EXT_CACHE.has(key)) {
@@ -131,6 +134,20 @@ async function fetchExt(cfg) {
       if (cfg.source === 'ext:gpr') {
         const j = await (await fetch(new URL('api/pulse', document.baseURI), { headers: supabaseOn ? await authHeaders() : {} })).json();
         return (j.index || []).map((p) => ({ id: p.date, date: p.date, value: Math.round(p.value * 10) / 10 }));
+      }
+      if (cfg.source.startsWith('ext:gdelt-')) {
+        if (!cfg.q) return [];
+        const kind = cfg.source.slice(10);
+        // GDELT answers one question per five seconds: the page's questions go one after another, and a
+        // «wait» is asked again a little later (three times at most).
+        for (let i = 0; i < 4; i++) {
+          const res = await gdeltTurn(async () => fetch(new URL(`api/pulse?gdelt=${kind}&q=${encodeURIComponent(cfg.q)}`, document.baseURI), { headers: supabaseOn ? await authHeaders() : {} }));
+          const j = await res.json().catch(() => ({}));
+          if (res.ok) return (j.rows || []).map((r, k) => ({ id: `${kind}-${k}`, ...r }));
+          if (res.status !== 429) throw new Error(j.message || `HTTP ${res.status}`);
+          await new Promise((r) => setTimeout(r, 7000));
+        }
+        throw new Error('GDELT зайнятий — спробуйте за хвилину');
       }
       if (cfg.source === 'ext:wb') {
         const [ind, countries] = [cfg.ind || WB_INDICATORS[0][0], (cfg.countries || ['UKR']).join(';')];
@@ -180,6 +197,7 @@ function Slicer({ v, sel, onPick }) {
 function Visual({ kind, v, label = '', filters = {}, setFilter, divFilter = false, open, onPick }) {
   if (kind === 'news') return <News />;
   if (!v) return <div className="vx-hint">Немає даних.</div>;
+  if (v.empty && v.note) return <div className="vx-hint">{v.note}</div>;
   if (v.note && ((kind === 'columns' || kind === 'lines') && !v.series?.length)) return <div className="vx-hint">{v.note}</div>;
   switch (kind) {
     case 'kpi': return <Kpi v={v} />;
@@ -188,6 +206,10 @@ function Visual({ kind, v, label = '', filters = {}, setFilter, divFilter = fals
     case 'lines': return <Lines labels={v.labels} series={v.series} />;
     case 'donut': return <Donut rows={v.rows} onPick={onPick ? (id) => onPick(id, v.rows.find((r) => r.id === id)?.label) : undefined} />;
     case 'slicer': return <Slicer v={v} sel={filters.sel} onPick={onPick || (() => {})} />;
+    case 'card': return v.items?.length ? (
+      <dl className="sit-card">{v.items.map((x) => <div key={x.label}><dt>{x.label}</dt><dd>{/^https?:\/\//.test(x.value) ? <a href={x.value} target="_blank" rel="noopener noreferrer">{x.value.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40)}</a> : x.value}</dd></div>)}
+        {v.url && <div><dt>Джерело</dt><dd><a href={v.url} target="_blank" rel="noopener noreferrer">реєстр (Opendatabot)</a></dd></div>}</dl>
+    ) : <div className="vx-hint">{v.note || 'Немає даних.'}</div>;
     case 'gauge': return v.empty ? <div className="vx-hint">Завдань із терміном у періоді немає.</div> : <><Gauge value={v.value} label={label} /><div className="vx-hint sit-center">{v.note}</div></>;
     case 'heat': return <Heat cells={v.cells} unit="дій" />;
     case 'bars': return <Bars v={divFilter ? { rows: divColor(v.rows) } : v} active={divFilter ? filters.div : null} onPick={divFilter ? (id) => setFilter({ div: filters.div === id ? '' : id }) : onPick ? (id) => onPick(id, v.rows.find((r) => r.id === id)?.label) : null} />;
@@ -239,11 +261,27 @@ function Widget({ wg, data, edit, filters, setFilter, open, go, board, save, dra
   );
 }
 
-function TemplatePicker({ onPick, onClose }) {
+function SubjectCards({ onPick }) {
+  return (
+    <div className="sit-start__grid">
+      {SUBJECTS.map((x) => (
+        <button type="button" key={x.kind} className="sit-template sit-template--main" onClick={() => onPick(x.kind)}>
+          <span className="vx-eyebrow">{x.what}</span><b>{x.name}</b><span className="vx-hint">{x.about}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function TemplatePicker({ onPick, onSubject, onClose }) {
   return (
     <Drawer title="Новий дашборд" onClose={onClose}>
       <div className="stack">
-        <p className="vx-hint">Оберіть шаблон. Віджети можна буде додати, прибрати, переставити й змінити ширину.</p>
+        <div className="vx-eyebrow">Що аналізуємо</div>
+        {SUBJECTS.map((x) => (
+          <button type="button" key={x.kind} className="sit-template sit-template--main" onClick={() => onSubject(x.kind)}><b>{x.name}</b><span className="vx-hint">{x.about}</span></button>
+        ))}
+        <div className="vx-eyebrow">Інші шаблони</div>
         {TEMPLATES.map((t) => (
           <button type="button" key={t.id} className="sit-template" onClick={() => onPick(t.id)}>
             <b>{t.name}</b><span className="vx-hint">{t.about}</span>
@@ -275,16 +313,17 @@ function WidgetPicker({ onPick, onBuild, onClose }) {
 }
 
 /** The widget editor, as in Power BI: source, visual, fields; the widget is drawn live as it is set. */
-function WidgetEditor({ initial, onSave, onClose, filters, open }) {
+function WidgetEditor({ initial, onSave, onClose, filters, open, subject }) {
   const { state: base, me } = useStore();
   const [cfg, setCfg] = useState(initial?.cfg || defaultCfg('records', base));
-  const [ext, errs] = useExt([cfg]);
+  const live = resolveCfg(cfg, subject);
+  const [ext, errs] = useExt([live]);
   const state = useMemo(() => ({ ...base, ext }), [base, ext]);
   const [title, setTitle] = useState(initial?.title || '');
   const sources = sourcesOf(state, me);
   const fields = fieldsOf(cfg.source, state);
   const set = (p) => setCfg((c) => ({ ...c, ...p }));
-  const v = useMemo(() => computeCustom(cfg, state, me, filters), [cfg, state, me, filters]);
+  const v = useMemo(() => computeCustom(live, state, me, filters), [live, state, me, filters]);
   const groupable = fields.filter((f) => ['select', 'user', 'text'].includes(f.type));
   const numbers = fields.filter((f) => f.type === 'number');
   const dates = fields.filter((f) => f.type === 'date');
@@ -297,7 +336,7 @@ function WidgetEditor({ initial, onSave, onClose, filters, open }) {
       <div className="stack sit-editor">
         <label className="vx-field"><span className="vx-label">Назва</span><input className="vx-input" value={title} placeholder={auto} onChange={(e) => setTitle(e.target.value)} /></label>
         <label className="vx-field"><span className="vx-label">Джерело даних</span>
-          <select className="vx-select" value={cfg.source} onChange={(e) => setCfg({ ...defaultCfg(e.target.value, state), visual: cfg.visual })}>{sources.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select></label>
+          <select className="vx-select" value={cfg.source} onChange={(e) => setCfg({ ...defaultCfg(e.target.value, state), visual: cfg.visual, ...(e.target.value.startsWith('ext:gdelt-') ? { q: subject ? '$q' : '', time: 'date', measure: e.target.value === 'ext:gdelt-arts' ? 'count' : 'avg', field: e.target.value === 'ext:gdelt-arts' ? '' : 'value', span: 'all' } : {}) })}>{sources.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select></label>
         <div className="vx-field"><span className="vx-label">Вид</span>
           <div className="sit-visuals">{VISUALS.map(([id, l]) => <button type="button" key={id} className={`vx-tag ${cfg.visual === id ? 'is-active' : ''}`} onClick={() => set({ visual: id })}>{l}</button>)}</div></div>
         {needs.group && <label className="vx-field"><span className="vx-label">{cfg.visual === 'columns' || cfg.visual === 'lines' ? 'Розбити за (серії)' : cfg.visual === 'map' ? 'Колір точок за' : 'Групувати за'}</span>
@@ -322,7 +361,9 @@ function WidgetEditor({ initial, onSave, onClose, filters, open }) {
           <label className="vx-field"><span className="vx-label">Які рядки</span>
             <select className="vx-select" value={cfg.span || 'board'} onChange={(e) => set({ span: e.target.value })}><option value="board">За період дашборда</option><option value="all">Усі дані</option></select></label>
         </div>}
-        {errs[extKey(cfg)] && <div className="vx-error">Джерело не відповідає: {errs[extKey(cfg)]}</div>}
+        {cfg.source.startsWith('ext:gdelt-') && <label className="vx-field"><span className="vx-label">Запит для світових медіа (англійською або латиницею){subject ? ' · $q — запит об’єкта дашборда' : ''}</span>
+          <input className="vx-input" value={cfg.q || ''} placeholder={subject ? '$q' : '"Ukraine" AND drones'} onChange={(e) => set({ q: e.target.value })} /></label>}
+        {errs[extKey(live)] && <div className="vx-error">Джерело не відповідає: {errs[extKey(live)]}</div>}
         <div className="vx-eyebrow">Попередній перегляд</div>
         <div className="sit sit-preview"><Panel title={title || auto} className="sit-panel"><Visual kind={cfg.visual} v={v} label={title || auto} open={open} /></Panel></div>
       </div>
@@ -400,6 +441,50 @@ function DataDrawer({ onClose }) {
   );
 }
 
+// The subject a dashboard analyses: a country, a company, a sector or a topic, and its query for the world's media.
+const UA_LAT = { а: 'a', б: 'b', в: 'v', г: 'h', ґ: 'g', д: 'd', е: 'e', є: 'ie', ж: 'zh', з: 'z', и: 'y', і: 'i', ї: 'i', й: 'i', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'shch', ь: '', ю: 'iu', я: 'ia', '’': '', 'ʼ': '' };
+const latin = (s) => String(s || '').replace(/[«»"]/g, '').split('').map((ch) => { const l = UA_LAT[ch.toLowerCase()]; return l == null ? ch : ch === ch.toLowerCase() ? l : l.charAt(0).toUpperCase() + l.slice(1); }).join('').trim();
+const SECTOR_EN = { 'Енергетика': 'energy', 'Нафта й газ': 'oil gas', 'Транспорт і логістика': 'logistics', 'Металургія та гірництво': 'steel mining', 'Агро й харчова промисловість': 'agriculture grain', 'Роздрібна торгівля': 'retail', 'Телеком': 'telecom', 'IT': 'IT tech', 'Банки': 'banks banking', 'Фармацевтика': 'pharmaceutical', 'Машинобудування й оборонна промисловість': 'defense industry', 'Хімія': 'chemical', 'Страхування': 'insurance', 'Комунальні послуги': 'utilities', 'Охорона здоров’я': 'healthcare', 'Медіа': 'media' };
+function SubjectForm({ kind: kind0, initial, onDone, onClose }) {
+  const [kind, setKind] = useState(initial?.kind || kind0 || 'country');
+  const [sub, setSub] = useState(initial || {});
+  const set = (p) => setSub((x) => ({ ...x, ...p }));
+  const pickCountry = (iso3) => { const c = WB_COUNTRIES.find((x) => x[0] === iso3); if (c) set({ iso3, label: c[1], q: `"${c[2]}"` }); };
+  // The world's media write names in Latin letters: the Ukrainian name and its transliteration, both.
+  const both = (name) => { const lat = latin(name); return lat && lat.toLowerCase() !== name.toLowerCase() ? `"${name}" OR "${lat}"` : `"${name}"`; };
+  const pickCompany = (name) => { const o = ORGS_UA.find((x) => x.name === name); set(o ? { label: o.name, code: o.code, sector: o.sector, q: both(o.name) } : { label: name, code: '', q: name ? both(name) : '' }); };
+  const pickSector = (sector) => set({ sector, label: sector, q: `Ukraine ${SECTOR_EN[sector] || sector}` });
+  const ready = sub.label && (kind !== 'country' || sub.iso3) && sub.q;
+  const tpl = SUBJECTS.find((x) => x.kind === kind);
+  return (
+    <Drawer title={initial ? 'Об’єкт аналізу' : 'Що аналізуємо?'} onClose={onClose}
+      footer={<><button type="button" className="vx-btn vx-btn--ghost" onClick={onClose}>Скасувати</button><button type="button" className="vx-btn vx-btn--primary" disabled={!ready} onClick={() => onDone({ ...sub, kind })}>{initial ? 'Застосувати' : 'Створити дашборд'}</button></>}>
+      <div className="stack sit-editor">
+        {!initial && <div className="sit-visuals">{SUBJECTS.map((x) => <button type="button" key={x.kind} className={`vx-tag ${kind === x.kind ? 'is-active' : ''}`} onClick={() => { setKind(x.kind); setSub({}); }}>{x.what}</button>)}</div>}
+        <p className="vx-hint">{tpl?.about}</p>
+        {kind === 'country' && <label className="vx-field"><span className="vx-label">Країна</span>
+          <select className="vx-select" value={sub.iso3 || ''} onChange={(e) => pickCountry(e.target.value)}><option value="">— оберіть —</option>{WB_COUNTRIES.map(([id, l]) => <option key={id} value={id}>{l}</option>)}</select></label>}
+        {kind === 'company' && <>
+          <label className="vx-field"><span className="vx-label">Компанія (з довідника 200 провідних або будь-яка)</span>
+            <input className="vx-input" list="sit-orgs" value={sub.label || ''} onChange={(e) => pickCompany(e.target.value)} placeholder="Почніть вводити назву" />
+            <datalist id="sit-orgs">{ORGS_UA.map((o) => <option key={o.code} value={o.name}>{o.sector}</option>)}</datalist></label>
+          <div className="sit-editor__row">
+            <label className="vx-field"><span className="vx-label">ЄДРПОУ</span><input className="vx-input" value={sub.code || ''} onChange={(e) => set({ code: e.target.value.replace(/\D/g, '').slice(0, 8) })} /></label>
+            <label className="vx-field"><span className="vx-label">Галузь</span><select className="vx-select" value={sub.sector || ''} onChange={(e) => set({ sector: e.target.value })}><option value="">—</option>{ORG_SECTORS.map((x) => <option key={x} value={x}>{x}</option>)}</select></label>
+          </div>
+        </>}
+        {kind === 'sector' && <label className="vx-field"><span className="vx-label">Галузь</span>
+          <select className="vx-select" value={sub.sector || ''} onChange={(e) => pickSector(e.target.value)}><option value="">— оберіть —</option>{ORG_SECTORS.map((x) => <option key={x} value={x}>{x}</option>)}</select></label>}
+        {kind === 'topic' && <label className="vx-field"><span className="vx-label">Тема</span>
+          <input className="vx-input" value={sub.label || ''} onChange={(e) => set({ label: e.target.value })} placeholder="Напр. Чорноморський коридор" /></label>}
+        <label className="vx-field"><span className="vx-label">Запит для світових медіа (GDELT; англійською або латиницею — так знайдеться більше)</span>
+          <input className="vx-input" value={sub.q || ''} onChange={(e) => set({ q: e.target.value })} placeholder={kind === 'topic' ? '"Black Sea" AND (grain OR corridor)' : ''} />
+          <span className="vx-hint">Лапки — точна фраза; AND, OR, дужки — як у пошуку. Напр. «"Ukrzaliznytsia" OR "Ukrainian Railways"».</span></label>
+      </div>
+    </Drawer>
+  );
+}
+
 function DrillDrawer({ wg, state, me, filters, onClose }) {
   const d = useMemo(() => drillRows(wg.cfg, state, me, filters), [wg, state, me, filters]);
   const download = async () => { await saveFile(`${(wg.title || 'дані').replace(/[\\/:*?"<>|]+/g, ' ').slice(0, 60)}.csv`, new Blob(['\uFEFF', toCsv(d)], { type: 'text/csv;charset=utf-8' })); };
@@ -427,6 +512,8 @@ export function Situation({ focus, go }) {
   const [drill, setDrill] = useState(null);
   const [zoom, setZoom] = useState(null);
   const [sel, setSel] = useState([]); // the cross-filter: [{ field, value, label }]
+  const [subjectKind, setSubjectKind] = useState(null); // a new dashboard about a subject: the form is open
+  const [subjectEdit, setSubjectEdit] = useState(false);
   const [filters, setFilters] = useState({ days: 30, div: '' });
   const box = useRef(null);
   useEffect(() => { if (board) setFilters({ days: board.filters?.days || 30, div: board.filters?.div || '' }); }, [board?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -435,6 +522,13 @@ export function Situation({ focus, go }) {
   const save = (next) => dispatch({ type: 'board/update', id: next.id, patch: { widgets: next.widgets } });
   const patch = (p) => board && dispatch({ type: 'board/update', id: board.id, patch: p });
   const setFilter = (p) => setFilters((f) => ({ ...f, ...p }));
+  const createSubject = (subject) => {
+    const b = subjectBoard(subject, me);
+    dispatch({ type: 'board/add', board: b });
+    setSubjectKind(null); setPicking(false);
+    go('situation', b.id);
+    toast(`Дашборд «${b.name}» створено`);
+  };
   const create = (tpl) => {
     const b = newBoard(tpl, me);
     dispatch({ type: 'board/add', board: b });
@@ -453,10 +547,11 @@ export function Situation({ focus, go }) {
   const full = () => { const el = box.current; if (!el) return; if (document.fullscreenElement) document.exitFullscreen?.(); else el.requestFullscreen?.(); };
 
   const s = useMemo(() => scope(state, me, filters), [state, me, filters]);
-  const [ext, extErr] = useExt((board?.widgets || []).filter((wg) => wg.metric === 'custom').map((wg) => wg.cfg));
+  const cfgOf = (wg) => resolveCfg(wg.cfg || {}, board?.subject);
+  const [ext, extErr] = useExt((board?.widgets || []).filter((wg) => wg.metric === 'custom').map(cfgOf));
   const full2 = useMemo(() => ({ ...state, ext }), [state, ext]);
   const f2 = useMemo(() => ({ ...filters, sel }), [filters, sel]);
-  const data = useMemo(() => Object.fromEntries((board?.widgets || []).map((wg) => [wg.id, wg.metric === 'custom' ? computeCustom(wg.cfg || {}, full2, me, f2) : compute(wg.metric, s)])), [board?.widgets, s, full2, me, f2]);
+  const data = useMemo(() => Object.fromEntries((board?.widgets || []).map((wg) => [wg.id, wg.metric === 'custom' ? computeCustom(resolveCfg(wg.cfg || {}, board?.subject), full2, me, f2) : compute(wg.metric, s)])), [board?.widgets, board?.subject, s, full2, me, f2]);
   const pick = (wg, value, label) => {
     if (value === '__other') return;
     const field = wg.cfg.group;
@@ -467,15 +562,18 @@ export function Situation({ focus, go }) {
   if (!board) {
     return (
       <div className="page">
-        <header className="page__head"><div><div className="vx-eyebrow">SITUATION · дашборди</div><h1 className="vx-h1">Дашборди</h1></div></header>
+        <header className="page__head"><div><div className="vx-eyebrow">SITUATION · аналітичні дашборди</div><h1 className="vx-h1">Що аналізуємо?</h1></div></header>
         <div className="sit-start">
-          <p className="vx-hint">Дашборд — сітка віджетів із даних платформи: показники, динаміка, порівняння, таблиці, стрічки. Почніть із шаблону.</p>
+          <p className="vx-hint">Оберіть об’єкт — країну, компанію, галузь чи тему. Дашборд збереться з відкритих джерел: Світовий банк, світові медіа (GDELT), реєстр провідних компаній, CONTEXT News, геополітичний ризик — і ваших записів про нього.</p>
+          <SubjectCards onPick={setSubjectKind} />
+          <div className="vx-eyebrow">Інші шаблони</div>
           <div className="sit-start__grid">
             {TEMPLATES.map((t) => (
               <button type="button" key={t.id} className="sit-template" onClick={() => create(t.id)}><b>{t.name}</b><span className="vx-hint">{t.about}</span></button>
             ))}
           </div>
         </div>
+        {subjectKind && <SubjectForm kind={subjectKind} onClose={() => setSubjectKind(null)} onDone={createSubject} />}
       </div>
     );
   }
@@ -488,6 +586,11 @@ export function Situation({ focus, go }) {
           {edit && mine
             ? <input className="vx-input sit-name" value={board.name} onChange={(e) => patch({ name: e.target.value })} aria-label="Назва дашборда" />
             : <h1 className="vx-h1">{board.name}</h1>}
+          {board.subject && <div className="sit-subject">
+            <span className="vx-tag">{SUBJECTS.find((x) => x.kind === board.subject.kind)?.what}: <b>{board.subject.label}</b></span>
+            <span className="vx-hint vx-mono">медіа: {board.subject.q}</span>
+            {mine && <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => setSubjectEdit(true)}>Змінити об’єкт</button>}
+          </div>}
         </div>
         <div className="toolbar">
           {mine && <button type="button" className={`vx-btn ${edit ? 'vx-btn--primary' : 'vx-btn--ghost'} vx-btn--sm`} onClick={() => setEdit(!edit)}><Icon name={edit ? 'check' : 'settings'} size={14} /> {edit ? 'Готово' : 'Редагувати'}</button>}
@@ -532,20 +635,22 @@ export function Situation({ focus, go }) {
       <div className="sit-grid">
         {board.widgets.map((wg) => (
           <Widget key={wg.id} wg={wg} data={data[wg.id]} edit={edit && mine} filters={f2} setFilter={setFilter} open={openRecord} go={go} board={board} save={save} drag={drag} setDrag={setDrag} onEdit={(x) => setEditing({ wg: x })}
-            onPick={pick} onDrill={setDrill} onFocus={setZoom} error={wg.metric === 'custom' && wg.cfg ? extErr[extKey(wg.cfg)] : null} />
+            onPick={pick} onDrill={(x) => setDrill({ ...x, cfg: cfgOf(x) })} onFocus={setZoom} error={wg.metric === 'custom' && wg.cfg ? extErr[extKey(cfgOf(wg))] : null} />
         ))}
       </div>
 
-      {picking && <TemplatePicker onPick={create} onClose={() => setPicking(false)} />}
+      {picking && <TemplatePicker onPick={create} onSubject={(k) => { setPicking(false); setSubjectKind(k); }} onClose={() => setPicking(false)} />}
+      {subjectKind && <SubjectForm kind={subjectKind} onClose={() => setSubjectKind(null)} onDone={createSubject} />}
+      {subjectEdit && <SubjectForm initial={board.subject} onClose={() => setSubjectEdit(false)} onDone={(sub) => { patch({ subject: sub, name: subjectTitle(sub) }); setSubjectEdit(false); }} />}
       {adding && <WidgetPicker onPick={(id) => { save(addWidget(board, id)); setAdding(false); }} onBuild={() => { setAdding(false); setEditing({ wg: null }); }} onClose={() => setAdding(false)} />}
-      {editing && <WidgetEditor initial={editing.wg} filters={filters} open={openRecord} onClose={() => setEditing(null)}
+      {editing && <WidgetEditor initial={editing.wg} filters={filters} open={openRecord} subject={board.subject} onClose={() => setEditing(null)}
         onSave={(cfg, title) => { save(editing.wg ? setCustom(board, editing.wg.id, cfg, title) : addCustom(board, cfg, title)); setEditing(null); }} />}
       {dataOpen && <DataDrawer onClose={() => setDataOpen(false)} />}
       {drill && <DrillDrawer wg={drill} state={full2} me={me} filters={f2} onClose={() => setDrill(null)} />}
       {zoom && <Modal onClose={() => setZoom(null)} label={zoom.title || METRICS[zoom.metric]?.label}>
         <div className="sit sit-zoom">
           <div className="sit-zoom__head"><b>{zoom.title || METRICS[zoom.metric]?.label}</b><button type="button" className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" onClick={() => setZoom(null)} aria-label="Закрити"><Icon name="close" size={14} /></button></div>
-          <Visual kind={zoom.metric === 'custom' ? zoom.cfg.visual : METRICS[zoom.metric]?.kind} v={data[zoom.id]} label={zoom.title} filters={{ ...filters, sel }} setFilter={setFilter} divFilter={METRICS[zoom.metric]?.filters === 'div'} open={(to) => { setZoom(null); openRecord(to); }}
+          <Visual kind={zoom.metric === 'custom' ? cfgOf(zoom).visual : METRICS[zoom.metric]?.kind} v={data[zoom.id]} label={zoom.title} filters={{ ...filters, sel }} setFilter={setFilter} divFilter={METRICS[zoom.metric]?.filters === 'div'} open={(to) => { setZoom(null); openRecord(to); }}
             onPick={zoom.metric === 'custom' && zoom.cfg.group ? (id, lab) => pick(zoom, id, lab) : undefined} />
         </div>
       </Modal>}

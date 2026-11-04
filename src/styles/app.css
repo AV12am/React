@@ -1169,3 +1169,11 @@ kbd {
 .sit .sit-panel .vx-table-wrap { max-height: 440px; overflow: auto; }
 .sit .sit-panel .sit-table thead th { position: sticky; top: 0; background: var(--surface); }
 .sit-grid { align-items: start; }
+.sit-subject { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 8px; }
+.sit-subject .vx-mono { font-size: 12px; }
+.sit-card { display: grid; gap: 8px; margin: 0; }
+.sit-card > div { display: grid; grid-template-columns: 120px 1fr; gap: 10px; font-size: 13.5px; }
+.sit-card dt { color: var(--ink-3); }
+.sit-card dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
+.sit-card a { color: var(--sit-c1); }
+.sit-template .vx-eyebrow { margin-bottom: 2px; }

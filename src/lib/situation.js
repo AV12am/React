@@ -50,18 +50,18 @@ const w = (metric, width, extra = {}) => ({ id: wid(), metric, w: width, ...extr
 /** The ready dashboards, as the popular platforms ship them (Power BI, Tableau, Looker Studio, Metabase, Grafana). */
 export const TEMPLATES = [
   {
-    id: 'exec', name: 'Огляд керівника', about: 'Ключові показники зі зміною за період, тренд, напрями, найближчі терміни.',
+    id: 'exec', internal: true, name: 'Огляд керівника', about: 'Ключові показники зі зміною за період, тренд, напрями, найближчі терміни.',
     widgets: () => [w('records.new', 3), w('tasks.open', 3), w('tasks.overdue', 3), w('projects.active', 3),
       w('records.byWeekDiv', 8), w('tasks.status', 4), w('work.lines', 6), w('records.byDivision', 6),
       w('audit.heat', 8), w('tasks.rate', 4), w('tasks.upcoming', 6), w('audit.recent', 6)],
   },
   {
-    id: 'projects', name: 'Проєкти й завдання', about: 'Стан проєктів, навантаження людей, прострочене й найближче.',
+    id: 'projects', internal: true, name: 'Проєкти й завдання', about: 'Стан проєктів, навантаження людей, прострочене й найближче.',
     widgets: () => [w('projects.active', 3), w('tasks.open', 3), w('tasks.overdue', 3), w('tasks.done', 3),
       w('projects.donut', 4), w('tasks.byAssignee', 4), w('tasks.rate', 4), w('projects.list', 12), w('work.lines', 6), w('tasks.upcoming', 6)],
   },
   {
-    id: 'situation', name: 'Обстановка', about: 'Геополітичний ризик, ключові новини доби, свіжі записи й прогнози.',
+    id: 'situation', internal: true, name: 'Обстановка', about: 'Геополітичний ризик, ключові новини доби, свіжі записи й прогнози.',
     widgets: () => [w('forecasts.open', 3), w('records.new', 3), w('audit.events', 3), w('records.total', 3), w('pulse.gpr', 12), w('news.key', 6), w('records.recent', 6),
       w('custom', 6, { title: 'Карта записів', cfg: { source: 'records', visual: 'map', group: 'div', measure: 'count', field: '', time: '', color: 0 } }),
       w('custom', 6, { title: 'Зв\'язки записів', cfg: { source: 'records', visual: 'graph', group: '', measure: 'count', field: '', time: '', color: 0 } }),
@@ -93,6 +93,55 @@ export const TEMPLATES = [
   },
   { id: 'blank', name: 'Порожній дашборд', about: 'Почніть з чистої сітки й додайте віджети самі.', widgets: () => [] },
 ];
+
+// ── Dashboards about a subject outside the company: the core of SITUATION ─────────────────────────────────────────
+const c = (title, width, cfg) => w('custom', width, { title, cfg });
+const wb = (ind, visual, extra = {}) => ({ source: 'ext:wb', visual, group: 'country', measure: 'avg', field: 'value', time: 'date', grain: 'year', span: 'all', ind, countries: ['$iso3'], ...extra });
+const media = (kind, visual, extra = {}) => ({ source: `ext:gdelt-${kind}`, q: '$q', visual, group: '', measure: 'avg', field: 'value', time: 'date', grain: 'week', span: 'all', ...extra });
+const PEERS = ['$iso3', 'POL', 'DEU', 'USA'];
+export const SUBJECTS = [
+  { kind: 'country', name: 'Ризик країни', what: 'Країна', about: 'Економіка й безпека країни за Світовим банком, увага й тон світових медіа, що пишуть зараз, геополітичний ризик.',
+    widgets: () => [
+      c('Зростання ВВП, %', 3, wb('NY.GDP.MKTP.KD.ZG', 'kpi')), c('Інфляція, %', 3, wb('FP.CPI.TOTL.ZG', 'kpi')), c('Військові видатки, % ВВП', 3, wb('MS.MIL.XPND.GD.ZS', 'kpi')), c('Держборг, % ВВП', 3, wb('GC.DOD.TOTL.GD.ZS', 'kpi')),
+      c('Увага світових медіа', 8, media('vol', 'lines')), c('Геополітичний ризик (світ)', 4, { source: 'ext:gpr', visual: 'kpi', measure: 'avg', field: 'value', time: 'date', grain: 'week', span: 'board' }),
+      c('Зростання ВВП порівняно з іншими, %', 6, wb('NY.GDP.MKTP.KD.ZG', 'lines', { countries: PEERS })), c('Військові видатки порівняно з іншими, % ВВП', 6, wb('MS.MIL.XPND.GD.ZS', 'lines', { countries: PEERS })),
+      c('Тон публікацій', 6, media('tone', 'lines')), c('Хто пише: країни видань', 6, media('arts', 'bars', { group: 'country', measure: 'count', field: '', time: '' })),
+      c('Статті тижня', 12, media('arts', 'table', { measure: 'count', field: '', time: '' })),
+    ] },
+  { kind: 'company', name: 'Перевірка контрагента', what: 'Компанія', about: 'Картка з відкритих даних, згадки й тон у світових медіа, статті, ваші знахідки й записи про компанію, конкуренти в галузі.',
+    widgets: () => [
+      c('Картка компанії', 4, { source: 'ext:orgs', visual: 'card', match: { field: 'code', value: '$code', exact: true } }),
+      c('Увага медіа', 8, media('vol', 'lines')),
+      c('Статті тижня', 8, media('arts', 'table', { measure: 'count', field: '', time: '' })), c('Тон публікацій', 4, media('tone', 'kpi', { span: 'all' })),
+      c('Ваші записи про компанію', 6, { source: 'records', visual: 'table', match: { field: 'name', value: '$name' } }),
+      c('Знахідки й надходження', 6, { source: 'reg:int/intake', visual: 'table', match: { field: 'title', value: '$name' } }),
+      c('Компанії тієї ж галузі за містами', 6, { source: 'ext:orgs', visual: 'bars', group: 'city', measure: 'count', match: { field: 'sector', value: '$sector', exact: true } }),
+      c('Конкуренти в галузі', 6, { source: 'ext:orgs', visual: 'table', match: { field: 'sector', value: '$sector', exact: true } }),
+    ] },
+  { kind: 'sector', name: 'Галузь і ринок', what: 'Галузь', about: 'Компанії галузі за містами, перелік і власники, увага світових медіа до галузі, статті тижня.',
+    widgets: () => [
+      c('Компаній у галузі', 3, { source: 'ext:orgs', visual: 'kpi', measure: 'count', match: { field: 'sector', value: '$sector', exact: true } }),
+      c('Місто', 3, { source: 'ext:orgs', visual: 'slicer', group: 'city', match: { field: 'sector', value: '$sector', exact: true } }),
+      c('Компанії за містами', 6, { source: 'ext:orgs', visual: 'bars', group: 'city', measure: 'count', match: { field: 'sector', value: '$sector', exact: true } }),
+      c('Компанії галузі', 12, { source: 'ext:orgs', visual: 'table', match: { field: 'sector', value: '$sector', exact: true } }),
+      c('Увага світових медіа', 6, media('vol', 'lines')), c('Хто пише', 6, media('arts', 'bars', { group: 'domain', measure: 'count', field: '', time: '' })),
+      c('Статті тижня', 12, media('arts', 'table', { measure: 'count', field: '', time: '' })),
+    ] },
+  { kind: 'topic', name: 'Інфопростір і тема', what: 'Тема', about: 'Як тема звучить у світових медіа: обсяг і тон за три місяці, видання й країни, статті тижня, сьогоднішні новини CONTEXT.',
+    widgets: () => [
+      c('Обсяг згадок', 8, media('vol', 'lines')), c('Тон', 4, media('tone', 'kpi', { span: 'all' })),
+      c('Тон публікацій за тижнями', 6, media('tone', 'lines')), c('Країни видань', 6, media('arts', 'donut', { group: 'country', measure: 'count', field: '', time: '' })),
+      c('Видання', 6, media('arts', 'bars', { group: 'domain', measure: 'count', field: '', time: '' })), c('Мови', 6, media('arts', 'donut', { group: 'language', measure: 'count', field: '', time: '' })),
+      c('Статті тижня', 12, media('arts', 'table', { measure: 'count', field: '', time: '' })),
+    ] },
+];
+export const subjectTitle = (sub) => `${SUBJECTS.find((x) => x.kind === sub.kind)?.name || 'Аналіз'}: ${sub.label}`;
+export function subjectBoard(subject, me) {
+  const tpl = SUBJECTS.find((x) => x.kind === subject.kind);
+  const now = new Date().toISOString();
+  return { id: `bd-${Date.now().toString(36)}${(n++).toString(36)}`, name: subjectTitle(subject), template: `subject:${subject.kind}`, subject, owner: me.id, shared: false, clearance: 0,
+    filters: { days: 30, div: '' }, widgets: tpl.widgets(), at: now, updated: now };
+}
 
 /** A new dashboard from a template. */
 export function newBoard(templateId, me, name) {

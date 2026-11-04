@@ -106,8 +106,39 @@ export async function refresh(now = Date.now()) {
   };
 }
 
+// SITUATION: what the world's media say about one subject (a country, a company, a sector, a topic) — GDELT's
+// coverage volume and tone for three months, or its latest articles. Kept six hours per question; GDELT answers one
+// question per five seconds per address, so a refusal is passed on and the page asks again a little later.
+//   GET /api/pulse?gdelt=vol|tone|arts&q=<query>   Authorization: Bearer <Supabase access token>
+const GD_MODES = { vol: { mode: 'timelinevol', timespan: '3months' }, tone: { mode: 'timelinetone', timespan: '3months' }, arts: { mode: 'artlist', timespan: '7d', maxrecords: '75', sort: 'datedesc' } };
+const hashOf = (s) => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return (h >>> 0).toString(36); };
+export async function subjectMedia(kind, q, now = Date.now(), fetchImpl = fetch) {
+  const id = `gd-${kind}-${hashOf(q)}`;
+  const kept = await read(id);
+  if (kept?.at && now - Date.parse(kept.at) < 6 * HOUR && kept.q === q) return kept;
+  const res = await fetchImpl(`${GDELT}?${new URLSearchParams({ query: q, format: 'json', ...GD_MODES[kind] })}`, { headers: { 'User-Agent': 'ReactionCore/1.0 (situation dashboards)' }, signal: AbortSignal.timeout(15000) });
+  const text = await res.text();
+  if (res.status === 429 || /limit requests|please limit/i.test(text)) { const e = new Error('GDELT просить зачекати'); e.status = 429; throw e; }
+  if (!res.ok) throw new Error(`GDELT ${res.status}`);
+  let j; try { j = JSON.parse(text); } catch { throw new Error(/query/i.test(text) ? `GDELT: ${text.slice(0, 120)}` : 'GDELT: незрозуміла відповідь'); }
+  const rows = kind === 'arts'
+    ? (j.articles || []).map((a) => ({ title: String(a.title || '').slice(0, 220), url: a.url, domain: a.domain, country: a.sourcecountry || '', language: a.language || '', date: /^(\d{4})(\d{2})(\d{2})/.test(a.seendate || '') ? a.seendate.replace(/^(\d{4})(\d{2})(\d{2}).*/, '$1-$2-$3') : '' }))
+    : timeline(j);
+  const doc = { at: new Date(now).toISOString(), q, kind, rows };
+  await keep(id, doc);
+  return doc;
+}
+
 export async function GET(req) {
-  if (new URL(req.url).searchParams.has('news')) return newsGet(req); // CONTEXT News (api/_news.js)
+  const sp = new URL(req.url).searchParams;
+  if (sp.has('news')) return newsGet(req); // CONTEXT News (api/_news.js)
+  if (sp.has('gdelt')) {
+    const kind = sp.get('gdelt');
+    const q = String(sp.get('q') || '').trim().slice(0, 160);
+    if (!GD_MODES[kind] || q.length < 2) return json(400, { error: 'query', message: 'Потрібні вид (vol, tone, arts) і запит' });
+    if (!(await caller(req))) return json(401, { error: 'signin', message: 'Потрібен вхід із підтвердженням ключем' });
+    try { return json(200, await subjectMedia(kind, q)); } catch (e) { return json(e.status === 429 ? 429 : 502, { error: 'gdelt', message: e.message }); }
+  }
   try {
     const m = await caller(req);
     if (!m) return json(401, { error: 'signin', message: 'Потрібен вхід із підтвердженням ключем' });

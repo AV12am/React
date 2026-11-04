@@ -143,3 +143,37 @@ test('a slicer keeps every value of its own field while the rest of the dashboar
   assert.equal(computeCustom({ source: 'ext:orgs', visual: 'slicer', group: 'sector' }, state, me, { days: 30, sel }, NOW).rows.length, all);
   assert.equal(computeCustom({ source: 'ext:orgs', visual: 'slicer', group: 'city' }, state, me, { days: 30, sel }, NOW).rows.length < all + 50, true);
 });
+
+test('a dashboard about a subject: every template names it, and its widgets count for that country or company', async () => {
+  const { SUBJECTS, subjectBoard } = await import('../../src/lib/situation.js');
+  const { resolveCfg, computeCustom, extKey } = await import('../../src/lib/situation-custom.js');
+  for (const t of SUBJECTS) assert.ok(t.widgets().length >= 6, t.kind);
+  const pl = subjectBoard({ kind: 'country', label: 'Польща', iso3: 'POL', q: '"Poland"' }, me);
+  assert.equal(pl.name, 'Ризик країни: Польща');
+  const peers = resolveCfg(pl.widgets.find((x) => x.title?.startsWith('Зростання ВВП порівняно')).cfg, pl.subject);
+  assert.deepEqual(peers.countries, ['POL', 'DEU', 'USA']); // the subject once, its peers after
+  assert.equal(extKey(resolveCfg(pl.widgets.find((x) => x.title === 'Увага світових медіа').cfg, pl.subject)), 'gd:vol:"Poland"');
+  // A yearly KPI: the latest year against the one before.
+  const st = { ...state, ext: { 'wb:NY.GDP.MKTP.KD.ZG:POL': [{ country: 'Польща', date: '2022-07-01', value: 5.3 }, { country: 'Польща', date: '2023-07-01', value: 0.2 }] } };
+  const kpi = computeCustom(resolveCfg(pl.widgets[0].cfg, pl.subject), st, me, { days: 30 }, NOW);
+  assert.equal(kpi.value, 0.2);
+  assert.equal(kpi.delta, -5.1);
+  // A company: its card from the register of leading companies, peers of its sector.
+  const uz = subjectBoard({ kind: 'company', label: 'Укрзалізниця', code: '40075815', sector: 'Транспорт і логістика', q: '"Ukrzaliznytsia"' }, me);
+  const card = computeCustom(resolveCfg(uz.widgets[0].cfg, uz.subject), state, me, { days: 30 }, NOW);
+  assert.ok(card.items.some((x) => x.label === 'ЄДРПОУ' && x.value === '40075815'));
+  const rivals = computeCustom(resolveCfg(uz.widgets.find((x) => x.title === 'Конкуренти в галузі').cfg, uz.subject), state, me, { days: 30 }, NOW);
+  assert.ok(rivals.rows.length > 5 && rivals.rows.every((r) => r.cells.includes('Транспорт і логістика')));
+});
+
+test('the world’s media about a subject: GDELT asked once, kept six hours; a «wait» is passed on', async () => {
+  process.env.SUPABASE_URL ||= '';
+  const { subjectMedia } = await import('../../api/pulse.js');
+  let asked = 0;
+  const ok = async () => { asked++; return new Response(JSON.stringify({ articles: [{ title: 'Poland boosts defence', url: 'https://x/1', domain: 'x.com', sourcecountry: 'Poland', language: 'English', seendate: '20261103T120000Z' }] }), { status: 200 }); };
+  const r = await subjectMedia('arts', '"Poland"', Date.now(), ok);
+  assert.equal(asked, 1);
+  assert.deepEqual(r.rows[0], { title: 'Poland boosts defence', url: 'https://x/1', domain: 'x.com', country: 'Poland', language: 'English', date: '2026-11-03' });
+  const busy = async () => new Response('Please limit requests to one every 5 seconds', { status: 429 });
+  await assert.rejects(() => subjectMedia('vol', '"Poland"', Date.now(), busy), (e) => e.status === 429);
+});

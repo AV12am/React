@@ -13,17 +13,40 @@ export const WB_INDICATORS = [
   ['SL.UEM.TOTL.ZS', 'Безробіття, %'], ['MS.MIL.XPND.GD.ZS', 'Військові видатки, % ВВП'], ['MS.MIL.XPND.CD', 'Військові видатки, дол. США'],
   ['BX.KLT.DINV.CD.WD', 'Прямі іноземні інвестиції, дол. США'], ['NE.EXP.GNFS.CD', 'Експорт, дол. США'], ['GC.DOD.TOTL.GD.ZS', 'Держборг, % ВВП'], ['SP.POP.TOTL', 'Населення'],
 ];
-export const WB_COUNTRIES = [['UKR', 'Україна'], ['POL', 'Польща'], ['DEU', 'Німеччина'], ['FRA', 'Франція'], ['GBR', 'Велика Британія'], ['USA', 'США'], ['RUS', 'росія'], ['BLR', 'Білорусь'],
-  ['ROU', 'Румунія'], ['MDA', 'Молдова'], ['TUR', 'Туреччина'], ['CHN', 'Китай'], ['LTU', 'Литва'], ['CZE', 'Чехія'], ['EUU', 'Європейський Союз']];
+// [ISO3, the name in Ukrainian, the name in English (for the world's media)]
+export const WB_COUNTRIES = [['UKR', 'Україна', 'Ukraine'], ['POL', 'Польща', 'Poland'], ['DEU', 'Німеччина', 'Germany'], ['FRA', 'Франція', 'France'], ['GBR', 'Велика Британія', 'United Kingdom'],
+  ['USA', 'США', 'United States'], ['RUS', 'росія', 'Russia'], ['BLR', 'Білорусь', 'Belarus'], ['ROU', 'Румунія', 'Romania'], ['MDA', 'Молдова', 'Moldova'], ['TUR', 'Туреччина', 'Turkey'],
+  ['CHN', 'Китай', 'China'], ['LTU', 'Литва', 'Lithuania'], ['LVA', 'Латвія', 'Latvia'], ['EST', 'Естонія', 'Estonia'], ['CZE', 'Чехія', 'Czech Republic'], ['SVK', 'Словаччина', 'Slovakia'],
+  ['HUN', 'Угорщина', 'Hungary'], ['GEO', 'Грузія', 'Georgia'], ['KAZ', 'Казахстан', 'Kazakhstan'], ['IRN', 'Іран', 'Iran'], ['ISR', 'Ізраїль', 'Israel'], ['IND', 'Індія', 'India'], ['JPN', 'Японія', 'Japan'], ['EUU', 'Європейський Союз', 'European Union']];
 export const EXTERNAL = {
-  'ext:orgs': { label: 'Компанії України · 200 провідних', fields: [{ id: 'name', label: 'Компанія', type: 'text' }, { id: 'sector', label: 'Галузь', type: 'select' }, { id: 'city', label: 'Місто', type: 'select' }, { id: 'founded', label: 'Рік заснування', type: 'number' }, { id: 'code', label: 'ЄДРПОУ', type: 'text' }] },
+  'ext:orgs': { label: 'Компанії України · 200 провідних', fields: [{ id: 'name', label: 'Компанія', type: 'text' }, { id: 'legal', label: 'Юридична назва', type: 'text' }, { id: 'code', label: 'ЄДРПОУ', type: 'text' }, { id: 'sector', label: 'Галузь', type: 'select' }, { id: 'city', label: 'Місто', type: 'select' }, { id: 'founded', label: 'Рік заснування', type: 'number' }, { id: 'owners', label: 'Власники', type: 'text' }, { id: 'website', label: 'Сайт', type: 'text' }] },
   'ext:news': { label: 'CONTEXT News · сьогоднішній випуск', fields: [{ id: 'section', label: 'Розділ', type: 'select' }, { id: 'domain', label: 'Видання', type: 'select' }, { id: 'title', label: 'Заголовок', type: 'text' }, { id: 'at', label: 'Опубліковано', type: 'date' }] },
   'ext:gpr': { label: 'Індекс геополітичного ризику (GPR)', fields: [{ id: 'date', label: 'Дата', type: 'date' }, { id: 'value', label: 'Значення', type: 'number' }] },
+  'ext:gdelt-vol': { label: 'Світові медіа · обсяг згадок (GDELT)', fields: [{ id: 'date', label: 'Дата', type: 'date' }, { id: 'value', label: 'Частка згадок, %', type: 'number' }] },
+  'ext:gdelt-tone': { label: 'Світові медіа · тон публікацій (GDELT)', fields: [{ id: 'date', label: 'Дата', type: 'date' }, { id: 'value', label: 'Тон', type: 'number' }] },
+  'ext:gdelt-arts': { label: 'Світові медіа · статті тижня (GDELT)', fields: [{ id: 'title', label: 'Заголовок', type: 'text' }, { id: 'domain', label: 'Видання', type: 'select' }, { id: 'country', label: 'Країна видання', type: 'select' }, { id: 'language', label: 'Мова', type: 'select' }, { id: 'date', label: 'Дата', type: 'date' }] },
   'ext:wb': { label: 'Світовий банк · показники країн', fields: [{ id: 'country', label: 'Країна', type: 'select' }, { id: 'date', label: 'Рік', type: 'date' }, { id: 'value', label: 'Значення', type: 'number' }] },
 };
 /** Where an outside source's rows are kept (`state.ext`): one key per source and its settings. */
-export const extKey = (cfg) => (cfg.source === 'ext:wb' ? `wb:${cfg.ind || WB_INDICATORS[0][0]}:${(cfg.countries || ['UKR']).join(';')}` : cfg.source);
-const ORG_ROWS = () => ORGS_UA.map((o) => ({ id: o.code, name: o.name, sector: o.sector, city: o.city, code: o.code, founded: +factsOf(o.code).founded || '' }));
+export const extKey = (cfg) => (cfg.source === 'ext:wb' ? `wb:${cfg.ind || WB_INDICATORS[0][0]}:${(cfg.countries || ['UKR']).join(';')}`
+  : cfg.source.startsWith('ext:gdelt-') ? `gd:${cfg.source.slice(10)}:${cfg.q || ''}` : cfg.source);
+
+// ── The subject of a dashboard: what is being analysed ─────────────────────────────────────────────────────────────
+// { kind: country|company|sector|topic, label, iso3?, code?, sector?, q } — `q` is the query for the world's media.
+// A widget's settings may name the subject: '$iso3', '$q', '$name', '$code', '$sector' are put in when it is counted.
+export function resolveCfg(cfg, subject) {
+  if (!subject) return cfg;
+  const map = { $iso3: subject.iso3 || '', $q: subject.q || subject.label || '', $name: subject.label || '', $code: subject.code || '', $sector: subject.sector || '' };
+  const put = (v) => (typeof v === 'string' && map[v] != null ? map[v] : v);
+  const out = { ...cfg };
+  for (const k of Object.keys(out)) {
+    if (Array.isArray(out[k])) out[k] = [...new Set(out[k].map(put).filter(Boolean))];
+    else if (out[k] && typeof out[k] === 'object') out[k] = Object.fromEntries(Object.entries(out[k]).map(([a, b]) => [a, put(b)]));
+    else out[k] = put(out[k]);
+  }
+  return out;
+}
+const ORG_ROWS = () => ORGS_UA.map((o) => { const f = factsOf(o.code); return { id: o.code, name: o.name, legal: o.legal, code: o.code, sector: o.sector, city: o.city, founded: +f.founded || '', owners: f.owners, website: f.website, source: o.source }; });
 
 const DAY = 86400000;
 const WEEK = 7 * DAY;
@@ -31,7 +54,7 @@ const t = (v) => { if (v == null || v === '') return 0; const s = String(v); con
 const num = (v) => { const x = parseFloat(String(v ?? '').replace(/\s/g, '').replace(',', '.')); return Number.isFinite(x) ? x : null; };
 
 export const VISUALS = [
-  ['kpi', 'Показник'], ['slicer', 'Фільтр'], ['columns', 'Стовпчики'], ['lines', 'Лінії'], ['bars', 'Смуги'], ['donut', 'Кільце'], ['table', 'Таблиця'], ['map', 'Карта'], ['graph', 'Граф зв\'язків'],
+  ['kpi', 'Показник'], ['card', 'Картка'], ['slicer', 'Фільтр'], ['columns', 'Стовпчики'], ['lines', 'Лінії'], ['bars', 'Смуги'], ['donut', 'Кільце'], ['table', 'Таблиця'], ['map', 'Карта'], ['graph', 'Граф зв\'язків'],
 ];
 export const MEASURES = [['count', 'Кількість'], ['sum', 'Сума'], ['avg', 'Середнє']];
 
@@ -74,7 +97,12 @@ export function defaultCfg(source, state) {
 
 /** The rows of a source a person may see, within the dashboard's filters. */
 export function rowsOf(source, state, me, filters = {}, cfg = { source }) {
-  const rows = baseRows(source, state, me, filters, cfg);
+  let rows = baseRows(source, state, me, filters, cfg);
+  // A widget bound to its subject: only the rows whose field has the subject's value (a sector, a code, a name).
+  if (cfg.match?.field && cfg.match.value) {
+    const v = String(cfg.match.value).toLowerCase();
+    rows = rows.filter((r) => { const x = String(r[cfg.match.field] ?? '').toLowerCase(); return cfg.match.exact ? x === v : x.includes(v); });
+  }
   // The dashboard's cross-filter: a value picked on any chart narrows every widget whose source has that field.
   const sel = (filters.sel || []).filter((x) => fieldsOf(source, state).some((f) => f.id === x.field));
   return sel.length ? rows.filter((r) => sel.every((x) => String(r[x.field] ?? '') === String(x.value))) : rows;
@@ -148,8 +176,18 @@ export function computeCustom(cfg, state, me, filters = {}, now = Date.now()) {
   const byWeek = (rs) => Array.from({ length: n }, (_, i) => { const [lo, hi] = span(i); return measureOf(rs.filter((r) => { const v = at(r); return v >= lo && v < hi; }), cfg); });
   const inPeriod = (r) => !time || cfg.span === 'all' || (at(r) > from && at(r) <= now);
 
+  if (!rows.length && EXTERNAL[cfg.source] && cfg.visual !== 'card') return { empty: true, note: 'Даних від джерела ще немає (воно відповідає за кілька секунд або не знайшло нічого за запитом).' };
   switch (cfg.visual) {
     case 'kpi': {
+      // A yearly series: its latest year against the year before.
+      if (grain === 'year' && time) {
+        const ys = [...new Set(rows.map((r) => new Date(at(r)).getUTCFullYear()))].sort();
+        const of = (y) => measureOf(rows.filter((r) => new Date(at(r)).getUTCFullYear() === y), cfg);
+        const [y, y0] = [ys.at(-1), ys.at(-2)];
+        if (y == null) return { value: '—', note: 'даних немає' };
+        const value = of(y);
+        return { value: Math.round(value * 10) / 10, ...(y0 != null ? { delta: Math.round((value - of(y0)) * 10) / 10 } : {}), note: `${y} рік${y0 != null ? ` · ${y0}: ${Math.round(of(y0) * 10) / 10}` : ''}`, spark: ys.slice(-12).map(of) };
+      }
       const cur = rows.filter(inPeriod);
       const prev = time && cfg.span !== 'all' ? rows.filter((r) => at(r) > from - days * DAY && at(r) <= from) : null;
       const value = measureOf(cur, cfg);
@@ -181,6 +219,11 @@ export function computeCustom(cfg, state, me, filters = {}, now = Date.now()) {
       }
       const cols = fields.filter((f) => f.type !== 'links' && f.type !== 'coords').slice(0, 5);
       return { cols: cols.map((f) => f.label), rows: shown.slice(0, 20).map((r, i) => ({ id: r.id || String(i), cells: cols.map((f) => labelOf(f, r[f.id], state)), to: r.div && r.col ? { div: r.div, id: `${r.col}:${r.id}` } : null })) };
+    }
+    case 'card': {
+      const r = rows[0];
+      if (!r) return { items: [], note: 'Немає даних про об’єкт у джерелі.' };
+      return { items: fields.filter((f) => r[f.id] != null && r[f.id] !== '').map((f) => ({ label: f.label, value: labelOf(f, r[f.id], state) })), url: r.url || r.source || '' };
     }
     case 'slicer': {
       if (!group) return { rows: [] };
