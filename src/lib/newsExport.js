@@ -172,6 +172,11 @@ const toB64 = (bytes) => {
   for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
   return btoa(s);
 };
+// The library writes an image's link into the slide's relations as it is: an «&» of a news address (…?a=1&b=2)
+// leaves the file malformed and PowerPoint refuses to open it. The address goes in escaped; text loses the control
+// characters XML does not allow.
+export const xmlAttr = (u) => String(u).replace(/&(?!(amp|lt|gt|quot|apos);)/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const clean = (t) => String(t ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, '');
 export async function newsPptx(issue, pics = new Map(), lang = 'uk') {
   const { default: PptxGenJS } = await import('pptxgenjs');
   const deck = new PptxGenJS();
@@ -201,9 +206,9 @@ export async function newsPptx(issue, pics = new Map(), lang = 'uk') {
       const textH = Math.max(0.3, lines * 0.205);
       const rowH = Math.max(PIC.h, textH);
       const pic = x.image && pics.get(x.image);
-      if (pic) slide.addImage({ data: `data:image/jpeg;base64,${toB64(pic.bytes)}`, x: X, y, w: PIC.w, h: PIC.h, hyperlink: x.url ? { url: x.url } : undefined });
+      if (pic) slide.addImage({ data: `data:image/jpeg;base64,${toB64(pic.bytes)}`, x: X, y, w: PIC.w, h: PIC.h, hyperlink: x.url ? { url: xmlAttr(x.url) } : undefined });
       else slide.addShape(deck.ShapeType.rect, { x: X, y, w: PIC.w, h: PIC.h, fill: { color: 'F0F0F0' }, line: { color: 'F0F0F0' } });
-      slide.addText(x.summary, { x: TX, y, w: TW, h: rowH, fontFace: FONT, fontSize: 11, color: '111111', align: 'justify', valign: 'top', margin: 0, paraSpaceAfter: 0 });
+      slide.addText(clean(x.summary), { x: TX, y, w: TW, h: rowH, fontFace: FONT, fontSize: 11, color: '111111', align: 'justify', valign: 'top', margin: 0, paraSpaceAfter: 0 });
       y += rowH + 0.24;
     }
     slide.addText(`CONTEXT News · ${k + 1} / ${sections.length}`, { x: X, y: 11.69 - 0.45, w: W, h: 0.2, fontFace: FONT, fontSize: 8, color: '6B6B6B', margin: 0 });
