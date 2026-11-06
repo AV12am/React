@@ -55,12 +55,30 @@ async function analyse(ins, b) {
     return readInsights(res.content.filter((x) => x.type === 'text').map((x) => x.text).join(''), ins);
   } catch { return null; }
 }
-// Yesterday's key news from CONTEXT News (the first sentence of each), for the letter's last part.
-async function keyNews() {
+// The key news of the current CONTEXT News issue (its first section, as published at 17:00): the whole summary,
+// the link and the picture — for the letter (an address through the site, so a blocked source still shows) and
+// for the PDF (the picture's bytes, JPEG or PNG; another format goes without a picture).
+const isJpeg = (b) => b[0] === 0xff && b[1] === 0xd8;
+const isPng = (b) => b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
+export async function keyNews(appUrl = '', fetchImpl = fetch) {
   try {
     const [row] = await db('core_docs?kind=eq.news&id=eq.issue&select=doc');
-    const key = row?.doc?.sections?.find((s) => s.id === 'key');
-    return (key?.items || []).slice(0, 5).map((x) => String(x.summary || x.title || '').split(/(?<=[.!?])\s/)[0].slice(0, 220)).filter(Boolean);
+    const issue = row?.doc;
+    const key = issue?.sections?.find((s) => s.id === 'key');
+    const base = appUrl.replace(/\/$/, '');
+    const items = (key?.items || []).filter((x) => x.summary || x.title).slice(0, 5);
+    return Promise.all(items.map(async (x) => {
+      const img = x.image ? (x.image.startsWith('/') ? `${base}${x.image}` : `${base}/api/pulse?news=1&img=${encodeURIComponent(x.image)}`) : '';
+      let bytes = null; let type = '';
+      if (img) {
+        try {
+          const res = await fetchImpl(img, { signal: AbortSignal.timeout(8000) });
+          const b = res.ok ? new Uint8Array(await res.arrayBuffer()) : null;
+          if (b && b.length < 3 * 1024 * 1024 && (isJpeg(b) || isPng(b))) { bytes = b; type = isJpeg(b) ? 'jpg' : 'png'; }
+        } catch { /* that news goes without its picture */ }
+      }
+      return { text: String(x.summary || x.title).slice(0, 600), url: x.url || '', domain: x.domain || '', image: img, bytes, type, for: issue.for || '' };
+    }));
   } catch { return []; }
 }
 const insightsFor = (m, data, now) => buildInsights({
@@ -131,7 +149,7 @@ export async function GET(req) {
     const data = await load();
     const now = Date.now();
     let sent = 0; let skipped = 0; const errors = [];
-    const [news, world] = await Promise.all([keyNews(), worldOf(true)]);
+    const [news, world] = await Promise.all([keyNews(appUrlOf(req)), worldOf(true)]);
     for (const m of data.members) {
       const d = m.doc || {};
       const to = mailOf(m);
@@ -158,7 +176,7 @@ export async function POST(req) {
     const data = await load();
     const to = mailOf(m);
     if (!to) return json(400, { error: 'no_mail', message: 'Додайте адресу для листів у «Налаштуваннях» → «Ранковий бриф»' });
-    const [news, world] = await Promise.all([keyNews(), worldOf(true)]);
+    const [news, world] = await Promise.all([keyNews(appUrlOf(req)), worldOf(true)]);
     const { b, extra, extraText, ai, pdf } = await letter(m, data, Date.now(), news, appUrlOf(req), world);
     await send(to, b, m.doc?.name || '', appUrlOf(req), extra, extraText, pdf);
     return json(200, { sent: true, to, total: b.total, ai, pdf: Boolean(pdf) });

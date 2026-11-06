@@ -272,7 +272,13 @@ export function insightsHtml(ins, ai = null, news = []) {
   ].filter(Boolean).join(' ');
   const steps = new Map((ai?.develop || []).map((x) => [x.project, x.next]));
   const develop = ins.develop.length ? ins.develop.map((x) => p(`<b>${esc(x.title)}</b> <span style="color:#777">· ${esc(x.state)}</span><br><span style="color:#555">${esc(x.why)}${steps.get(x.title) ? `. Наступний крок: ${esc(steps.get(x.title))}` : ''}</span>`)).join('') : p('Усі проєкти рухаються за планом — нових сигналів немає.', '#999');
-  const newsRows = news.length ? head('Ключові новини доби · CONTEXT') + news.map((n) => p(`· ${esc(n)}`)).join('') : '';
+  // The first section of the current CONTEXT News issue: the picture beside the whole summary, as in the issue.
+  const newsRows = news.length ? head('Ключові новини доби · CONTEXT') + news.map((n) => {
+    const t = typeof n === 'string' ? { text: n } : n;
+    const pic = t.image ? `<td style="width:132px;padding:6px 14px 6px 0;vertical-align:top">${t.url ? `<a href="${esc(t.url)}">` : ''}<img src="${esc(t.image)}" width="132" alt="" style="display:block;width:132px;height:auto;border-radius:3px;border:0">${t.url ? '</a>' : ''}</td>` : '';
+    const src = t.domain ? `<div style="font:12px Georgia,serif;color:#777;padding-top:4px">${t.url ? `<a href="${esc(t.url)}" style="color:#777">${esc(t.domain)}</a>` : esc(t.domain)}</div>` : '';
+    return `<tr><td style="padding:6px 0;border-bottom:1px solid #eee"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${pic}<td style="vertical-align:top;font:15px/22px Georgia,serif;color:#1a1a1a">${esc(t.text)}${src}</td></tr></table></td></tr>`;
+  }).join('') : '';
   return `
     ${p('<span style="font-size:13px;color:#777">Повний бриф із графіками й схемами — у PDF у вкладенні.</span>')}
     ${head('Аналітичні висновки')}${conclusions}
@@ -299,7 +305,7 @@ export function insightsText(ins, ai = null, news = []) {
     const steps = new Map((ai?.develop || []).map((x) => [x.project, x.next]));
     lines.push('', 'ЩО ВАРТО РОЗВИВАТИ', ...ins.develop.map((x) => `  · ${x.title} (${x.state}): ${x.why}${steps.get(x.title) ? `. Наступний крок: ${steps.get(x.title)}` : ''}`));
   }
-  if (news.length) lines.push('', 'КЛЮЧОВІ НОВИНИ ДОБИ · CONTEXT', ...news.map((n) => `  · ${n}`));
+  if (news.length) lines.push('', 'КЛЮЧОВІ НОВИНИ ДОБИ · CONTEXT', ...news.map((n) => (typeof n === 'string' ? `  · ${n}` : `  · ${n.text}${n.url ? ` (${n.url})` : ''}`)));
   return lines.join('\n');
 }
 

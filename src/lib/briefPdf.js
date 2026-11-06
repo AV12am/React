@@ -377,7 +377,22 @@ export async function briefPdf({ brief, insights: ins, ai = null, news = [], nam
   if (news.length) {
     y -= 14;
     heading('Ключові новини доби', 'CONTEXT NEWS');
-    news.forEach((t, i) => { room(30); text(String(i + 1), M, y - 2, { size: 14, color: C.gold }); para(t, M + 22, 10, W - 22); y -= 6; });
+    // The picture on the left, the whole summary on the right, the outlet under it — as in the issue.
+    for (const [i, n] of news.entries()) {
+      const t = typeof n === 'string' ? { text: n } : n;
+      let img = null;
+      try { if (t.bytes) img = t.type === 'png' ? await doc.embedPng(t.bytes) : await doc.embedJpg(t.bytes); } catch { img = null; }
+      const PW = 118; const PH = img ? Math.min(90, (img.height / img.width) * PW) : 0;
+      const tx = img ? M + PW + 14 : M + 22;
+      const lines = wrap(t.text, 10, W - (tx - M));
+      room(Math.max(PH, lines.length * 14.5 + (t.domain ? 14 : 0)) + 14);
+      const top = y;
+      if (img) page.drawImage(img, { x: M, y: top - PH + 8, width: PW, height: PH });
+      else text(String(i + 1), M, y - 2, { size: 14, color: C.gold });
+      para(t.text, tx, 10, W - (tx - M));
+      if (t.domain) { text(t.domain, tx, y, { size: 7.5, color: C.muted }); y -= 12; }
+      y = Math.min(y, top - PH) - 14;
+    }
   }
   return doc.save();
 }
