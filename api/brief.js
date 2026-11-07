@@ -60,6 +60,10 @@ async function analyse(ins, b) {
 // for the PDF (the picture's bytes, JPEG or PNG; another format goes without a picture).
 const isJpeg = (b) => b[0] === 0xff && b[1] === 0xd8;
 const isPng = (b) => b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
+const isWebp = (b) => b.length > 12 && String.fromCharCode(...b.slice(0, 4)) === 'RIFF' && String.fromCharCode(...b.slice(8, 12)) === 'WEBP';
+async function toJpeg(b) {
+  try { const { default: sharp } = await import('sharp'); return new Uint8Array(await sharp(b).jpeg({ quality: 82 }).toBuffer()); } catch { return null; }
+}
 export async function keyNews(appUrl = '', fetchImpl = fetch) {
   try {
     const [row] = await db('core_docs?kind=eq.news&id=eq.issue&select=doc');
@@ -73,7 +77,9 @@ export async function keyNews(appUrl = '', fetchImpl = fetch) {
       if (img) {
         try {
           const res = await fetchImpl(img, { signal: AbortSignal.timeout(8000) });
-          const b = res.ok ? new Uint8Array(await res.arrayBuffer()) : null;
+          let b = res.ok ? new Uint8Array(await res.arrayBuffer()) : null;
+          // The PDF takes JPEG and PNG only; a WebP picture (ArmyInform's) is turned into a JPEG for it.
+          if (b && isWebp(b)) b = await toJpeg(b);
           if (b && b.length < 3 * 1024 * 1024 && (isJpeg(b) || isPng(b))) { bytes = b; type = isJpeg(b) ? 'jpg' : 'png'; }
         } catch { /* that news goes without its picture */ }
       }
