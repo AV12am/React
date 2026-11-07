@@ -649,3 +649,12 @@ test('summaries: a sentence about what the source does not say goes; the first s
   assert.equal(dropFiller('Електромонтери поранені під час атаки. Інших подробиць про обставини атаки у повідомленні немає.'), 'Електромонтери поранені під час атаки.');
   assert.equal(dropFiller('Зеленський заявив про переговори. Він не назвав дату зустрічі.'), 'Зеленський заявив про переговори. Він не назвав дату зустрічі.');
 });
+
+test('retellings: Russian outlets named, English words and mixed letters caught', async () => {
+  const { needsFix, nameSource } = await import('../../src/lib/news.js');
+  assert.equal(needsFix('Бригадний генерал Гossein заявив.'), true);
+  assert.equal(needsFix('наземний robotic-комплекс'), true);
+  assert.equal(needsFix('Ракети Shahed і Patriot, НАТО, ERAM.'), false);
+  assert.equal(nameSource('Російське провладне ЗМІ повідомляє, що армія рф уразила міст.', 'lenta.ru'), 'Лента.ру стверджує, що армія рф уразила міст.');
+  assert.equal(nameSource('Російське провладне ЗМІ повідомляє, що армія рф уразила міст.', 'pravda.com.ua'), 'Російське провладне ЗМІ повідомляє, що армія рф уразила міст.');
+});

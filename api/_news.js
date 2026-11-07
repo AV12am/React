@@ -17,11 +17,11 @@ import { json, db, env } from './_core.js';
 import Anthropic from '@anthropic-ai/sdk';
 import sample from '../src/news/sample.js';
 import { refreshAlerts } from './_alerts.js';
-import { SECTIONS, PER_SECTION, POOL, FRESH, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, keyPrompt, eventsPrompt, repeatsPrompt, readRepeats, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, LEAD_IMAGE, ruPicture, nightReport, airTally } from '../src/lib/news.js';
+import { SECTIONS, PER_SECTION, POOL, FRESH, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, keyPrompt, eventsPrompt, repeatsPrompt, readRepeats, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, needsFix, fixPrompt, nameSource, LEAD_IMAGE, ruPicture, nightReport, airTally } from '../src/lib/news.js';
 
 
 const MIN = 60000;
-const VERSION = 26; // 26: no news about russia among the key news; section 3 repeating another section gives way; // 23: 4.2 reads the big newsrooms and takes the supply news first; 22: photos: only real photographs from the archive, text only when it covers the picture, Russian sites' own pictures kept; 21: a repeat is kept in the thinnest section; 5.2 judged by headline; 20: the editor scores 2 / 1 / 0, a short section takes the partly-on-topic ones; 19: a quiet day reaches back to 48 hours; 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
+const VERSION = 27; // 27: Russian outlets named, English words and mixed letters set right, «ВСУ» told as Ukraine's army; 26: 26: no news about russia among the key news; section 3 repeating another section gives way; // 23: 4.2 reads the big newsrooms and takes the supply news first; 22: photos: only real photographs from the archive, text only when it covers the picture, Russian sites' own pictures kept; 21: a repeat is kept in the thinnest section; 5.2 judged by headline; 20: the editor scores 2 / 1 / 0, a short section takes the partly-on-topic ones; 19: a quiet day reaches back to 48 hours; 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -214,6 +214,16 @@ async function summarize(items, tries = 2) {
         part.forEach((i, j) => { if (again[j].ai) out[i] = again[j]; });
       } catch (e) { sumErrs.push(String(e?.message || e).slice(0, 80)); }
     }
+  }
+  // The Russian outlet named instead of «a pro-Kremlin outlet»; English words or mixed letters set right.
+  out.forEach((x, i) => { if (x.ai) x.text = nameSource(x.text, items[i].domain); });
+  const bad = out.map((x, i) => (x.ai && needsFix(x.text) ? i : -1)).filter((i) => i >= 0);
+  if (bad.length && canAsk() && left() > 20000) {
+    try {
+      const raw = await ask(fixPrompt(bad.map((i) => out[i].text)), 1500);
+      const j = typeof raw === 'object' && raw ? raw : JSON.parse(String(raw).slice(String(raw).indexOf('{'), String(raw).lastIndexOf('}') + 1));
+      bad.forEach((i, k) => { const t = String(j?.t?.[k] || '').trim(); if (t && !needsFix(t)) out[i] = { ...out[i], text: t }; });
+    } catch (e) { sumErrs.push(`fix: ${String(e?.message || e).slice(0, 60)}`); }
   }
   const left_ = out.filter((x) => !x.ai).length;
   if (left_) sumErrs.push(`${left_} of ${items.length} without a retelling`);
