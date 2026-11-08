@@ -2,7 +2,6 @@
 //   · the state register (ЄДР) through Opendatabot — the head, founders and beneficiaries, capital, activities
 //     (needs EDR_API_KEY, paid per request: a company is asked once a week at most, and 150 times a day in all);
 //   · GLEIF (free, no key) — the company's LEI and its group: direct and ultimate parents, subsidiaries;
-//   · Wikidata (free, no key) — chief executive, owner, parent, subsidiaries, staff, website.
 // GET /api/pulse?company=CODE → { code, card, people: [...], tree: [...], sources: [...], notes: [...] }.
 // Nothing is invented: a source that does not answer is named in `notes`, its part stays empty.
 import { env, db } from './_core.js';
@@ -101,101 +100,26 @@ async function gleif(code, notes) {
   }
 }
 
-// ── Wikidata: what the encyclopaedia knows of the company (found by its LEI or its ЄДРПОУ) ─────────────────────
-let edrpouProp = null; // Wikidata's property for the ЄДРПОУ code, looked up once
-async function edrpouProperty() {
-  if (edrpouProp !== null) return edrpouProp;
-  const j = await get('https://www.wikidata.org/w/api.php?action=wbsearchentities&search=EDRPOU&type=property&language=en&format=json&limit=1', 8000).catch(() => null);
-  edrpouProp = j?.search?.[0]?.id || '';
-  return edrpouProp;
-}
-async function wikidata(code, lei, notes) {
-  try {
-    const prop = await edrpouProperty();
-    const by = [prop && `{ ?item wdt:${prop} "${code}" }`, lei && `{ ?item wdt:P1278 "${lei}" }`].filter(Boolean).join(' UNION ');
-    if (!by) return null;
-    // First the item alone (a quick lookup), then its facts: one query on a known item stays well within the time.
-    const sparql = async (q) => (await get(`https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(q)}`, 20000, { Accept: 'application/sparql-results+json' }))?.results?.bindings || [];
-    // The LEI is the quickest way in; the ЄДРПОУ code when there is none.
-    const find = lei ? `?item wdt:P1278 "${lei}"` : by;
-    let step = 'пошук компанії';
-    const qid = ((await sparql(`SELECT ?item WHERE { ${find} } LIMIT 1`).catch(async () => (lei && prop ? sparql(`SELECT ?item WHERE { ?item wdt:${prop} "${code}" } LIMIT 1`) : Promise.reject(new Error('немає відповіді')))))[0]?.item?.value || '').split('/').pop();
-    if (!/^Q\d+$/.test(qid)) return null;
-    const q = `SELECT ?item ?itemLabel ?rel ?vLabel ?rank ?start ?emp ?empAt ?site WHERE {
-      VALUES ?item { wd:${qid} }
-      # Only what holds now: a statement with an end date (a former head, a sold stake) is left out.
-      OPTIONAL {
-        { ?item p:P169 ?s. ?s ps:P169 ?v; wikibase:rank ?rank. OPTIONAL { ?s pq:P580 ?start } FILTER NOT EXISTS { ?s pq:P582 ?ended } BIND("ceo" AS ?rel) } UNION
-        { ?item p:P127 ?s. ?s ps:P127 ?v; wikibase:rank ?rank. OPTIONAL { ?s pq:P580 ?start } FILTER NOT EXISTS { ?s pq:P582 ?ended } BIND("owner" AS ?rel) } UNION
-        { ?item p:P749 ?s. ?s ps:P749 ?v; wikibase:rank ?rank. OPTIONAL { ?s pq:P580 ?start } FILTER NOT EXISTS { ?s pq:P582 ?ended } BIND("parent" AS ?rel) } UNION
-        { ?item p:P355 ?s. ?s ps:P355 ?v; wikibase:rank ?rank. OPTIONAL { ?s pq:P580 ?start } FILTER NOT EXISTS { ?s pq:P582 ?ended } BIND("sub" AS ?rel) } UNION
-        { ?item p:P488 ?s. ?s ps:P488 ?v; wikibase:rank ?rank. OPTIONAL { ?s pq:P580 ?start } FILTER NOT EXISTS { ?s pq:P582 ?ended } BIND("chair" AS ?rel) } UNION
-        { ?item p:P112 ?s. ?s ps:P112 ?v; wikibase:rank ?rank. OPTIONAL { ?s pq:P580 ?start } FILTER NOT EXISTS { ?s pq:P582 ?ended } BIND("founder" AS ?rel) } }
-      OPTIONAL { ?item p:P1128 ?es. ?es ps:P1128 ?emp. OPTIONAL { ?es pq:P585 ?empAt } } OPTIONAL { ?item wdt:P856 ?site }
-      SERVICE wikibase:label { bd:serviceParam wikibase:language "uk,en". } } LIMIT 2000`;
-    step = 'факти про компанію';
-    const rows = await sparql(q).catch((e) => { throw new Error(`${step}: ${e.message}`); });
-    if (!rows.length) return null;
-    const v = (r, k) => r[k]?.value || '';
-    const item = v(rows[0], 'item');
-    const facts = { name: v(rows[0], 'itemLabel'), url: item, employees: rows.filter((r) => v(r, 'emp')).sort((a, b) => v(b, 'empAt').localeCompare(v(a, 'empAt')))[0]?.emp?.value || '', website: rows.map((r) => v(r, 'site')).find(Boolean) || '' };
-    // One entry per role and name, with its rank and start; a role held by one person at a time (the head, the chair)
-    // keeps the holder Wikidata marks preferred, else the one appointed last. Former holders whose end Wikidata
-    // does not record would otherwise show as current.
-    const by2 = new Map();
-    for (const r of rows) {
-      const rel = v(r, 'rel');
-      const name = v(r, 'vLabel');
-      if (!rel || !name || /^Q\d+$/.test(name)) continue;
-      const k = `${rel}|${name}`;
-      const x = { rel, name, preferred: /PreferredRank$/.test(v(r, 'rank')), start: v(r, 'start') };
-      const was = by2.get(k);
-      if (!was || (x.preferred && !was.preferred) || x.start > was.start) by2.set(k, x);
-    }
-    let list = [...by2.values()];
-    for (const one of ['ceo', 'chair']) {
-      const held = list.filter((x) => x.rel === one);
-      if (held.length < 2) continue;
-      const pref = held.filter((x) => x.preferred);
-      const keep = pref.length === 1 ? pref[0] : held.filter((x) => x.start).sort((a, b) => b.start.localeCompare(a.start))[0];
-      if (keep) list = list.filter((x) => x.rel !== one || x === keep);
-    }
-    const people = [];
-    const tree = [];
-    const ROLE = { ceo: 'Керівник', chair: 'Голова ради', founder: 'Засновник', owner: 'Власник' };
-    for (const { rel, name } of list) {
-      if (ROLE[rel]) people.push({ role: ROLE[rel], name, share: '', country: '', source: 'Wikidata' });
-      if (rel === 'parent') tree.push({ relation: 'Материнська', name, country: '', lei: '', status: '', source: 'Wikidata' });
-      if (rel === 'sub') tree.push({ relation: 'Дочірня', name, country: '', lei: '', status: '', source: 'Wikidata' });
-    }
-    return { facts, people, tree };
-  } catch (e) {
-    notes.push(`Wikidata не відповіла: ${e.message}.`);
-    return null;
-  }
-}
-
 const norm = (s) => String(s || '').toLowerCase().replace(/["«»'’.,]/g, '').replace(/\s+/g, ' ').trim();
 /** Everything known of the company; kept for a week so the paid register is not asked again. */
 export async function companyProfile(code, { fresh = false } = {}) {
-  const id = `co4-${code}`; // co3: one current head (earlier versions kept former heads too)
+  const id = `co5-${code}`; // co5: the register and GLEIF only (earlier versions also asked Wikidata)
   const cached = await read(id);
   if (!fresh && cached?.at && Date.now() - Date.parse(cached.at) < WEEK) return cached;
   const notes = [];
   const [reg, gl] = await Promise.all([register(code, notes), gleif(code, notes)]);
-  const wd = await wikidata(code, gl?.me?.lei || '', notes);
   const card = {
-    name: reg?.card.name || gl?.me.name || wd?.facts.name || '', code,
-    status: reg?.card.status || '', head: reg?.card.head || wd?.people.find((p) => p.role === 'Керівник')?.name || '',
+    name: reg?.card.name || gl?.me.name || '', code,
+    status: reg?.card.status || '', head: reg?.card.head || '',
     address: reg?.card.address || '', activity: reg?.card.activity || '', capital: reg?.card.capital || '', registered: reg?.card.registered || '',
-    lei: gl?.me.lei || '', employees: wd?.facts.employees || '', website: wd?.facts.website || '',
-    owners: [...new Set([...(reg?.people || []), ...(wd?.people || [])].filter((p) => /Бенефіц|Власник/.test(p.role)).map((p) => p.name))].slice(0, 6).join('; '),
+    lei: gl?.me.lei || '',
+    owners: [...new Set((reg?.people || []).filter((p) => /Бенефіц/.test(p.role)).map((p) => p.name))].slice(0, 6).join('; '),
   };
-  // One person or company once per role, whichever source named them first (the register before Wikidata).
+  // One person or company once per role.
   const uniq = (list, key) => { const s = new Set(); return list.filter((x) => { const k = key(x); if (s.has(k)) return false; s.add(k); return true; }); };
-  const people = uniq([...(reg?.people || []), ...(wd?.people || [])], (p) => `${p.role}|${norm(p.name)}`);
-  const tree = uniq([...(gl?.tree || []), ...(wd?.tree || [])], (t) => `${t.relation}|${norm(t.name)}`);
-  const sources = [reg && { name: 'ЄДР (Opendatabot)', url: `https://opendatabot.ua/c/${code}` }, gl && { name: 'GLEIF', url: `https://search.gleif.org/#/record/${gl.me.lei}` }, wd && { name: 'Wikidata', url: wd.facts.url }].filter(Boolean);
+  const people = uniq(reg?.people || [], (p) => `${p.role}|${norm(p.name)}`);
+  const tree = uniq(gl?.tree || [], (t) => `${t.relation}|${norm(t.name)}`);
+  const sources = [reg && { name: 'ЄДР (Opendatabot)', url: `https://opendatabot.ua/c/${code}` }, gl && { name: 'GLEIF', url: `https://search.gleif.org/#/record/${gl.me.lei}` }].filter(Boolean);
   if (!gl && !notes.some((n) => n.startsWith('GLEIF'))) notes.push('GLEIF: компанія не має міжнародного ідентифікатора LEI — структуру групи там не знайдено.');
   const out = { at: new Date().toISOString(), code, card, people, tree, sources, notes };
     // A source that failed this time (a timeout, a refusal) is asked again on the next visit.

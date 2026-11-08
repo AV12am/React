@@ -14,7 +14,8 @@ const ATTRS = ['placeholder', 'title', 'aria-label', 'data-tip'];
 const SKIP = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'CODE', 'PRE']);
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-export function createTranslator({ EXACT, TEMPLATES }) {
+// `test`: which texts are this dictionary's to translate (Ukrainian by default; the public site also has English ones).
+export function createTranslator({ EXACT, TEMPLATES = [] }, { test = CYR } = {}) {
   const exact = new Map(Object.entries(EXACT));
   // Longer templates first, so «{} год тому» wins over «{} год».
   const templates = TEMPLATES
@@ -37,13 +38,14 @@ export function createTranslator({ EXACT, TEMPLATES }) {
       const m = t.re.exec(text);
       if (!m) continue;
       let i = 0;
-      return t.dst.replace(/\{(\d*)\}/g, (_, n) => { const v = m[n ? +n : ++i] ?? ''; return word(v) ?? v; });
+      // A part is translated when it is itself a known text (a name of a template, «Ризик країни: Україна»).
+      return t.dst.replace(/\{(\d*)\}/g, (_, n) => { const v = m[n ? +n : ++i] ?? ''; return word(v) ?? (depth < 2 && test.test(v) ? core(v.trim(), depth + 1) : null) ?? v; });
     }
     // Composite labels: «NOX · ніч — Не можна…», «Опрацювання · Джерела · Методики» — when every part is known.
     if (depth < 2) {
       for (const sep of [' — ', ' · ', ': ']) {
         if (!text.includes(sep)) continue;
-        const parts = text.split(sep).map((x) => (/[А-ЯІЇЄҐа-яіїєґ]/.test(x) ? (word(x) ?? core(x.trim(), depth + 1)) : x));
+        const parts = text.split(sep).map((x) => (test.test(x) ? (word(x) ?? core(x.trim(), depth + 1)) : x));
         if (parts.every((x) => x != null)) return parts.join(sep);
       }
     }
@@ -53,7 +55,7 @@ export function createTranslator({ EXACT, TEMPLATES }) {
 
   /** The English for a Ukrainian text, or null (keeps the surrounding spaces). */
   function translate(text) {
-    if (!text || !CYR.test(text)) return null;
+    if (!text || !test.test(text)) return null;
     if (cache.has(text)) return cache.get(text);
     const m = /^(\s*)([\s\S]*?)(\s*)$/.exec(text);
     const t = core(m[2]);
@@ -78,7 +80,7 @@ const skipped = (node) => {
 };
 
 /** Translate the page now and keep translating whatever the app renders next. */
-export function startTranslator(translate, root = document.body, { scope = null } = {}) {
+export function startTranslator(translate, root = document.body, { scope = null, any = false } = {}) {
   only = scope;
   const text = (n) => {
     const t = translate(n.nodeValue);
@@ -87,7 +89,7 @@ export function startTranslator(translate, root = document.body, { scope = null 
   const attrs = (el) => {
     for (const a of ATTRS) {
       const v = el.getAttribute?.(a);
-      if (v && CYR.test(v) && !(only && !el.closest(only))) { const t = translate(v); if (t != null && t !== v) el.setAttribute(a, t); }
+      if (v && (any || CYR.test(v)) && !(only && !el.closest(only))) { const t = translate(v); if (t != null && t !== v) el.setAttribute(a, t); }
     }
   };
   const walk = (node) => {

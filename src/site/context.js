@@ -3,6 +3,7 @@
 import './site.css';
 import './area.css';
 import './chrome.js';
+import { lang as siteLang } from './i18n.js';
 import { gaugeSvg } from './petals.js';
 import { guard } from './auth.js';
 import { visibleForecasts, trackRecord, elapsed, brier } from '../lib/forecasts.js';
@@ -19,13 +20,16 @@ const io = new IntersectionObserver((es) => es.forEach((e) => {
 ['digest', 'forecasts'].forEach((id) => { const el = document.getElementById(id); if (el) io.observe(el); });
 
 // ── the digest ──
-// The issue in Ukrainian or English, as on /news — the same choice, remembered under the same key.
-const LANG_KEY = 'context-news-lang';
+// The issue follows the site's language (src/site/i18n.js): Ukrainian in Ukrainian, English otherwise — the issue
+// itself is written in those two; the words around it are in the site's language.
 const W = {
   uk: { day: 'uk-UA', issue: 'Випуск за', at: '17:00 за Києвом', source: 'Джерело', making: 'Збираю сьогоднішній випуск…', full: 'Відкрити повний випуск', down: 'Випуск зараз недоступний. Він виходить щодня о 17:00 за Києвом —', open: 'відкрити CONTEXT News' },
   en: { day: 'en-GB', issue: 'Issue of', at: '17:00 Kyiv', source: 'Source', making: 'Today’s issue is being put together…', full: 'Open the full issue', down: 'The issue is not available right now. It is published every day at 17:00 Kyiv time —', open: 'open CONTEXT News' },
+  de: { day: 'de-DE', issue: 'Ausgabe vom', at: '17:00 Uhr Kyjiw', source: 'Quelle', making: 'Die heutige Ausgabe wird zusammengestellt…', full: 'Vollständige Ausgabe öffnen', down: 'Die Ausgabe ist gerade nicht verfügbar. Sie erscheint täglich um 17:00 Uhr Kyjiwer Zeit —', open: 'CONTEXT News öffnen' },
+  fr: { day: 'fr-FR', issue: 'Édition du', at: '17 h, heure de Kyiv', source: 'Source', making: 'L’édition du jour est en préparation…', full: 'Ouvrir l’édition complète', down: 'L’édition n’est pas disponible pour le moment. Elle paraît chaque jour à 17 h, heure de Kyiv —', open: 'ouvrir CONTEXT News' },
 };
-let lang = (() => { try { return localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'uk'; } catch { return 'uk'; } })();
+const lang = siteLang === 'uk' ? 'uk' : 'en'; // the issue's own language
+const say = W[siteLang] || W.en; // the words around it
 let issue = null;
 
 // In English the headline is the first sentence of the English summary (the titles stay as the outlets wrote them).
@@ -40,11 +44,10 @@ function itemHtml(x) {
   const url = safeUrl(x.url);
   return `<article class="item">${img ? `<div class="ph" style="background-image:url('${esc(img).replace(/'/g, '%27')}')" role="img" aria-label=""></div>` : ''}
 <div class="bd"><h3>${esc(head)}</h3>${rest ? `<p>${esc(rest)}</p>` : ''}
-<div class="src"><span>${esc(x.domain || '')}</span>${url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${W[lang].source} ↗</a>` : ''}</div></div></article>`;
+<div class="src"><span>${esc(x.domain || '')}</span>${url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${say.source} ↗</a>` : ''}</div></div></article>`;
 }
 function drawIssue() {
-  const t = W[lang];
-  document.querySelectorAll('[data-lang]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+  const t = say;
   document.getElementById('digest-body').lang = lang;
   document.getElementById('issue-meta').textContent = `${t.issue} ${new Date(issue.for || issue.at).toLocaleDateString(t.day, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Kyiv' })} · ${t.at}`;
   document.getElementById('digest-body').innerHTML = issue.sections.filter((s) => s.items?.length).map((s) => {
@@ -54,25 +57,19 @@ function drawIssue() {
 <div class="items${s.id === 'key' ? ' key' : ''}">${s.items.map(itemHtml).join('')}</div></div>`;
   }).join('') + `<p><a class="lnk" href="/news">${t.full} <span class="ar">→</span></a></p>`;
 }
-document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => {
-  lang = b.dataset.lang;
-  try { localStorage.setItem(LANG_KEY, lang); } catch { /* not remembered */ }
-  if (issue) drawIssue(); else document.querySelectorAll('[data-lang]').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.lang === lang)));
-}));
-document.querySelectorAll('[data-lang]').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.lang === lang)));
 async function digest() {
   const meta = document.getElementById('issue-meta');
   const body = document.getElementById('digest-body');
   try {
     const res = await fetch('/api/pulse?news=1');
     const j = await res.json().catch(() => ({}));
-    if (res.ok && !j.sections?.length && j.making) { meta.textContent = W[lang].making; setTimeout(digest, 20000); return; }
+    if (res.ok && !j.sections?.length && j.making) { meta.textContent = say.making; setTimeout(digest, 20000); return; }
     if (!res.ok || !j.sections?.length) throw new Error(j.message || 'empty');
     issue = j;
     drawIssue();
   } catch {
     meta.textContent = '';
-    body.innerHTML = `<div class="empty">${W[lang].down} <a class="lnk" href="/news">${W[lang].open} <span class="ar">→</span></a></div>`;
+    body.innerHTML = `<div class="empty">${say.down} <a class="lnk" href="/news">${say.open} <span class="ar">→</span></a></div>`;
   }
 }
 
