@@ -144,6 +144,10 @@
     {
       "source": "/news",
       "destination": "/news.html"
+    },
+    {
+      "source": "/site",
+      "destination": "/site.html"
     }
   ]
 }

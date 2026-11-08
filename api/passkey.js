@@ -62,14 +62,19 @@ function newCode(len = 10) {
 const later = (hours) => new Date(Date.now() + hours * 3600e3).toISOString();
 
 // Which site is asking: passkeys are bound to the host name (RP ID).
+const HOME = 'reactioncore.uk';
 function site(req) {
   const origin = req.headers.get('origin');
   if (!origin) throw new Fail(400, 'origin');
   const allowed = (env.PASSKEY_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
+  // The workspace moved to its own subdomain: it is the company's own site as much as the main domain.
+  if (allowed.includes(`https://${HOME}`)) allowed.push(`https://workspace.${HOME}`);
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
   const u = new URL(origin);
   if (allowed.length ? !allowed.includes(origin) : u.host !== host) throw new Fail(403, 'origin', 'Unknown origin');
-  return { origin, rpID: u.hostname };
+  // The passkeys were made on reactioncore.uk; bound to that domain (RP ID), they open the workspace on its
+  // subdomain too — nobody has to make a new one after the move.
+  return { origin, rpID: env.PASSKEY_RP_ID || (u.hostname === HOME || u.hostname.endsWith(`.${HOME}`) ? HOME : u.hostname) };
 }
 
 // The person behind the access token, checked by Supabase Auth itself.

@@ -13,7 +13,7 @@ export default defineConfig({
   envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   worker: { format: 'es' },
   // Two pages: the platform (index.html) and CONTEXT News on its own (news.html, served at /news).
-  build: { rollupOptions: { input: { main: fileURLToPath(new URL('./index.html', import.meta.url)), news: fileURLToPath(new URL('./news.html', import.meta.url)) } } },
+  build: { rollupOptions: { input: { main: fileURLToPath(new URL('./index.html', import.meta.url)), news: fileURLToPath(new URL('./news.html', import.meta.url)), site: fileURLToPath(new URL('./site.html', import.meta.url)) } } },
   // v0 / shadcn import paths: `@/components/…`, `@/lib/utils`
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   // Dev server only: let v0 / Vercel sandboxes open the preview (hosts like sb-….vercel.run).
