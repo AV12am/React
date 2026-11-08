@@ -11,7 +11,7 @@ html{scroll-behavior:smooth}
 .wrap{max-width:1200px;margin:0 auto;padding:0 32px;box-sizing:border-box}
 
 /* ── header: items unroll a full-width panel from the top ── */
-.hdr{position:sticky;top:0;z-index:30;background:rgba(10,10,10,0.72);backdrop-filter:saturate(140%) blur(14px);-webkit-backdrop-filter:saturate(140%) blur(14px);border-bottom:1px solid var(--line)}
+.hdr{position:sticky;top:0;z-index:30;background:rgba(10,10,10,0.72);backdrop-filter:saturate(140%) blur(14px);-webkit-backdrop-filter:saturate(140%) blur(14px)}
 .bar{display:flex;align-items:center;gap:40px;height:64px}
 .logo{display:flex;align-items:center;gap:10px;color:var(--ink)}
 .logo svg{transition:transform 700ms var(--ease-out)}
@@ -50,16 +50,15 @@ html{scroll-behavior:smooth}
 .burger{display:none}
 
 /* ── hero: the 3D mark alone ── */
-.hero{position:relative;height:760px;border-bottom:1px solid var(--line);overflow:hidden}
+.hero{position:relative;height:760px;overflow:hidden}
 .hero canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab}
 .hero::after{content:"";position:absolute;inset:auto 0 0 0;height:180px;background:linear-gradient(180deg,rgba(10,10,10,0),var(--bg));pointer-events:none}
-.grid-bg{position:absolute;inset:0;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:64px 64px;-webkit-mask-image:radial-gradient(ellipse 60% 55% at 50% 50%,#000 10%,transparent 70%);mask-image:radial-gradient(ellipse 60% 55% at 50% 50%,#000 10%,transparent 70%);opacity:0.55}
 .cue{position:absolute;left:50%;bottom:28px;width:1px;height:48px;background:linear-gradient(180deg,transparent,var(--ink-3));z-index:2;animation:cue 2.4s var(--ease) infinite}
 
 /* ── below the hero ── */
-.statement{padding:144px 0 120px;text-align:center}
+.statement{padding:96px 0 120px;text-align:center}
 .statement h1{margin:0 auto;max-width:880px;font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:56px;line-height:60px;letter-spacing:0.02em;color:var(--ink)}
-.statement p{margin:28px auto 0;max-width:560px;color:var(--ink-2);font-size:17px;line-height:28px}
+.statement p{margin:0 auto;max-width:560px;color:var(--ink-2);font-size:17px;line-height:28px}
 .statement .acts{display:flex;justify-content:center;gap:10px;margin-top:40px;flex-wrap:wrap}
 .cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .col{padding:40px 32px 44px;border-left:1px solid var(--line);position:relative;transition:background 300ms var(--ease)}
