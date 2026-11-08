@@ -54,7 +54,7 @@ function build() {
       const s = Math.sqrt(1 - u * u);
       dust.push([Math.cos(th) * s * rr, Math.sin(th) * s * rr, u * rr, rnd()]);
     }
-    return { segs, core, rings, dust };
+    return { segs, core, rings: [], dust: [] }; // no rings, no dust: the mark alone
 }
 
 function start(canvas) {

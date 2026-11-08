@@ -86,6 +86,37 @@ html{scroll-behavior:smooth}
 .ftr nav{display:flex;gap:24px;flex-wrap:wrap}
 .ftr a:hover{color:var(--ink)}
 
+/* the panels' small windows: live pictures, no words */
+.pcard{gap:10px}
+.pcard .cap{font-size:12px;color:var(--ink-3)}
+.viz{width:100%;height:92px;display:block;overflow:visible}
+.viz .axis{stroke:var(--line-2);stroke-width:1}
+.viz .trend{fill:none;stroke:#ededed;stroke-width:1.5;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset 1400ms var(--ease-out) 150ms}
+.viz .area{opacity:0;transition:opacity 900ms var(--ease) 700ms}
+.viz .tip{fill:#ededed;opacity:0;transition:opacity 300ms 1400ms}
+.ni:hover .viz .trend,.ni:focus-within .viz .trend{stroke-dashoffset:0}
+.ni:hover .viz .area,.ni:hover .viz .tip,.ni:focus-within .viz .area,.ni:focus-within .viz .tip{opacity:1}
+.viz .tip{animation:blink 2s var(--ease) infinite}
+.hz .guide{stroke:var(--line-2);stroke-width:1;opacity:0;transition:opacity 150ms}
+.hz .hdot{fill:var(--bg);stroke:#ededed;stroke-width:1.5;opacity:0;transition:opacity 150ms}
+.hz:hover .guide,.hz:hover .hdot{opacity:1}
+.gn line{stroke:#3a3a3a;stroke-width:1;stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset 900ms var(--ease-out),stroke 200ms}
+.gn .side{stroke:#262626}
+.ni:hover .gn line,.ni:focus-within .gn line{stroke-dashoffset:0}
+.gn circle{fill:#6b6b6b;transition:fill 200ms,r 200ms}
+.gn .hit{fill:transparent}
+.gn:hover line{stroke:#ededed}
+.gn:hover circle:not(.hit){fill:#ededed}
+.gn:nth-child(2) line{transition-delay:60ms}.gn:nth-child(3) line{transition-delay:120ms}.gn:nth-child(4) line{transition-delay:180ms}.gn:nth-child(5) line{transition-delay:240ms}.gn:nth-child(6) line{transition-delay:300ms}.gn:nth-child(7) line{transition-delay:360ms}.gn:nth-child(8) line{transition-delay:420ms}
+.viz .hub{fill:#ededed}
+.radar{position:relative;height:92px;border-radius:8px;overflow:hidden;background:repeating-radial-gradient(circle at 50% 50%,transparent 0 17px,#1f1f1f 17px 18px)}
+.sweepr{position:absolute;left:50%;top:50%;width:240px;height:240px;margin:-120px 0 0 -120px;background:conic-gradient(from 0deg,rgba(237,237,237,0.16),transparent 70deg);border-radius:50%;animation:spin 4s linear infinite}
+.radar:hover .sweepr{animation-duration:1.6s}
+.radar i{position:absolute;width:5px;height:5px;border-radius:50%;background:#ededed;opacity:0.15;animation:blip 4s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes blip{0%,8%{opacity:0.9}40%,100%{opacity:0.12}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.35}}
+
 @supports (animation-timeline: view()){
 .rv{animation:rv linear both;animation-timeline:view();animation-range:entry 0% cover 28%}
 }
