@@ -116,16 +116,25 @@ async function wikidata(code, lei, notes) {
     if (!by) return null;
     // First the item alone (a quick lookup), then its facts: one query on a known item stays well within the time.
     const sparql = async (q) => (await get(`https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(q)}`, 20000, { Accept: 'application/sparql-results+json' }))?.results?.bindings || [];
-    const qid = ((await sparql(`SELECT ?item WHERE { ${by} } LIMIT 1`))[0]?.item?.value || '').split('/').pop();
+    // The LEI is the quickest way in; the ЄДРПОУ code when there is none.
+    const find = lei ? `?item wdt:P1278 "${lei}"` : by;
+    let step = 'пошук компанії';
+    const qid = ((await sparql(`SELECT ?item WHERE { ${find} } LIMIT 1`).catch(async () => (lei && prop ? sparql(`SELECT ?item WHERE { ?item wdt:${prop} "${code}" } LIMIT 1`) : Promise.reject(new Error('немає відповіді')))))[0]?.item?.value || '').split('/').pop();
     if (!/^Q\d+$/.test(qid)) return null;
     const q = `SELECT ?item ?itemLabel ?rel ?vLabel ?rank ?start ?emp ?empAt ?site WHERE {
       VALUES ?item { wd:${qid} }
       # Only what holds now: a statement with an end date (a former head, a sold stake) is left out.
-      OPTIONAL { { ?item p:P169 ?s. ?s ps:P169 ?v. BIND("ceo" AS ?rel) } UNION { ?item p:P127 ?s. ?s ps:P127 ?v. BIND("owner" AS ?rel) } UNION { ?item p:P749 ?s. ?s ps:P749 ?v. BIND("parent" AS ?rel) } UNION { ?item p:P355 ?s. ?s ps:P355 ?v. BIND("sub" AS ?rel) } UNION { ?item p:P488 ?s. ?s ps:P488 ?v. BIND("chair" AS ?rel) } UNION { ?item p:P112 ?s. ?s ps:P112 ?v. BIND("founder" AS ?rel) }
-        FILTER NOT EXISTS { ?s pq:P582 ?ended } ?s wikibase:rank ?rank. OPTIONAL { ?s pq:P580 ?start } }
+      OPTIONAL {
+        { ?item p:P169 ?s. ?s ps:P169 ?v; wikibase:rank ?rank. OPTIONAL { ?s pq:P580 ?start } FILTER NOT EXISTS { ?s pq:P582 ?ended } BIND("ceo" AS ?rel) } UNION
+        { ?item p:P127 ?s. ?s ps:P127 ?v; wikibase:rank ?rank. OPTIONAL { ?s pq:P580 ?start } FILTER NOT EXISTS { ?s pq:P582 ?ended } BIND("owner" AS ?rel) } UNION
+        { ?item p:P749 ?s. ?s ps:P749 ?v; wikibase:rank ?rank. OPTIONAL { ?s pq:P580 ?start } FILTER NOT EXISTS { ?s pq:P582 ?ended } BIND("parent" AS ?rel) } UNION
+        { ?item p:P355 ?s. ?s ps:P355 ?v; wikibase:rank ?rank. OPTIONAL { ?s pq:P580 ?start } FILTER NOT EXISTS { ?s pq:P582 ?ended } BIND("sub" AS ?rel) } UNION
+        { ?item p:P488 ?s. ?s ps:P488 ?v; wikibase:rank ?rank. OPTIONAL { ?s pq:P580 ?start } FILTER NOT EXISTS { ?s pq:P582 ?ended } BIND("chair" AS ?rel) } UNION
+        { ?item p:P112 ?s. ?s ps:P112 ?v; wikibase:rank ?rank. OPTIONAL { ?s pq:P580 ?start } FILTER NOT EXISTS { ?s pq:P582 ?ended } BIND("founder" AS ?rel) } }
       OPTIONAL { ?item p:P1128 ?es. ?es ps:P1128 ?emp. OPTIONAL { ?es pq:P585 ?empAt } } OPTIONAL { ?item wdt:P856 ?site }
       SERVICE wikibase:label { bd:serviceParam wikibase:language "uk,en". } } LIMIT 2000`;
-    const rows = await sparql(q);
+    step = 'факти про компанію';
+    const rows = await sparql(q).catch((e) => { throw new Error(`${step}: ${e.message}`); });
     if (!rows.length) return null;
     const v = (r, k) => r[k]?.value || '';
     const item = v(rows[0], 'item');
