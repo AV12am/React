@@ -65,34 +65,38 @@ function start(canvas) {
     const geo = build();
     const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let w = 0; let h = 0; let dpr = 1;
-    const size = () => {
-      const r = cv.getBoundingClientRect();
-      dpr = Math.min(2, window.devicePixelRatio || 1);
-      w = Math.max(1, r.width); h = Math.max(1, r.height);
-      cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
-      glow = makeGlow();
-    };
-    // The soft light behind the mark, painted once per size pixel by pixel: the page's own black (#0a0a0a) rising a
-    // dozen levels at the centre, with a half-level of random dither in every pixel — so the steps of an 8-bit
-    // gradient never line up into visible rings.
-    let glow = null;
-    function makeGlow() {
+    // The soft light behind the mark lives on its own still canvas under the drawing: painted once per size, never
+    // faded or redrawn per frame (an 8-bit fade of it showed blinking rings). Pixel by pixel: the page's own black
+    // (#0a0a0a) rising a dozen levels at the centre, with a half-level of random dither so no rings line up.
+    const glow = document.createElement('canvas');
+    glow.className = 'glow'; glow.setAttribute('aria-hidden', 'true');
+    cv.parentNode.insertBefore(glow, cv);
+    function paintGlow() {
       const W = cv.width; const H = cv.height;
-      const g = document.createElement('canvas'); g.width = W; g.height = H;
-      const gx = g.getContext('2d'); const img = gx.createImageData(W, H); const d = img.data;
-      const cx = W / 2; const cy = H / 2; const R = Math.min(W, H) * 0.46; // it fades to the page black inside the canvas: no edge
+      glow.width = W; glow.height = H;
+      const gx = glow.getContext('2d'); const img = gx.createImageData(W, H);
+      const px = new Uint32Array(img.data.buffer);
+      const cx = W / 2; const cy = H / 2; const R2 = (Math.min(W, H) * 0.46) ** 2; // fades to the page black inside: no edge
       for (let y = 0; y < H; y++) {
-        for (let x = 0; x < W; x++) {
-          const q = ((x - cx) ** 2 + (y - cy) ** 2) / (R * R);
+        const dy = (y - cy) ** 2; let i = y * W;
+        for (let x = 0; x < W; x++, i++) {
+          const q = ((x - cx) ** 2 + dy) / R2;
           const f = q < 1 ? (1 - q) ** 2.2 : 0;
-          const v = 10 + 13 * f + (Math.random() - 0.5) * 1.1;
-          const i = (y * W + x) * 4;
-          d[i] = d[i + 1] = d[i + 2] = Math.max(0, Math.min(255, Math.round(v))); d[i + 3] = 255;
+          const v = Math.round(10 + 13 * f + (Math.random() - 0.5) * 1.1);
+          px[i] = 0xff000000 | (v << 16) | (v << 8) | v;
         }
       }
       gx.putImageData(img, 0, 0);
-      return g;
     }
+    const size = () => {
+      const r = cv.getBoundingClientRect();
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      const W = Math.round(Math.max(1, r.width) * dpr); const H = Math.round(Math.max(1, r.height) * dpr);
+      w = Math.max(1, r.width); h = Math.max(1, r.height);
+      if (W === cv.width && H === cv.height) return; // the same size: nothing to redo (no blank frame, no repaint)
+      cv.width = W; cv.height = H;
+      paintGlow();
+    };
     size();
     if (window.ResizeObserver) { const ro = new ResizeObserver(() => { size(); if (still) draw(9); }); ro.observe(cv); }
     cv.onpointermove = (e) => {
@@ -141,7 +145,6 @@ function start(canvas) {
       const dawn = Math.min(1, t / 3.2); const fade = dawn * dawn * (3 - 2 * dawn);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
-      if (glow) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = fade; ctx.drawImage(glow, 0, 0); ctx.globalAlpha = 1; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
       ctx.lineCap = 'round';
       const line = (sg, base, span, f) => {
         if (f <= 0) return;
