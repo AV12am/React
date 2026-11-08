@@ -17,37 +17,60 @@ const io = new IntersectionObserver((es) => es.forEach((e) => {
 ['digest', 'forecasts'].forEach((id) => { const el = document.getElementById(id); if (el) io.observe(el); });
 
 // ── the digest ──
-// The headline is the first sentence of the English summary; the rest of it is the text.
+// The issue in Ukrainian or English, as on /news — the same choice, remembered under the same key.
+const LANG_KEY = 'context-news-lang';
+const W = {
+  uk: { day: 'uk-UA', issue: 'Випуск за', at: '17:00 за Києвом', source: 'Джерело', making: 'Збираю сьогоднішній випуск…', full: 'Відкрити повний випуск', down: 'Випуск зараз недоступний. Він виходить щодня о 17:00 за Києвом —', open: 'відкрити CONTEXT News' },
+  en: { day: 'en-GB', issue: 'Issue of', at: '17:00 Kyiv', source: 'Source', making: 'Today’s issue is being put together…', full: 'Open the full issue', down: 'The issue is not available right now. It is published every day at 17:00 Kyiv time —', open: 'open CONTEXT News' },
+};
+let lang = (() => { try { return localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'uk'; } catch { return 'uk'; } })();
+let issue = null;
+
+// In English the headline is the first sentence of the English summary (the titles stay as the outlets wrote them).
 function split(s) {
   const t = String(s || '').trim();
   const m = t.match(/^(.{20,220}?[.!?])\s+(.+)$/s);
   return m ? [m[1], m[2]] : [t, ''];
 }
 function itemHtml(x) {
-  const [head, rest] = split(x.summary_en || x.summary || x.title);
+  const [head, rest] = lang === 'en' ? split(x.summary_en || x.summary || x.title) : [x.title || '', x.summary || ''];
   const img = safeUrl(x.image);
   const url = safeUrl(x.url);
   return `<article class="item">${img ? `<div class="ph" style="background-image:url('${esc(img).replace(/'/g, '%27')}')" role="img" aria-label=""></div>` : ''}
 <div class="bd"><h3>${esc(head)}</h3>${rest ? `<p>${esc(rest)}</p>` : ''}
-<div class="src"><span>${esc(x.domain || '')}</span>${url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">Source ↗</a>` : ''}</div></div></article>`;
+<div class="src"><span>${esc(x.domain || '')}</span>${url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${W[lang].source} ↗</a>` : ''}</div></div></article>`;
 }
+function drawIssue() {
+  const t = W[lang];
+  document.querySelectorAll('[data-lang]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+  document.getElementById('digest-body').lang = lang;
+  document.getElementById('issue-meta').textContent = `${t.issue} ${new Date(issue.for || issue.at).toLocaleDateString(t.day, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Kyiv' })} · ${t.at}`;
+  document.getElementById('digest-body').innerHTML = issue.sections.filter((s) => s.items?.length).map((s) => {
+    const part = (lang === 'en' ? s.en?.part || s.part : s.part) || '';
+    const title = lang === 'en' ? s.en?.title : s.title;
+    return `<div class="sec"><div class="sec-t">${esc(part.replace(/^(SECTION|РОЗДІЛ)\s*\d+\s*\|\s*/i, ''))}${title ? ` · ${esc(title)}` : ''}</div>
+<div class="items${s.id === 'key' ? ' key' : ''}">${s.items.map(itemHtml).join('')}</div></div>`;
+  }).join('') + `<p><a class="lnk" href="/news">${t.full} <span class="ar">→</span></a></p>`;
+}
+document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => {
+  lang = b.dataset.lang;
+  try { localStorage.setItem(LANG_KEY, lang); } catch { /* not remembered */ }
+  if (issue) drawIssue(); else document.querySelectorAll('[data-lang]').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.lang === lang)));
+}));
+document.querySelectorAll('[data-lang]').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.lang === lang)));
 async function digest() {
   const meta = document.getElementById('issue-meta');
   const body = document.getElementById('digest-body');
   try {
     const res = await fetch('/api/pulse?news=1');
     const j = await res.json().catch(() => ({}));
-    if (res.ok && !j.sections?.length && j.making) { meta.textContent = 'Today\'s issue is being put together…'; setTimeout(digest, 20000); return; }
+    if (res.ok && !j.sections?.length && j.making) { meta.textContent = W[lang].making; setTimeout(digest, 20000); return; }
     if (!res.ok || !j.sections?.length) throw new Error(j.message || 'empty');
-    meta.textContent = `Issue of ${day(j.for || j.at)} · 17:00 Kyiv`;
-    body.innerHTML = j.sections.filter((s) => s.items?.length).map((s) => {
-      const title = (s.en?.part || s.part || '').replace(/^SECTION\s*\d+\s*\|\s*/i, '');
-      return `<div class="sec"><div class="sec-t">${esc(title)}${s.en?.title ? ` · ${esc(s.en.title)}` : ''}</div>
-<div class="items${s.id === 'key' ? ' key' : ''}">${s.items.map(itemHtml).join('')}</div></div>`;
-    }).join('') + '<p><a class="lnk" href="/news">Open the full issue, with Ukrainian and English <span class="ar">→</span></a></p>';
+    issue = j;
+    drawIssue();
   } catch {
     meta.textContent = '';
-    body.innerHTML = '<div class="empty">The issue is not available right now. It is published every day at 17:00 Kyiv time — <a class="lnk" href="/news">open CONTEXT News <span class="ar">→</span></a></div>';
+    body.innerHTML = `<div class="empty">${W[lang].down} <a class="lnk" href="/news">${W[lang].open} <span class="ar">→</span></a></div>`;
   }
 }
 

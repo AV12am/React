@@ -172,6 +172,18 @@
       "destination": "/situation.html"
     },
     {
+      "source": "/cookies",
+      "destination": "/cookies.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/terms.html"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/privacy.html"
+    },
+    {
       "source": "/site",
       "destination": "/site.html"
     }

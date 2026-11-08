@@ -215,3 +215,20 @@ html{scroll-behavior:smooth}
 .car-form button[disabled]{opacity:0.6;cursor:wait}
 @media (max-width: 900px){.car-in{grid-template-columns:minmax(0,1fr);gap:40px;padding-top:72px}.car-head h2{font-size:38px;line-height:42px}}
 @media (max-width: 560px){.careers{padding:24px 16px}.grid2,.kind{grid-template-columns:minmax(0,1fr)}}
+
+/* ── about and principles ── */
+.about{padding-top:40px;padding-bottom:40px}
+.ab-in{display:grid;grid-template-columns:minmax(0,0.9fr) minmax(0,1.3fr);gap:64px;border-top:1px solid var(--line);padding-top:96px}
+.ab-head .k{font-family:"Cinzel",Georgia,serif;font-size:13px;letter-spacing:0.24em;color:var(--ink-3)}
+.ab-head h2{margin:18px 0 0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:48px;line-height:52px;color:var(--ink)}
+.ab-text p{margin:0 0 18px;color:var(--ink-2);font-size:17px;line-height:28px;max-width:640px}
+.principles{padding-top:24px;padding-bottom:40px}
+.pr-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px}
+.pr{padding:28px 24px;border:1px solid var(--line);border-radius:14px;background:#0c0c0c}
+.pr .n{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;color:var(--ink-3)}
+.pr h3{margin:16px 0 8px;font-weight:500;font-size:16px;color:var(--ink)}
+.pr p{margin:0;color:var(--ink-2);font-size:14px;line-height:22px}
+.tbc{background:#2a2414;color:#d9b77a;border-radius:4px;padding:0 4px}
+@media (max-width: 1100px){.pr-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width: 900px){.ab-in{grid-template-columns:minmax(0,1fr);gap:24px;padding-top:72px}.ab-head h2{font-size:38px;line-height:42px}}
+@media (max-width: 560px){.pr-grid{grid-template-columns:minmax(0,1fr)}}
