@@ -176,7 +176,7 @@ const toB64 = (bytes) => {
 // leaves the file malformed and PowerPoint refuses to open it. The address goes in escaped; text loses the control
 // characters XML does not allow.
 export const xmlAttr = (u) => String(u).replace(/&(?!(amp|lt|gt|quot|apos);)/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const clean = (t) => String(t ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, '');
+const clean = (t) => String(t ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, ''); // eslint-disable-line no-control-regex
 export async function newsPptx(issue, pics = new Map(), lang = 'uk') {
   const { default: PptxGenJS } = await import('pptxgenjs');
   const deck = new PptxGenJS();
