@@ -85,9 +85,9 @@ function start(canvas) {
       const m = mouse;
       m.x += (m.tx - m.x) * 0.04; m.y += (m.ty - m.y) * 0.04;
       const sp = 1;
-      const ry = t * 0.2 * sp + m.x * 0.55;
-      const rx = 0.42 + Math.sin(t * 0.09 * sp) * 0.16 + m.y * 0.35;
-      const rz = t * 0.03 * sp;
+      const ry = -0.35 + Math.sin(t * 0.21 * sp) * 0.12 + m.x * 0.35; // a steady three-quarter view
+      const rx = 0.55 + Math.sin(t * 0.13 * sp) * 0.06 + m.y * 0.25;
+      const rz = t * 0.32 * sp; // it turns round, like a wheel
       const cy = Math.cos(ry); const sy = Math.sin(ry); const cx = Math.cos(rx); const sx = Math.sin(rx); const cz = Math.cos(rz); const sz = Math.sin(rz);
       const s = Math.min(w, h) / 250;
       const ox = w / 2; const oy = h / 2;
