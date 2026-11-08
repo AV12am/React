@@ -225,6 +225,9 @@ async function summarize(items, tries = 2) {
       bad.forEach((i, k) => { const t = String(j?.t?.[k] || '').trim(); if (t && !needsFix(t)) out[i] = { ...out[i], text: t }; });
     } catch (e) { sumErrs.push(`fix: ${String(e?.message || e).slice(0, 60)}`); }
   }
+  // Still broken («Кремль… ні — Міноборони рф…»): never printed — the news falls back to its own text (shown only
+  // when Ukrainian), and a spare takes its place.
+  out.forEach((x, i) => { if (x.ai && needsFix(x.text)) { out[i] = readSummaries('', [items[i]])[0]; sumErrs.push('unfixed retelling dropped'); } });
   const left_ = out.filter((x) => !x.ai).length;
   if (left_) sumErrs.push(`${left_} of ${items.length} without a retelling`);
   return out;
