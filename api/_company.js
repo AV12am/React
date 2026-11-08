@@ -114,11 +114,11 @@ async function wikidata(code, lei, notes) {
     const prop = await edrpouProperty();
     const by = [prop && `{ ?item wdt:${prop} "${code}" }`, lei && `{ ?item wdt:P1278 "${lei}" }`].filter(Boolean).join(' UNION ');
     if (!by) return null;
-    const q = `SELECT ?item ?itemLabel ?rel ?vLabel ?emp ?empAt ?site WHERE {
+    const q = `SELECT ?item ?itemLabel ?rel ?vLabel ?rank ?start ?emp ?empAt ?site WHERE {
       ${by}
       # Only what holds now: a statement with an end date (a former head, a sold stake) is left out.
       OPTIONAL { { ?item p:P169 ?s. ?s ps:P169 ?v. BIND("ceo" AS ?rel) } UNION { ?item p:P127 ?s. ?s ps:P127 ?v. BIND("owner" AS ?rel) } UNION { ?item p:P749 ?s. ?s ps:P749 ?v. BIND("parent" AS ?rel) } UNION { ?item p:P355 ?s. ?s ps:P355 ?v. BIND("sub" AS ?rel) } UNION { ?item p:P488 ?s. ?s ps:P488 ?v. BIND("chair" AS ?rel) } UNION { ?item p:P112 ?s. ?s ps:P112 ?v. BIND("founder" AS ?rel) }
-        FILTER NOT EXISTS { ?s pq:P582 ?ended } }
+        FILTER NOT EXISTS { ?s pq:P582 ?ended } ?s wikibase:rank ?rank. OPTIONAL { ?s pq:P580 ?start } }
       OPTIONAL { ?item p:P1128 ?es. ?es ps:P1128 ?emp. OPTIONAL { ?es pq:P585 ?empAt } } OPTIONAL { ?item wdt:P856 ?site }
       SERVICE wikibase:label { bd:serviceParam wikibase:language "uk,en". } } LIMIT 2000`;
     const j = await get(`https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(q)}`, 15000, { Accept: 'application/sparql-results+json' });
@@ -127,18 +127,32 @@ async function wikidata(code, lei, notes) {
     const v = (r, k) => r[k]?.value || '';
     const item = v(rows[0], 'item');
     const facts = { name: v(rows[0], 'itemLabel'), url: item, employees: rows.filter((r) => v(r, 'emp')).sort((a, b) => v(b, 'empAt').localeCompare(v(a, 'empAt')))[0]?.emp?.value || '', website: rows.map((r) => v(r, 'site')).find(Boolean) || '' };
-    const seen = new Set();
-    const people = [];
-    const tree = [];
+    // One entry per role and name, with its rank and start; a role held by one person at a time (the head, the chair)
+    // keeps the holder Wikidata marks preferred, else the one appointed last. Former holders whose end Wikidata
+    // does not record would otherwise show as current.
+    const by2 = new Map();
     for (const r of rows) {
       const rel = v(r, 'rel');
       const name = v(r, 'vLabel');
-      if (!rel || !name || /^Q\d+$/.test(name) || seen.has(`${rel}|${name}`)) continue;
-      seen.add(`${rel}|${name}`);
-      if (rel === 'ceo') people.push({ role: 'Керівник', name, share: '', country: '', source: 'Wikidata' });
-      if (rel === 'chair') people.push({ role: 'Голова ради', name, share: '', country: '', source: 'Wikidata' });
-      if (rel === 'founder') people.push({ role: 'Засновник', name, share: '', country: '', source: 'Wikidata' });
-      if (rel === 'owner') people.push({ role: 'Власник', name, share: '', country: '', source: 'Wikidata' });
+      if (!rel || !name || /^Q\d+$/.test(name)) continue;
+      const k = `${rel}|${name}`;
+      const x = { rel, name, preferred: /PreferredRank$/.test(v(r, 'rank')), start: v(r, 'start') };
+      const was = by2.get(k);
+      if (!was || (x.preferred && !was.preferred) || x.start > was.start) by2.set(k, x);
+    }
+    let list = [...by2.values()];
+    for (const one of ['ceo', 'chair']) {
+      const held = list.filter((x) => x.rel === one);
+      if (held.length < 2) continue;
+      const pref = held.filter((x) => x.preferred);
+      const keep = pref.length === 1 ? pref[0] : held.filter((x) => x.start).sort((a, b) => b.start.localeCompare(a.start))[0];
+      if (keep) list = list.filter((x) => x.rel !== one || x === keep);
+    }
+    const people = [];
+    const tree = [];
+    const ROLE = { ceo: 'Керівник', chair: 'Голова ради', founder: 'Засновник', owner: 'Власник' };
+    for (const { rel, name } of list) {
+      if (ROLE[rel]) people.push({ role: ROLE[rel], name, share: '', country: '', source: 'Wikidata' });
       if (rel === 'parent') tree.push({ relation: 'Материнська', name, country: '', lei: '', status: '', source: 'Wikidata' });
       if (rel === 'sub') tree.push({ relation: 'Дочірня', name, country: '', lei: '', status: '', source: 'Wikidata' });
     }
@@ -152,7 +166,7 @@ async function wikidata(code, lei, notes) {
 const norm = (s) => String(s || '').toLowerCase().replace(/["«»'’.,]/g, '').replace(/\s+/g, ' ').trim();
 /** Everything known of the company; kept for a week so the paid register is not asked again. */
 export async function companyProfile(code, { fresh = false } = {}) {
-  const id = `co2-${code}`; // co2: only current heads and owners (a former head was kept by co-)
+  const id = `co3-${code}`; // co3: one current head (earlier versions kept former heads too)
   const cached = await read(id);
   if (!fresh && cached?.at && Date.now() - Date.parse(cached.at) < WEEK) return cached;
   const notes = [];
