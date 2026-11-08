@@ -114,15 +114,18 @@ async function wikidata(code, lei, notes) {
     const prop = await edrpouProperty();
     const by = [prop && `{ ?item wdt:${prop} "${code}" }`, lei && `{ ?item wdt:P1278 "${lei}" }`].filter(Boolean).join(' UNION ');
     if (!by) return null;
+    // First the item alone (a quick lookup), then its facts: one query on a known item stays well within the time.
+    const sparql = async (q) => (await get(`https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(q)}`, 20000, { Accept: 'application/sparql-results+json' }))?.results?.bindings || [];
+    const qid = ((await sparql(`SELECT ?item WHERE { ${by} } LIMIT 1`))[0]?.item?.value || '').split('/').pop();
+    if (!/^Q\d+$/.test(qid)) return null;
     const q = `SELECT ?item ?itemLabel ?rel ?vLabel ?rank ?start ?emp ?empAt ?site WHERE {
-      ${by}
+      VALUES ?item { wd:${qid} }
       # Only what holds now: a statement with an end date (a former head, a sold stake) is left out.
       OPTIONAL { { ?item p:P169 ?s. ?s ps:P169 ?v. BIND("ceo" AS ?rel) } UNION { ?item p:P127 ?s. ?s ps:P127 ?v. BIND("owner" AS ?rel) } UNION { ?item p:P749 ?s. ?s ps:P749 ?v. BIND("parent" AS ?rel) } UNION { ?item p:P355 ?s. ?s ps:P355 ?v. BIND("sub" AS ?rel) } UNION { ?item p:P488 ?s. ?s ps:P488 ?v. BIND("chair" AS ?rel) } UNION { ?item p:P112 ?s. ?s ps:P112 ?v. BIND("founder" AS ?rel) }
         FILTER NOT EXISTS { ?s pq:P582 ?ended } ?s wikibase:rank ?rank. OPTIONAL { ?s pq:P580 ?start } }
       OPTIONAL { ?item p:P1128 ?es. ?es ps:P1128 ?emp. OPTIONAL { ?es pq:P585 ?empAt } } OPTIONAL { ?item wdt:P856 ?site }
       SERVICE wikibase:label { bd:serviceParam wikibase:language "uk,en". } } LIMIT 2000`;
-    const j = await get(`https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(q)}`, 15000, { Accept: 'application/sparql-results+json' });
-    const rows = j?.results?.bindings || [];
+    const rows = await sparql(q);
     if (!rows.length) return null;
     const v = (r, k) => r[k]?.value || '';
     const item = v(rows[0], 'item');
@@ -166,7 +169,7 @@ async function wikidata(code, lei, notes) {
 const norm = (s) => String(s || '').toLowerCase().replace(/["«»'’.,]/g, '').replace(/\s+/g, ' ').trim();
 /** Everything known of the company; kept for a week so the paid register is not asked again. */
 export async function companyProfile(code, { fresh = false } = {}) {
-  const id = `co3-${code}`; // co3: one current head (earlier versions kept former heads too)
+  const id = `co4-${code}`; // co3: one current head (earlier versions kept former heads too)
   const cached = await read(id);
   if (!fresh && cached?.at && Date.now() - Date.parse(cached.at) < WEEK) return cached;
   const notes = [];
@@ -186,7 +189,8 @@ export async function companyProfile(code, { fresh = false } = {}) {
   const sources = [reg && { name: 'ЄДР (Opendatabot)', url: `https://opendatabot.ua/c/${code}` }, gl && { name: 'GLEIF', url: `https://search.gleif.org/#/record/${gl.me.lei}` }, wd && { name: 'Wikidata', url: wd.facts.url }].filter(Boolean);
   if (!gl && !notes.some((n) => n.startsWith('GLEIF'))) notes.push('GLEIF: компанія не має міжнародного ідентифікатора LEI — структуру групи там не знайдено.');
   const out = { at: new Date().toISOString(), code, card, people, tree, sources, notes };
-  // A week's keeping only when the paid register answered or is not connected; a passing failure is asked again.
-  if (reg || !KEY) await keep(id, out);
+    // A source that failed this time (a timeout, a refusal) is asked again on the next visit.
+  const failed = notes.some((n) => /не відповіла?|денний ліміт|ключ API не прийнято|HTTP \d/.test(n));
+  if (!failed && (reg || !KEY)) await keep(id, out);
   return out;
 }
