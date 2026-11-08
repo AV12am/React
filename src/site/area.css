@@ -277,3 +277,6 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 .mx .area-hero:not(:has(h1)){padding-bottom:0}
 #ar-list>.meta,#timeline>.meta{color:var(--ink-3);font-size:14px}
 .sit-public .page.sit[data-theme="paper"]{padding:24px}
+.mx .doc-dl{display:inline-flex;align-items:center;gap:10px;margin-top:20px;color:var(--ink-2);font-size:14px;transition:color 200ms}
+.mx .doc-dl:hover{color:var(--ink)}
+.mx .about-page p+p{margin-top:16px}

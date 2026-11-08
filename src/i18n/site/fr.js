@@ -1,6 +1,9 @@
 // Français for the public site: its English texts and the English that SITUATION and CONTEXT are first put into (./en.js).
 /* eslint-disable */
 export const FROM_EN = {
+  "REACTIONcore is an independent analytical platform that works with open sources. We analyse academic research, official documents, registries, financial statements, media and social networks. Every source is checked and rated for reliability. On this basis we prepare research and forecasts using our own methodology: we model how events may unfold, identify the points where scenarios converge and estimate the probability of each outcome.": "REACTIONcore est une plateforme d’analyse indépendante qui travaille avec des sources ouvertes. Nous analysons des travaux de recherche, des documents officiels, des registres, des états financiers, des médias et des réseaux sociaux. Chaque source est vérifiée et évaluée selon sa fiabilité. Sur cette base, nous préparons des études et des prévisions selon notre propre méthodologie : nous modélisons l’évolution possible des événements, identifions les points où les scénarios convergent et estimons la probabilité de chaque issue.",
+  "Every forecast carries a numerical estimate and a date to check it against. We publish the accuracy of our forecasts openly.": "Chaque prévision comporte une estimation chiffrée et une date de vérification. Nous publions ouvertement la précision de nos prévisions.",
+  "Methodology of analysis and forecasting": "Méthodologie d’analyse et de prévision",
   "Graphite": "Graphite",
   "Ocean": "Océan",
   "Ember": "Braise",
