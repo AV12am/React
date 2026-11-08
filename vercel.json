@@ -172,6 +172,10 @@
       "destination": "/time.html"
     },
     {
+      "source": "/contact",
+      "destination": "/contact.html"
+    },
+    {
       "source": "/situation",
       "destination": "/situation.html"
     },

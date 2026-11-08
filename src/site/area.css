@@ -280,3 +280,9 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 .mx .doc-dl{display:inline-flex;align-items:center;gap:10px;margin-top:20px;color:var(--ink-2);font-size:14px;transition:color 200ms}
 .mx .doc-dl:hover{color:var(--ink)}
 .mx .about-page p+p{margin-top:16px}
+.mx .contacts{margin:32px 0 0;display:grid;gap:0;max-width:640px}
+.mx .contacts div{display:flex;justify-content:space-between;gap:24px;padding:14px 0;border-top:1px solid var(--line)}
+.mx .contacts div:last-child{border-bottom:1px solid var(--line)}
+.mx .contacts dt{color:var(--ink-3);font-size:14px}
+.mx .contacts dd{margin:0;font-size:15px}
+.mx .contacts a{color:var(--ink)}

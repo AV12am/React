@@ -2,6 +2,11 @@
 // and CONTEXT are first put into (./en.js). Names (REACTIONcore, CONTEXT, SITUATION, GDELT…) stay as they are.
 /* eslint-disable */
 export const FROM_EN = {
+  "CONTACT": "KONTAKT",
+  "Describe the task — a country, a company, a market or a question — and we will reply by email.": "Beschreiben Sie die Aufgabe — ein Land, ein Unternehmen, einen Markt oder eine Frage —, und wir antworten per E-Mail.",
+  "General enquiries": "Allgemeine Anfragen",
+  "Privacy and personal data": "Datenschutz und personenbezogene Daten",
+  "Work with us": "Mit uns arbeiten",
   "REACTIONcore is an independent analytical platform that works with open sources. We analyse academic research, official documents, registries, financial statements, media and social networks. Every source is checked and rated for reliability. On this basis we prepare research and forecasts using our own methodology: we model how events may unfold, identify the points where scenarios converge and estimate the probability of each outcome.": "REACTIONcore ist eine unabhängige Analyseplattform, die mit offenen Quellen arbeitet. Wir analysieren wissenschaftliche Studien, amtliche Dokumente, Register, Finanzberichte, Medien und soziale Netzwerke. Jede Quelle wird geprüft und nach ihrer Zuverlässigkeit bewertet. Auf dieser Grundlage erstellen wir Analysen und Prognosen nach unserer eigenen Methodik: Wir modellieren mögliche Entwicklungen, bestimmen die Punkte, an denen Szenarien zusammenlaufen, und schätzen die Wahrscheinlichkeit jedes Ergebnisses.",
   "Every forecast carries a numerical estimate and a date to check it against. We publish the accuracy of our forecasts openly.": "Jede Prognose hat eine quantitative Einschätzung und ein Prüfdatum. Die Treffsicherheit unserer Prognosen veröffentlichen wir offen.",
   "Methodology of analysis and forecasting": "Methodik der Analyse und Prognose",

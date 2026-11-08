@@ -1,6 +1,12 @@
 // Українська for the public site's English texts (the pages, header, footer). SITUATION and CONTEXT are Ukrainian already.
 /* eslint-disable */
 export const FROM_EN = {
+  "CONTACT": "КОНТАКТИ",
+  "Describe the task — a country, a company, a market or a question — and we will reply by email.": "Опишіть задачу — країну, компанію, ринок чи питання, — і ми відповімо поштою.",
+  "General enquiries": "Загальні питання",
+  "Privacy and personal data": "Конфіденційність і персональні дані",
+  "Work with us": "Робота з нами",
+  "Contact · Reaction": "Контакти · Reaction",
   "REACTIONcore is an independent analytical platform that works with open sources. We analyse academic research, official documents, registries, financial statements, media and social networks. Every source is checked and rated for reliability. On this basis we prepare research and forecasts using our own methodology: we model how events may unfold, identify the points where scenarios converge and estimate the probability of each outcome.": "REACTIONcore — незалежна аналітична платформа, що працює з відкритими джерелами. Ми аналізуємо наукові дослідження, офіційні документи, реєстри, фінансову звітність, медіа та соціальні мережі. Кожне джерело перевіряємо й оцінюємо за надійністю. На цій основі готуємо дослідження та прогнози за власною методологією: моделюємо сценарії розвитку подій, визначаємо точки їх збігу і оцінюємо ймовірність кожного результату.",
   "Every forecast carries a numerical estimate and a date to check it against. We publish the accuracy of our forecasts openly.": "Кожен прогноз має кількісну оцінку і дату перевірки. Точність наших прогнозів ми публікуємо відкрито.",
   "Methodology of analysis and forecasting": "Методологія аналізу і прогнозування",
