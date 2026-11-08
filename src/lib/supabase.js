@@ -72,8 +72,13 @@ export async function signOut() {
   if (token) await fetch(`${SB_URL}/auth/v1/logout`, { method: 'POST', headers: { apikey: SB_KEY, Authorization: `Bearer ${token}` } }).catch(() => {});
 }
 
+// The public SITUATION signs people in on its own (src/site/auth.js): its token stands in for the workspace's here.
+let tokenFrom = null;
+export const setTokenSource = (fn) => { tokenFrom = fn; };
+
 /** Headers for a request as the signed-in person (refreshing the token when it is about to expire). */
 export async function authHeaders(extra = {}) {
+  if (tokenFrom) return { apikey: SB_KEY, Authorization: `Bearer ${(await tokenFrom()) || SB_KEY}`, ...extra };
   if (session && session.expires_at - 60 < Date.now() / 1000) await refresh();
   const token = session?.access_token || SB_KEY;
   return { apikey: SB_KEY, Authorization: `Bearer ${token}`, ...extra };

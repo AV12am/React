@@ -4,6 +4,7 @@ import './site.css';
 import './area.css';
 import './chrome.js';
 import { gaugeSvg } from './petals.js';
+import { guard } from './auth.js';
 import { visibleForecasts, trackRecord, elapsed, brier } from '../lib/forecasts.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -116,5 +117,9 @@ async function forecasts() {
   list.innerHTML = shown.map(forecastHtml).join('');
 }
 
-digest();
-forecasts();
+// CONTEXT opens to approved users only (src/site/auth.js).
+guard(document.getElementById('gate'), 'CONTEXT', () => {
+  document.getElementById('area').hidden = false;
+  digest();
+  forecasts();
+});

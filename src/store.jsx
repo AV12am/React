@@ -459,6 +459,8 @@ export function StoreProvider({ children }) {
 }
 
 export const useStore = () => useContext(Ctx);
+// The public SITUATION (src/site/situation-app.jsx) provides its own store value through the same context.
+export const StoreContext = Ctx;
 
 /* ---------- formatting ---------- */
 export function fmtBytes(n) {

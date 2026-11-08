@@ -1,46 +1,7 @@
-// The public product areas: SITUATION's widget data and saved state, CONTEXT's forecast record.
+// CONTEXT's forecast record.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseSeries, parseTable, parsePlaces, parseLinks, readState, TEMPLATES } from '../../src/lib/dash.js';
 import { visibleForecasts, trackRecord, brier, elapsed } from '../../src/lib/forecasts.js';
-
-test('series: label, value; non-numbers and comments skipped', () => {
-  assert.deepEqual(parseSeries('# months\n2026-01, 4.2\nJan 2026, 5\nbroken line\nPoland; 3,1'), [
-    { label: '2026-01', value: 4.2 }, { label: 'Jan 2026', value: 5 }, { label: 'Poland', value: 3.1 },
-  ]);
-});
-
-test('table: header first, short rows padded', () => {
-  assert.deepEqual(parseTable('A, B, C\n1, 2\n3, 4, 5'), { head: ['A', 'B', 'C'], rows: [['1', '2', ''], ['3', '4', '5']] });
-});
-
-test('places: only real coordinates', () => {
-  const p = parsePlaces('Kyiv, 50.45, 30.52, 12\nNowhere, 120, 30\nLviv, 49.84, 24.03');
-  assert.equal(p.length, 2);
-  assert.equal(p[1].value, null);
-});
-
-test('links: arrows or commas, degree per node', () => {
-  const g = parseLinks('A -> B\nA → C\nB, C');
-  assert.equal(g.edges.length, 3);
-  assert.deepEqual(g.nodes.find((n) => n.id === 'A'), { id: 'A', n: 2 });
-});
-
-test('saved state: malformed input gives an empty state; unknown widgets dropped', () => {
-  assert.deepEqual(readState('{not json'), { v: 1, boards: [], current: null });
-  const s = readState({ boards: [{ id: 'x', name: 'N', widgets: [{ type: 'kpi', size: 9, data: { value: 5 } }, { type: 'evil' }] }], current: 'x' });
-  assert.equal(s.boards[0].widgets.length, 1);
-  assert.equal(s.boards[0].widgets[0].size, 1);
-  assert.equal(s.boards[0].widgets[0].data.value, '5');
-});
-
-test('templates are marked as examples and survive a save', () => {
-  for (const make of Object.values(TEMPLATES)) {
-    const b = make();
-    assert.equal(b.sample, true);
-    assert.equal(readState({ boards: [b] }).boards[0].widgets.length, b.widgets.length);
-  }
-});
 
 test('forecasts: drafts hidden unless asked; record and Brier', () => {
   const list = [
@@ -55,4 +16,15 @@ test('forecasts: drafts hidden unless asked; record and Brier', () => {
   assert.equal(r.resolved, 2);
   assert.ok(Math.abs(r.brier - (0.04 + 0.09) / 2) < 1e-9);
   assert.equal(elapsed(list[0], Date.parse('2027-01-01')), 1);
+});
+
+test('public SITUATION: no widget on the platform data survives', async () => {
+  const { SUBJECTS, subjectBoard, newBoard, publicSafe, publicWidget } = await import('../../src/lib/situation.js');
+  const me = { id: 'u1', clearance: 0, public: true };
+  for (const x of SUBJECTS) {
+    const b = publicSafe(subjectBoard({ kind: x.kind, label: 'Test', q: 'test', iso3: 'UKR', code: '00000000', sector: 'x' }, me));
+    assert.ok(b.widgets.every(publicWidget));
+    assert.ok(b.widgets.every((w) => !/^(records|tasks|audit|reg:)/.test(w.cfg?.source || '')));
+  }
+  assert.equal(publicSafe(newBoard('exec', me)).widgets.some((w) => /^(records|tasks|projects|audit|users)/.test(w.metric)), false);
 });

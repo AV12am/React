@@ -15,7 +15,7 @@ import { ask } from '../components/Dialog.jsx';
 import { LEVELS } from '../data/clearance.js';
 import { VISIBLE_DIVISIONS } from '../data/seed.js';
 import { ORGS_UA, ORG_SECTORS } from '../data/orgs-ua.js';
-import { METRICS, TEMPLATES, SUBJECTS, subjectBoard, subjectTitle, PERIODS, newBoard, boardsFor, scope, compute, addWidget, addCustom, setCustom, moveWidget, placeWidget, resizeWidget, removeWidget } from '../lib/situation.js';
+import { METRICS, TEMPLATES, SUBJECTS, PUBLIC_METRICS, publicSafe, subjectBoard, subjectTitle, PERIODS, newBoard, boardsFor, scope, compute, addWidget, addCustom, setCustom, moveWidget, placeWidget, resizeWidget, removeWidget } from '../lib/situation.js';
 
 const SitMap = lazy(() => import('../components/SitMap.jsx').then((m) => ({ default: m.SitMap })));
 
@@ -281,6 +281,7 @@ function SubjectCards({ onPick }) {
 }
 
 function TemplatePicker({ onPick, onSubject, onClose }) {
+  const { me } = useStore();
   return (
     <Drawer title="Новий дашборд" onClose={onClose}>
       <div className="stack">
@@ -289,7 +290,7 @@ function TemplatePicker({ onPick, onSubject, onClose }) {
           <button type="button" key={x.kind} className="sit-template sit-template--main" onClick={() => onSubject(x.kind)}><b>{x.name}</b><span className="vx-hint">{x.about}</span></button>
         ))}
         <div className="vx-eyebrow">Інші шаблони</div>
-        {TEMPLATES.map((t) => (
+        {TEMPLATES.filter((t) => !me?.public || !t.internal).map((t) => (
           <button type="button" key={t.id} className="sit-template" onClick={() => onPick(t.id)}>
             <b>{t.name}</b><span className="vx-hint">{t.about}</span>
           </button>
@@ -300,11 +301,12 @@ function TemplatePicker({ onPick, onSubject, onClose }) {
 }
 
 function WidgetPicker({ onPick, onBuild, onClose }) {
-  const groups = Object.entries(METRICS).reduce((m, [id, x]) => { (m[x.kind] ||= []).push([id, x]); return m; }, {});
+  const { me } = useStore();
+  const groups = Object.entries(METRICS).filter(([id]) => !me?.public || PUBLIC_METRICS.includes(id)).reduce((m, [id, x]) => { (m[x.kind] ||= []).push([id, x]); return m; }, {});
   return (
     <Drawer title="Додати віджет" onClose={onClose}>
       <div className="stack">
-        <button type="button" className="sit-template sit-template--main" onClick={onBuild}><b>Конструктор віджета</b><span className="vx-hint">Самі оберіть джерело (реєстр, завдання, журнал або ваші дані), вид — показник, стовпчики, лінії, смуги, кільце, таблиця, карта чи граф, — поле групування й значення.</span></button>
+        <button type="button" className="sit-template sit-template--main" onClick={onBuild}><b>Конструктор віджета</b><span className="vx-hint">Самі оберіть джерело ({me?.public ? 'відкриті дані або ваші таблиці' : 'реєстр, завдання, журнал або ваші дані'}), вид — показник, стовпчики, лінії, смуги, кільце, таблиця, карта чи граф, — поле групування й значення.</span></button>
         <div className="vx-eyebrow">Готові віджети</div>
         {Object.entries(groups).map(([kind, list]) => (
           <div key={kind} className="stack">
@@ -322,7 +324,7 @@ function WidgetPicker({ onPick, onBuild, onClose }) {
 /** The widget editor, as in Power BI: source, visual, fields; the widget is drawn live as it is set. */
 function WidgetEditor({ initial, onSave, onClose, filters, open, subject }) {
   const { state: base, me } = useStore();
-  const [cfg, setCfg] = useState(initial?.cfg || defaultCfg('records', base));
+  const [cfg, setCfg] = useState(initial?.cfg || defaultCfg(me.public ? 'ext:wb' : 'records', base));
   const live = resolveCfg(cfg, subject);
   const [ext, errs] = useExt([live]);
   const state = useMemo(() => ({ ...base, ext }), [base, ext]);
@@ -530,14 +532,14 @@ export function Situation({ focus, go }) {
   const patch = (p) => board && dispatch({ type: 'board/update', id: board.id, patch: p });
   const setFilter = (p) => setFilters((f) => ({ ...f, ...p }));
   const createSubject = (subject) => {
-    const b = subjectBoard(subject, me);
+    const b = me.public ? publicSafe(subjectBoard(subject, me)) : subjectBoard(subject, me);
     dispatch({ type: 'board/add', board: b });
     setSubjectKind(null); setPicking(false);
     go('situation', b.id);
     toast(`Дашборд «${b.name}» створено`);
   };
   const create = (tpl) => {
-    const b = newBoard(tpl, me);
+    const b = me.public ? publicSafe(newBoard(tpl, me)) : newBoard(tpl, me);
     dispatch({ type: 'board/add', board: b });
     setPicking(false);
     go('situation', b.id);
@@ -571,11 +573,11 @@ export function Situation({ focus, go }) {
       <div className="page">
         <header className="page__head"><div><div className="vx-eyebrow">SITUATION · аналітичні дашборди</div><h1 className="vx-h1">Що аналізуємо?</h1></div></header>
         <div className="sit-start">
-          <p className="vx-hint">Оберіть об’єкт — країну, компанію, галузь чи тему. Дашборд збереться з відкритих джерел: Світовий банк, світові медіа (GDELT), реєстр провідних компаній, CONTEXT News, геополітичний ризик — і ваших записів про нього.</p>
+          <p className="vx-hint">Оберіть об’єкт — країну, компанію, галузь чи тему. Дашборд збереться з відкритих джерел: Світовий банк, світові медіа (GDELT), реєстр провідних компаній, CONTEXT News, геополітичний ризик{me.public ? '' : ' — і ваших записів про нього'}.</p>
           <SubjectCards onPick={setSubjectKind} />
           <div className="vx-eyebrow">Інші шаблони</div>
           <div className="sit-start__grid">
-            {TEMPLATES.map((t) => (
+            {TEMPLATES.filter((t) => !me.public || !t.internal).map((t) => (
               <button type="button" key={t.id} className="sit-template" onClick={() => create(t.id)}><b>{t.name}</b><span className="vx-hint">{t.about}</span></button>
             ))}
           </div>
@@ -617,25 +619,27 @@ export function Situation({ focus, go }) {
         <div className="segmented" role="group" aria-label="Період">
           {PERIODS.map(([d, l]) => <button type="button" key={d} className={filters.days === d ? 'is-active' : ''} onClick={() => setFilter({ days: d })}>{l}</button>)}
         </div>
-        <select className="vx-select sit-select" value={filters.div} onChange={(e) => setFilter({ div: e.target.value })} aria-label="Напрям">
+        {!me.public && <select className="vx-select sit-select" value={filters.div} onChange={(e) => setFilter({ div: e.target.value })} aria-label="Напрям">
           <option value="">Усі напрями</option>
           {VISIBLE_DIVISIONS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-        </select>
+        </select>}
         {filters.div && <button type="button" className="vx-tag sit-chip" onClick={() => setFilter({ div: '' })}>{VISIBLE_DIVISIONS.find((d) => d.id === filters.div)?.name} <Icon name="close" size={12} /></button>}
         {sel.map((x) => <button type="button" key={`${x.field}=${x.value}`} className="vx-tag sit-chip is-sel" onClick={() => setSel((y) => y.filter((z) => z !== x))}>{x.label} <Icon name="close" size={12} /></button>)}
         {sel.length > 1 && <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => setSel([])}>Скинути вибір</button>}
         <span className="grow" />
         {edit && mine && <>
-          <label className="vx-check sit-share"><input type="checkbox" checked={!!board.shared} onChange={(e) => patch({ shared: e.target.checked })} /> Поділитися з командою</label>
-          <select className="vx-select sit-select" value={board.clearance ?? 0} onChange={(e) => patch({ clearance: +e.target.value })} aria-label="Гриф дашборда">
-            {LEVELS.filter((l) => l.id <= me.clearance).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-          </select>
+          {!me.public && <>
+            <label className="vx-check sit-share"><input type="checkbox" checked={!!board.shared} onChange={(e) => patch({ shared: e.target.checked })} /> Поділитися з командою</label>
+            <select className="vx-select sit-select" value={board.clearance ?? 0} onChange={(e) => patch({ clearance: +e.target.value })} aria-label="Гриф дашборда">
+              {LEVELS.filter((l) => l.id <= me.clearance).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          </>}
           <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => patch({ filters })}>Зберегти фільтри</button>
           <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => setAdding(true)}><Icon name="plus" size={14} /> Віджет</button>
           {TEMPLATES.find((t) => t.id === board.template)?.widgets().length > 0 && <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={async () => { if (await ask('Віджети дашборда заміняться віджетами шаблону в його нинішньому вигляді.', { title: 'Оновити за шаблоном?', ok: 'Оновити' })) save({ ...board, widgets: TEMPLATES.find((t) => t.id === board.template).widgets() }); }}><Icon name="refresh" size={14} /> За шаблоном</button>}
           <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={remove}><Icon name="trash" size={14} /> Видалити</button>
         </>}
-        {!edit && <span className="vx-hint">{board.shared ? 'Спільний' : 'Особистий'} · <ClassBadge level={board.clearance ?? 0} /> <InfoTip end>Числа пораховано з даних, які ви бачите за своїм допуском. Натисніть стовпчик напряму — увесь дашборд відфільтрується.</InfoTip></span>}
+        {!edit && !me.public && <span className="vx-hint">{board.shared ? 'Спільний' : 'Особистий'} · <ClassBadge level={board.clearance ?? 0} /> <InfoTip end>Числа пораховано з даних, які ви бачите за своїм допуском. Натисніть стовпчик напряму — увесь дашборд відфільтрується.</InfoTip></span>}
       </div>
 
       {!board.widgets.length && <div className="vx-empty"><Icon name="overview" /><div>Віджетів ще немає</div>{mine && <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => { setEdit(true); setAdding(true); }}><Icon name="plus" size={14} /> Додати віджет</button>}</div>}

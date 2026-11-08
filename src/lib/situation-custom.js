@@ -65,6 +65,7 @@ export function sourcesOf(state, me) {
   const regs = VISIBLE_DIVISIONS.flatMap((d) => registersOf(d.id).map((r) => ({ id: `reg:${d.id}/${r.id}`, label: `${d.name} · ${r.name}` })));
   const ds = (state.datasets || []).filter((x) => (x.clearance ?? 0) <= me.clearance && (x.owner === me.id || x.shared)).map((x) => ({ id: `ds:${x.id}`, label: `Мої дані · ${x.name}` }));
   const ext = Object.entries(EXTERNAL).map(([id, x]) => ({ id, label: `Зовнішні · ${x.label}` }));
+  if (me?.public) return [...ext, ...ds]; // the public SITUATION: open sources and one's own tables, nothing of the platform
   return [{ id: 'records', label: 'Усі записи платформи' }, ...regs, { id: 'tasks', label: 'Завдання' }, { id: 'audit', label: 'Журнал аудиту' }, ...ext, ...ds];
 }
 

@@ -330,3 +330,10 @@ function count(metric, s) {
     default: return null;
   }
 }
+
+// The public SITUATION (reactioncore.uk/situation, people outside the team): no platform data at all. Only widgets on
+// open sources (World Bank, GDELT, Prozorro, the register of leading companies, CONTEXT News, GPR) and the person's
+// own uploaded tables stay; the ready-made widgets on records, tasks, projects and the audit never appear.
+export const PUBLIC_METRICS = ['pulse.gpr', 'news.key'];
+export const publicWidget = (wg) => (wg.metric === 'custom' ? /^(ext:|ds:)/.test(wg.cfg?.source || '') : PUBLIC_METRICS.includes(wg.metric));
+export const publicSafe = (board) => ({ ...board, widgets: (board.widgets || []).filter(publicWidget) });

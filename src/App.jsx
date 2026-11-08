@@ -47,7 +47,6 @@ const Audit = section(() => import('./views/Audit.jsx'), 'Audit');
 const Settings = section(() => import('./views/Settings.jsx'), 'Settings');
 const Learn = section(() => import('./views/Academy.jsx'), 'Learn');
 const Info = section(() => import('./views/Info.jsx'), 'Info');
-const Situation = section(() => import('./views/Situation.jsx'), 'Situation');
 // v0 sandbox — dev server only; dropped from production builds.
 const V0Sandbox = import.meta.env.DEV ? lazy(() => import('./v0/Sandbox.jsx')) : null;
 
@@ -56,7 +55,6 @@ const V0Sandbox = import.meta.env.DEV ? lazy(() => import('./v0/Sandbox.jsx')) :
 const NAV = [
   { id: 'overview', label: 'Огляд', icon: 'overview' },
   { id: 'divisions', label: 'Напрями', icon: 'divisions' },
-  { id: 'situation', label: 'SITUATION', icon: 'chart', always: true },
   { id: 'vault', label: 'Сховище', icon: 'vault' },
   { id: 'map', label: 'Карта', icon: 'map' },
   { id: 'access', label: 'Доступи', icon: 'access', side: false, admin: true },
@@ -229,7 +227,6 @@ function Shell() {
     map: <MapView key={sub || 'map'} focus={sub} go={go} />,
     audit: <><AdminTabs tabs={adminTabs} current={current} go={go} /><Audit /></>,
     learn: <Learn key={sub || 'all'} focus={sub} go={go} />,
-    situation: <Situation key={sub || 'board'} focus={sub} go={go} />,
     info: <Info />,
     settings: <Settings go={go} />,
     v0: V0Sandbox && <Suspense fallback={null}><V0Sandbox /></Suspense>,

@@ -39,7 +39,11 @@ async function lookup(token) {
   const res = await fetch(`${SB_URL}/auth/v1/user`, { headers: { apikey: ANON || SERVICE, Authorization: `Bearer ${token}` } });
   if (!res.ok) return null;
   const email = String((await res.json()).email || '').toLowerCase();
-  const sid = JSON.parse(Buffer.from(token.split('.')[1] || '', 'base64url').toString() || '{}').session_id;
+  const claims = JSON.parse(Buffer.from(token.split('.')[1] || '', 'base64url').toString() || '{}');
+  const sid = claims.session_id;
+  // A session opened with Google, LinkedIn or Apple (the public site's sign-in) never opens the workspace — even when
+  // its e-mail is a team member's: the workspace is entered with the password (and the passkey) only.
+  if ((claims.amr || []).some((a) => a?.method === 'oauth')) return null;
   const [[m], [need], ok] = await Promise.all([
     db(`core_members?email=eq.${encodeURIComponent(email)}&select=id,email,doc`),
     db('core_settings?key=eq.require_passkey&select=value').catch(() => []),
@@ -63,4 +67,23 @@ export function logSignin(req, { actor = null, method, ok, note = '', who = '' }
   const how = method === 'passkey' ? 'ключем доступу' : 'паролем';
   const text = ok ? `Вхід ${how}${note ? ` (${note})` : ''}` : `Невдала спроба входу ${how}${note ? `: ${note}` : ''}${who ? ` — «${String(who).slice(0, 60)}»` : ''}`;
   return db('core_docs', { method: 'POST', prefer: 'return=minimal', body: { kind: 'audit', id, doc: { id, at, actor, type: 'auth', text, method, ok, ip, ua } } }).catch(() => {});
+}
+
+// A person of the public site (reactioncore.uk/situation) — signed in with Google, LinkedIn or Apple and approved by an
+// administrator (deploy/site.sql) — may use the open-data endpoints of SITUATION (GDELT, Prozorro, the risk index).
+// They are never a team member: caller() turns their session away.
+const siteSeen = new Map();
+export async function siteCaller(req) {
+  const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!token || !SB_URL) return null;
+  const hit = siteSeen.get(token);
+  if (hit && Date.now() - hit.at < FRESH) return hit.u;
+  const res = await fetch(`${SB_URL}/auth/v1/user`, { headers: { apikey: ANON || SERVICE, Authorization: `Bearer ${token}` } }).catch(() => null);
+  if (!res?.ok) return null;
+  const user = await res.json().catch(() => ({}));
+  const [row] = await db(`site_users?id=eq.${encodeURIComponent(user.id || '')}&select=id,status`).catch(() => []);
+  const u = row?.status === 'approved' ? { id: row.id, email: user.email || '' } : null;
+  if (siteSeen.size > 500) siteSeen.clear();
+  siteSeen.set(token, { u, at: Date.now() });
+  return u;
 }

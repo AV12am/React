@@ -12,7 +12,7 @@
 //
 // GET /api/pulse   Authorization: Bearer <Supabase access token>  → { at, index, headlines, source, provisional }
 import { newsGet } from './_news.js';
-import { json, db, caller } from './_core.js';
+import { json, db, caller, siteCaller } from './_core.js';
 import * as XLSX from 'xlsx';
 import { timeline, anxiety, QUERY, FEEDS, parseFeed, crisisShare, ownIndex, cleanHeadlines, sharesByDay, GPR_URL, parseGpr, gprIndex, ANALYSIS_FEEDS, pickHeadlines } from '../src/lib/pulse.js';
 
@@ -182,7 +182,7 @@ export async function GET(req) {
   if (sp.has('prozorro')) {
     const code = String(sp.get('prozorro') || '').replace(/\D/g, '');
     if (!/^\d{8}$/.test(code)) return json(400, { error: 'code', message: 'Потрібен код ЄДРПОУ (8 цифр)' });
-    if (!(await caller(req))) return json(401, { error: 'signin', message: 'Потрібен вхід із підтвердженням ключем' });
+    if (!(await caller(req)) && !(await siteCaller(req))) return json(401, { error: 'signin', message: 'Потрібен вхід із підтвердженням ключем' });
     try { return json(200, await companyTenders(code)); } catch (e) { return json(502, { error: 'prozorro', message: e.message }); }
   }
   if (sp.has('news')) return newsGet(req); // CONTEXT News (api/_news.js)
@@ -190,11 +190,11 @@ export async function GET(req) {
     const kind = sp.get('gdelt');
     const q = String(sp.get('q') || '').trim().slice(0, 160);
     if (!GD_MODES[kind] || q.length < 2) return json(400, { error: 'query', message: 'Потрібні вид (vol, tone, arts) і запит' });
-    if (!(await caller(req))) return json(401, { error: 'signin', message: 'Потрібен вхід із підтвердженням ключем' });
+    if (!(await caller(req)) && !(await siteCaller(req))) return json(401, { error: 'signin', message: 'Потрібен вхід із підтвердженням ключем' });
     try { return json(200, await subjectMedia(kind, q)); } catch (e) { return json(e.status === 429 ? 429 : 502, { error: 'gdelt', message: e.message }); }
   }
   try {
-    const m = await caller(req);
+    const m = (await caller(req)) || (await siteCaller(req));
     if (!m) return json(401, { error: 'signin', message: 'Потрібен вхід із підтвердженням ключем' });
     const cached = await read('world');
     const age = cached?.at ? Date.now() - Date.parse(cached.at) : Infinity;

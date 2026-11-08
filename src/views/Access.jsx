@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore, fmtAgo, fmtDate } from '../store.jsx';
 import { SealBadge, Panel, Status, Avatar, Drawer, ClassBadge, Switch, InfoTip } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
@@ -6,7 +6,7 @@ import { Loader } from '../brand/Mark.jsx';
 import { ROLES, CLEARANCE, MODULES, PERMISSIONS } from '../data/seed.js';
 
 import { LEVELS, SEAL, CUSTOS } from '../data/clearance.js';
-import { supabaseOn, rpc, setPassword } from '../lib/supabase.js';
+import { supabaseOn, rpc, rest, setPassword } from '../lib/supabase.js';
 import { issueCode, status as passkeyStatus } from '../lib/passkey.js';
 import { validRule, rulesOf, ipAllowed, relayIp } from '../lib/ip.js';
 import { missingFor } from '../data/academy/meta.js';
@@ -31,7 +31,7 @@ export function Access({ tab, setTab, focus, setFocus }) {
         </div>
       </header>
       <nav className="vx-tabs" role="tablist">
-        {[['people', 'Люди'], ['requests', `Запити${pending ? ` · ${pending}` : ''}`], ['roles', 'Ролі та права'], ['levels', 'Рівні допуску'], ['signins', 'Журнал входів']].map(([id, l]) => (
+        {[['people', 'Люди'], ['requests', `Запити${pending ? ` · ${pending}` : ''}`], ['roles', 'Ролі та права'], ['levels', 'Рівні допуску'], ['signins', 'Журнал входів'], ['external', 'Зовнішні користувачі']].map(([id, l]) => (
           <button key={id} role="tab" aria-selected={tab === id} className={`vx-tab ${tab === id ? 'is-active' : ''}`} onClick={() => setTab(id)}>{l}</button>
         ))}
       </nav>
@@ -40,6 +40,7 @@ export function Access({ tab, setTab, focus, setFocus }) {
       {tab === 'roles' && <Roles />}
       {tab === 'levels' && <Levels />}
       {tab === 'signins' && <SignIns />}
+      {tab === 'external' && <External />}
     </div>
   );
 }
@@ -584,6 +585,60 @@ function SignIns() {
               </tr>
             ))}
             {!rows.length && <tr><td colSpan={6} className="vx-muted">Записів ще немає. Нові входи з’являтимуться тут.</td></tr>}
+          </tbody>
+        </table>
+      </Panel>
+    </>
+  );
+}
+
+// People of the public site (reactioncore.uk) who signed in with Google, LinkedIn or Apple to use SITUATION and CONTEXT:
+// «pending» until approved here. They never see anything of the workspace (deploy/site.sql).
+const PROVIDER = { google: 'Google', linkedin_oidc: 'LinkedIn', apple: 'Apple' };
+const EXT_STATUS = { pending: ['warn', 'Очікує'], approved: ['ok', 'Схвалено'], blocked: ['danger', 'Заблоковано'] };
+function External() {
+  const { toast } = useStore();
+  const [rows, setRows] = useState(null);
+  const [err, setErr] = useState('');
+  const [only, setOnly] = useState('pending');
+  const load = () => rest('site_users?select=id,email,name,provider,status,created_at,decided_at&order=created_at.desc')
+    .then((r) => { setRows(r || []); setErr(''); })
+    .catch((e) => { setRows([]); setErr(/404|relation|site_users/i.test(String(e.message)) ? 'Таблиці зовнішніх користувачів ще немає: виконайте deploy/site.sql у Supabase → SQL Editor.' : e.message); });
+  useEffect(() => { if (supabaseOn) load(); else setRows([]); }, []);
+  const decide = async (u, status) => {
+    try { await rpc('site_decide', { p_id: u.id, p_status: status }); toast(status === 'approved' ? `Доступ відкрито: ${u.email || u.name}` : status === 'blocked' ? `Заблоковано: ${u.email || u.name}` : 'Повернуто в очікування'); load(); }
+    catch (e) { toast(e.message, 'danger'); }
+  };
+  if (!supabaseOn) return <p className="vx-hint" style={{ marginTop: 16 }}>Працює на сайті із сервером (Supabase).</p>;
+  const list = (rows || []).filter((u) => only === 'all' || u.status === only);
+  const count = (k) => (rows || []).filter((u) => u.status === k).length;
+  return (
+    <>
+      <p className="vx-hint" style={{ margin: '16px 0 8px' }}>Люди, які увійшли на reactioncore.uk через Google, LinkedIn чи Apple, щоб користуватися SITUATION і CONTEXT. Доступ відкривається лише після схвалення; до даних workspace вони не мають доступу.</p>
+      <div className="segmented" role="group" aria-label="Кого показати" style={{ margin: '8px 0 16px' }}>
+        {[['pending', `Очікують${count('pending') ? ` · ${count('pending')}` : ''}`], ['approved', 'Схвалені'], ['blocked', 'Заблоковані'], ['all', 'Усі']].map(([k, l]) => (
+          <button key={k} className={only === k ? 'is-active' : ''} onClick={() => setOnly(k)}>{l}</button>
+        ))}
+      </div>
+      {err && <p className="vx-hint" role="alert">{err}</p>}
+      <Panel bodyClass="vx-table-wrap">
+        <table className="vx-table">
+          <thead><tr><th>Хто</th><th>Вхід через</th><th>Коли</th><th>Стан</th><th aria-label="Дії" /></tr></thead>
+          <tbody>
+            {list.map((u) => (
+              <tr key={u.id}>
+                <td><b>{u.name || '—'}</b><div className="vx-hint">{u.email}</div></td>
+                <td>{PROVIDER[u.provider] || u.provider || '—'}</td>
+                <td className="vx-mono">{fmtDate(u.created_at)}</td>
+                <td><Status kind={EXT_STATUS[u.status]?.[0] || 'warn'}>{EXT_STATUS[u.status]?.[1] || u.status}</Status></td>
+                <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                  {u.status !== 'approved' && <button type="button" className="vx-btn vx-btn--sm" onClick={() => decide(u, 'approved')}>Схвалити</button>}{' '}
+                  {u.status !== 'blocked' && <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => decide(u, 'blocked')}>Заблокувати</button>}
+                </td>
+              </tr>
+            ))}
+            {rows && !list.length && <tr><td colSpan={5} className="vx-muted">Нікого немає.</td></tr>}
+            {!rows && <tr><td colSpan={5}><Loader size={18} label="Завантаження" /></td></tr>}
           </tbody>
         </table>
       </Panel>

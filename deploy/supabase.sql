@@ -83,8 +83,12 @@ on conflict (id) do nothing;
 
 /* ---------- who is asking ---------- */
 
+-- A session opened with Google / LinkedIn / Apple (the public site's sign-in, amr «oauth») is never a member.
 create or replace function public.core_email() returns text
-language sql stable as $$ select lower(coalesce(auth.jwt() ->> 'email', '')) $$;
+language sql stable as $$
+  select case when coalesce((auth.jwt() -> 'amr') @> '[{"method": "oauth"}]'::jsonb, false) then ''
+              else lower(coalesce(auth.jwt() ->> 'email', '')) end
+$$;
 
 -- The caller's member record, or null (not signed in, not a member, or suspended).
 create or replace function public.core_session() returns uuid

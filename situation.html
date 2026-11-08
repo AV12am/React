@@ -11,31 +11,10 @@
   <body>
 <div class="mx">
 <!-- @header -->
-<main>
-<section class="wrap area-hero">
-<span class="k">SITUATION</span>
-<h1>Build the picture.</h1>
-<p>A workspace for dashboards on countries, companies and sectors: indicators, trends, comparisons, a map and a link graph — put together from your own data.</p>
-</section>
-<section class="seg" aria-label="Dashboard"><div class="wrap ws-bar">
-<select id="ws-pick" aria-label="Dashboard"></select>
-<button class="sbtn" id="ws-new" type="button">New</button>
-<button class="sbtn" id="ws-rename" type="button">Rename</button>
-<button class="sbtn" id="ws-del" type="button">Delete</button>
-<span class="sp"></span>
-<button class="sbtn ghost" id="ws-export" type="button">Export</button>
-<label class="sbtn ghost" for="ws-import">Import<input id="ws-import" type="file" accept="application/json" hidden></label>
-<button class="sbtn ghost" id="ws-print" type="button">Print</button>
-</div></section>
-<section class="wrap">
-<div class="add" id="ws-add"><span class="lab">Add</span></div>
-<div class="board" id="ws-board" aria-live="polite"></div>
-<p class="note">Dashboards are saved in this browser. Use Export to keep a copy or move it to another device.</p>
-</section>
-</main>
-<dialog class="ed" id="ws-ed"><form method="dialog" id="ws-form"></form></dialog>
+<div class="wrap" id="gate" hidden></div>
+<main class="wrap sit-host" id="situation-root" hidden></main>
 <!-- @footer -->
 </div>
-    <script type="module" src="/src/site/situation.js"></script>
+    <script type="module" src="/src/site/situation-app.jsx"></script>
   </body>
 </html>
