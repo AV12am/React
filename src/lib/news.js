@@ -19,6 +19,8 @@ const TOPIC = {
   agenda: /ВПК|Ростех|Шойгу|Белоусов|Герасимов|Лавров|Песков|Медведев|Совбез|ОДКБ|CSTO|ШОС|БРИКС|BRICS|учени|exercise|drill|warship|флот|fleet|submarine|подлод|Сармат|Орешник|Oreshnik|Буревестник|Burevestnik|Посейдон|призыв|conscript|оборонзаказ|ОПК|арсенал|arsenal|weapon|оружи|зброя|зброї|росі|росси|russia|kremlin|кремл|путін|путин|putin|китай|china|chinese|xi\b|іран|иран|iran|кндр|north korea|pyongyang|білорус|беларус|belarus|лукашенк|lukashenk|армі|арми|army|військ|военн|military|оборон|defen[cs]e|ракет|missile|санкц|sanction|nuclear|ядерн|nato|нато|окупац|оккупац|occup/i,
   conflicts: /drone|missile|bomb|gunmen|massacre|offensive|bombard|siege|famine|occupied|west bank|idf|\brsf\b|al-shabaab|boko|jihad|isis|islamic state|cartel|junta|taliban|afghanistan|pakistan|armenia|azerbaijan|kosovo|libya|nigeria|burkina|niger\b|chad|mozambique|colombia|ecuador|north korea|south china sea|philippines|\bwar\b|conflict|fighting|clash|attack|strike|airstrike|shelling|ceasefire|truce|rebel|militia|insurg|troops|army|military|killed|displaced|refugee|humanitarian|hostage|coup|terror|gaza|israel|hamas|hezbollah|lebanon|iran|syria|yemen|houthi|sudan|congo|sahel|mali|somalia|ethiopia|myanmar|taiwan|kashmir|haiti|venezuela|peacekeep|sanction/i,
 };
+// Show business, TV shows and sport (sanctions on athletes too): the issue's small news, never shown.
+const SHOWBIZ = /(?<![а-яіїєґёa-z])(шоу\S*|майстершеф\S*|мастершеф\S*|masterchef|телешоу\S*|реаліті|реалити|шоубіз\S*|show ?biz\S*|celebrit\S*|знаменит\S*|хокей\S*|хоккей\S*|hockey|iihf|fifa|uefa|фіфа|фифа|уєфа|уефа|олімпіад\S*|олимпиад\S*|olympics|теніс\S*|теннис\S*|tennis|баскетбол\S*|basketball|бокс\S*|boxing|євробачен\S*|евровидени\S*|eurovision|співа[кч]\S*|певиц\S*|singer|актор\S*|актрис\S*|actor|actress|блогер\S*|blogger)(?![а-яіїєґёa-z])/i;
 const SOFT = /гороскоп|horoscope|свят[оа] |праздник|церковн|храм|богородиц|релігійн|религиозн|погода|weather|рецепт|recipe|фільм|фильм|\bfilm\b|movie|кіно|кино|серіал|сериал|оскар|oscar|football|футбол|halloween|хелловін|хэллоуин/i;
 
 /**
@@ -172,7 +174,7 @@ const ANALYSIS = /^(analysis|explainer|explained|opinion|comment|podcast|intervi
 // A lawmaker's warning, forecast or opinion is talk, not an event: «нардеп попередив», «депутат Госдумы допустил».
 const MP_TALK = /(нардеп|народн\S* депутат|депутат\S*|сенатор\S*|член\S* госдум)[^.!?]{0,80}?(попереди|попереджа|прогноз|вважає|допусти|не виключ|розпові|пояснив|предупред|допустил|не исключ|считает|рассказал|пояснил)/i;
 /** Light news (holidays, films, horoscopes, sport) — kept out of every section. */
-export const offTopic = (x) => SOFT.test(x.title || '')
+export const offTopic = (x) => SOFT.test(x.title || '') || SHOWBIZ.test(x.title || '')
   || MP_TALK.test(x.title || '') // a lawmaker's warning or forecast: an opinion, not the day's news
   || /^(захищено|protected|private)\s*:/i.test(x.title || '') // a password-protected post has no text to retell
   || /\/(commentisfree|opinions?|podcasts?|videos?|live)\//i.test(x.url || '') // columns, podcasts, videos, live pages: not news
@@ -215,7 +217,7 @@ export function keepPrompt(section, items) {
         + `Тема розділу: ${section.about}.\n`
         + 'Для кожної новини нижче визнач, чи вона стосується теми розділу: 2 — явно про тему розділу, 1 — частково або побічно, 0 — ні. '
         + 'Новина має повідомляти про подію: удар, бій, рішення, заяву, поставку, контракт, випробування, факт чи цифру. Суто аналітичні, оглядові й пояснювальні статті, історичні довідки, інтерв’ю, думки й дайджести без нової події — 0. '
-        + 'Культура, спорт, розваги, побут, свята, внутрішня політика чи економіка інших країн без зв’язку з темою — 0. '
+        + 'Культура, спорт (зокрема санкції й допуск спортсменів до змагань), розваги, шоу-бізнес і телешоу, скандали з відомими людьми, побут, свята, внутрішня політика чи економіка інших країн без зв’язку з темою — 0. Дрібні новини, що не впливають на війну, безпеку чи державу (поодинокі побутові й кримінальні історії, чутки), — 0. '
         + `Відповідай лише JSON без пояснень, з відповіддю для кожного номера від 1 до ${items.length}: {"keep": {"1": 2, "2": 0, "3": 1, …}}`,
     },
     { role: 'user', content: items.map((x, i) => `${i + 1}. ${x.title} — ${String(x.text || '').slice(0, 160)}`).join('\n') },
@@ -254,7 +256,10 @@ export function repeatsPrompt(items) {
     {
       role: 'system',
       content: 'Ти — випусковий редактор. Нижче короткі новини одного випуску. Знайди пари новин, які розповідають про ту саму подію '
-        + '(той самий факт, удар, заяву, рішення, інцидент — навіть якщо з різних джерел чи під іншим кутом). Новини лише на одну тему, але про різні події, — не пара. '
+        + '(той самий факт, удар, заяву, рішення, інцидент — навіть якщо з різних джерел чи під іншим кутом). '
+        + 'Пара — це також: та сама атака чи нічний удар, описані різними виданнями з різними цифрами чи наслідками (удар по Києву й пошкоджена тієї ж ночі енергомережа); '
+        + 'та сама заява, рішення чи тема однієї людини того самого дня, навіть якщо друга новина додає інший привід (Зеленський про кадри й декларування в СБУ та Зеленський про плівки НАБУ й декларування в СБУ). Якщо сумніваєшся — це пара. '
+        + 'Новини лише на одну тему, але про різні події (удари по різних містах, різні рішення), — не пара. '
         + 'Відповідай лише JSON без пояснень: {"same": [[1, 4], [7, 12]]}',
     },
     { role: 'user', content: items.map((x, i) => `${i + 1}. ${String(x.summary || x.title).slice(0, 320)}`).join('\n') },

@@ -658,3 +658,11 @@ test('retellings: Russian outlets named, English words and mixed letters caught'
   assert.equal(nameSource('Російське провладне ЗМІ повідомляє, що армія рф уразила міст.', 'lenta.ru'), 'Лента.ру стверджує, що армія рф уразила міст.');
   assert.equal(nameSource('Російське провладне ЗМІ повідомляє, що армія рф уразила міст.', 'pravda.com.ua'), 'Російське провладне ЗМІ повідомляє, що армія рф уразила міст.');
 });
+
+test('small news: show business and sport never make the issue', async () => {
+  const { offTopic } = await import('../../src/lib/news.js');
+  assert.equal(offTopic({ title: '"Я служу": військова-учасниця "МайстерШефа" вийшла на зв’язок' }), true);
+  assert.equal(offTopic({ title: 'IIHF bars Belarusian teams from 2027 World Junior, Men’s Championships' }), true);
+  assert.equal(offTopic({ title: 'Ракетний удар по Олімпійському стадіону' }), false);
+  assert.equal(offTopic({ title: 'Фактор часу: ЗСУ уразили склад' }), false);
+});
