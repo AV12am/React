@@ -85,11 +85,11 @@ function start(canvas) {
       const m = mouse;
       m.x += (m.tx - m.x) * 0.04; m.y += (m.ty - m.y) * 0.04;
       const sp = 1;
-      const ry = t * 0.16 * sp + m.x * 0.55;
+      const ry = t * 0.2 * sp + m.x * 0.55;
       const rx = 0.42 + Math.sin(t * 0.09 * sp) * 0.16 + m.y * 0.35;
       const rz = t * 0.03 * sp;
       const cy = Math.cos(ry); const sy = Math.sin(ry); const cx = Math.cos(rx); const sx = Math.sin(rx); const cz = Math.cos(rz); const sz = Math.sin(rz);
-      const s = Math.min(w, h) / 380;
+      const s = Math.min(w, h) / 250;
       const ox = w / 2; const oy = h / 2;
       const P = (x, y, z) => {
         let X = x * cz - y * sz; let Y = x * sz + y * cz; let Z = z;
@@ -98,41 +98,31 @@ function start(canvas) {
         const p = D / (D - Z);
         return [ox + X * p * s, oy + Y * p * s, Z, p];
       };
-      const build = Math.min(1, t / 2.6);
+      // It comes out of the dark: the whole fades up while each edge draws itself in turn, the far side dimmer.
+      const build = Math.min(1, t / 4.5);
+      const dawn = Math.min(1, t / 3.2); const fade = dawn * dawn * (3 - 2 * dawn);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
-      // the glow behind the core
-      const pulse = 0.5 + 0.5 * Math.sin(t * 1.4);
-      const g = ctx.createRadialGradient(ox, oy, 0, ox, oy, 120 * s);
-      g.addColorStop(0, `rgba(192,90,105,${(0.10 + 0.06 * pulse) * build})`);
-      g.addColorStop(1, 'rgba(192,90,105,0)');
+      const g = ctx.createRadialGradient(ox, oy, 0, ox, oy, 150 * s);
+      g.addColorStop(0, `rgba(237,237,237,${0.035 * fade})`);
+      g.addColorStop(1, 'rgba(237,237,237,0)');
       ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
-      // dust
-      for (const d of geo.dust) {
-        const q = P(d[0], d[1], d[2]);
-        const a = Math.max(0, Math.min(1, (q[2] + 320) / 640)) * 0.5 * build * (0.4 + 0.6 * Math.abs(Math.sin(t * 0.6 + d[3] * 9)));
-        ctx.fillStyle = `rgba(237,237,237,${a})`;
-        const r = 0.6 + q[3] * 0.7;
-        ctx.fillRect(q[0] - r / 2, q[1] - r / 2, r, r);
-      }
       ctx.lineCap = 'round';
-      const line = (sg, rgb, base, span) => {
+      const line = (sg, base, span, f) => {
+        if (f <= 0) return;
         const A = P(sg[0], sg[1], sg[2]); const B = P(sg[3], sg[4], sg[5]);
         const z = (A[2] + B[2]) / 2;
-        const a = Math.max(0.03, Math.min(1, base + span * ((z + 140) / 280)));
-        ctx.strokeStyle = `rgba(${rgb},${a})`;
-        ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke();
+        const depth = Math.max(0, Math.min(1, (z + 140) / 280));
+        const a = Math.max(0.02, Math.min(1, base + span * Math.pow(depth, 1.6))) * fade;
+        ctx.strokeStyle = `rgba(237,237,237,${a})`;
+        ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f); ctx.stroke();
       };
-      ctx.lineWidth = 1;
-      for (const r of geo.rings) line(r, '237,237,237', 0.02 * build, 0.1 * build);
-      const n = Math.floor(geo.segs.length * build);
-      ctx.lineWidth = 1.15;
-      for (let i = 0; i < n; i++) line(geo.segs[i], '237,237,237', 0.08, 0.72);
-      if (build > 0.85) {
-        ctx.lineWidth = 1.4;
-        const cb = (build - 0.85) / 0.15;
-        for (const c of geo.core) line(c, '192,90,105', 0.35 * cb, 0.65 * cb);
-      }
+      const N = geo.segs.length;
+      ctx.lineWidth = 1.2;
+      for (let i = 0; i < N; i++) line(geo.segs[i], 0.05, 0.8, Math.min(1, (build - (i / N) * 0.75) / 0.25));
+      const cb = Math.min(1, Math.max(0, (build - 0.8) / 0.2));
+      ctx.lineWidth = 1.4;
+      for (const c of geo.core) line(c, 0.3 * cb, 0.7 * cb, cb);
     };
     if (still) { draw(9); return; }
     const loop = (now) => { draw((now - t0) / 1000); raf = requestAnimationFrame(loop); };
@@ -152,6 +142,6 @@ burger?.addEventListener('click', () => {
   const open = mob.hidden;
   mob.hidden = !open;
   burger.setAttribute('aria-expanded', String(open));
-  burger.textContent = open ? 'Закрити' : 'Меню';
+  burger.textContent = open ? 'Close' : 'Menu';
 });
-mob?.addEventListener('click', (e) => { if (e.target.closest('a')) { mob.hidden = true; burger.setAttribute('aria-expanded', 'false'); burger.textContent = 'Меню'; } });
+mob?.addEventListener('click', (e) => { if (e.target.closest('a')) { mob.hidden = true; burger.setAttribute('aria-expanded', 'false'); burger.textContent = 'Menu'; } });
