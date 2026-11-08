@@ -25,18 +25,27 @@ import { setTokenSource } from '../lib/supabase.js';
 import { Situation } from '../views/Situation.jsx';
 import { guard, rest, session } from './auth.js';
 
-setTokenSource(async () => (await session())?.access_token || '');
+setTokenSource(async () => (local ? '' : (await session())?.access_token || ''));
 
 // Boards and tables as rows of site_boards: { id: 'b:…' | 'd:…', doc }.
+// Open mode (src/lib/site-open.js): the same rows, kept in this browser instead.
+const LOCAL = 'reaction-site/boards';
+const localRows = () => { try { return JSON.parse(localStorage.getItem(LOCAL) || '{}'); } catch { return {}; } };
+const localKeep = (rows) => { try { localStorage.setItem(LOCAL, JSON.stringify(rows)); } catch { /* private mode */ } };
+let local = false;
 const load = async () => {
+  if (local) {
+    const rows = Object.entries(localRows()).map(([id, doc]) => ({ id, doc }));
+    return { boards: rows.filter((r) => r.id.startsWith('b:')).map((r) => r.doc), datasets: rows.filter((r) => r.id.startsWith('d:')).map((r) => r.doc) };
+  }
   const rows = (await rest('site_boards?select=id,doc&order=updated_at.asc').catch(() => [])) || [];
   return {
     boards: rows.filter((r) => r.id.startsWith('b:')).map((r) => r.doc),
     datasets: rows.filter((r) => r.id.startsWith('d:')).map((r) => r.doc),
   };
 };
-const put = (uid, key, doc) => rest('site_boards?on_conflict=user_id,id', { method: 'POST', body: { user_id: uid, id: key, doc, updated_at: new Date().toISOString() }, prefer: 'resolution=merge-duplicates,return=minimal' });
-const drop = (key) => rest(`site_boards?id=eq.${encodeURIComponent(key)}`, { method: 'DELETE', prefer: 'return=minimal' });
+const put = (uid, key, doc) => local ? Promise.resolve(localKeep({ ...localRows(), [key]: doc })) : rest('site_boards?on_conflict=user_id,id', { method: 'POST', body: { user_id: uid, id: key, doc, updated_at: new Date().toISOString() }, prefer: 'resolution=merge-duplicates,return=minimal' });
+const drop = (key) => local ? Promise.resolve(localKeep(Object.fromEntries(Object.entries(localRows()).filter(([k]) => k !== key)))) : rest(`site_boards?id=eq.${encodeURIComponent(key)}`, { method: 'DELETE', prefer: 'return=minimal' });
 
 function reduce(state, a) {
   const now = new Date().toISOString();
@@ -98,7 +107,8 @@ function App({ me }) {
   );
 }
 
-guard(document.getElementById('gate'), 'SITUATION', ({ user }) => {
+guard(document.getElementById('gate'), 'SITUATION', ({ user, local: open }) => {
+  local = Boolean(open);
   const box = document.getElementById('situation-root');
   box.hidden = false;
   const me = { id: user.id, name: user.name || user.email || 'Ви', email: user.email, role: 'user', clearance: 0, public: true, status: 'active' };

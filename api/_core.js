@@ -1,6 +1,7 @@
 // Shared by the server functions: environment, the service-key database call and the signed-in caller.
 // Files starting with «_» are not routes on Vercel.
 import { ipAllowed, clientIp } from '../src/lib/ip.js';
+import { SITE_OPEN } from '../src/lib/site-open.js';
 
 export const env = process.env;
 export const SB_URL = (env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
@@ -75,6 +76,7 @@ export function logSignin(req, { actor = null, method, ok, note = '', who = '' }
 const siteSeen = new Map();
 export async function siteCaller(req) {
   const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  if (SITE_OPEN) return { id: 'open', email: '' }; // open mode (src/lib/site-open.js): the open-data endpoints need no sign-in
   if (!token || !SB_URL) return null;
   const hit = siteSeen.get(token);
   if (hit && Date.now() - hit.at < FRESH) return hit.u;

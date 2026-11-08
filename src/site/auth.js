@@ -3,6 +3,7 @@
 // close access for a person (deploy/site.sql, status «blocked»). The session is kept apart from the
 // workspace's, and the database never treats it as a team member (core_email() ignores OAuth sessions).
 import { SB_URL, SB_KEY } from '../lib/supabase.js';
+import { SITE_OPEN } from '../lib/site-open.js';
 
 export const PROVIDERS = [
   { id: 'google', name: 'Google' },
@@ -93,6 +94,7 @@ const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
  */
 export async function guard(box, area, open) {
   const show = (html) => { box.hidden = false; box.innerHTML = html; };
+  if (SITE_OPEN) { box.hidden = true; box.innerHTML = ''; return open({ user: { id: 'local', name: 'Ви', email: '' }, status: 'approved', local: true }); }
   if (!on) return show(`<div class="gate"><h2>${area} is not available yet.</h2><p>Sign-in is being set up. Please write to <a href="mailto:info@reactioncore.uk">info@reactioncore.uk</a>.</p></div>`);
   let me = null;
   try { me = await whoAmI(); } catch { me = null; }
