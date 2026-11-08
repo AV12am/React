@@ -2,6 +2,7 @@
 @import '@fontsource/cormorant-garamond/cyrillic-500.css';
 @import '@fontsource/cormorant-garamond/latin-500.css';
 @import '@fontsource/cinzel/latin-500.css';
+@import '@fontsource/jetbrains-mono/latin-400.css';
 @import '@fontsource/jetbrains-mono/latin-500.css';
 body{margin:0;background:#0a0a0a}
 html{scroll-behavior:smooth}
@@ -139,6 +140,11 @@ html{scroll-behavior:smooth}
 .foot-bar{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:64px;padding-top:24px;border-top:1px solid var(--line);color:var(--ink-3);font-size:12px}
 @media (max-width: 900px){.foot-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.legal{grid-column:1/-1}.cta h2{font-size:40px;line-height:44px}.cta{padding:96px 16px 80px}}
 @media (max-width: 560px){.foot-grid{grid-template-columns:minmax(0,1fr)}}
+/* the wordmark, variant B: «core» as a small monospaced index at the cap line */
+.wm{display:inline-flex;align-items:flex-start}
+.wm-core{font-family:"JetBrains Mono",ui-monospace,Menlo,monospace;font-weight:400;font-size:8px;line-height:1;letter-spacing:0.08em;color:var(--ink-3);margin-left:-0.1em;vertical-align:baseline;position:relative;top:-1px}
+.bigwm span{display:inline-flex;align-items:flex-start}
+.bigwm sup{font-family:"JetBrains Mono",ui-monospace,Menlo,monospace;font-weight:400;font-size:0.16em;line-height:1;letter-spacing:0.08em;margin-left:0.1em;margin-top:0.35em;color:inherit;vertical-align:baseline}
 /* the hero comes out of the dark: its edges sink into the page */
 .hero::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse 55% 60% at 50% 50%,transparent 40%,var(--bg) 100%)}
 
