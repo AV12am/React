@@ -114,19 +114,19 @@ async function wikidata(code, lei, notes) {
     const prop = await edrpouProperty();
     const by = [prop && `{ ?item wdt:${prop} "${code}" }`, lei && `{ ?item wdt:P1278 "${lei}" }`].filter(Boolean).join(' UNION ');
     if (!by) return null;
-    const q = `SELECT ?item ?itemLabel ?rel ?vLabel ?emp ?site WHERE {
+    const q = `SELECT ?item ?itemLabel ?rel ?vLabel ?emp ?empAt ?site WHERE {
       ${by}
-      OPTIONAL {
-        { ?item wdt:P169 ?v. BIND("ceo" AS ?rel) } UNION { ?item wdt:P127 ?v. BIND("owner" AS ?rel) } UNION { ?item wdt:P749 ?v. BIND("parent" AS ?rel) }
-        UNION { ?item wdt:P355 ?v. BIND("sub" AS ?rel) } UNION { ?item wdt:P488 ?v. BIND("chair" AS ?rel) } UNION { ?item wdt:P112 ?v. BIND("founder" AS ?rel) } }
-      OPTIONAL { ?item wdt:P1128 ?emp } OPTIONAL { ?item wdt:P856 ?site }
-      SERVICE wikibase:label { bd:serviceParam wikibase:language "uk,en". } } LIMIT 300`;
+      # Only what holds now: a statement with an end date (a former head, a sold stake) is left out.
+      OPTIONAL { { ?item p:P169 ?s. ?s ps:P169 ?v. BIND("ceo" AS ?rel) } UNION { ?item p:P127 ?s. ?s ps:P127 ?v. BIND("owner" AS ?rel) } UNION { ?item p:P749 ?s. ?s ps:P749 ?v. BIND("parent" AS ?rel) } UNION { ?item p:P355 ?s. ?s ps:P355 ?v. BIND("sub" AS ?rel) } UNION { ?item p:P488 ?s. ?s ps:P488 ?v. BIND("chair" AS ?rel) } UNION { ?item p:P112 ?s. ?s ps:P112 ?v. BIND("founder" AS ?rel) }
+        FILTER NOT EXISTS { ?s pq:P582 ?ended } }
+      OPTIONAL { ?item p:P1128 ?es. ?es ps:P1128 ?emp. OPTIONAL { ?es pq:P585 ?empAt } } OPTIONAL { ?item wdt:P856 ?site }
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "uk,en". } } LIMIT 2000`;
     const j = await get(`https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(q)}`, 15000, { Accept: 'application/sparql-results+json' });
     const rows = j?.results?.bindings || [];
     if (!rows.length) return null;
     const v = (r, k) => r[k]?.value || '';
     const item = v(rows[0], 'item');
-    const facts = { name: v(rows[0], 'itemLabel'), url: item, employees: rows.map((r) => v(r, 'emp')).find(Boolean) || '', website: rows.map((r) => v(r, 'site')).find(Boolean) || '' };
+    const facts = { name: v(rows[0], 'itemLabel'), url: item, employees: rows.filter((r) => v(r, 'emp')).sort((a, b) => v(b, 'empAt').localeCompare(v(a, 'empAt')))[0]?.emp?.value || '', website: rows.map((r) => v(r, 'site')).find(Boolean) || '' };
     const seen = new Set();
     const people = [];
     const tree = [];
@@ -152,7 +152,7 @@ async function wikidata(code, lei, notes) {
 const norm = (s) => String(s || '').toLowerCase().replace(/["«»'’.,]/g, '').replace(/\s+/g, ' ').trim();
 /** Everything known of the company; kept for a week so the paid register is not asked again. */
 export async function companyProfile(code, { fresh = false } = {}) {
-  const id = `co-${code}`;
+  const id = `co2-${code}`; // co2: only current heads and owners (a former head was kept by co-)
   const cached = await read(id);
   if (!fresh && cached?.at && Date.now() - Date.parse(cached.at) < WEEK) return cached;
   const notes = [];
