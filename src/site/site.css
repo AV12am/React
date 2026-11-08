@@ -13,10 +13,11 @@ html{scroll-behavior:smooth}
 /* ── header: items unroll a full-width panel from the top ── */
 .hdr{position:sticky;top:0;z-index:30;background:rgba(10,10,10,0.72);backdrop-filter:saturate(140%) blur(14px);-webkit-backdrop-filter:saturate(140%) blur(14px)}
 .bar{display:flex;align-items:center;gap:40px;height:64px}
-.logo{display:flex;align-items:center;gap:10px;color:var(--ink)}
+.logo{display:flex;align-items:center;gap:10px;color:#e5e5e5}
+.mx .logo{color:#e5e5e5}
 .logo svg{transition:transform 700ms var(--ease-out)}
 .logo:hover svg{transform:rotate(45deg)}
-.wm{font-family:"Cinzel",Georgia,serif;font-weight:500;font-size:14px;letter-spacing:0.3em;line-height:1}
+.wm{font-family:"Cinzel",Georgia,serif;font-weight:500;font-size:13px;letter-spacing:0.32em;line-height:1}
 .nav{display:flex;align-items:stretch;height:64px;flex:1}
 .ni{display:flex;align-items:center}
 .mx .nl{height:64px;display:flex;align-items:center;padding:0 14px;border:0;background:none;color:var(--ink-2);font:inherit;font-size:14px;font-weight:500;cursor:pointer;transition:color 200ms var(--ease)}
