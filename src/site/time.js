@@ -77,8 +77,10 @@ function flows(f) {
     const ha = (p / f.scenarios.find((s) => s.id === h).p) * a.h; const hb = (p / f.outcomes.find((o) => o.id === n).p) * b.h;
     const y0 = a.y + a.used; a.used += ha; const y1 = b.y + b.usedIn; b.usedIn += hb;
     const x0 = nodeW; const x1 = W - nodeW; const cx = (x0 + x1) / 2;
-    const d = `M${x0},${y0} C${cx},${y0} ${cx},${y1} ${x1},${y1} L${x1},${y1 + hb} C${cx},${y1 + hb} ${cx},${y0 + ha} ${x0},${y0 + ha} Z`;
-    return `<path class="band" data-h="${h}" data-n="${n}" d="${d}"><title>${h} → ${n}: ${pc(p, f)}</title></path>`;
+    // A thin line through the middle of the link's share of each node; its weight follows the probability.
+    const ya = y0 + ha / 2; const yb = y1 + hb / 2;
+    const d = `M${x0},${ya} C${cx},${ya} ${cx},${yb} ${x1},${yb}`;
+    return `<path class="band" data-h="${h}" data-n="${n}" d="${d}" style="stroke-width:${(1 + p * 8).toFixed(2)}"><title>${h} → ${n}: ${pc(p, f)}</title></path>`;
   }).join('');
   const node = (it, n, side) => `<g class="node ${side} ${it.base ? 'base' : ''}" ${side === 'l' ? `data-h="${it.id}"` : `data-n="${it.id}"`}>
 <rect x="${side === 'l' ? 0 : W - nodeW}" y="${n.y}" width="${nodeW}" height="${n.h}" rx="6"/>
@@ -96,7 +98,7 @@ function card(f) {
   const b = brier(f);
   const ms = (f.milestones || []).map((m) => { const at = m.date ? t(m.date) : t(`${m.month}-15`); return `<span class="tm-m" style="left:${(Math.min(1, Math.max(0, (at - t(f.published)) / span)) * 100).toFixed(1)}%">${esc(m.label)}</span>`; }).join('');
   return `<article class="tm" id="${esc(f.id)}" lang="${esc(f.lang || 'en')}" data-no-i18n>
-<div class="tm-top"><span>№ ${String(f.no || '').padStart(2, '0')}</span><span>${esc(f.topic)}</span><span>${l.conf}: ${esc(f.confidence)}</span><span class="chip ${f.status === 'happened' ? 'ok' : f.status === 'not' ? 'no' : ''}">${l.status[f.status] || l.status.open}</span>${b !== null ? `<span class="chip">Brier ${b.toFixed(3)}</span>` : ''}
+<div class="tm-top"><span>${esc(f.topic)}</span><span>${l.conf}: ${esc(f.confidence)}</span><span class="chip ${f.status === 'happened' ? 'ok' : f.status === 'not' ? 'no' : ''}">${l.status[f.status] || l.status.open}</span>${b !== null ? `<span class="chip">Brier ${b.toFixed(3)}</span>` : ''}
 ${pdfIcon(f)}</div>
 <h2>${esc(f.question)}</h2>
 ${f.resolves ? `<p class="tm-res">${esc(f.resolves)}</p>` : ''}
@@ -139,7 +141,7 @@ function interact(el) {
 function row(f) {
   const l = lab(f);
   return `<div class="tm-row" lang="${esc(f.lang || 'en')}" data-no-i18n><a class="tm-open" href="/time?f=${encodeURIComponent(f.id)}">
-<span class="tm-rk">№ ${String(f.no || '').padStart(2, '0')} · ${esc(f.topic)}</span>
+<span class="tm-rk">${esc(f.topic)}</span>
 <span class="tm-rt">${esc(f.short || f.question)}</span>
 <span class="tm-rq">${esc(f.question)}</span></a>
 <span class="tm-rp">${pc(f.p, f)}</span><span class="tm-rd">${l.check} · ${dmy(f.check, f)}</span>${pdfIcon(f)}</div>`;

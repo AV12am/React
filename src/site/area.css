@@ -238,13 +238,13 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 .tm-sig li:first-child{border-top:0}
 .tm-sig .up{color:#cfe3d6}.tm-sig .dn{color:#e3cfcf}
 .flows{display:block;width:100%;height:auto}
-.flows .band{fill:var(--ink);opacity:0.14;transition:opacity 240ms}
-.flows .band:hover{opacity:0.3}
+.flows .band{fill:none;stroke:var(--ink);stroke-linecap:round;opacity:0.28;transition:opacity 240ms}
+.flows .band:hover{opacity:0.6}
 .flows .node rect{fill:#111;stroke:var(--line-2);transition:stroke 200ms,fill 200ms}
 .flows .node.l{cursor:pointer}
 .flows .node.base rect{stroke:var(--ink-2)}
 .flows .t1{fill:var(--ink);font-size:12px}.flows .t2{fill:var(--ink-3);font-size:11px}
-.tm.picked .band{opacity:0.05}.tm.picked .band.on{opacity:0.4}
+.tm.picked .band{opacity:0.08}.tm.picked .band.on{opacity:0.8}
 .tm.picked .node rect{stroke:var(--line)}.tm.picked .node.on rect{stroke:var(--ink);fill:#181818}
 .tm.picked .tm-scn tr,.tm.picked .tm-paths tr,.tm.picked .tm-sens tr{opacity:0.35;transition:opacity 200ms}
 .tm.picked tr.on{opacity:1}
