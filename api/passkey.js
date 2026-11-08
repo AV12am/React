@@ -19,6 +19,7 @@ import {
   generateAuthenticationOptions, verifyAuthenticationResponse,
 } from '@simplewebauthn/server';
 import { ipAllowed, clientIp } from '../src/lib/ip.js';
+import { logSignin } from './_core.js';
 
 const env = process.env;
 const SB_URL = (env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
@@ -242,7 +243,7 @@ async function loginVerify(ctx, body, req) {
   if (await tooManyFailures(member.id)) throw new Fail(429, 'locked', 'Забагато спроб. Зачекайте 15 хвилин.');
   const ch = await takeChallenge(member, sessionId, 'auth');
   const [key] = await db(`core_passkeys?id=eq.${q(body.response?.id || '')}&member_id=eq.${q(member.id)}&select=id,public_key,counter,transports,device`);
-  if (!key) { await noteFailure(member.id); throw new Fail(403, 'key', 'Цей ключ не належить вашому обліковому запису'); }
+  if (!key) { await noteFailure(member.id); await logSignin(req, { actor: member.id, method: 'passkey', ok: false, note: 'чужий ключ' }); throw new Fail(403, 'key', 'Цей ключ не належить вашому обліковому запису'); }
   const { origin, rpID } = site(req);
   let v;
   try {
@@ -250,11 +251,11 @@ async function loginVerify(ctx, body, req) {
       response: body.response, expectedChallenge: ch.challenge, expectedOrigin: origin, expectedRPID: rpID, requireUserVerification: true,
       credential: { id: key.id, publicKey: unb64u(key.public_key), counter: Number(key.counter) || 0, transports: key.transports || undefined },
     });
-  } catch (e) { await noteFailure(member.id); throw new Fail(400, 'verify', e.message); }
-  if (!v.verified) { await noteFailure(member.id); throw new Fail(400, 'verify'); }
+  } catch (e) { await noteFailure(member.id); await logSignin(req, { actor: member.id, method: 'passkey', ok: false, note: 'ключ не підтверджено' }); throw new Fail(400, 'verify', e.message); }
+  if (!v.verified) { await noteFailure(member.id); await logSignin(req, { actor: member.id, method: 'passkey', ok: false, note: 'ключ не підтверджено' }); throw new Fail(400, 'verify'); }
   await db(`core_passkeys?id=eq.${q(key.id)}`, { method: 'PATCH', prefer: 'return=minimal', body: { counter: v.authenticationInfo.newCounter, last_used_at: new Date().toISOString() } });
   await markVerified(sessionId, member.id, { ua: req.headers.get('user-agent'), key: key.device || '' });
-  await audit(member.id, `Вхід підтверджено ключем: ${key.device || 'пристрій'}`);
+  await logSignin(req, { actor: member.id, method: 'passkey', ok: true, note: key.device || 'пристрій' });
   return { ok: true };
 }
 

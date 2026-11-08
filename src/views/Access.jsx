@@ -31,7 +31,7 @@ export function Access({ tab, setTab, focus, setFocus }) {
         </div>
       </header>
       <nav className="vx-tabs" role="tablist">
-        {[['people', 'Люди'], ['requests', `Запити${pending ? ` · ${pending}` : ''}`], ['roles', 'Ролі та права'], ['levels', 'Рівні допуску']].map(([id, l]) => (
+        {[['people', 'Люди'], ['requests', `Запити${pending ? ` · ${pending}` : ''}`], ['roles', 'Ролі та права'], ['levels', 'Рівні допуску'], ['signins', 'Журнал входів']].map(([id, l]) => (
           <button key={id} role="tab" aria-selected={tab === id} className={`vx-tab ${tab === id ? 'is-active' : ''}`} onClick={() => setTab(id)}>{l}</button>
         ))}
       </nav>
@@ -39,6 +39,7 @@ export function Access({ tab, setTab, focus, setFocus }) {
       {tab === 'requests' && <Requests />}
       {tab === 'roles' && <Roles />}
       {tab === 'levels' && <Levels />}
+      {tab === 'signins' && <SignIns />}
     </div>
   );
 }
@@ -546,5 +547,46 @@ function Levels() {
         </Panel>
       </div>
     </div>
+  );
+}
+
+// Every attempt to enter the workspace, newest first: who (or the name typed, when it matched no one), how — password or
+// passkey — the result, the address and the browser. Written by the server (api/signin.js, api/passkey.js), never edited.
+const browserOf = (ua = '') => {
+  const b = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : '';
+  const os = /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Mac OS X/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '';
+  return [b, os].filter(Boolean).join(' · ') || '—';
+};
+function SignIns() {
+  const { state, userById } = useStore();
+  const [only, setOnly] = useState('all');
+  const rows = state.audit.filter((e) => e.type === 'auth' && (only === 'all' || (only === 'fail' ? e.ok === false : e.ok !== false)));
+  const fails = state.audit.filter((e) => e.type === 'auth' && e.ok === false && Date.now() - Date.parse(e.at) < 86400000).length;
+  return (
+    <>
+      <div className="segmented" role="group" aria-label="Які входи показати" style={{ margin: '16px 0' }}>
+        {[['all', 'Усі'], ['ok', 'Успішні'], ['fail', `Невдалі${fails ? ` · ${fails} за добу` : ''}`]].map(([k, l]) => (
+          <button key={k} className={only === k ? 'is-active' : ''} onClick={() => setOnly(k)}>{l}</button>
+        ))}
+      </div>
+      <Panel bodyClass="vx-table-wrap">
+        <table className="vx-table">
+          <thead><tr><th>Час</th><th>Хто</th><th>Спосіб</th><th>Результат</th><th>Адреса</th><th>Браузер</th></tr></thead>
+          <tbody>
+            {rows.map((e) => (
+              <tr key={e.id}>
+                <td className="vx-mono">{fmtDate(e.at)}</td>
+                <td>{userById(e.actor)?.name || (e.actor ? e.actor : 'Невідомий')}</td>
+                <td>{e.method === 'passkey' ? 'Ключ доступу' : e.method === 'password' ? 'Пароль' : '—'}</td>
+                <td>{e.ok === false ? <Status kind="danger">{e.text.replace(/^Невдала спроба входу (паролем|ключем доступу):?\s*/, '') || 'Відмова'}</Status> : <Status kind="ok">Успішно</Status>}</td>
+                <td className="vx-mono">{e.ip || '—'}</td>
+                <td>{browserOf(e.ua)}</td>
+              </tr>
+            ))}
+            {!rows.length && <tr><td colSpan={6} className="vx-muted">Записів ще немає. Нові входи з’являтимуться тут.</td></tr>}
+          </tbody>
+        </table>
+      </Panel>
+    </>
   );
 }

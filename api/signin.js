@@ -6,7 +6,7 @@
 // code (V-001) or the part of their e-mail before «@», ignoring case. Only one match signs in; an unknown
 // or ambiguous name gets the same answer as a wrong password, so the form does not reveal who is on the team.
 // The password is checked by Supabase Auth itself, and the passkey step still follows as before.
-import { json, db, SB_URL, ANON, SERVICE } from './_core.js';
+import { json, db, SB_URL, ANON, SERVICE, logSignin } from './_core.js';
 import { ipAllowed, clientIp } from '../src/lib/ip.js';
 
 export const config = { maxDuration: 10 };
@@ -26,7 +26,7 @@ export async function POST(req) {
       const rows = await db('core_members?select=email,doc');
       const hits = (rows || []).filter((r) => r.email && r.doc?.status !== 'suspended'
         && [r.doc?.name, r.doc?.code, r.email.split('@')[0]].some((v) => norm(v) === name));
-      if (hits.length !== 1) return json(400, WRONG);
+      if (hits.length !== 1) { await logSignin(req, { method: 'password', ok: false, note: 'імені не знайдено', who: body.name }); return json(400, WRONG); }
       email = hits[0].email;
     }
     const res = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
@@ -35,7 +35,11 @@ export async function POST(req) {
       body: JSON.stringify({ email, password }),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) return json(res.status === 429 ? 429 : 400, res.status === 429 ? { error: 'over_request_rate_limit', message: 'Too many attempts' } : WRONG);
+    if (!res.ok) {
+      const [who] = await db(`core_members?email=eq.${encodeURIComponent(email)}&select=id`).catch(() => []);
+      await logSignin(req, { actor: who?.id || null, method: 'password', ok: false, note: res.status === 429 ? 'забагато спроб' : 'невірний пароль', who: who ? '' : body.name });
+      return json(res.status === 429 ? 429 : 400, res.status === 429 ? { error: 'over_request_rate_limit', message: 'Too many attempts' } : WRONG);
+    }
     // Only after the right password: is this device's address allowed for the person? If not, and they have
     // no passkey to confirm the sign-in with, the new session is ended at once and never handed out.
     const ip = clientIp(req);
@@ -43,8 +47,10 @@ export async function POST(req) {
     const keyed = async () => ((await db(`core_passkeys?member_id=eq.${encodeURIComponent(m.id)}&select=id&limit=1`).catch(() => [])) || []).length > 0;
     if (m && !ipAllowed(m.doc, ip) && !(await keyed())) {
       await fetch(`${SB_URL}/auth/v1/logout`, { method: 'POST', headers: { apikey: ANON, Authorization: `Bearer ${data.access_token}` } }).catch(() => {});
+      await logSignin(req, { actor: m.id, method: 'password', ok: false, note: `адресу ${ip || 'невідому'} не дозволено` });
       return json(403, { error: 'ip', message: `Вхід з адреси ${ip || 'невідомої'} для цього доступу не дозволено`, ip });
     }
+    await logSignin(req, { actor: m?.id || null, method: 'password', ok: true, note: 'пароль' });
     return json(200, data);
   } catch (e) {
     return json(500, { error: 'error', message: e.message });

@@ -51,3 +51,16 @@ async function lookup(token) {
   return { ...m, viaKey };
 }
 
+
+// The sign-in log: every attempt to enter the workspace — by password, by passkey — with its result, the address
+// and the browser. It is an audit entry of type «auth» (synced, never edited), read in Access → «Журнал входів».
+// `who` names the person when the attempt does not match anyone (the name typed), so a guessing run shows too.
+export function logSignin(req, { actor = null, method, ok, note = '', who = '' }) {
+  const at = new Date().toISOString();
+  const id = `a-in-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  const ip = clientIp(req) || '';
+  const ua = String(req.headers.get('user-agent') || '').slice(0, 200);
+  const how = method === 'passkey' ? 'ключем доступу' : 'паролем';
+  const text = ok ? `Вхід ${how}${note ? ` (${note})` : ''}` : `Невдала спроба входу ${how}${note ? `: ${note}` : ''}${who ? ` — «${String(who).slice(0, 60)}»` : ''}`;
+  return db('core_docs', { method: 'POST', prefer: 'return=minimal', body: { kind: 'audit', id, doc: { id, at, actor, type: 'auth', text, method, ok, ip, ua } } }).catch(() => {});
+}
