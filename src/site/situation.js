@@ -3,6 +3,7 @@
 // and imported as JSON. The data model and parsing are src/lib/dash.js.
 import './site.css';
 import './area.css';
+import './chrome.js';
 import { TYPES, TEMPLATES, blankWidget, board, readState, cleanBoard, parseSeries, parseTable, parsePlaces, parseLinks, uid } from '../lib/dash.js';
 
 const KEY = 'rc.situation.v1';

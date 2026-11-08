@@ -2,6 +2,7 @@
 // forecasts with their record (public/data/forecasts.json). No framework, like the rest of the site.
 import './site.css';
 import './area.css';
+import './chrome.js';
 import { gaugeSvg } from './petals.js';
 import { visibleForecasts, trackRecord, elapsed, brier } from '../lib/forecasts.js';
 
@@ -103,11 +104,16 @@ async function forecasts() {
   let all = [];
   try { all = (await (await fetch('/data/forecasts.json', { cache: 'no-cache' })).json()).forecasts || []; } catch { /* none yet */ }
   const shown = visibleForecasts(all, new URLSearchParams(location.search).has('drafts'));
+  // Nothing published yet: the section and its tab stay hidden — no row of zeros on a public page.
+  if (!shown.length) {
+    document.getElementById('forecasts')?.setAttribute('hidden', '');
+    document.querySelector('.seg [data-s="forecasts"]')?.setAttribute('hidden', '');
+    return;
+  }
   const r = trackRecord(shown.filter((f) => !f.draft));
   stats.innerHTML = [[r.published, 'published'], [r.open, 'open'], [r.resolved, 'checked'], [r.brier === null ? '—' : r.brier.toFixed(3), 'mean Brier score (0 is perfect)']]
     .map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join('');
-  list.innerHTML = shown.length ? shown.map(forecastHtml).join('')
-    : '<div class="empty">The first forecasts are being prepared. Each will carry a probability, the scenarios behind it and the date it will be checked.</div>';
+  list.innerHTML = shown.map(forecastHtml).join('');
 }
 
 digest();

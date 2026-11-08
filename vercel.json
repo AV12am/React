@@ -186,6 +186,14 @@
     {
       "source": "/site",
       "destination": "/site.html"
+    },
+    {
+      "source": "/about",
+      "destination": "/about.html"
+    },
+    {
+      "source": "/careers",
+      "destination": "/careers.html"
     }
   ],
   "redirects": [

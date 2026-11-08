@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <title>Careers · Reaction</title>
+    <meta name="description" content="Work with Reaction — a permanent role or an expert collaboration." />
+    <link rel="icon" href="/site-icon.svg?v=3" type="image/svg+xml" />
+  </head>
+  <body>
+<div class="mx">
+<!-- @header -->
+<main>
+<section class="wrap careers careers-page" id="careers">
+<div class="car-in">
+<div class="car-head rv">
+<span class="k">CAREERS</span>
+<h2>Work with us.</h2>
+<p>We are looking for analysts, researchers and engineers — as part of the team or as experts on specific projects. Tell us who you are and how you would like to work with us.</p>
+</div>
+<form class="car-form rv" id="apply" novalidate>
+<fieldset class="kind" aria-describedby="e-kind">
+<legend>How would you like to work with us?</legend>
+<label class="opt"><input type="radio" name="kind" value="permanent"><span><b>Permanent role</b><small>Join the team</small></span></label>
+<label class="opt"><input type="radio" name="kind" value="expert"><span><b>Expert collaboration</b><small>Projects in your field</small></span></label>
+<em class="err" id="e-kind"></em>
+</fieldset>
+<div class="grid2">
+<label class="fld">Name<input name="name" autocomplete="name" maxlength="120" required><em class="err" id="e-name"></em></label>
+<label class="fld">Email<input name="email" type="email" autocomplete="email" maxlength="160" required><em class="err" id="e-email"></em></label>
+<label class="fld">Area<select name="area" required><option value="">Choose…</option><option>Analysis and OSINT</option><option>Research</option><option>Forecasting</option><option>Engineering</option><option>Design</option><option>Other</option></select><em class="err" id="e-area"></em></label>
+<label class="fld">Expertise and languages<input name="expertise" maxlength="300" placeholder="e.g. energy markets; Ukrainian, English"></label>
+</div>
+<label class="fld"><span>Link to CV, profile or portfolio <span class="opt-l">optional</span></span><input name="link" type="url" inputmode="url" maxlength="300" placeholder="https://"><em class="err" id="e-link"></em></label>
+<label class="fld">About you<textarea name="message" rows="5" maxlength="3000" required placeholder="Your experience, what you would like to work on, availability"></textarea><em class="err" id="e-message"></em></label>
+<label class="hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+<label class="chk"><input type="checkbox" name="consent"><span>I agree that REACTIONcore processes these details to consider my request. Questions: <a href="mailto:privacy@reactioncore.uk">privacy@reactioncore.uk</a></span></label>
+<em class="err" id="e-consent"></em>
+<div class="car-foot"><button class="btn btn-solid" type="submit">Send request <span class="ar">→</span></button><p class="car-msg" id="apply-msg" role="status" aria-live="polite"></p></div>
+</form>
+</div>
+</section>
+
+
+</main>
+<!-- @footer -->
+</div>
+    <script type="module" src="/src/site/careers.js"></script>
+  </body>
+</html>
