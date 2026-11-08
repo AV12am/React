@@ -1,13 +1,12 @@
-// Sign-in on the public site (reactioncore.uk) for SITUATION and CONTEXT: Google, LinkedIn or Apple through Supabase
-// Auth (OAuth with PKCE, plain fetch, no SDK). A person who signs in is «pending» until an administrator of the
-// workspace approves them (deploy/site.sql); only then do the areas open. The session is kept apart from the
+// Sign-in on the public site (reactioncore.uk) for SITUATION and CONTEXT: Google or LinkedIn through Supabase Auth
+// (OAuth with PKCE, plain fetch, no SDK). Signing in opens the areas at once; an administrator of the workspace can
+// close access for a person (deploy/site.sql, status «blocked»). The session is kept apart from the
 // workspace's, and the database never treats it as a team member (core_email() ignores OAuth sessions).
 import { SB_URL, SB_KEY } from '../lib/supabase.js';
 
 export const PROVIDERS = [
   { id: 'google', name: 'Google' },
   { id: 'linkedin_oidc', name: 'LinkedIn' },
-  { id: 'apple', name: 'Apple' },
 ];
 const KEY = 'reaction-site/session';
 const VERIFIER = 'reaction-site/pkce';
@@ -73,24 +72,24 @@ export async function rest(path, { method = 'GET', body, prefer } = {}) {
   return res.status === 204 ? null : res.json().catch(() => null);
 }
 
-/** Who is here: { user, status: 'approved' | 'pending' | 'blocked' } — or null when signed out. */
+/** Who is here: { user, status: 'approved' | 'blocked' } — or null when signed out. */
 export async function whoAmI() {
   const s = await session();
   if (!s) return null;
   const u = s.user || {};
   const meta = u.user_metadata || {};
   const row = { id: u.id, email: u.email || meta.email || '', name: meta.full_name || meta.name || '', provider: u.app_metadata?.provider || '' };
-  // The first visit adds the person, «pending»; later visits leave the row as it is.
+  // The first visit adds the person; later visits leave the row as it is.
   await rest('site_users', { method: 'POST', body: row, prefer: 'resolution=ignore-duplicates,return=minimal' }).catch(() => {});
   const [me] = (await rest(`site_users?id=eq.${encodeURIComponent(u.id)}&select=status`).catch(() => [])) || [];
-  return { user: row, status: me?.status || 'pending' };
+  return { user: row, status: me?.status || 'approved' };
 }
 
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /**
- * Guards an area: shows the sign-in card (or «waiting for approval») in `box`, and calls `open(me)` only for an
- * approved person. `area` names it in the text («SITUATION»).
+ * Guards an area: shows the sign-in card in `box`, and calls `open(me)` for a signed-in person whose access is not
+ * closed. `area` names it in the text («SITUATION»).
  */
 export async function guard(box, area, open) {
   const show = (html) => { box.hidden = false; box.innerHTML = html; };
@@ -98,7 +97,7 @@ export async function guard(box, area, open) {
   let me = null;
   try { me = await whoAmI(); } catch { me = null; }
   if (!me) {
-    show(`<div class="gate"><span class="k">${area}</span><h2>Sign in to continue.</h2><p>${area} is open to approved users. Sign in with your account; access opens once it is approved.</p>
+    show(`<div class="gate"><span class="k">${area}</span><h2>Sign in to continue.</h2><p>Sign in with your Google or LinkedIn account to open ${area}.</p>
       <div class="gate-btns">${PROVIDERS.map((p) => `<button class="btn btn-line" type="button" data-p="${p.id}">Continue with ${p.name}</button>`).join('')}</div></div>`);
     box.querySelectorAll('[data-p]').forEach((b) => b.addEventListener('click', () => signInWith(b.dataset.p)));
     return;
@@ -106,7 +105,6 @@ export async function guard(box, area, open) {
   const out = `<button class="btn btn-line" type="button" data-out>Sign out</button>`;
   const bind = () => box.querySelector('[data-out]')?.addEventListener('click', () => { signOut(); location.reload(); });
   if (me.status === 'blocked') { show(`<div class="gate"><h2>Access is closed.</h2><p>Access for ${esc(me.user.email)} has been closed. Questions: <a href="mailto:info@reactioncore.uk">info@reactioncore.uk</a>.</p><div class="gate-btns">${out}</div></div>`); return bind(); }
-  if (me.status !== 'approved') { show(`<div class="gate"><span class="k">${area}</span><h2>Waiting for approval.</h2><p>You are signed in as ${esc(me.user.email || me.user.name)}. Your request has been received; access opens once it is approved.</p><div class="gate-btns">${out}</div></div>`); return bind(); }
   box.hidden = true; box.innerHTML = '';
   open(me);
 }

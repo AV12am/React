@@ -69,7 +69,7 @@ export function logSignin(req, { actor = null, method, ok, note = '', who = '' }
   return db('core_docs', { method: 'POST', prefer: 'return=minimal', body: { kind: 'audit', id, doc: { id, at, actor, type: 'auth', text, method, ok, ip, ua } } }).catch(() => {});
 }
 
-// A person of the public site (reactioncore.uk/situation) — signed in with Google, LinkedIn or Apple and approved by an
+// A person of the public site (reactioncore.uk/situation) — signed in with Google or LinkedIn and not blocked by an
 // administrator (deploy/site.sql) — may use the open-data endpoints of SITUATION (GDELT, Prozorro, the risk index).
 // They are never a team member: caller() turns their session away.
 const siteSeen = new Map();
@@ -82,7 +82,7 @@ export async function siteCaller(req) {
   if (!res?.ok) return null;
   const user = await res.json().catch(() => ({}));
   const [row] = await db(`site_users?id=eq.${encodeURIComponent(user.id || '')}&select=id,status`).catch(() => []);
-  const u = row?.status === 'approved' ? { id: row.id, email: user.email || '' } : null;
+  const u = row && row.status !== 'blocked' ? { id: row.id, email: user.email || '' } : null;
   if (siteSeen.size > 500) siteSeen.clear();
   siteSeen.set(token, { u, at: Date.now() });
   return u;

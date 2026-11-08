@@ -592,31 +592,31 @@ function SignIns() {
   );
 }
 
-// People of the public site (reactioncore.uk) who signed in with Google, LinkedIn or Apple to use SITUATION and CONTEXT:
-// «pending» until approved here. They never see anything of the workspace (deploy/site.sql).
-const PROVIDER = { google: 'Google', linkedin_oidc: 'LinkedIn', apple: 'Apple' };
-const EXT_STATUS = { pending: ['warn', 'Очікує'], approved: ['ok', 'Схвалено'], blocked: ['danger', 'Заблоковано'] };
+// People of the public site (reactioncore.uk) who signed in with Google or LinkedIn to use SITUATION and CONTEXT: access is
+// open at once; it can be closed (blocked) here. They never see anything of the workspace (deploy/site.sql).
+const PROVIDER = { google: 'Google', linkedin_oidc: 'LinkedIn' };
+const EXT_STATUS = { pending: ['ok', 'Доступ відкрито'], approved: ['ok', 'Доступ відкрито'], blocked: ['danger', 'Заблоковано'] };
 function External() {
   const { toast } = useStore();
   const [rows, setRows] = useState(null);
   const [err, setErr] = useState('');
-  const [only, setOnly] = useState('pending');
+  const [only, setOnly] = useState('all');
   const load = () => rest('site_users?select=id,email,name,provider,status,created_at,decided_at&order=created_at.desc')
     .then((r) => { setRows(r || []); setErr(''); })
     .catch((e) => { setRows([]); setErr(/404|relation|site_users/i.test(String(e.message)) ? 'Таблиці зовнішніх користувачів ще немає: виконайте deploy/site.sql у Supabase → SQL Editor.' : e.message); });
   useEffect(() => { if (supabaseOn) load(); else setRows([]); }, []);
   const decide = async (u, status) => {
-    try { await rpc('site_decide', { p_id: u.id, p_status: status }); toast(status === 'approved' ? `Доступ відкрито: ${u.email || u.name}` : status === 'blocked' ? `Заблоковано: ${u.email || u.name}` : 'Повернуто в очікування'); load(); }
+    try { await rpc('site_decide', { p_id: u.id, p_status: status }); toast(status === 'blocked' ? `Доступ закрито: ${u.email || u.name}` : `Доступ відкрито знову: ${u.email || u.name}`); load(); }
     catch (e) { toast(e.message, 'danger'); }
   };
   if (!supabaseOn) return <p className="vx-hint" style={{ marginTop: 16 }}>Працює на сайті із сервером (Supabase).</p>;
-  const list = (rows || []).filter((u) => only === 'all' || u.status === only);
+  const list = (rows || []).filter((u) => only === 'all' || (only === 'blocked' ? u.status === 'blocked' : u.status !== 'blocked'));
   const count = (k) => (rows || []).filter((u) => u.status === k).length;
   return (
     <>
-      <p className="vx-hint" style={{ margin: '16px 0 8px' }}>Люди, які увійшли на reactioncore.uk через Google, LinkedIn чи Apple, щоб користуватися SITUATION і CONTEXT. Доступ відкривається лише після схвалення; до даних workspace вони не мають доступу.</p>
+      <p className="vx-hint" style={{ margin: '16px 0 8px' }}>Люди, які увійшли на reactioncore.uk через Google чи LinkedIn, щоб користуватися SITUATION і CONTEXT. Доступ відкривається одразу після входу; тут його можна закрити. До даних workspace вони не мають доступу.</p>
       <div className="segmented" role="group" aria-label="Кого показати" style={{ margin: '8px 0 16px' }}>
-        {[['pending', `Очікують${count('pending') ? ` · ${count('pending')}` : ''}`], ['approved', 'Схвалені'], ['blocked', 'Заблоковані'], ['all', 'Усі']].map(([k, l]) => (
+        {[['all', `Усі${rows?.length ? ` · ${rows.length}` : ''}`], ['open', 'З доступом'], ['blocked', `Заблоковані${count('blocked') ? ` · ${count('blocked')}` : ''}`]].map(([k, l]) => (
           <button key={k} className={only === k ? 'is-active' : ''} onClick={() => setOnly(k)}>{l}</button>
         ))}
       </div>
@@ -632,8 +632,9 @@ function External() {
                 <td className="vx-mono">{fmtDate(u.created_at)}</td>
                 <td><Status kind={EXT_STATUS[u.status]?.[0] || 'warn'}>{EXT_STATUS[u.status]?.[1] || u.status}</Status></td>
                 <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
-                  {u.status !== 'approved' && <button type="button" className="vx-btn vx-btn--sm" onClick={() => decide(u, 'approved')}>Схвалити</button>}{' '}
-                  {u.status !== 'blocked' && <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => decide(u, 'blocked')}>Заблокувати</button>}
+                  {u.status === 'blocked'
+                    ? <button type="button" className="vx-btn vx-btn--sm" onClick={() => decide(u, 'approved')}>Відкрити доступ</button>
+                    : <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => decide(u, 'blocked')}>Заблокувати</button>}
                 </td>
               </tr>
             ))}
