@@ -286,3 +286,13 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 .mx .contacts dt{color:var(--ink-3);font-size:14px}
 .mx .contacts dd{margin:0;font-size:15px}
 .mx .contacts a{color:var(--ink)}
+.mx .about-page p{max-width:880px;text-align:justify;hyphens:none;-webkit-hyphens:none;text-wrap:pretty}
+.mx .doc-row{display:flex;align-items:center;gap:6px;margin-top:20px}
+.mx .doc-row .doc-dl{margin-top:0}
+/* the methodology, read on the site: its pages one under another */
+.mx .doc-view{padding-top:56px;padding-bottom:96px}
+.mx .doc-view-h{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px}
+.mx .doc-pages{display:flex;flex-direction:column;align-items:center;gap:20px}
+.mx .doc-pages canvas{display:block;width:100%;max-width:880px;height:auto;border-radius:4px;box-shadow:0 1px 0 rgba(255,255,255,0.04),0 18px 48px rgba(0,0,0,0.5);background:#fff}
+.mx .doc-pages .meta{color:var(--ink-3)}
+.mx .doc-row .tm-pdf{margin-left:2px}

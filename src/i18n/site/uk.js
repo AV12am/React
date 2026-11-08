@@ -1,6 +1,10 @@
 // Українська for the public site's English texts (the pages, header, footer). SITUATION and CONTEXT are Ukrainian already.
 /* eslint-disable */
 export const FROM_EN = {
+  "Download PDF": "Завантажити PDF",
+  "← About": "← Про нас",
+  "Loading…": "Завантаження…",
+  "Methodology": "Методологія",
   "CONTACT": "КОНТАКТИ",
   "Describe the task — a country, a company, a market or a question — and we will reply by email.": "Опишіть задачу — країну, компанію, ринок чи питання, — і ми відповімо поштою.",
   "General enquiries": "Загальні питання",

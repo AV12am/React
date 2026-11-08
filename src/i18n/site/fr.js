@@ -1,6 +1,10 @@
 // Français for the public site: its English texts and the English that SITUATION and CONTEXT are first put into (./en.js).
 /* eslint-disable */
 export const FROM_EN = {
+  "Download PDF": "Télécharger le PDF",
+  "← About": "← À propos",
+  "Loading…": "Chargement…",
+  "Methodology": "Méthodologie",
   "CONTACT": "CONTACT",
   "Describe the task — a country, a company, a market or a question — and we will reply by email.": "Décrivez votre besoin — un pays, une entreprise, un marché ou une question — et nous vous répondrons par e-mail.",
   "General enquiries": "Demandes générales",

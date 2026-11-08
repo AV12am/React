@@ -176,6 +176,10 @@
       "destination": "/contact.html"
     },
     {
+      "source": "/methodology",
+      "destination": "/methodology.html"
+    },
+    {
       "source": "/situation",
       "destination": "/situation.html"
     },
