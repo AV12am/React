@@ -1,5 +1,6 @@
 // The public site: the mark in 3D (wire petals, a core, rings, dust), the mobile menu. No framework.
 import './site.css';
+import { checkApplication } from '../lib/apply.js';
 
 // The workspace moved to its own subdomain. The home-screen app installed from the main domain, and an old
 // link into the platform (it carries a query), go on to the workspace; the site itself has none.
@@ -185,3 +186,41 @@ burger?.addEventListener('click', () => {
   burger.textContent = open ? 'Close' : 'Menu';
 });
 mob?.addEventListener('click', (e) => { if (e.target.closest('a')) { mob.hidden = true; burger.setAttribute('aria-expanded', 'false'); burger.textContent = 'Menu'; } });
+
+// ── Careers: the request goes to /api/brief?apply=1 (checked here and again on the server, same rules) ──
+
+const form = document.getElementById('apply');
+if (form) {
+  const msg = document.getElementById('apply-msg');
+  const show = (errors) => {
+    for (const el of form.querySelectorAll('.err')) el.textContent = '';
+    for (const el of form.querySelectorAll('.fld.bad')) el.classList.remove('bad');
+    for (const [k, text] of Object.entries(errors)) {
+      const e = document.getElementById(`e-${k}`);
+      if (e) e.textContent = text;
+      form.querySelector(`[name="${k}"]`)?.closest('.fld')?.classList.add('bad');
+    }
+    const first = Object.keys(errors)[0];
+    if (first) form.querySelector(`[name="${first}"]`)?.focus();
+  };
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(form);
+    const data = Object.fromEntries(fd.entries());
+    data.consent = fd.has('consent');
+    const r = checkApplication(data);
+    msg.className = 'car-msg'; msg.textContent = '';
+    show(r.ok ? {} : r.errors);
+    if (!r.ok) return;
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true; msg.textContent = 'Sending…';
+    try {
+      const res = await fetch('/api/brief?apply=1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...r.value, website: data.website || '' }) });
+      const j = await res.json().catch(() => ({}));
+      if (res.ok) { form.reset(); msg.className = 'car-msg ok'; msg.textContent = 'Thank you — your request has been sent. We will reply by email.'; }
+      else { if (j.errors) show(j.errors); msg.className = 'car-msg no'; msg.textContent = j.message || 'Something went wrong. Please write to info@reactioncore.uk.'; }
+    } catch {
+      msg.className = 'car-msg no'; msg.textContent = 'No connection. Please try again or write to info@reactioncore.uk.';
+    } finally { btn.disabled = false; }
+  });
+}

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <title>SITUATION · Reaction</title>
+    <meta name="description" content="A workspace for building dashboards on countries, companies and sectors." />
+    <link rel="icon" href="/site-icon.svg?v=3" type="image/svg+xml" />
+  </head>
+  <body>
+<div class="mx">
+<header class="hdr">
+<div class="wrap">
+<div class="bar">
+<a class="logo" href="/" aria-label="REACTIONcore — main site">
+<svg width="26" height="26" viewBox="-100 -100 200 200" aria-hidden="true"><g fill="currentColor"><path d="M0 -96L13.44 -57.6L2.4 -23.04L0 -26.88L-2.4 -23.04L-13.44 -57.6Z"></path><path d="M62.45 -62.45L46.21 -28.73L16.55 -13.43L17.49 -17.49L13.43 -16.55L28.73 -46.21Z"></path><path d="M96 0L57.6 13.44L23.04 2.4L26.88 0L23.04 -2.4L57.6 -13.44Z"></path><path d="M62.45 62.45L28.73 46.21L13.43 16.55L17.49 17.49L16.55 13.43L46.21 28.73Z"></path><path d="M0 96L-13.44 57.6L-2.4 23.04L0 26.88L2.4 23.04L13.44 57.6Z"></path><path d="M-62.45 62.45L-46.21 28.73L-16.55 13.43L-17.49 17.49L-13.43 16.55L-28.73 46.21Z"></path><path d="M-96 0L-57.6 -13.44L-23.04 -2.4L-26.88 0L-23.04 2.4L-57.6 13.44Z"></path><path d="M-62.45 -62.45L-28.73 -46.21L-13.43 -16.55L-17.49 -17.49L-16.55 -13.43L-46.21 -28.73Z"></path></g><path d="M0 -8.64L8.64 0L0 8.64L-8.64 0Z" fill="currentColor"></path></svg>
+<span class="wm">REACTION<sup class="wm-core">core</sup></span>
+</a>
+<nav class="area-tabs" aria-label="Products"><a href="/context">CONTEXT</a><a href="/situation" aria-current="page">SITUATION</a></nav>
+<div class="right"><a class="btn btn-line hide-m" href="/">Main site</a><a class="btn btn-line hide-m" href="https://workspace.reactioncore.uk">Workspace</a></div>
+</div>
+</div>
+</header>
+<main>
+<section class="wrap area-hero">
+<span class="k">SITUATION</span>
+<h1>Build the picture.</h1>
+<p>A workspace for dashboards on countries, companies and sectors: indicators, trends, comparisons, a map and a link graph — put together from your own data.</p>
+</section>
+<section class="seg" aria-label="Dashboard"><div class="wrap ws-bar">
+<select id="ws-pick" aria-label="Dashboard"></select>
+<button class="sbtn" id="ws-new" type="button">New</button>
+<button class="sbtn" id="ws-rename" type="button">Rename</button>
+<button class="sbtn" id="ws-del" type="button">Delete</button>
+<span class="sp"></span>
+<button class="sbtn ghost" id="ws-export" type="button">Export</button>
+<label class="sbtn ghost" for="ws-import">Import<input id="ws-import" type="file" accept="application/json" hidden></label>
+<button class="sbtn ghost" id="ws-print" type="button">Print</button>
+</div></section>
+<section class="wrap">
+<div class="add" id="ws-add"><span class="lab">Add</span></div>
+<div class="board" id="ws-board" aria-live="polite"></div>
+<p class="note">Dashboards are saved in this browser. Use Export to keep a copy or move it to another device.</p>
+</section>
+</main>
+<dialog class="ed" id="ws-ed"><form method="dialog" id="ws-form"></form></dialog>
+<footer class="area-foot"><div class="wrap"><span>© 2026 REACTIONcore · Open sources only.</span><span><a href="/">Main site</a> · <a href="/#careers">Careers</a> · <a href="mailto:info@reactioncore.uk">info@reactioncore.uk</a></span></div></footer>
+</div>
+    <script type="module" src="/src/site/situation.js"></script>
+  </body>
+</html>

@@ -1,0 +1,31 @@
+{
+  "note": "Forecasts shown on /context. An entry with \"draft\": true stays hidden (open /context?drafts=1 to preview). When a forecast's date comes, set \"status\" to \"happened\" or \"not\" — the page counts the record and the Brier score itself.",
+  "forecasts": [
+    {
+      "id": "brief-01",
+      "no": 1,
+      "kind": "Brief",
+      "topic": "Domestic politics",
+      "question": "Will Ukraine's presidential election be called by 30 June 2027?",
+      "resolves": "Happens if the Verkhovna Rada adopts a resolution calling the presidential election by 30 June 2027.",
+      "p": 0.15,
+      "confidence": "medium",
+      "published": "2026-11-06",
+      "check": "2027-06-30",
+      "status": "open",
+      "draft": true,
+      "conclusion": "Unlikely within the window. The martial-law law bars elections, and the parliament's working group holds that at least six months of preparation are needed after active hostilities end. There is no ceasefire yet, so the window to 30 June 2027 is nearly closed.",
+      "scenarios": [
+        { "name": "Ceasefire, and the election is called in time", "p": 0.15 },
+        { "name": "Ceasefire, the election comes later", "p": 0.15 },
+        { "name": "No ceasefire; martial law continues", "p": 0.70 }
+      ],
+      "position": "Convergence node: an election after a ceasefire and at least six months of preparation. The real question is when a ceasefire comes.",
+      "sources": [
+        { "title": "Martial law extended to 29 January 2027 (24 Kanal, 26.10.2026)", "url": "https://24tv.ua/law/voyenniy-stan-mobilizatsiyu-prodovzhili-26102026-do-yakoyi-dati_n3167538", "grade": "B2" },
+        { "title": "Election working group conclusions (LIGA, 21.03.2026)", "url": "https://news.liga.net/en/politics/news/ukraine-has-effectively-ruled-out-holding-presidential-elections-in-2026", "grade": "B2" },
+        { "title": "Statement on elections under a 60-day ceasefire (Radio Svoboda, 11.10.2026)", "url": "https://www.radiosvoboda.org/a/news-zelenskyy-peremyrya-putin-vybory/33874576.html", "grade": "B2" }
+      ]
+    }
+  ]
+}

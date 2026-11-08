@@ -164,6 +164,14 @@
       "destination": "/news.html"
     },
     {
+      "source": "/context",
+      "destination": "/context.html"
+    },
+    {
+      "source": "/situation",
+      "destination": "/situation.html"
+    },
+    {
       "source": "/site",
       "destination": "/site.html"
     }

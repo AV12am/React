@@ -18,6 +18,8 @@ import { refreshAlerts, readAlerts, uaShapes } from './_alerts.js';
 import { buildBrief, briefHtml, briefText, buildInsights, insightsHtml, worldHtml, insightsText, insightsPrompt, readInsights } from '../src/lib/brief.js';
 import { env, json, db, caller, SB_URL, SERVICE } from './_core.js';
 import { sendPush, pushReady } from './_push.js';
+import { checkApplication, applicationMail, isBot } from '../src/lib/apply.js';
+import { clientIp } from '../src/lib/ip.js';
 
 export const config = { maxDuration: 120 };
 
@@ -172,7 +174,34 @@ export async function GET(req) {
   }
 }
 
+// POST /api/brief?apply=1 — the Careers form on the public site (no sign-in). It lives here, not in a function of
+// its own, because the free plan allows twelve functions and all twelve are taken; it shares this one's mailer.
+// The letter goes to CAREERS_TO (default info@reactioncore.uk) with the applicant as the reply-to address.
+const tries = new Map(); // ip → [times]
+async function apply(req) {
+  const ip = clientIp(req) || 'unknown';
+  const now = Date.now();
+  const recent = (tries.get(ip) || []).filter((t) => now - t < 3600000);
+  if (recent.length >= 5) return json(429, { error: 'too_many', message: 'Too many requests. Please try again in an hour.' });
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== 'object') return json(400, { error: 'bad_request', message: 'The form could not be read.' });
+  if (isBot(body)) return json(200, { sent: true }); // quietly: a robot learns nothing
+  const r = checkApplication(body);
+  if (!r.ok) return json(400, { error: 'invalid', errors: r.errors, message: 'Please check the highlighted fields.' });
+  if (!RESEND || !FROM) return json(503, { error: 'not_configured', message: 'The form is not connected yet. Please write to info@reactioncore.uk.' });
+  tries.set(ip, [...recent, now]);
+  const m = applicationMail(r.value);
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${RESEND}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: FROM, to: [env.CAREERS_TO || 'info@reactioncore.uk'], reply_to: r.value.email, subject: m.subject, text: m.text, html: m.html }),
+  });
+  if (!res.ok) return json(502, { error: 'mail', message: 'The request could not be sent. Please write to info@reactioncore.uk.' });
+  return json(200, { sent: true });
+}
+
 export async function POST(req) {
+  if (new URL(req.url).searchParams.has('apply')) return apply(req);
   if (!SB_URL || !SERVICE) return json(503, { error: 'not_configured', message: notReady() });
   try {
     const m = await caller(req);

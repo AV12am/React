@@ -175,3 +175,43 @@ html{scroll-behavior:smooth}
 .mob{border-top:1px solid var(--line);padding:8px 0 20px;animation:mob 420ms var(--ease-out)}
 .mob a{display:flex;align-items:center;min-height:48px;border-bottom:1px solid var(--line);color:var(--ink-2)}
 @keyframes mob{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0)}}
+
+/* ── careers: a request for a permanent role or an expert collaboration ── */
+.careers{padding:40px 40px 40px}
+.car-in{display:grid;grid-template-columns:minmax(0,0.9fr) minmax(0,1.3fr);gap:64px;border-top:1px solid var(--line);padding-top:96px}
+.car-head .k{font-family:"Cinzel",Georgia,serif;font-size:13px;letter-spacing:0.24em;color:var(--ink-3)}
+.car-head h2{margin:18px 0 16px;font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:48px;line-height:52px;color:var(--ink)}
+.car-head p{margin:0;max-width:420px;color:var(--ink-2)}
+.car-form{display:flex;flex-direction:column;gap:18px}
+.car-form fieldset{border:0;margin:0;padding:0}
+.car-form legend{font-size:14px;color:var(--ink-2);margin-bottom:10px}
+.kind{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kind legend{grid-column:1/-1}
+.opt{position:relative;cursor:pointer}
+.opt input{position:absolute;opacity:0;pointer-events:none}
+.opt span{display:block;border:1px solid var(--line-2);border-radius:10px;padding:14px 16px;transition:border-color 200ms var(--ease),background 200ms var(--ease)}
+.opt b{display:block;font-weight:500;color:var(--ink)}
+.opt small{display:block;margin-top:2px;font-size:13px;color:var(--ink-3)}
+.opt:hover span{border-color:#555}
+.opt input:checked+span{border-color:#ededed;background:#111}
+.opt input:focus-visible+span{outline:2px solid var(--brass);outline-offset:3px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.fld{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--ink-2)}
+.opt-l{color:var(--ink-3);font-size:12px;margin-left:4px}
+.fld input,.fld select,.fld textarea{font:inherit;font-size:15px;color:var(--ink);background:#0d0d0d;border:1px solid var(--line-2);border-radius:8px;padding:11px 12px;min-height:44px;box-sizing:border-box;transition:border-color 200ms var(--ease)}
+.fld textarea{resize:vertical;min-height:120px;line-height:22px}
+.fld select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,#8c8c8c 50%),linear-gradient(135deg,#8c8c8c 50%,transparent 50%);background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;background-size:5px 5px;background-repeat:no-repeat}
+.fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:#8c8c8c}
+.fld.bad input,.fld.bad select,.fld.bad textarea{border-color:#c05a69}
+.err{font-style:normal;font-size:12px;color:#d77a87;min-height:0}
+.err:empty{display:none}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.chk{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:20px;color:var(--ink-3);cursor:pointer}
+.chk input{margin-top:3px;width:16px;height:16px;accent-color:#ededed}
+.chk a{color:var(--ink-2);text-decoration:underline}
+.car-foot{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:6px}
+.car-msg{margin:0;font-size:14px;color:var(--ink-2)}
+.car-msg.ok{color:#9fd3a9}.car-msg.no{color:#d77a87}
+.car-form button[disabled]{opacity:0.6;cursor:wait}
+@media (max-width: 900px){.car-in{grid-template-columns:minmax(0,1fr);gap:40px;padding-top:72px}.car-head h2{font-size:38px;line-height:42px}}
+@media (max-width: 560px){.careers{padding:24px 16px}.grid2,.kind{grid-template-columns:minmax(0,1fr)}}
