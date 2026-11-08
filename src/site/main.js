@@ -70,7 +70,29 @@ function start(canvas) {
       dpr = Math.min(2, window.devicePixelRatio || 1);
       w = Math.max(1, r.width); h = Math.max(1, r.height);
       cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+      glow = makeGlow();
     };
+    // The soft light behind the mark, painted once per size pixel by pixel: the page's own black (#0a0a0a) rising a
+    // dozen levels at the centre, with a half-level of random dither in every pixel — so the steps of an 8-bit
+    // gradient never line up into visible rings.
+    let glow = null;
+    function makeGlow() {
+      const W = cv.width; const H = cv.height;
+      const g = document.createElement('canvas'); g.width = W; g.height = H;
+      const gx = g.getContext('2d'); const img = gx.createImageData(W, H); const d = img.data;
+      const cx = W / 2; const cy = H / 2; const R = Math.min(W, H) * 0.46; // it fades to the page black inside the canvas: no edge
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const q = ((x - cx) ** 2 + (y - cy) ** 2) / (R * R);
+          const f = q < 1 ? (1 - q) ** 2.2 : 0;
+          const v = 10 + 13 * f + (Math.random() - 0.5) * 1.1;
+          const i = (y * W + x) * 4;
+          d[i] = d[i + 1] = d[i + 2] = Math.max(0, Math.min(255, Math.round(v))); d[i + 3] = 255;
+        }
+      }
+      gx.putImageData(img, 0, 0);
+      return g;
+    }
     size();
     if (window.ResizeObserver) { const ro = new ResizeObserver(() => { size(); if (still) draw(9); }); ro.observe(cv); }
     cv.onpointermove = (e) => {
@@ -79,15 +101,31 @@ function start(canvas) {
       mouse.ty = ((e.clientY - r.top) / r.height - 0.5) * 2;
     };
     cv.onpointerleave = () => { mouse.tx = 0; mouse.ty = 0; };
+    // Held and dragged, the mark turns with the hand: across — it spins, up and down — it tips; let go — it runs on and slows.
+    const spin = { z: 0, x: 0, vz: 0, vx: 0, held: false, px: 0, py: 0 };
+    cv.onpointerdown = (e) => {
+      spin.held = true; spin.px = e.clientX; spin.py = e.clientY; spin.vz = 0; spin.vx = 0;
+      cv.setPointerCapture?.(e.pointerId); cv.classList.add('is-grabbing');
+    };
+    cv.addEventListener('pointermove', (e) => {
+      if (!spin.held) return;
+      const dz = (e.clientX - spin.px) * 0.008; const dx = (e.clientY - spin.py) * 0.006;
+      spin.px = e.clientX; spin.py = e.clientY;
+      spin.z += dz; spin.x = Math.max(-0.9, Math.min(0.9, spin.x + dx));
+      spin.vz = dz; spin.vx = dx;
+    });
+    const release = () => { spin.held = false; cv.classList.remove('is-grabbing'); };
+    cv.onpointerup = release; cv.onpointercancel = release;
     const D = 520;
     const t0 = performance.now();
     const draw = (t) => {
       const m = mouse;
       m.x += (m.tx - m.x) * 0.04; m.y += (m.ty - m.y) * 0.04;
       const sp = 1;
+      if (!spin.held) { spin.z += spin.vz; spin.vz *= 0.95; spin.vx *= 0.9; spin.x *= 0.985; } // the tip eases back
       const ry = -0.35 + Math.sin(t * 0.21 * sp) * 0.12 + m.x * 0.35; // a steady three-quarter view
-      const rx = 0.55 + Math.sin(t * 0.13 * sp) * 0.06 + m.y * 0.25;
-      const rz = t * 0.32 * sp; // it turns round, like a wheel
+      const rx = 0.55 + Math.sin(t * 0.13 * sp) * 0.06 + m.y * 0.25 + spin.x;
+      const rz = t * 0.32 * sp + spin.z; // it turns round, like a wheel
       const cy = Math.cos(ry); const sy = Math.sin(ry); const cx = Math.cos(rx); const sx = Math.sin(rx); const cz = Math.cos(rz); const sz = Math.sin(rz);
       const s = Math.min(w, h) / 250;
       const ox = w / 2; const oy = h / 2;
@@ -103,6 +141,7 @@ function start(canvas) {
       const dawn = Math.min(1, t / 3.2); const fade = dawn * dawn * (3 - 2 * dawn);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
+      if (glow) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = fade; ctx.drawImage(glow, 0, 0); ctx.globalAlpha = 1; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
       ctx.lineCap = 'round';
       const line = (sg, base, span, f) => {
         if (f <= 0) return;
