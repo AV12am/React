@@ -2,6 +2,13 @@
 // does not have. English is the hub of the site's languages: de / fr / pl translate from these English texts.
 /* eslint-disable */
 export const FROM_UK = {
+  "Оформлення": "Theme",
+  "Графіт": "Graphite",
+  "Океан": "Ocean",
+  "Жар": "Ember",
+  "Ліс": "Forest",
+  "Моно": "Mono",
+  "Світла": "Light",
   // CONTEXT
   'УКР': 'UKR',
   'Мова випуску': 'Issue language',

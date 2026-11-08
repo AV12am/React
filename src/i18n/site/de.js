@@ -2,6 +2,12 @@
 // and CONTEXT are first put into (./en.js). Names (REACTIONcore, CONTEXT, SITUATION, GDELT…) stay as they are.
 /* eslint-disable */
 export const FROM_EN = {
+  "Graphite": "Graphit",
+  "Ocean": "Ozean",
+  "Ember": "Glut",
+  "Forest": "Wald",
+  "Mono": "Mono",
+  "Light": "Hell",
   "The materials on this page are provided for information only. They are not advice of any kind — investment, legal, political or other — and not a scientifically validated prediction. Assessments, data and probabilities reflect an analysis of open sources at the time of publication and may change. Use them at your own discretion and risk.": "Die Inhalte dieser Seite dienen nur zur Information. Sie sind keine Beratung jeglicher Art — weder Anlage-, Rechts-, politische noch sonstige Beratung — und keine wissenschaftlich validierte Vorhersage. Einschätzungen, Daten und Wahrscheinlichkeiten geben eine Analyse offener Quellen zum Zeitpunkt der Veröffentlichung wieder und können sich ändern. Die Nutzung erfolgt nach eigenem Ermessen und auf eigenes Risiko.",
   "The daily digest and analytical articles": "Der tägliche Überblick und analytische Artikel",
   "The daily digest of key events and analytical articles grounded in research.": "Der tägliche Überblick über die wichtigsten Ereignisse und forschungsbasierte analytische Artikel.",

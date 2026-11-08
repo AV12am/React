@@ -1166,7 +1166,9 @@ kbd {
 .sit-widget__tools--view { opacity: 0; transition: opacity 0.15s; }
 .sit-widget:hover .sit-widget__tools--view, .sit-widget:focus-within .sit-widget__tools--view { opacity: 1; }
 @media (hover: none) { .sit-widget__tools--view { opacity: 1; } }
-.sit-zoom { width: min(1100px, 92vw); padding: var(--space-5); background: var(--surface); }
+.sit-zoom { width: 100%; box-sizing: border-box; padding: var(--space-5); background: var(--surface); max-height: 84vh; overflow: auto; }
+/* the expanded widget: as wide as the dashboard allows, not the 560 px of an ordinary dialog */
+.vx-modal:has(.sit-zoom) { width: min(1100px, calc(100vw - 32px)); top: 8vh; }
 .sit-zoom__head { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); font-size: 16px; }
 .sit .sit-panel .vx-table-wrap { max-height: 440px; overflow: auto; }
 .sit .sit-panel .sit-table thead th { position: sticky; top: 0; background: var(--surface); }
@@ -1180,3 +1182,13 @@ kbd {
 .sit-card a { color: var(--sit-c1); }
 .sit-template .vx-eyebrow { margin-bottom: 2px; }
 .sit-card > .sit-card__note { display: block; margin-bottom: 4px; }
+
+/* dashboard themes (SITUATION → the theme picker): series colours; «paper» is the light page */
+.sit[data-sit-theme="ocean"] { --sit-c1: #2f9be0; --sit-c2: #26b3a6; --sit-c3: #6f7fe8; --sit-c4: #8fd0f5; --sit-c5: #4c6ba8; --sit-heat-3: #2f9be0; --sit-heat-4: #5cb4ea; --sit-heat-5: #a5d8f6; }
+.sit[data-sit-theme="ember"] { --sit-c1: #e2632f; --sit-c2: #f0a23a; --sit-c3: #c9404f; --sit-c4: #f5cf7a; --sit-c5: #9b5a3c; --sit-heat-1: #5a2414; --sit-heat-2: #8f3a1c; --sit-heat-3: #c75127; --sit-heat-4: #e57f4f; --sit-heat-5: #f2b38f; }
+.sit[data-sit-theme="forest"] { --sit-c1: #3fa86b; --sit-c2: #a3c45a; --sit-c3: #2c8a8a; --sit-c4: #d1b45a; --sit-c5: #6f8f5a; --sit-heat-1: #143d25; --sit-heat-2: #1f5c37; --sit-heat-3: #2f8450; --sit-heat-4: #55ab76; --sit-heat-5: #9fd3b2; }
+.sit[data-sit-theme="mono"] { --sit-c1: #e6e6e6; --sit-c2: #a6a6a6; --sit-c3: #737373; --sit-c4: #cfcfcf; --sit-c5: #555555; --sit-heat-1: #262626; --sit-heat-2: #404040; --sit-heat-3: #666666; --sit-heat-4: #999999; --sit-heat-5: #d9d9d9; }
+.sit[data-theme="paper"] { --sit-c1: #2a78d6; --sit-c2: #eb6834; --sit-c3: #1baf7a; --sit-c4: #eda100; --sit-c5: #e87ba4;
+  --sit-good: #006300; --sit-critical: #d03b3b; --sit-heat-0: #f0efec; --sit-heat-1: #cde2fb; --sit-heat-2: #9ec5f4; --sit-heat-3: #6da7ec; --sit-heat-4: #3987e5; --sit-heat-5: #1c5cab;
+  background: var(--bg); color: var(--ink); border-radius: 14px; padding: 24px; }
+.sit-theme { width: auto; min-width: 104px; height: 32px; padding: 0 28px 0 10px; font-size: 13px; }

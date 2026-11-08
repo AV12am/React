@@ -120,6 +120,8 @@ function News() {
 }
 
 // ── Outside data, fetched when a widget asks for it and kept for the session ─────────────────────────────────────
+// Dashboard themes, as in BI tools: the series colours and, for «Світла», a light page (src/styles/app.css).
+const THEMES = [['graphite', 'Графіт'], ['ocean', 'Океан'], ['ember', 'Жар'], ['forest', 'Ліс'], ['mono', 'Моно'], ['paper', 'Світла']];
 const EXT_CACHE = new Map(); // key → Promise<rows>
 let gdeltChain = Promise.resolve();
 const gdeltTurn = (fn) => { const p = gdeltChain.then(fn); gdeltChain = p.then(() => new Promise((r) => setTimeout(r, 5500)), () => new Promise((r) => setTimeout(r, 5500))); return p; };
@@ -610,7 +612,7 @@ export function Situation({ focus, go }) {
   }
 
   return (
-    <div className="page sit" ref={box}>
+    <div className="page sit" ref={box} data-sit-theme={board.theme || 'graphite'} data-theme={board.theme === 'paper' ? 'paper' : undefined}>
       <header className="page__head">
         <div>
           <div className="vx-eyebrow">SITUATION · дашборди · оновлено {new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}</div>
@@ -625,6 +627,9 @@ export function Situation({ focus, go }) {
         </div>
         <div className="toolbar">
           {mine && <button type="button" className={`vx-btn ${edit ? 'vx-btn--primary' : 'vx-btn--ghost'} vx-btn--sm`} onClick={() => setEdit(!edit)}><Icon name={edit ? 'check' : 'settings'} size={14} /> {edit ? 'Готово' : 'Редагувати'}</button>}
+          {mine && <select className="vx-input vx-input--sm sit-theme" value={board.theme || 'graphite'} onChange={(e) => patch({ theme: e.target.value })} aria-label="Оформлення" title="Оформлення">
+            {THEMES.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+          </select>}
           <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => setDataOpen(true)}><Icon name="file" size={14} /> Дані</button>
           <button type="button" className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" onClick={full} title="На весь екран" aria-label="На весь екран"><Icon name="expand" size={14} /></button>
           <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => setPicking(true)}><Icon name="plus" size={14} /> Новий</button>
@@ -681,7 +686,7 @@ export function Situation({ focus, go }) {
       {dataOpen && <DataDrawer onClose={() => setDataOpen(false)} />}
       {drill && <DrillDrawer wg={drill} state={full2} me={me} filters={f2} onClose={() => setDrill(null)} />}
       {zoom && <Modal onClose={() => setZoom(null)} label={zoom.title || METRICS[zoom.metric]?.label}>
-        <div className="sit sit-zoom">
+        <div className="sit sit-zoom" data-sit-theme={board?.theme || 'graphite'} data-theme={board?.theme === 'paper' ? 'paper' : undefined}>
           <div className="sit-zoom__head"><b>{zoom.title || METRICS[zoom.metric]?.label}</b><button type="button" className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm" onClick={() => setZoom(null)} aria-label="Закрити"><Icon name="close" size={14} /></button></div>
           <Visual kind={zoom.metric === 'custom' ? cfgOf(zoom).visual : METRICS[zoom.metric]?.kind} v={data[zoom.id]} label={zoom.title} filters={{ ...filters, sel }} setFilter={setFilter} divFilter={METRICS[zoom.metric]?.filters === 'div'} open={(to) => { setZoom(null); openRecord(to); }}
             onPick={zoom.metric === 'custom' && zoom.cfg.group ? (id, lab) => pick(zoom, id, lab) : undefined} />
