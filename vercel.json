@@ -152,6 +152,14 @@
       "destination": "/site.html"
     },
     {
+      "source": "/",
+      "destination": "/app.html"
+    },
+    {
+      "source": "/index.html",
+      "destination": "/app.html"
+    },
+    {
       "source": "/news",
       "destination": "/news.html"
     },
@@ -162,7 +170,7 @@
   ],
   "redirects": [
     {
-      "source": "/index.html",
+      "source": "/(index|app).html",
       "has": [
         {
           "type": "host",
