@@ -103,10 +103,6 @@ function start(canvas) {
       const dawn = Math.min(1, t / 3.2); const fade = dawn * dawn * (3 - 2 * dawn);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
-      const g = ctx.createRadialGradient(ox, oy, 0, ox, oy, 150 * s);
-      g.addColorStop(0, `rgba(237,237,237,${0.035 * fade})`);
-      g.addColorStop(1, 'rgba(237,237,237,0)');
-      ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
       ctx.lineCap = 'round';
       const line = (sg, base, span, f) => {
         if (f <= 0) return;
