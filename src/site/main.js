@@ -5,7 +5,9 @@ import './site.css';
 // link into the platform (it carries a query), go on to the workspace; the site itself has none.
 const WORKSPACE = 'https://workspace.reactioncore.uk';
 const standalone = window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
-if (location.hostname === 'reactioncore.uk' && (standalone || location.search)) {
+// (Ad and share tags — utm_…, gclid, fbclid — are the site's own visitors, not old platform links.)
+const oldLink = location.search && ![...new URLSearchParams(location.search).keys()].some((k) => /^(utm_|gclid|fbclid|ref$)/.test(k));
+if (location.hostname === 'reactioncore.uk' && (standalone || oldLink)) {
   location.replace(`${WORKSPACE}/${location.search}${location.hash}`);
 }
 
