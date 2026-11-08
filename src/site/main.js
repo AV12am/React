@@ -1,6 +1,14 @@
 // The public site: the mark in 3D (wire petals, a core, rings, dust), the mobile menu. No framework.
 import './site.css';
 
+// The workspace moved to its own subdomain. The home-screen app installed from the main domain, and an old
+// link into the platform (it carries a query), go on to the workspace; the site itself has none.
+const WORKSPACE = 'https://workspace.reactioncore.uk';
+const standalone = window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
+if (location.hostname === 'reactioncore.uk' && (standalone || location.search)) {
+  location.replace(`${WORKSPACE}/${location.search}${location.hash}`);
+}
+
 function build() {
     // The mark as wire: eight petals (the outline of each, front and back face, cupped toward the viewer),
     // the diamond core, two faint construction rings and a slow field of dust.

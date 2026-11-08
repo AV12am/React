@@ -235,7 +235,7 @@ function Keys() {
         </div>
         {code && <>
           <div className="pk-code-box">{code.code}</div>
-          <div className="vx-hint">Введіть цей код на іншому пристрої або на новій адресі сайту (reactioncore.uk) після пароля — у полі «Code» → «Pair a device». Діє {code.expiresHours} год, один раз. Нікому не передавайте.</div>
+          <div className="vx-hint">Введіть цей код на іншому пристрої або на новій адресі сайту (workspace.reactioncore.uk) після пароля — у полі «Code» → «Pair a device». Діє {code.expiresHours} год, один раз. Нікому не передавайте.</div>
           <button className="vx-btn vx-btn--sm" onClick={() => copyText(code.code)}><Icon name="copy" /> Скопіювати</button>
         </>}
         {me.custos && <div className="vx-hint">Ви — {CUSTOS.name}, {CUSTOS.gloss}. Якщо втратите всі пристрої, допоможуть лише резервні коди, які ви зберегли при першому ключі.</div>}

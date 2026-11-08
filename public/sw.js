@@ -17,11 +17,13 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = new URL(event.notification.data?.url || '/', self.location.origin).href;
+  // A notification on the main domain (subscribed before the workspace moved) opens the workspace.
+  const home = self.location.hostname === 'reactioncore.uk' ? 'https://workspace.reactioncore.uk' : self.location.origin;
+  const url = new URL(event.notification.data?.url || '/', home).href;
   event.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const w of wins) {
-      if (new URL(w.url).origin === self.location.origin) { await w.focus(); w.navigate?.(url); return; }
+      if (new URL(w.url).origin === new URL(home).origin) { await w.focus(); w.navigate?.(url); return; }
     }
     await self.clients.openWindow(url);
   })());

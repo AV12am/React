@@ -142,12 +142,35 @@
   ],
   "rewrites": [
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "reactioncore.uk"
+        }
+      ],
+      "destination": "/site.html"
+    },
+    {
       "source": "/news",
       "destination": "/news.html"
     },
     {
       "source": "/site",
       "destination": "/site.html"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/index.html",
+      "has": [
+        {
+          "type": "host",
+          "value": "reactioncore.uk"
+        }
+      ],
+      "destination": "https://workspace.reactioncore.uk/",
+      "permanent": false
     }
   ]
 }
