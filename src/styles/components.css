@@ -235,11 +235,12 @@
 /* ---------- Loader (the cornflower) ---------- */
 .vx-loader { display: inline-block; color: var(--mark); }
 .vx-loader svg { width: 100%; height: 100%; display: block; }
-.vx-loader .petal { opacity: 0.18; animation: vx-petal 1.2s linear infinite; }
-@keyframes vx-petal { 0% { opacity: 1; } 100% { opacity: 0.18; } }
+.vx-loader .petal { opacity: 0.18; animation: vx-petal 1.2s cubic-bezier(0.37, 0, 0.63, 1) infinite; }
+/* A soft rise and fall, not a blink: each petal glows up, then fades slowly behind the sweep. */
+@keyframes vx-petal { 0% { opacity: 0.18; } 18% { opacity: 1; } 100% { opacity: 0.18; } }
 .vx-loader--still .petal, .vx-loader--still .core { animation: none; }
-.vx-loader .core { animation: vx-core 1.2s var(--ease) infinite; transform-origin: 0 0; }
-@keyframes vx-core { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.7); } }
+.vx-loader .core { animation: vx-core 2.4s cubic-bezier(0.37, 0, 0.63, 1) infinite; transform-origin: 0 0; }
+@keyframes vx-core { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.82); } }
 @media (prefers-reduced-motion: reduce) {
   .vx-loader .petal, .vx-loader .core { animation: none; opacity: 1; }
 }

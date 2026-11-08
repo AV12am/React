@@ -105,14 +105,13 @@ const BOOT = [
 export function Splash({ onDone }) {
   const [step, setStep] = useState(0);
   useEffect(() => {
-    const t = [500, 1100, 1700, 2500].map((ms, i) => setTimeout(() => (i < 3 ? setStep(i + 1) : onDone()), ms));
+    const t = [700, 1500, 2300, 3200].map((ms, i) => setTimeout(() => (i < 3 ? setStep(i + 1) : onDone()), ms));
     return () => t.forEach(clearTimeout);
   }, [onDone]);
   return (
     <div className="splash" data-lang="en" onClick={onDone}>
       <Loader size={180} label="Reaction · loading" />
-      <div className="splash__word vx-wordmark">Reaction</div>
-      <div className="splash__status vx-mono">{BOOT[step]}{step < 3 ? '…' : ''}</div>
+      <div key={step} className="splash__status vx-mono">{BOOT[step]}{step < 3 ? '…' : ''}</div>
     </div>
   );
 }
@@ -149,13 +148,12 @@ export function Login() {
       <div className="login__brand">
         <DrawnMark className="login__ghost" size={720} />
         <div className="login__lockup">
-          <Mark size={64} />
-          <div className="vx-wordmark login__word">Reaction</div>
+          <Mark size={64} title="" />
         </div>
       </div>
 
       <div className="login__panel">
-        <div className="login__mobile-brand"><Mark size={40} /><div className="vx-wordmark">Reaction</div></div>
+        <div className="login__mobile-brand"><Mark size={40} title="" /></div>
         <h1 className="vx-h1">{supabaseOn || stage === 'id' ? 'Вхід' : 'Підтвердження'}</h1>
 
         {supabaseOn ? <SupabaseLogin /> : stage === 'id' ? (
