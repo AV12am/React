@@ -168,6 +168,10 @@
       "destination": "/context.html"
     },
     {
+      "source": "/time",
+      "destination": "/time.html"
+    },
+    {
       "source": "/situation",
       "destination": "/situation.html"
     },

@@ -1,6 +1,19 @@
 // Français for the public site: its English texts and the English that SITUATION and CONTEXT are first put into (./en.js).
 /* eslint-disable */
 export const FROM_EN = {
+  "What is happening, and why": "Ce qui se passe, et pourquoi",
+  "Forecasts: what will happen, and when": "Prévisions : ce qui va arriver, et quand",
+  "What will happen, and when.": "Ce qui va arriver, et quand.",
+  "Forecasts with probabilities, scenarios and a date to check them against.": "Des prévisions avec probabilités, scénarios et une date de vérification.",
+  "Timeline": "Chronologie",
+  "What is happening, and why.": "Ce qui se passe, et pourquoi.",
+  "The daily digest of verified news and analytical articles grounded in research.": "La synthèse quotidienne des informations vérifiées et des articles d’analyse fondés sur la recherche.",
+  "Articles": "Articles",
+  "Analysis grounded in research: a topic taken apart, a review of studies, how a mechanism works.": "Des analyses fondées sur la recherche : un sujet décortiqué, une revue d’études, le fonctionnement d’un mécanisme.",
+  "No articles published yet.": "Aucun article publié pour l’instant.",
+  "No forecasts published yet.": "Aucune prévision publiée pour l’instant.",
+  "Forecasts: what will happen, and when — probabilities, scenarios and a date to check them against.": "Prévisions : ce qui va arriver, et quand — probabilités, scénarios et une date de vérification.",
+  "Open TIME": "Ouvrir TIME",
   'REACTIONcore — home': 'REACTIONcore — accueil', 'Main': 'Menu principal', 'Services': 'Services', 'Products': 'Produits', 'Company': 'Entreprise', 'Contact': 'Contact',
   'Open-source intelligence': 'Renseignement en sources ouvertes', 'Media, registries and social networks in one picture': 'Médias, registres et réseaux sociaux en une seule image',
   'Risk analysis': 'Analyse des risques', 'Countries, markets and the regulatory field': 'Pays, marchés et cadre réglementaire',

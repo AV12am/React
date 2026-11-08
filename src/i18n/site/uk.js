@@ -1,6 +1,19 @@
 // Українська for the public site's English texts (the pages, header, footer). SITUATION and CONTEXT are Ukrainian already.
 /* eslint-disable */
 export const FROM_EN = {
+  "What is happening, and why": "Що відбувається і чому",
+  "Forecasts: what will happen, and when": "Прогнози: що станеться і коли",
+  "What will happen, and when.": "Що станеться і коли.",
+  "Forecasts with probabilities, scenarios and a date to check them against.": "Прогнози з імовірностями, сценаріями й датою перевірки.",
+  "Timeline": "Шкала часу",
+  "What is happening, and why.": "Що відбувається і чому.",
+  "The daily digest of verified news and analytical articles grounded in research.": "Щоденний огляд перевірених новин і аналітичні статті на основі досліджень.",
+  "Articles": "Статті",
+  "Analysis grounded in research: a topic taken apart, a review of studies, how a mechanism works.": "Аналітика на основі досліджень: розбір теми, огляд наукових праць, пояснення механізмів.",
+  "No articles published yet.": "Статей ще не опубліковано.",
+  "No forecasts published yet.": "Прогнозів ще не опубліковано.",
+  "Forecasts: what will happen, and when — probabilities, scenarios and a date to check them against.": "Прогнози: що станеться і коли — імовірності, сценарії й дата перевірки.",
+  "Open TIME": "Відкрити TIME",
   'REACTIONcore — home': 'REACTIONcore — головна', 'Main': 'Головне меню', 'Services': 'Послуги', 'Products': 'Продукти', 'Company': 'Компанія', 'Contact': 'Контакти',
   'Open-source intelligence': 'Розвідка з відкритих джерел', 'Media, registries and social networks in one picture': 'Медіа, реєстри й соцмережі в одній картині',
   'Risk analysis': 'Аналіз ризиків', 'Countries, markets and the regulatory field': 'Країни, ринки й регуляторне поле',

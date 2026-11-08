@@ -2,6 +2,19 @@
 // and CONTEXT are first put into (./en.js). Names (REACTIONcore, CONTEXT, SITUATION, GDELT…) stay as they are.
 /* eslint-disable */
 export const FROM_EN = {
+  "What is happening, and why": "Was geschieht und warum",
+  "Forecasts: what will happen, and when": "Prognosen: was geschehen wird und wann",
+  "What will happen, and when.": "Was geschehen wird und wann.",
+  "Forecasts with probabilities, scenarios and a date to check them against.": "Prognosen mit Wahrscheinlichkeiten, Szenarien und einem Datum zur Überprüfung.",
+  "Timeline": "Zeitachse",
+  "What is happening, and why.": "Was geschieht und warum.",
+  "The daily digest of verified news and analytical articles grounded in research.": "Der tägliche Überblick über geprüfte Nachrichten und forschungsbasierte Analysen.",
+  "Articles": "Artikel",
+  "Analysis grounded in research: a topic taken apart, a review of studies, how a mechanism works.": "Forschungsbasierte Analysen: ein Thema zerlegt, ein Überblick über Studien, wie ein Mechanismus funktioniert.",
+  "No articles published yet.": "Noch keine Artikel veröffentlicht.",
+  "No forecasts published yet.": "Noch keine Prognosen veröffentlicht.",
+  "Forecasts: what will happen, and when — probabilities, scenarios and a date to check them against.": "Prognosen: was geschehen wird und wann — Wahrscheinlichkeiten, Szenarien und ein Datum zur Überprüfung.",
+  "Open TIME": "TIME öffnen",
   // header, footer
   'REACTIONcore — home': 'REACTIONcore — Startseite', 'Main': 'Hauptmenü', 'Services': 'Leistungen', 'Products': 'Produkte', 'Company': 'Unternehmen', 'Contact': 'Kontakt',
   'Open-source intelligence': 'Open-Source-Aufklärung', 'Media, registries and social networks in one picture': 'Medien, Register und soziale Netzwerke in einem Bild',

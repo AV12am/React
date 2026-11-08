@@ -1,12 +1,10 @@
-// CONTEXT on the public site: the latest daily issue (from the same source as /news, in English) and the
-// forecasts with their record (public/data/forecasts.json). No framework, like the rest of the site.
+// CONTEXT on the public site — what is happening, and why: the latest daily issue (the same source as /news) and the
+// analytical articles (public/data/articles.json). Forecasts live in TIME (/time). No framework, like the rest of the site.
 import './site.css';
 import './area.css';
 import './chrome.js';
 import { lang as siteLang } from './i18n.js';
-import { gaugeSvg } from './petals.js';
 import { guard } from './auth.js';
-import { visibleForecasts, trackRecord, elapsed, brier } from '../lib/forecasts.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const day = (d) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Kyiv' });
@@ -17,7 +15,7 @@ const tabs = [...document.querySelectorAll('.seg a[data-s]')];
 const io = new IntersectionObserver((es) => es.forEach((e) => {
   if (e.isIntersecting) tabs.forEach((t) => t.classList.toggle('on', t.dataset.s === e.target.id));
 }), { rootMargin: '-45% 0px -50% 0px' });
-['digest', 'forecasts'].forEach((id) => { const el = document.getElementById(id); if (el) io.observe(el); });
+['digest', 'articles'].forEach((id) => { const el = document.getElementById(id); if (el) io.observe(el); });
 
 // ── the digest ──
 // The issue follows the site's language (src/site/i18n.js): Ukrainian in Ukrainian, English otherwise — the issue
@@ -73,50 +71,20 @@ async function digest() {
   }
 }
 
-// ── forecasts ──
-const STATUS = { open: ['Open', ''], happened: ['Happened', 'yes'], not: ['Did not happen', 'no'] };
-function forecastHtml(f) {
-  const [label, cls] = STATUS[f.status] || STATUS.open;
-  const pct = Math.round(f.p * 100);
-  const b = brier(f);
-  const done = Math.round(elapsed(f) * 100);
-  const scn = (f.scenarios || []).map((s) => `<div><span>${esc(s.name)}</span><i><b style="width:${Math.round(s.p * 100)}%"></b></i><em>${Math.round(s.p * 100)}%</em></div>`).join('');
-  const src = (f.sources || []).map((s) => `<a class="lnk" href="${esc(safeUrl(s.url))}" target="_blank" rel="noopener noreferrer">${esc(s.title)}${s.grade ? ` · ${esc(s.grade)}` : ''} ↗</a>`).join('');
-  return `<article class="fc" id="${esc(f.id)}">
-<div class="g">${gaugeSvg(f.p, 112)}<div class="pct">${pct}%</div></div>
-<div>
-<div class="top"><span>${esc(f.kind || 'Forecast')} № ${String(f.no || '').padStart(2, '0')}</span><span>·</span><span>${esc(f.topic || '')}</span><span class="chip ${cls}">${label}</span>${f.draft ? '<span class="chip draft">Draft</span>' : ''}${b !== null ? `<span class="chip">Brier ${b.toFixed(3)}</span>` : ''}</div>
-<h3>${esc(f.question)}</h3>
-<p>${esc(f.conclusion || '')}</p>
-${scn ? `<div class="scn">${scn}</div>` : ''}
-${f.position ? `<p class="note">${esc(f.position)}</p>` : ''}
-<div class="hzn"><b style="width:${done}%"></b></div>
-<div class="hzl"><span>Published ${day(f.published)}</span><span>Checked on ${day(f.check)}</span></div>
-${f.resolves ? `<p class="note" style="margin-top:10px">${esc(f.resolves)}</p>` : ''}
-${src ? `<div class="acts">${src}</div>` : ''}
-</div></article>`;
-}
-async function forecasts() {
-  const stats = document.getElementById('fc-stats');
-  const list = document.getElementById('fc-list');
-  let all = [];
-  try { all = (await (await fetch('/data/forecasts.json', { cache: 'no-cache' })).json()).forecasts || []; } catch { /* none yet */ }
-  const shown = visibleForecasts(all, new URLSearchParams(location.search).has('drafts'));
-  // Nothing published yet: the section and its tab stay hidden — no row of zeros on a public page.
-  if (!shown.length) {
-    document.getElementById('forecasts')?.setAttribute('hidden', '');
-    document.querySelector('.seg [data-s="forecasts"]')?.setAttribute('hidden', '');
-    return;
-  }
-  const r = trackRecord(shown.filter((f) => !f.draft));
-  stats.innerHTML = [[r.published, 'published'], [r.open, 'open'], [r.resolved, 'checked'], [r.brier === null ? '—' : r.brier.toFixed(3), 'mean Brier score (0 is perfect)']]
-    .map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join('');
-  list.innerHTML = shown.map(forecastHtml).join('');
+
+// Articles: analytical texts grounded in research (public/data/articles.json) — newest first.
+async function articles() {
+  const box = document.getElementById('ar-list');
+  let list = [];
+  try { list = (await (await fetch('/data/articles.json', { cache: 'no-cache' })).json()).articles || []; } catch { /* none yet */ }
+  list = list.filter((a) => a && a.title && !a.draft).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  box.innerHTML = list.length ? list.map((a) => `<a class="art" href="${esc(safeUrl(a.url) || '#')}" lang="${esc(a.lang || 'en')}"><span class="meta">${esc(a.topic || '')}${a.date ? ` · ${day(a.date)}` : ''}</span><h3>${esc(a.title)}</h3>${a.summary ? `<p>${esc(a.summary)}</p>` : ''}</a>`).join('')
+    : '<p class="meta">No articles published yet.</p>';
 }
 
 // CONTEXT opens to approved users only (src/site/auth.js).
 guard(document.getElementById('gate'), 'CONTEXT', () => {
   document.getElementById('area').hidden = false;
   digest();
-  forecasts();
+  articles();
 });

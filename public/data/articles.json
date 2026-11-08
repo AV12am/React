@@ -1,0 +1,4 @@
+{
+  "note": "CONTEXT articles: analytical texts grounded in research. Each: title, summary, topic, date (YYYY-MM-DD), lang (uk|en), url (the article page or PDF). \"draft\": true keeps one hidden.",
+  "articles": []
+}
