@@ -1,6 +1,9 @@
 // Українська for the public site's English texts (the pages, header, footer). SITUATION and CONTEXT are Ukrainian already.
 /* eslint-disable */
 export const FROM_EN = {
+  "The materials on this page are provided for information only. They are not advice of any kind — investment, legal, political or other — and not a scientifically validated prediction. Assessments, data and probabilities reflect an analysis of open sources at the time of publication and may change. Use them at your own discretion and risk.": "Матеріали на цій сторінці мають лише інформаційний характер. Вони не є порадою жодного роду — інвестиційною, юридичною, політичною чи іншою — і не є науково підтвердженим прогнозом. Оцінки, дані та ймовірності відображають аналіз відкритих джерел на момент публікації й можуть змінюватися. Користуйтеся ними на власний розсуд і під власну відповідальність.",
+  "The daily digest and analytical articles": "Щоденний огляд і аналітичні статті",
+  "The daily digest of key events and analytical articles grounded in research.": "Щоденний огляд ключових подій і аналітичні статті на основі досліджень.",
   "What is happening, and why": "Що відбувається і чому",
   "Forecasts: what will happen, and when": "Прогнози: що станеться і коли",
   "What will happen, and when.": "Що станеться і коли.",

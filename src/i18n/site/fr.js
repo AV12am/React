@@ -1,6 +1,9 @@
 // Français for the public site: its English texts and the English that SITUATION and CONTEXT are first put into (./en.js).
 /* eslint-disable */
 export const FROM_EN = {
+  "The materials on this page are provided for information only. They are not advice of any kind — investment, legal, political or other — and not a scientifically validated prediction. Assessments, data and probabilities reflect an analysis of open sources at the time of publication and may change. Use them at your own discretion and risk.": "Les contenus de cette page sont fournis à titre d’information uniquement. Ils ne constituent pas un conseil de quelque nature que ce soit — financier, juridique, politique ou autre — ni une prévision scientifiquement validée. Les évaluations, données et probabilités reflètent une analyse de sources ouvertes au moment de la publication et peuvent évoluer. Leur utilisation relève de votre seule appréciation et de votre responsabilité.",
+  "The daily digest and analytical articles": "La synthèse quotidienne et des articles d’analyse",
+  "The daily digest of key events and analytical articles grounded in research.": "La synthèse quotidienne des événements clés et des articles d’analyse fondés sur la recherche.",
   "What is happening, and why": "Ce qui se passe, et pourquoi",
   "Forecasts: what will happen, and when": "Prévisions : ce qui va arriver, et quand",
   "What will happen, and when.": "Ce qui va arriver, et quand.",
