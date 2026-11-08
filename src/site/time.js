@@ -24,6 +24,9 @@ const L = {
     left: (n) => `${n} days to the check`, done: 'checked', pick: 'Pick a scenario — its flows and paths light up.', reset: 'All scenarios' },
 };
 const lab = (f) => L[f.lang] || L.en;
+// The brief's PDF: a small icon that downloads it.
+const PDF_SVG = '<svg width="16" height="18" viewBox="0 0 16 18" aria-hidden="true"><path d="M3 1h7l4 4v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M10 1v4h4" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="8" y="13.5" text-anchor="middle" font-size="4.6" font-weight="700" fill="currentColor" font-family="Inter, sans-serif">PDF</text></svg>';
+const pdfIcon = (f) => (f.pdf ? `<a class="tm-pdf" href="${esc(f.pdf)}" download="${esc(f.pdf.split('/').pop())}" title="${esc(lab(f).pdf)}" aria-label="${esc(lab(f).pdf)}">${PDF_SVG}</a>` : '');
 const pc = (x, f, d = 2) => `${(x * 100).toLocaleString(lab(f).loc, { minimumFractionDigits: d, maximumFractionDigits: d })}%`;
 const num = (x, f) => x.toLocaleString(lab(f).loc, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const dmy = (d, f) => new Date(t(d)).toLocaleDateString(lab(f).loc, { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
@@ -52,7 +55,7 @@ function timeline(list) {
 ${months.map((m) => `<g class="mo"><line x1="${x(m)}" x2="${x(m)}" y1="22" y2="${h}"/><text x="${x(m) + 6}" y="16">${new Date(m).toLocaleDateString('en-GB', { month: 'short', year: '2-digit', timeZone: 'UTC' })}</text></g>`).join('')}
 <g class="now"><line x1="${x(now)}" x2="${x(now)}" y1="22" y2="${h}"/><text x="${x(now) + 6}" y="36">today</text></g>${rows}</svg>`;
   box.querySelectorAll('[data-go]').forEach((g) => {
-    const go = () => document.getElementById(g.dataset.go)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const go = () => { location.href = `/time?f=${encodeURIComponent(g.dataset.go)}`; };
     g.addEventListener('click', go); g.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
   });
   const r = trackRecord(list);
@@ -94,7 +97,7 @@ function card(f) {
   const ms = (f.milestones || []).map((m) => { const at = m.date ? t(m.date) : t(`${m.month}-15`); return `<span class="tm-m" style="left:${(Math.min(1, Math.max(0, (at - t(f.published)) / span)) * 100).toFixed(1)}%">${esc(m.label)}</span>`; }).join('');
   return `<article class="tm" id="${esc(f.id)}" lang="${esc(f.lang || 'en')}" data-no-i18n>
 <div class="tm-top"><span>№ ${String(f.no || '').padStart(2, '0')}</span><span>${esc(f.topic)}</span><span>${l.conf}: ${esc(f.confidence)}</span><span class="chip ${f.status === 'happened' ? 'ok' : f.status === 'not' ? 'no' : ''}">${l.status[f.status] || l.status.open}</span>${b !== null ? `<span class="chip">Brier ${b.toFixed(3)}</span>` : ''}
-${f.pdf ? `<a class="btn btn-line tm-pdf" href="${esc(f.pdf)}" download>${l.pdf} <span class="ar">↓</span></a>` : ''}</div>
+${pdfIcon(f)}</div>
 <h2>${esc(f.question)}</h2>
 ${f.resolves ? `<p class="tm-res">${esc(f.resolves)}</p>` : ''}
 <div class="tm-when"><div class="tm-bar"><b style="width:${(done * 100).toFixed(1)}%"></b>${ms}</div>
@@ -110,23 +113,13 @@ ${f.scenarios.map((s) => `<tr data-h="${s.id}" tabindex="0"><td><b>${esc(s.id)}<
 </div>
 <div class="tm-box"><span class="tm-k">${l.flows}</span>${flows(f)}</div>
 <div class="tm-box"><span class="tm-k">${l.position}</span><p>${esc(f.position)}</p></div>
-<div class="tm-two">
-<div class="tm-box"><span class="tm-k">${l.all}</span><table class="tm-paths"><tbody>${f.paths.map((p) => `<tr data-h="${p.h}" data-n="${p.n}"><td>${esc([p.h, ...p.steps].join(' → '))}</td><td>${pc(p.p, f)}</td><td>${esc(p.n)}</td></tr>`).join('')}</tbody></table></div>
-<div class="tm-box"><span class="tm-k">${l.changes}</span><table class="tm-sens"><tbody>${(f.sensitivity || []).map((s) => `<tr data-h="${esc(s.h || '')}"><td>${esc(s.if)}</td><td>${esc(s.then)}</td></tr>`).join('')}</tbody></table>
-${f.limits ? `<p class="tm-note">${esc(f.limits)}</p>` : ''}${f.next ? `<p class="tm-note">${esc(f.next)}</p>` : ''}</div>
-</div>
-<details class="tm-more"><summary>${l.method}</summary>
-<div class="tm-box"><span class="tm-k">${l.coef}</span><table class="tm-coef"><thead><tr><th>${l.level}</th><th>${l.variable}</th><th>${l.values}</th><th>${l.why}</th></tr></thead><tbody>
-${(f.coefficients || []).map((c) => `<tr><td>${c.level}</td><td>${esc(c.variable)}</td><td class="nw">${esc(c.values)}</td><td>${esc(c.why)}</td></tr>`).join('')}</tbody></table></div>
-<div class="tm-two"><div class="tm-box"><span class="tm-k">${l.research}</span><ul class="tm-list">${(f.research || []).map((r) => `<li>${esc(r.text)}<em>${esc(r.use)}</em></li>`).join('')}</ul></div>
-<div class="tm-box"><span class="tm-k">${l.sources}</span><ul class="tm-list">${(f.sources || []).map((s) => `<li>${s.url ? `<a class="lnk" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.title)}</a>` : esc(s.title)}<em>${esc(s.grade || '')}</em></li>`).join('')}</ul></div></div>
-</details>
 </article>`;
 }
 
 // Picking a scenario: its rows, flows, paths and «what changes» light up; the rest fade.
 function interact(el) {
   const reset = el.querySelector('.tm-reset');
+  if (!reset) return;
   const pick = (h) => {
     el.classList.toggle('picked', Boolean(h));
     el.querySelectorAll('[data-h]').forEach((x) => x.classList.toggle('on', Boolean(h) && x.dataset.h === h));
@@ -142,14 +135,32 @@ function interact(el) {
   reset.addEventListener('click', () => { cur = null; pick(null); });
 }
 
+// One row per forecast: what, the probability, the check date, the PDF; the row opens the forecast.
+function row(f) {
+  const l = lab(f);
+  return `<div class="tm-row" lang="${esc(f.lang || 'en')}" data-no-i18n><a class="tm-open" href="/time?f=${encodeURIComponent(f.id)}">
+<span class="tm-rk">№ ${String(f.no || '').padStart(2, '0')} · ${esc(f.topic)}</span>
+<span class="tm-rt">${esc(f.short || f.question)}</span>
+<span class="tm-rq">${esc(f.question)}</span></a>
+<span class="tm-rp">${pc(f.p, f)}</span><span class="tm-rd">${l.check} · ${dmy(f.check, f)}</span>${pdfIcon(f)}</div>`;
+}
+
 (async () => {
   let all = [];
   try { all = (await (await fetch('/data/time.json', { cache: 'no-cache' })).json()).forecasts || []; } catch { /* none yet */ }
   const list = visibleForecasts(all, new URLSearchParams(location.search).has('drafts')).sort((a, b) => t(a.check) - t(b.check));
   const box = document.getElementById('tm-list');
+  const id = new URLSearchParams(location.search).get('f');
+  const one = id && list.find((f) => f.id === id);
+  if (one) {
+    // The forecast's own page: its first page, edge to edge.
+    document.body.classList.add('tm-single');
+    document.title = `${one.short || one.question} · TIME · Reaction`;
+    box.innerHTML = `<a class="tm-back" href="/time">← TIME</a>${card(one)}`;
+    box.querySelectorAll('.tm').forEach(interact);
+    return;
+  }
   if (!list.length) { document.getElementById('timeline').innerHTML = '<p class="meta">No forecasts published yet.</p>'; return; }
   timeline(list);
-  box.innerHTML = list.map(card).join('');
-  box.querySelectorAll('.tm').forEach(interact);
-  if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
+  box.innerHTML = list.map(row).join('');
 })();
