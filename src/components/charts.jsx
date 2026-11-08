@@ -31,9 +31,11 @@ export function Legend({ items }) {
 export function Spark({ data, color = 'var(--sit-c1)' }) {
   const [ref, w] = useWidth(80);
   const h = 36;
-  const max = Math.max(1, ...data);
+  const vals = data.filter(Number.isFinite);
+  const min = Math.min(0, ...vals);
+  const max = Math.max(min < 0 ? 0 : 1, ...vals);
   const x = (i) => (i / Math.max(1, data.length - 1)) * (w - 4) + 2;
-  const y = (v) => h - 3 - (v / max) * (h - 8);
+  const y = (v) => h - 3 - (((Number.isFinite(v) ? v : 0) - min) / (max - min || 1)) * (h - 8);
   const line = data.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
   return (
     <div className="sit-spark" ref={ref} aria-hidden="true">
@@ -97,9 +99,14 @@ export function Lines({ labels, series, height = 200, unit = '' }) {
   const [ref, w] = useWidth();
   const [hover, setHover] = useState(null);
   const pad = { l: 30, r: 10, t: 10, b: 24 };
-  const max = niceMax(Math.max(1, ...series.flatMap((s) => s.data)));
+  // The scale takes in values below zero too (a fall of GDP, a negative tone): from a round minimum to a round maximum.
+  const vals = series.flatMap((s) => s.data).filter(Number.isFinite);
+  const low = Math.min(0, ...vals);
+  const max = niceMax(Math.max(low < 0 ? 0.1 : 1, ...vals));
+  const min = low < 0 ? -niceMax(-low) : 0;
+  const ticks = min < 0 ? [min, 0, max] : [0, max / 2, max];
   const x = (i) => pad.l + (i / Math.max(1, labels.length - 1)) * (w - pad.l - pad.r);
-  const y = (v) => pad.t + (1 - v / max) * (height - pad.t - pad.b);
+  const y = (v) => pad.t + (1 - ((Number.isFinite(v) ? v : 0) - min) / (max - min)) * (height - pad.t - pad.b);
   const onMove = (e) => {
     const r = e.currentTarget.getBoundingClientRect();
     const i = Math.round(((e.clientX - r.left - pad.l) / (w - pad.l - pad.r)) * (labels.length - 1));
@@ -108,9 +115,9 @@ export function Lines({ labels, series, height = 200, unit = '' }) {
   return (
     <div className="vx-chart" ref={ref}>
       <svg height={height} onMouseMove={onMove} onMouseLeave={() => setHover(null)} role="img" aria-label="Лінійний графік">
-        <g className="grid">{[0, max / 2, max].map((t) => <line key={t} x1={pad.l} x2={w - pad.r} y1={y(t)} y2={y(t)} />)}</g>
+        <g className="grid">{ticks.map((t) => <line key={t} x1={pad.l} x2={w - pad.r} y1={y(t)} y2={y(t)} />)}</g>
         <g className="axis">
-          {[0, max / 2, max].map((t) => <text key={t} x={pad.l - 6} y={y(t) + 4} textAnchor="end">{t}</text>)}
+          {ticks.map((t) => <text key={t} x={pad.l - 6} y={y(t) + 4} textAnchor="end">{t}</text>)}
           {labels.map((l, i) => (i % 2 === 1 || i === labels.length - 1) && <text key={i} x={x(i)} y={height - 6} textAnchor="middle">{l}</text>)}
         </g>
         {series.map((s, k) => (

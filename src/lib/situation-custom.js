@@ -26,12 +26,15 @@ export const EXTERNAL = {
   'ext:gdelt-tone': { label: 'Світові медіа · тон публікацій (GDELT)', fields: [{ id: 'date', label: 'Дата', type: 'date' }, { id: 'value', label: 'Тон', type: 'number' }] },
   'ext:gdelt-arts': { label: 'Світові медіа · статті тижня (GDELT)', fields: [{ id: 'title', label: 'Заголовок', type: 'text' }, { id: 'domain', label: 'Видання', type: 'select' }, { id: 'country', label: 'Країна видання', type: 'select' }, { id: 'language', label: 'Мова', type: 'select' }, { id: 'date', label: 'Дата', type: 'date' }] },
   'ext:prozorro': { label: 'Prozorro · закупівлі компанії як замовника', fields: [{ id: 'title', label: 'Предмет закупівлі', type: 'text' }, { id: 'status', label: 'Стан', type: 'select' }, { id: 'amount', label: 'Очікувана вартість, грн', type: 'number' }, { id: 'date', label: 'Дата', type: 'date' }, { id: 'method', label: 'Процедура', type: 'select' }, { id: 'id', label: 'Номер', type: 'text' }] },
+  'ext:company': { label: 'Компанія · картка з реєстрів (ЄДР, GLEIF, Wikidata)', fields: [{ id: 'name', label: 'Назва', type: 'text' }, { id: 'code', label: 'ЄДРПОУ', type: 'text' }, { id: 'status', label: 'Стан', type: 'select' }, { id: 'head', label: 'Керівник', type: 'text' }, { id: 'owners', label: 'Власники й бенефіціари', type: 'text' }, { id: 'activity', label: 'Основний вид діяльності', type: 'text' }, { id: 'capital', label: 'Статутний капітал', type: 'text' }, { id: 'registered', label: 'Зареєстровано', type: 'date' }, { id: 'address', label: 'Адреса', type: 'text' }, { id: 'employees', label: 'Працівників', type: 'number' }, { id: 'lei', label: 'LEI', type: 'text' }, { id: 'website', label: 'Сайт', type: 'text' }] },
+  'ext:company-people': { label: 'Компанія · керівники, засновники, бенефіціари', fields: [{ id: 'role', label: 'Роль', type: 'select' }, { id: 'name', label: 'Особа або компанія', type: 'text' }, { id: 'share', label: 'Частка', type: 'text' }, { id: 'country', label: 'Країна', type: 'select' }, { id: 'source', label: 'Джерело', type: 'select' }] },
+  'ext:company-tree': { label: 'Компанія · структура групи (материнські й дочірні)', fields: [{ id: 'relation', label: 'Зв’язок', type: 'select' }, { id: 'name', label: 'Компанія', type: 'text' }, { id: 'country', label: 'Країна', type: 'select' }, { id: 'lei', label: 'LEI', type: 'text' }, { id: 'source', label: 'Джерело', type: 'select' }] },
   'ext:wb': { label: 'Світовий банк · показники країн', fields: [{ id: 'country', label: 'Країна', type: 'select' }, { id: 'date', label: 'Рік', type: 'date' }, { id: 'value', label: 'Значення', type: 'number' }] },
 };
 /** Where an outside source's rows are kept (`state.ext`): one key per source and its settings. */
 export const extKey = (cfg) => (cfg.source === 'ext:wb' ? `wb:${cfg.ind || WB_INDICATORS[0][0]}:${(cfg.countries || ['UKR']).join(';')}`
   : cfg.source.startsWith('ext:gdelt-') ? `gd:${cfg.source.slice(10)}:${cfg.q || ''}`
-    : cfg.source === 'ext:prozorro' ? `pz:${cfg.code || ''}` : cfg.source);
+    : cfg.source === 'ext:prozorro' || cfg.source.startsWith('ext:company') ? `${cfg.source}:${cfg.code || ''}` : cfg.source);
 
 // ── The subject of a dashboard: what is being analysed ─────────────────────────────────────────────────────────────
 // { kind: country|company|sector|topic, label, iso3?, code?, sector?, q } — `q` is the query for the world's media.
@@ -94,6 +97,11 @@ export function defaultCfg(source, state) {
   if (source === 'ext:wb') return { source, visual: 'lines', group: 'country', measure: 'avg', field: 'value', time: 'date', grain: 'year', span: 'all', ind: WB_INDICATORS[0][0], countries: ['UKR', 'POL', 'DEU'] };
   if (source === 'ext:gpr') return { source, visual: 'lines', group: '', measure: 'avg', field: 'value', time: 'date', grain: 'week', span: 'board' };
   if (source === 'ext:orgs') return { source, visual: 'bars', group: 'sector', measure: 'count', field: '', time: '', span: 'all' };
+  // The company sources and Prozorro follow the dashboard's company ('$code').
+  if (source === 'ext:company') return { source, code: '$code', visual: 'card', span: 'all' };
+  if (source === 'ext:company-people') return { source, code: '$code', visual: 'table', group: 'role', measure: 'count', field: '', time: '', span: 'all' };
+  if (source === 'ext:company-tree') return { source, code: '$code', visual: 'table', group: 'relation', measure: 'count', field: '', time: '', span: 'all' };
+  if (source === 'ext:prozorro') return { source, code: '$code', visual: 'table', group: 'status', measure: 'count', field: '', time: 'date', span: 'all' };
   if (source === 'ext:news') return { source, visual: 'donut', group: 'section', measure: 'count', field: '', time: '', span: 'all' };
   return { source, visual: 'columns', group: group?.id || '', measure: 'count', field: '', time: time?.id || '', color: 0 };
 }
@@ -114,6 +122,15 @@ export function rowsOf(source, state, me, filters = {}, cfg = { source }) {
 function baseRows(source, state, me, filters, cfg) {
   const see = (x) => (x.clearance ?? 0) <= me.clearance;
   if (source === 'ext:orgs') return ORG_ROWS();
+  if (source === 'ext:company') {
+    // The registers' card, with what the register of leading companies adds (owners, website) where they are silent.
+    const rows = state.ext?.[extKey(cfg)] || [];
+    const org = ORG_ROWS().find((o) => o.code === cfg.code);
+    if (!org) return rows;
+    const base = rows[0] || { id: org.code, name: org.legal || org.name, code: org.code, sources: [], notes: [] };
+    const fill = (v, w) => (v == null || v === '' ? w || '' : v);
+    return [{ ...base, owners: fill(base.owners, org.owners), website: fill(base.website, org.website), sources: [...(base.sources || []), ...(org.source ? [{ name: 'Довідник провідних компаній', url: org.source }] : [])] }];
+  }
   if (EXTERNAL[source]) return state.ext?.[extKey(cfg)] || [];
   if (source === 'records') return (state.records || []).filter((r) => see(r) && (!filters.div || r.div === filters.div) && VISIBLE_DIVISIONS.some((d) => d.id === r.div));
   if (source.startsWith('reg:')) { const [div, col] = source.slice(4).split('/'); return (state.records || []).filter((r) => see(r) && r.div === div && r.col === col); }
@@ -182,7 +199,9 @@ export function computeCustom(cfg, state, me, filters = {}, now = Date.now()) {
 
   // Bound to a field the subject does not have (a company outside the register: no sector): nothing, and why.
   if (cfg.match?.field && !cfg.match.value && cfg.visual !== 'card') return { empty: true, note: cfg.match.field === 'sector' ? 'Вкажіть галузь об’єкта («Змінити об’єкт»), щоб побачити компанії галузі.' : 'Об’єкту бракує даних для цього віджета («Змінити об’єкт»).' };
-  if (!rows.length && EXTERNAL[cfg.source] && cfg.visual !== 'card') return { empty: true, note: 'Даних від джерела ще немає (воно відповідає за кілька секунд або не знайшло нічого за запитом).' };
+  // An outside source still on its way is «loading», not «nothing found».
+  if (!rows.length && EXTERNAL[cfg.source] && cfg.source !== 'ext:orgs' && state.ext && !(extKey(cfg) in state.ext)) return { empty: true, loading: true, note: cfg.source.startsWith('ext:gdelt-') ? 'Завантажується зі світових медіа… GDELT відповідає по черзі, до хвилини.' : 'Завантажується…' };
+  if (!rows.length && EXTERNAL[cfg.source] && cfg.visual !== 'card') return { empty: true, note: 'Джерело не знайшло нічого за цим запитом.' };
   switch (cfg.visual) {
     case 'kpi': {
       // A yearly series: its latest year against the year before.
@@ -232,9 +251,11 @@ export function computeCustom(cfg, state, me, filters = {}, now = Date.now()) {
       if (!r) {
         const items = Object.entries(cfg.fallback || {}).filter(([, v]) => v).map(([label, value]) => ({ label, value }));
         const code = cfg.fallback?.['ЄДРПОУ'];
-        return { items, url: code ? `https://opendatabot.ua/c/${code}` : '', note: 'Компанії немає в довіднику 200 провідних. Повні дані — в реєстрі за кодом ЄДРПОУ.', outside: true };
+        return { items, url: code ? `https://opendatabot.ua/c/${code}` : '', note: cfg.source === 'ext:company' ? 'Реєстри ще відповідають або не знайшли компанію за цим кодом.' : 'Компанії немає в довіднику 200 провідних. Повні дані — в реєстрі за кодом ЄДРПОУ.', outside: true };
       }
-      return { items: fields.filter((f) => r[f.id] != null && r[f.id] !== '').map((f) => ({ label: f.label, value: labelOf(f, r[f.id], state) })), url: r.url || r.source || '' };
+      const items = fields.filter((f) => r[f.id] != null && r[f.id] !== '').map((f) => ({ label: f.label, value: labelOf(f, r[f.id], state) }));
+      if (r.sources) return { items, sources: r.sources, notes: r.notes || [] };
+      return { items, url: r.url || r.source || '' };
     }
     case 'slicer': {
       if (!group) return { rows: [] };

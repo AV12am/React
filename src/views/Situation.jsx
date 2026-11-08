@@ -123,6 +123,19 @@ function News() {
 const EXT_CACHE = new Map(); // key → Promise<rows>
 let gdeltChain = Promise.resolve();
 const gdeltTurn = (fn) => { const p = gdeltChain.then(fn); gdeltChain = p.then(() => new Promise((r) => setTimeout(r, 5500)), () => new Promise((r) => setTimeout(r, 5500))); return p; };
+// The three company sources share one answer of the server.
+const COMPANY = new Map();
+const companyOf = (code) => {
+  if (!COMPANY.has(code)) {
+    COMPANY.set(code, (async () => {
+      const res = await fetch(new URL(`api/pulse?company=${code}`, document.baseURI), { headers: supabaseOn ? await authHeaders() : {} });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.message || `HTTP ${res.status}`);
+      return j;
+    })().catch((e) => { COMPANY.delete(code); throw e; }));
+  }
+  return COMPANY.get(code);
+};
 async function fetchExt(cfg) {
   const key = extKey(cfg);
   if (!EXT_CACHE.has(key)) {
@@ -140,12 +153,12 @@ async function fetchExt(cfg) {
         const kind = cfg.source.slice(10);
         // GDELT answers one question per five seconds: the page's questions go one after another, and a
         // «wait» is asked again a little later (three times at most).
-        for (let i = 0; i < 4; i++) {
+        for (let i = 0; i < 7; i++) {
           const res = await gdeltTurn(async () => fetch(new URL(`api/pulse?gdelt=${kind}&q=${encodeURIComponent(cfg.q)}`, document.baseURI), { headers: supabaseOn ? await authHeaders() : {} }));
           const j = await res.json().catch(() => ({}));
           if (res.ok) return (j.rows || []).map((r, k) => ({ id: `${kind}-${k}`, ...r }));
           if (res.status !== 429) throw new Error(j.message || `HTTP ${res.status}`);
-          await new Promise((r) => setTimeout(r, 7000));
+          await new Promise((r) => setTimeout(r, 6000 + i * 2000));
         }
         throw new Error('GDELT зайнятий — спробуйте за хвилину');
       }
@@ -155,6 +168,13 @@ async function fetchExt(cfg) {
         const j = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(j.message || `HTTP ${res.status}`);
         return j.rows || [];
+      }
+      if (cfg.source.startsWith('ext:company')) {
+        if (!/^\d{8}$/.test(cfg.code || '')) throw new Error('вкажіть ЄДРПОУ компанії («Змінити об’єкт»)');
+        const j = await companyOf(cfg.code);
+        if (cfg.source === 'ext:company') return j.card?.name ? [{ id: cfg.code, ...j.card, url: j.sources?.[0]?.url || '', notes: j.notes, sources: j.sources }] : [];
+        const list = cfg.source === 'ext:company-people' ? j.people : j.tree;
+        return (list || []).map((r, i) => ({ id: `${cfg.code}-${i}`, ...r }));
       }
       if (cfg.source === 'ext:wb') {
         const [ind, countries] = [cfg.ind || WB_INDICATORS[0][0], (cfg.countries || ['UKR']).join(';')];
@@ -215,6 +235,8 @@ function Visual({ kind, v, label = '', filters = {}, setFilter, divFilter = fals
     case 'slicer': return <Slicer v={v} sel={filters.sel} onPick={onPick || (() => {})} />;
     case 'card': return v.items?.length ? (
       <dl className="sit-card">{v.outside && <div className="sit-card__note vx-hint">{v.note}</div>}{v.items.map((x) => <div key={x.label}><dt>{x.label}</dt><dd>{/^https?:\/\//.test(x.value) ? <a href={x.value} target="_blank" rel="noopener noreferrer">{x.value.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40)}</a> : x.value}</dd></div>)}
+        {v.sources?.length > 0 && <div><dt>Джерела</dt><dd>{v.sources.map((x, i) => <span key={x.name}>{i > 0 && ' · '}<a href={x.url} target="_blank" rel="noopener noreferrer">{x.name}</a></span>)}</dd></div>}
+        {v.notes?.length > 0 && <div className="sit-card__note vx-hint">{v.notes.join(' ')}</div>}
         {v.url && <div><dt>{v.outside ? 'Реєстр' : 'Джерело'}</dt><dd><a href={v.url} target="_blank" rel="noopener noreferrer">{v.outside ? 'відкрити в Opendatabot' : 'реєстр (Opendatabot)'}</a></dd></div>}</dl>
     ) : <div className="vx-hint">{v.note || 'Немає даних.'}</div>;
     case 'gauge': return v.empty ? <div className="vx-hint">Завдань із терміном у періоді немає.</div> : <><Gauge value={v.value} label={label} /><div className="vx-hint sit-center">{v.note}</div></>;

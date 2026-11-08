@@ -13,6 +13,7 @@
 // GET /api/pulse   Authorization: Bearer <Supabase access token>  → { at, index, headlines, source, provisional }
 import { newsGet } from './_news.js';
 import { json, db, caller, siteCaller } from './_core.js';
+import { companyProfile } from './_company.js';
 import * as XLSX from 'xlsx';
 import { timeline, anxiety, QUERY, FEEDS, parseFeed, crisisShare, ownIndex, cleanHeadlines, sharesByDay, GPR_URL, parseGpr, gprIndex, ANALYSIS_FEEDS, pickHeadlines } from '../src/lib/pulse.js';
 
@@ -116,9 +117,13 @@ export async function subjectMedia(kind, q, now = Date.now(), fetchImpl = fetch)
   const id = `gd-${kind}-${hashOf(q)}`;
   const kept = await read(id);
   if (kept?.at && now - Date.parse(kept.at) < 6 * HOUR && kept.q === q) return kept;
-  const res = await fetchImpl(`${GDELT}?${new URLSearchParams({ query: q, format: 'json', ...GD_MODES[kind] })}`, { headers: { 'User-Agent': 'ReactionCore/1.0 (situation dashboards)' }, signal: AbortSignal.timeout(15000) });
+  // An older answer is better than none when GDELT is busy or down: it is given back, marked stale.
+  const stale = kept?.q === q && kept.rows?.length ? { ...kept, stale: true } : null;
+  let res;
+  try { res = await fetchImpl(`${GDELT}?${new URLSearchParams({ query: q, format: 'json', ...GD_MODES[kind] })}`, { headers: { 'User-Agent': 'ReactionCore/1.0 (situation dashboards)' }, signal: AbortSignal.timeout(15000) }); } catch (e) { if (stale) return stale; throw e; }
   const text = await res.text();
-  if (res.status === 429 || /limit requests|please limit/i.test(text)) { const e = new Error('GDELT просить зачекати'); e.status = 429; throw e; }
+  if (res.status === 429 || /limit requests|please limit/i.test(text)) { if (stale) return stale; const e = new Error('GDELT просить зачекати'); e.status = 429; throw e; }
+  if (!res.ok && stale) return stale;
   if (!res.ok) throw new Error(`GDELT ${res.status}`);
   let j; try { j = JSON.parse(text); } catch { throw new Error(/query/i.test(text) ? `GDELT: ${text.slice(0, 120)}` : 'GDELT: незрозуміла відповідь'); }
   const rows = kind === 'arts'
@@ -184,6 +189,12 @@ export async function GET(req) {
     if (!/^\d{8}$/.test(code)) return json(400, { error: 'code', message: 'Потрібен код ЄДРПОУ (8 цифр)' });
     if (!(await caller(req)) && !(await siteCaller(req))) return json(401, { error: 'signin', message: 'Потрібен вхід із підтвердженням ключем' });
     try { return json(200, await companyTenders(code)); } catch (e) { return json(502, { error: 'prozorro', message: e.message }); }
+  }
+  if (sp.has('company')) {
+    const code = String(sp.get('company') || '').replace(/\D/g, '');
+    if (!/^\d{8}$/.test(code)) return json(400, { error: 'code', message: 'Потрібен код ЄДРПОУ (8 цифр)' });
+    if (!(await caller(req)) && !(await siteCaller(req))) return json(401, { error: 'signin', message: 'Потрібен вхід із підтвердженням ключем' });
+    try { return json(200, await companyProfile(code)); } catch (e) { return json(502, { error: 'company', message: e.message }); }
   }
   if (sp.has('news')) return newsGet(req); // CONTEXT News (api/_news.js)
   if (sp.has('gdelt')) {
