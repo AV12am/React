@@ -57,7 +57,6 @@ html{scroll-behavior:smooth}
 .hero canvas{position:absolute;top:0;right:0;width:64%;height:100%;display:block;cursor:grab;touch-action:pan-y}
 .hero canvas.is-grabbing{cursor:grabbing}
 .hero canvas.glow{pointer-events:none;cursor:default}
-.hero::after{content:"";position:absolute;inset:auto 0 0 0;height:220px;background:linear-gradient(180deg,rgba(10,10,10,0) 0%,rgba(10,10,10,0.25) 30%,rgba(10,10,10,0.6) 60%,rgba(10,10,10,0.88) 85%,var(--bg) 100%);pointer-events:none}
 .cue{position:absolute;left:50%;bottom:28px;width:1px;height:48px;background:linear-gradient(180deg,transparent,var(--ink-3));z-index:2;animation:cue 2.4s var(--ease) infinite}
 
 /* ── below the hero ── */

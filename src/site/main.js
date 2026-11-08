@@ -82,7 +82,9 @@ function start(canvas) {
         for (let x = 0; x < W; x++, i++) {
           const q = ((x - cx) ** 2 + dy) / R2;
           const f = q < 1 ? (1 - q) ** 2.2 : 0;
-          const v = Math.round(10 + 13 * f + (Math.random() - 0.5) * 1.1);
+          // Dither only where there is light, and less of it towards the rim: outside the circle the pixel is exactly the
+          // page's black, so the canvas's own edges never show as lines.
+          const v = f > 0 ? Math.round(10 + 13 * f + (Math.random() - 0.5) * 1.1 * Math.min(1, f * 8)) : 10;
           px[i] = 0xff000000 | (v << 16) | (v << 8) | v;
         }
       }
