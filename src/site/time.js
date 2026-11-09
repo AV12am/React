@@ -193,7 +193,7 @@ function row(f) {
   if (one) {
     // The forecast's own page: its first page, edge to edge.
     document.body.classList.add('tm-single');
-    document.title = `${one.short || one.question} · TIME · Reaction`;
+    document.title = `${one.short || one.question} · TIME · Reaction Core`;
     box.innerHTML = `<a class="tm-back" href="/time">← TIME</a>${card(one)}`;
     box.querySelectorAll('.tm').forEach(interact);
     return;

@@ -178,5 +178,5 @@ export const TEMPLATES_EN = [
   ['The sheet did not open (HTTP {}). Set access to “Anyone with the link”.', 'La feuille ne s’est pas ouverte (HTTP {}). Réglez l’accès sur « Tous les utilisateurs disposant du lien ».'],
   ['Widgets reading “{}” will become empty.', 'Les widgets qui lisent « {} » seront vides.'], ['My data · {}', 'Mes données · {}'], ['Open data · {}', 'Données ouvertes · {}'],
   ['{} · Open data · {}', '{} · Données ouvertes · {}'], ['W-{}', 'S-{}'], ['previous period: {}', 'période précédente : {}'], ['Column {}', 'Colonne {}'], ['{} by “{}”', '{} par « {} »'], ['; shown {}', ' ; affiché {}'],
-  ['{} · Reaction', '{} · Reaction'],
+  ['{} · Reaction Core', '{} · Reaction Core'], ['{} · Reaction', '{} · Reaction'],
 ];

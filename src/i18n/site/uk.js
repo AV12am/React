@@ -72,4 +72,4 @@ export const FROM_EN = {
   'Sections': 'Розділи', 'Digest': 'Огляд', 'Forecasts': 'Прогнози', 'Full issue': 'Повний випуск', 'Loading the latest issue…': 'Завантажую останній випуск…',
   'Building': 'Збираю', 'CONTEXT News — loading': 'CONTEXT News — завантаження', 'Forecast': 'Прогноз', 'Draft': 'Чернетка', 'published': 'опубліковано', 'open': 'відкритий', 'checked': 'перевірено',
 };
-export const TEMPLATES_EN = [['{} · Reaction', '{} · Reaction']];
+export const TEMPLATES_EN = [['{} · Reaction Core', '{} · Reaction Core'], ['{} · Reaction', '{} · Reaction']];
