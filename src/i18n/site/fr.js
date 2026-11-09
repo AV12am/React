@@ -1,6 +1,7 @@
 // Français for the public site: its English texts and the English that SITUATION and CONTEXT are first put into (./en.js).
 /* eslint-disable */
 export const FROM_EN = {
+  "Loading SITUATION…": "Chargement de SITUATION…",
   "Download PDF": "Télécharger le PDF",
   "← About": "← À propos",
   "Loading…": "Chargement…",

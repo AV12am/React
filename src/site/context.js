@@ -77,12 +77,13 @@ async function digest() {
   // The state is told in the digest itself too: on a phone the bar's date line is hidden, and an empty page
   // looked broken while the issue was loading or being made.
   const wait = (text) => { meta.textContent = text; if (!body.querySelector('details')) body.innerHTML = `<p class="dg-wait">${esc(text)}</p>`; };
-  wait(say.loading);
+  // «Loading» only when it takes a while (a quick answer shows the issue straight away, nothing flickers).
+  const slow = setTimeout(() => wait(say.loading), 800);
   try {
     // A slow network or a stuck request ends in the «not available» message after 30 s, not in an empty page.
     const ctl = new AbortController();
     const stop = setTimeout(() => ctl.abort(), 30000);
-    const res = await fetch('/api/pulse?news=1', { signal: ctl.signal }).finally(() => clearTimeout(stop));
+    const res = await fetch('/api/pulse?news=1', { signal: ctl.signal }).finally(() => { clearTimeout(stop); clearTimeout(slow); });
     const j = await res.json().catch(() => ({}));
     if (res.ok && !j.sections?.length && j.making) { wait(say.making); setTimeout(digest, 20000); return; }
     if (!res.ok || !j.sections?.length) throw new Error(j.message || 'empty');

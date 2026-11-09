@@ -2,6 +2,7 @@
 // and CONTEXT are first put into (./en.js). Names (REACTIONcore, CONTEXT, SITUATION, GDELT…) stay as they are.
 /* eslint-disable */
 export const FROM_EN = {
+  "Loading SITUATION…": "SITUATION wird geladen…",
   "Download PDF": "PDF herunterladen",
   "← About": "← Über uns",
   "Loading…": "Wird geladen…",

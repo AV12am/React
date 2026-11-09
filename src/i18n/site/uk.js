@@ -1,6 +1,7 @@
 // Українська for the public site's English texts (the pages, header, footer). SITUATION and CONTEXT are Ukrainian already.
 /* eslint-disable */
 export const FROM_EN = {
+  "Loading SITUATION…": "Завантаження SITUATION…",
   "Download PDF": "Завантажити PDF",
   "← About": "← Про нас",
   "Loading…": "Завантаження…",

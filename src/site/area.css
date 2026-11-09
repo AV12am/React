@@ -359,5 +359,7 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 .mx .tm-row{position:relative}
 .mx .tm-row .tm-open::after{content:"";position:absolute;inset:0;border-radius:14px}
 .mx .tm-row .tm-pdf{position:relative;z-index:1}
-.mx .dg-wait{color:var(--ink-3);font-size:14px;padding:24px 0;animation:dg-blink 1.6s var(--ease) infinite}
-@keyframes dg-blink{50%{opacity:0.45}}
+.mx .dg-wait{color:var(--ink-3);font-size:14px;padding:24px 0}
+/* SITUATION: «loading» only when the scripts take a while (no flicker on a quick start) */
+.mx .sit-boot{padding-top:48px;min-height:40vh;opacity:0;animation:boot-in 300ms ease 800ms forwards}
+@keyframes boot-in{to{opacity:1}}
