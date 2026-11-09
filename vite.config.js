@@ -11,6 +11,9 @@ const sitePartials = () => ({
   transformIndexHtml: { order: 'pre', handler(html) {
     // A site page also gets the language boot (public/lang-boot.js): no flash of English before the translation.
     // …and the icons search engines and phones read (a white SVG mark is invisible on a white results page).
+    // The site has its own language switcher: browsers' page translation (Edge, Chrome, Safari) is turned off —
+    // two translators on one page fought and froze it.
+    if (html.includes('<!-- @header -->')) html = html.replace('<html lang="en">', '<html lang="en" translate="no">').replace('<head>', '<head>\n    <meta name="google" content="notranslate" />');
     if (html.includes('<!-- @header -->')) html = html.replace('</head>', '    <link rel="icon" type="image/png" sizes="96x96" href="/site-icon-96.png" />\n    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />\n    <script src="/lang-boot.js"></script>\n  </head>');
     return html.replace(/<!-- @(header|footer) -->/g, (_, n) => readFileSync(fileURLToPath(new URL(`./src/site/partials/${n}.html`, import.meta.url)), 'utf8'));
   } },

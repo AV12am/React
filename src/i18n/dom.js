@@ -82,14 +82,26 @@ const skipped = (node) => {
 /** Translate the page now and keep translating whatever the app renders next. */
 export function startTranslator(translate, root = document.body, { scope = null, any = false } = {}) {
   only = scope;
+  // A text that keeps being changed back (a browser's own page translation working against this one) is left
+  // alone after a few rounds: two translators must never loop and freeze the page.
+  const seen = new WeakMap();
   const text = (n) => {
     const t = translate(n.nodeValue);
-    if (t != null && t !== n.nodeValue && !skipped(n)) n.nodeValue = t;
+    if (t == null || t === n.nodeValue || skipped(n)) return;
+    const k = (seen.get(n) || 0) + 1;
+    if (k > 3) return;
+    seen.set(n, k);
+    n.nodeValue = t;
   };
   const attrs = (el) => {
     for (const a of ATTRS) {
       const v = el.getAttribute?.(a);
-      if (v && (any || CYR.test(v)) && !(only && !el.closest(only))) { const t = translate(v); if (t != null && t !== v) el.setAttribute(a, t); }
+      if (v && (any || CYR.test(v)) && !(only && !el.closest(only))) {
+        const t = translate(v);
+        const key = `a:${a}`;
+        const k = ((seen.get(el) || {})[key] || 0) + 1;
+        if (t != null && t !== v && k <= 3) { seen.set(el, { ...(seen.get(el) || {}), [key]: k }); el.setAttribute(a, t); }
+      }
     }
   };
   const walk = (node) => {
