@@ -9,6 +9,8 @@ import tailwindcss from '@tailwindcss/vite';
 const sitePartials = () => ({
   name: 'site-partials',
   transformIndexHtml(html) {
+    // A site page also gets the language boot (public/lang-boot.js): no flash of English before the translation.
+    if (html.includes('<!-- @header -->')) html = html.replace('</head>', '    <script src="/lang-boot.js"></script>\n  </head>');
     return html.replace(/<!-- @(header|footer) -->/g, (_, n) => readFileSync(fileURLToPath(new URL(`./src/site/partials/${n}.html`, import.meta.url)), 'utf8'));
   },
 });

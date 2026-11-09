@@ -23,11 +23,13 @@ const LOAD = { de: () => import('../i18n/site/de.js'), fr: () => import('../i18n
 const LATIN = /[A-Za-z]/;
 const CYR = /[А-ЯІЇЄҐа-яіїєґ]/;
 
+const show = () => document.documentElement.removeAttribute('data-i18n-wait');
+
 /** Starts translating the page. */
 export const ready = (async () => {
   document.documentElement.lang = lang;
   const uk = document.body.hasAttribute('data-uk'); // a page with Ukrainian texts (SITUATION, CONTEXT)
-  if (lang === 'en' && !uk) return;
+  if (lang === 'en' && !uk) return show();
   const [siteEn, work, target] = await Promise.all([
     uk && lang !== 'uk' ? import('../i18n/site/en.js') : null,
     uk && lang !== 'uk' ? import('../i18n/en.js') : null,
@@ -41,7 +43,8 @@ export const ready = (async () => {
     return fromEn(t);
   };
   startTranslator(translate, document.body, { any: true });
-})().catch(() => {});
+  show();
+})().catch(show);
 
 /** The switcher in the header (src/site/partials/header.html): EN ▾ and the list in each language's own name. */
 export function mountSwitcher() {
@@ -49,7 +52,7 @@ export function mountSwitcher() {
     const btn = box.querySelector('button');
     const list = box.querySelector('ul');
     if (!btn || !list) return;
-    btn.firstChild.nodeValue = lang.toUpperCase();
+    btn.firstChild.nodeValue = lang === 'uk' ? 'UA' : lang.toUpperCase(); // Ukrainian shows as UA
     list.innerHTML = LANGS.map(([id, name]) => `<li><button type="button" lang="${id}" data-l="${id}" aria-current="${id === lang}">${name}</button></li>`).join('');
     const close = () => { box.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); };
     btn.addEventListener('click', (e) => { e.stopPropagation(); const o = !box.classList.contains('open'); box.classList.toggle('open', o); btn.setAttribute('aria-expanded', String(o)); });
