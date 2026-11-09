@@ -708,7 +708,7 @@ function Visits() {
             ))}
           </div>
           <Panel title="За днями">
-            <Columns labels={data.daily.map((d) => label(d.day))} series={[{ label: 'Відвідувачі', data: data.daily.map((d) => d.visitors) }, { label: 'Перегляди', data: data.daily.map((d) => d.views) }]} />
+            <div className="sit"><Columns every={Math.max(2, Math.ceil(data.daily.length / 10))} labels={data.daily.map((d) => label(d.day))} series={[{ label: 'Відвідувачі', data: data.daily.map((d) => d.visitors) }, { label: 'Перегляди', data: data.daily.map((d) => d.views) }]} /></div>
           </Panel>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 12, marginTop: 12 }}>
             <Share title="Країни" rows={data.countries} name={regionName} total={tot} />

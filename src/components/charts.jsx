@@ -49,7 +49,7 @@ export function Spark({ data, color = 'var(--sit-c1)' }) {
 }
 
 /** Columns per period, stacked by series: { labels, series: [{ label, data }] }. */
-export function Columns({ labels, series, height = 200, unit = '' }) {
+export function Columns({ labels, series, height = 200, unit = '', every = 2 }) {
   const [ref, w] = useWidth();
   const [hover, setHover] = useState(null);
   const pad = { l: 30, r: 6, t: 10, b: 24 };
@@ -64,7 +64,7 @@ export function Columns({ labels, series, height = 200, unit = '' }) {
         <g className="grid">{[0, max / 2, max].map((t) => <line key={t} x1={pad.l} x2={w - pad.r} y1={y(t)} y2={y(t)} />)}</g>
         <g className="axis">
           {[0, max / 2, max].map((t) => <text key={t} x={pad.l - 6} y={y(t) + 4} textAnchor="end">{t}</text>)}
-          {labels.map((l, i) => (i % 2 === 1 || i === labels.length - 1) && <text key={i} x={pad.l + step * i + step / 2} y={height - 6} textAnchor="middle">{l}</text>)}
+          {labels.map((l, i) => ((labels.length - 1 - i) % every === 0) && <text key={i} x={pad.l + step * i + step / 2} y={height - 6} textAnchor="middle">{l}</text>)}
         </g>
         {labels.map((_, i) => {
           let acc = 0;
