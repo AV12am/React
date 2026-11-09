@@ -11,3 +11,10 @@ burger?.addEventListener('click', () => {
 mob?.addEventListener('click', (e) => { if (e.target.closest('a')) { mob.hidden = true; burger.setAttribute('aria-expanded', 'false'); burger.textContent = 'Menu'; } });
 
 mountSwitcher();
+
+// One visit per page view (api/_visits.js): no cookies, no IP kept. «Do Not Track» is respected.
+try {
+  if (navigator.doNotTrack !== '1' && navigator.sendBeacon && /(^|\.)reactioncore\.uk$/.test(location.hostname)) {
+    navigator.sendBeacon('/api/pulse?visit=1', new Blob([JSON.stringify({ path: location.pathname, ref: document.referrer, lang: document.documentElement.lang })], { type: 'application/json' }));
+  }
+} catch { /* not counted */ }

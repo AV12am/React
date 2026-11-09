@@ -6,7 +6,8 @@ import { Loader } from '../brand/Mark.jsx';
 import { ROLES, CLEARANCE, MODULES, PERMISSIONS } from '../data/seed.js';
 
 import { LEVELS, SEAL, CUSTOS } from '../data/clearance.js';
-import { supabaseOn, rpc, rest, setPassword } from '../lib/supabase.js';
+import { supabaseOn, rpc, rest, setPassword, authHeaders } from '../lib/supabase.js';
+import { Columns } from '../components/charts.jsx';
 import { issueCode, status as passkeyStatus } from '../lib/passkey.js';
 import { validRule, rulesOf, ipAllowed, relayIp } from '../lib/ip.js';
 import { missingFor } from '../data/academy/meta.js';
@@ -31,7 +32,7 @@ export function Access({ tab, setTab, focus, setFocus }) {
         </div>
       </header>
       <nav className="vx-tabs" role="tablist">
-        {[['people', 'Люди'], ['requests', `Запити${pending ? ` · ${pending}` : ''}`], ['roles', 'Ролі та права'], ['levels', 'Рівні допуску'], ['signins', 'Журнал входів'], ['external', 'Зовнішні користувачі']].map(([id, l]) => (
+        {[['people', 'Люди'], ['requests', `Запити${pending ? ` · ${pending}` : ''}`], ['roles', 'Ролі та права'], ['levels', 'Рівні допуску'], ['signins', 'Журнал входів'], ['external', 'Зовнішні користувачі'], ['visits', 'Відвідування']].map(([id, l]) => (
           <button key={id} role="tab" aria-selected={tab === id} className={`vx-tab ${tab === id ? 'is-active' : ''}`} onClick={() => setTab(id)}>{l}</button>
         ))}
       </nav>
@@ -41,6 +42,7 @@ export function Access({ tab, setTab, focus, setFocus }) {
       {tab === 'levels' && <Levels />}
       {tab === 'signins' && <SignIns />}
       {tab === 'external' && <External />}
+      {tab === 'visits' && <Visits />}
     </div>
   );
 }
@@ -643,6 +645,82 @@ function External() {
           </tbody>
         </table>
       </Panel>
+    </>
+  );
+}
+
+// ── Відвідування: the public site's visits (api/_visits.js) — no cookies, no IP kept ─────────────────────────────
+const regionName = (() => { try { const d = new Intl.DisplayNames(['uk'], { type: 'region' }); return (c) => { try { return c && c !== '—' ? d.of(c) : 'Невідомо'; } catch { return c; } }; } catch { return (c) => c; } })();
+function Share({ title, rows, name = (x) => x, total }) {
+  return (
+    <Panel title={title} bodyClass="vx-table-wrap">
+      <table className="vx-table">
+        <thead><tr><th></th><th style={{ textAlign: 'right' }}>Відвідувачі</th><th style={{ textAlign: 'right' }}>Перегляди</th><th style={{ width: '30%' }}></th></tr></thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.id}>
+              <td>{name(r.id)}</td>
+              <td className="vx-mono" style={{ textAlign: 'right' }}>{r.visitors}</td>
+              <td className="vx-mono" style={{ textAlign: 'right' }}>{r.views}</td>
+              <td><div className="sit-databar" style={{ position: 'relative', height: 8, background: 'var(--line)', borderRadius: 4 }}><span style={{ position: 'absolute', inset: 0, width: `${total ? Math.round((r.visitors / total) * 100) : 0}%`, background: 'var(--sit-c1, #3987e5)', borderRadius: 4 }} /></div></td>
+            </tr>
+          ))}
+          {!rows.length && <tr><td colSpan={4} className="vx-muted">Ще немає даних.</td></tr>}
+        </tbody>
+      </table>
+    </Panel>
+  );
+}
+function Visits() {
+  const [days, setDays] = useState(30);
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    let live = true;
+    setData(null); setErr('');
+    (async () => {
+      try {
+        const res = await fetch(new URL(`api/pulse?visits=${days}`, document.baseURI), { headers: supabaseOn ? await authHeaders() : {} });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(j.message || `HTTP ${res.status}`);
+        if (live) setData(j);
+      } catch (e) { if (live) setErr(e.message); }
+    })();
+    return () => { live = false; };
+  }, [days]);
+  const tot = data?.visitors || 0;
+  const label = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', margin: '16px 0' }}>
+        <div className="segmented" role="group" aria-label="Період">
+          {[[7, '7 днів'], [30, '30 днів'], [90, '90 днів'], [365, 'Рік']].map(([k, l]) => <button key={k} className={days === k ? 'is-active' : ''} onClick={() => setDays(k)}>{l}</button>)}
+        </div>
+        <span className="vx-hint">Сайт reactioncore.uk · без cookies і без збереження IP-адрес; відвідувач рахується в межах доби</span>
+      </div>
+      {err && <Panel><div className="vx-muted">Статистика недоступна: {err}</div></Panel>}
+      {!data && !err && <Loader />}
+      {data && (
+        <>
+          <div className="vx-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 12 }}>
+            {[['Відвідувачі', data.visitors], ['Перегляди', data.views], ['Переглядів на відвідувача', data.visitors ? (data.views / data.visitors).toFixed(1) : '—'], ['Країн', data.countries.filter((c) => c.id !== '—').length]].map(([l, v]) => (
+              <Panel key={l}><div className="vx-hint">{l}</div><div style={{ fontSize: 30, lineHeight: '38px', fontWeight: 600 }}>{v}</div></Panel>
+            ))}
+          </div>
+          <Panel title="За днями">
+            <Columns labels={data.daily.map((d) => label(d.day))} series={[{ label: 'Відвідувачі', data: data.daily.map((d) => d.visitors) }, { label: 'Перегляди', data: data.daily.map((d) => d.views) }]} />
+          </Panel>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 12, marginTop: 12 }}>
+            <Share title="Країни" rows={data.countries} name={regionName} total={tot} />
+            <Share title="Пристрої" rows={data.devices} total={tot} />
+            <Share title="Браузери" rows={data.browsers} total={tot} />
+            <Share title="Системи" rows={data.os} total={tot} />
+            <Share title="Сторінки" rows={data.pages} total={tot} />
+            <Share title="Звідки прийшли" rows={data.refs} name={(x) => x} total={tot} />
+            <Share title="Мова сайту" rows={data.langs} name={(x) => ({ en: 'English', de: 'Deutsch', fr: 'Français', uk: 'Українська' }[x] || x)} total={tot} />
+          </div>
+        </>
+      )}
     </>
   );
 }

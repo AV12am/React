@@ -14,6 +14,7 @@
 import { newsGet } from './_news.js';
 import { json, db, caller, siteCaller } from './_core.js';
 import { companyProfile } from './_company.js';
+import { recordVisit, visitStats } from './_visits.js';
 import * as XLSX from 'xlsx';
 import { timeline, anxiety, QUERY, FEEDS, parseFeed, crisisShare, ownIndex, cleanHeadlines, sharesByDay, GPR_URL, parseGpr, gprIndex, ANALYSIS_FEEDS, pickHeadlines } from '../src/lib/pulse.js';
 
@@ -190,6 +191,12 @@ export async function GET(req) {
     if (!(await caller(req)) && !(await siteCaller(req))) return json(401, { error: 'signin', message: 'Потрібен вхід із підтвердженням ключем' });
     try { return json(200, await companyTenders(code)); } catch (e) { return json(502, { error: 'prozorro', message: e.message }); }
   }
+  if (sp.has('visits')) {
+    // The public site's visits: an administrator of the workspace only.
+    const m = await caller(req);
+    if (!m || m.doc?.role !== 'admin') return json(403, { error: 'admin', message: 'Лише адміністратор' });
+    try { return json(200, await visitStats(+sp.get('visits'))); } catch (e) { return json(500, { error: 'visits', message: e.message }); }
+  }
   if (sp.has('company')) {
     const code = String(sp.get('company') || '').replace(/\D/g, '');
     if (!/^\d{8}$/.test(code)) return json(400, { error: 'code', message: 'Потрібен код ЄДРПОУ (8 цифр)' });
@@ -217,4 +224,11 @@ export async function GET(req) {
   } catch (e) {
     return json(500, { error: 'error', message: e.message });
   }
+}
+
+// A visit to the public site (api/_visits.js): sent with navigator.sendBeacon, answered with nothing.
+export async function POST(req) {
+  if (!new URL(req.url).searchParams.has('visit')) return json(404, { error: 'not_found' });
+  try { await recordVisit(req); } catch { /* a lost count is not worth an error */ }
+  return new Response(null, { status: 204 });
 }
