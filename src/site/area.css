@@ -296,3 +296,8 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 .mx .doc-pages canvas{display:block;width:100%;max-width:880px;height:auto;border-radius:4px;box-shadow:0 1px 0 rgba(255,255,255,0.04),0 18px 48px rgba(0,0,0,0.5);background:#fff}
 .mx .doc-pages .meta{color:var(--ink-3)}
 .mx .doc-row .tm-pdf{margin-left:2px}
+/* CONTEXT: one bar — the sections on the left, the issue's date and the full issue on the right */
+.mx main#area{padding-top:24px}
+.seg .seg-meta{font-size:13px;color:var(--ink-3);margin-right:4px;white-space:nowrap}
+.mx .blk.ctx-first{padding-top:40px}
+@media (max-width: 720px){.seg .seg-meta{display:none}}
