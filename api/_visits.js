@@ -1,4 +1,4 @@
-// Visits to the public site (reactioncore.uk) — the workspace's «Відвідування»: views, visitors, countries, devices,
+// Visits to the public site (reactioncore.uk) — the workspace's «Відвідування» (kept in core_docs, kind «visit»): views, visitors, countries, devices,
 // browsers, pages and where people came from. No cookies, no IP address kept: the country comes from Vercel's
 // x-vercel-ip-country at the time of the request; a visitor is counted with a one-way hash of the address, the
 // browser and a secret that changes every day, so a person cannot be traced from one day to the next or back to an
@@ -51,7 +51,10 @@ export async function recordVisit(req) {
     device: deviceOf(ua), browser: browserOf(ua), os: osOf(ua),
     lang: String(body.lang || '').slice(0, 5),
   };
-  await db('site_visits', { method: 'POST', body: row, prefer: 'return=minimal' });
+  // Kept in the workspace's own table (no new table to create): kind «visit», the id starting with the day so a
+  // period is one range; the workspace's sync never loads this kind, and only the server reads it.
+  const id = `${day}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+  await db('core_docs', { method: 'POST', body: { kind: 'visit', id, doc: { ...row, id, clearance: 99 } }, prefer: 'return=minimal' });
 }
 
 const top = (rows, key, n = 12) => {
@@ -66,8 +69,8 @@ export async function visitStats(days = 30) {
   const from = new Date(Date.now() - (n - 1) * 86400000).toISOString().slice(0, 10);
   const rows = [];
   for (let off = 0; off < 200000; off += 10000) {
-    const page = (await db(`site_visits?day=gte.${from}&select=day,path,vid,ref,country,device,browser,os,lang&order=id.asc&limit=10000&offset=${off}`)) || [];
-    rows.push(...page);
+    const page = (await db(`core_docs?kind=eq.visit&id=gte.${from}&select=doc&order=id.asc&limit=10000&offset=${off}`)) || [];
+    rows.push(...page.map((r) => r.doc));
     if (page.length < 10000) break;
   }
   const byDay = new Map();

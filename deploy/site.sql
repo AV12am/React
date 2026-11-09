@@ -71,22 +71,3 @@ language sql stable as $$
               else lower(coalesce(auth.jwt() ->> 'email', '')) end
 $$;
 
-
--- ── Visits to the public site (api/_visits.js → Workspace › Доступи › «Відвідування») ──────────────────────────────
--- No cookies and no IP address: the country from Vercel, the device and browser from the browser's description,
--- vid — a one-way hash that changes every day (unique visitors per day). Written and read by the server only.
-create table if not exists site_visits (
-  id bigserial primary key,
-  at timestamptz not null default now(),
-  day date not null,
-  path text not null default '/',
-  vid text not null,
-  ref text not null default '',
-  country text not null default '',
-  device text not null default '',
-  browser text not null default '',
-  os text not null default '',
-  lang text not null default ''
-);
-create index if not exists site_visits_day on site_visits (day);
-alter table site_visits enable row level security; -- no policies: only the service key (the server) reaches it
