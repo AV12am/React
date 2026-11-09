@@ -666,3 +666,16 @@ test('small news: show business and sport never make the issue', async () => {
   assert.equal(offTopic({ title: 'Ракетний удар по Олімпійському стадіону' }), false);
   assert.equal(offTopic({ title: 'Фактор часу: ЗСУ уразили склад' }), false);
 });
+
+test('the issue of 8 November: sport out, Russian outlets named, Latin places and G20 set right', async () => {
+  const { offTopic, nameSource, nameSourceEn, needsFix } = await import('../../src/lib/news.js');
+  assert.ok(offTopic({ title: 'Russian trampolinists win gold in team final at World Championships' }));
+  assert.ok(!offTopic({ title: 'Germany cannot transfer more Patriot systems to Ukraine' }));
+  assert.equal(nameSource('У Москві затвердили програму відновлення Донецька на 2027 рік, про це повідомило російське провладне ЗМІ.', 'ria.ru'),
+    'У Москві затвердили програму відновлення Донецька на 2027 рік, про це повідомило РІА Новини.');
+  assert.equal(nameSource('Під Ростовом закрили рух на трасі, повідомило російське провладне ЗМІ.', 'ria.ru'), 'Під Ростовом закрили рух на трасі, повідомило РІА Новини.');
+  assert.equal(nameSourceEn('Moscow approved a programme, the pro-government Russian media reported.', 'ria.ru'), 'Moscow approved a programme, RIA Novosti reported.');
+  assert.ok(needsFix('Єгипет відновив роботу свого посольства в Tripoli.'));
+  assert.ok(needsFix('Можлива участь путіна в саміті G20.'));
+  assert.ok(!needsFix('Німеччина не може передати Україні більше систем Patriot.'));
+});

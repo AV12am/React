@@ -17,11 +17,11 @@ import { json, db, env } from './_core.js';
 import Anthropic from '@anthropic-ai/sdk';
 import sample from '../src/news/sample.js';
 import { refreshAlerts } from './_alerts.js';
-import { SECTIONS, PER_SECTION, POOL, FRESH, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, keyPrompt, eventsPrompt, repeatsPrompt, readRepeats, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, needsFix, fixPrompt, nameSource, LEAD_IMAGE, ruPicture, nightReport, airTally } from '../src/lib/news.js';
+import { SECTIONS, PER_SECTION, POOL, FRESH, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, keyPrompt, eventsPrompt, repeatsPrompt, readRepeats, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, needsFix, fixPrompt, nameSource, nameSourceEn, LEAD_IMAGE, ruPicture, nightReport, airTally } from '../src/lib/news.js';
 
 
 const MIN = 60000;
-const VERSION = 27; // 27: Russian outlets named, English words and mixed letters set right, «ВСУ» told as Ukraine's army; 26: 26: no news about russia among the key news; section 3 repeating another section gives way; // 23: 4.2 reads the big newsrooms and takes the supply news first; 22: photos: only real photographs from the archive, text only when it covers the picture, Russian sites' own pictures kept; 21: a repeat is kept in the thinnest section; 5.2 judged by headline; 20: the editor scores 2 / 1 / 0, a short section takes the partly-on-topic ones; 19: a quiet day reaches back to 48 hours; 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
+const VERSION = 28; // 28: sport kept out (trampoline, gymnastics, football…), Russian outlets named at a sentence's end and in English, Latin place names and G7 / G20 set right, aid decisions not in section 3, civil industry not in 4.2, consequences of one event counted as a repeat; 27: Russian outlets named, English words and mixed letters set right, «ВСУ» told as Ukraine's army; 26: 26: no news about russia among the key news; section 3 repeating another section gives way; // 23: 4.2 reads the big newsrooms and takes the supply news first; 22: photos: only real photographs from the archive, text only when it covers the picture, Russian sites' own pictures kept; 21: a repeat is kept in the thinnest section; 5.2 judged by headline; 20: the editor scores 2 / 1 / 0, a short section takes the partly-on-topic ones; 19: a quiet day reaches back to 48 hours; 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -622,7 +622,7 @@ export async function makeIssue(now = Date.now()) {
     id: s.id, part: s.part, title: s.title, en: s.en, sources: s.feeds.length,
     items: withPhotos[k].map((x, i) => ({
       title: x.title, url: x.url, domain: x.domain, at: x.at, image: x.image || null, ...(x.imageFrom && x.image ? { imageFrom: x.imageFrom } : {}), ...(x.imageCredit ? { imageCredit: x.imageCredit } : {}),
-      summary: x.summary, summary_en: en[k].t[i] || x.summary, ai: x.ai, ...(x.lead ? { lead: x.lead } : {}),
+      summary: x.summary, summary_en: nameSourceEn(en[k].t[i] || x.summary, x.domain), ai: x.ai, ...(x.lead ? { lead: x.lead } : {}),
     })),
   }));
   // Made without the model (its daily free allowance spent, or it did not answer at all): a stand-in, not the
@@ -678,7 +678,7 @@ async function refreshLeads(reports, now) {
       const summary = composeReport(side, await ask(reportPrompt(side, `${r.title}\n${r.text || ''}\n${r.article || ''}`), 300), r.at);
       if (!summary) continue;
       const en = await translate([summary]);
-      const item = { title: r.title, url: r.url, domain: r.domain || host(r.url), at: r.at, image: LEAD_IMAGE[side], summary, summary_en: en.t[0] || summary, ai: true, lead: side };
+      const item = { title: r.title, url: r.url, domain: r.domain || host(r.url), at: r.at, image: LEAD_IMAGE[side], summary, summary_en: nameSourceEn(en.t[0] || summary, r.domain || host(r.url)), ai: true, lead: side };
       if (at >= 0) sec.items[at] = item; else sec.items.unshift(item);
       changed++;
     } catch { /* the lead stays as it was */ }
