@@ -7,6 +7,7 @@ import './site.css';
 import './area.css';
 import './chrome.js';
 import { gaugeSvg } from './petals.js';
+import { lang as siteLang } from './i18n.js';
 import { visibleForecasts, trackRecord, brier } from '../lib/forecasts.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -31,35 +32,70 @@ const pc = (x, f, d = 2) => `${(x * 100).toLocaleString(lab(f).loc, { minimumFra
 const num = (x, f) => x.toLocaleString(lab(f).loc, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const dmy = (d, f) => new Date(t(d)).toLocaleDateString(lab(f).loc, { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
 
-// ── the timeline: today, each forecast's check date, its milestones ──
+// ── the timeline: a ruler of days and weeks, the months named in the site's language; the time gone solid, the
+// time ahead dashed; today a glowing point; each forecast a ring filled to its probability at its check date,
+// with the days left. Drawn at the box's real width (text stays sharp) and again when the width changes.
+const UI = {
+  en: { loc: 'en-GB', today: 'Today', open: 'open', checked: 'checked', days: (n) => `${n} ${n === 1 ? 'day' : 'days'}`, brier: 'mean Brier' },
+  de: { loc: 'de-DE', today: 'Heute', open: 'offen', checked: 'geprüft', days: (n) => `${n} ${n === 1 ? 'Tag' : 'Tage'}`, brier: 'mittlerer Brier-Wert' },
+  fr: { loc: 'fr-FR', today: 'Aujourd’hui', open: 'ouvertes', checked: 'vérifiées', days: (n) => `${n} ${n === 1 ? 'jour' : 'jours'}`, brier: 'Brier moyen' },
+  uk: { loc: 'uk-UA', today: 'Сьогодні', open: 'відкритих', checked: 'перевірених', days: (n) => `${n} ${n % 10 === 1 && n % 100 !== 11 ? 'день' : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? 'дні' : 'днів'}`, brier: 'середній Брайєр' },
+};
+const ui = UI[siteLang] || UI.en;
 function timeline(list) {
   const box = document.getElementById('timeline');
-  const now = Date.now();
-  const from = Math.min(now, ...list.map((f) => t(f.published))) - 7 * DAY;
-  const to = Math.max(now + 30 * DAY, ...list.map((f) => t(f.check))) + 14 * DAY;
-  const W = 1000;
-  const x = (ms) => ((ms - from) / (to - from)) * W;
-  const months = [];
-  for (let d = new Date(from); d.getTime() < to; d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1))) months.push(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).getTime());
-  const rows = list.map((f, i) => {
-    const y = 64 + i * 46;
-    const ms = (f.milestones || []).map((m) => { const at = m.date ? t(m.date) : t(`${m.month}-15`); return `<g class="ms"><line x1="${x(at)}" x2="${x(at)}" y1="${y - 9}" y2="${y + 9}"/><title>${esc(m.label)}</title></g>`; }).join('');
-    return `<g class="row" data-go="${esc(f.id)}" tabindex="0" role="link" aria-label="${esc(f.question)}">
-<line class="span" x1="${x(t(f.published))}" x2="${x(t(f.check))}" y1="${y}" y2="${y}"/>
-<line class="past" x1="${x(t(f.published))}" x2="${x(Math.min(now, t(f.check)))}" y1="${y}" y2="${y}"/>${ms}
-<circle class="end" cx="${x(t(f.check))}" cy="${y}" r="${5 + f.p * 9}"/>
-<text class="lbl" x="${x(t(f.check)) - 16 - f.p * 9}" y="${y - 12}" text-anchor="end">${esc(f.short || f.topic)} · ${pc(f.p, f)}</text></g>`;
-  }).join('');
-  const h = 64 + list.length * 46 + 6;
-  box.innerHTML = `<svg viewBox="0 0 ${W} ${h}" preserveAspectRatio="none" style="height:${h}px" role="img" aria-label="Timeline">
-${months.map((m) => `<g class="mo"><line x1="${x(m)}" x2="${x(m)}" y1="22" y2="${h}"/><text x="${x(m) + 6}" y="16">${new Date(m).toLocaleDateString('en-GB', { month: 'short', year: '2-digit', timeZone: 'UTC' })}</text></g>`).join('')}
-<g class="now"><line x1="${x(now)}" x2="${x(now)}" y1="22" y2="${h}"/><text x="${x(now) + 6}" y="36">today</text></g>${rows}</svg>`;
-  box.querySelectorAll('[data-go]').forEach((g) => {
-    const go = () => { location.href = `/time?f=${encodeURIComponent(g.dataset.go)}`; };
-    g.addEventListener('click', go); g.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
-  });
+  const draw = () => {
+    const W = Math.max(320, box.clientWidth);
+    const now = Date.now();
+    const from = Math.min(now, ...list.map((f) => t(f.published))) - 5 * DAY;
+    const to = Math.max(now + 21 * DAY, ...list.map((f) => t(f.check))) + 10 * DAY;
+    const padL = 8; const padR = 84; // room on the right for the last ring's percentage
+    const x = (ms) => padL + ((ms - from) / (to - from)) * (W - padL - padR);
+    const rulerY = 34; const rowH = 92; const top = 70;
+    const H = top + list.length * rowH;
+    // the ruler: a tick a day, a longer one a week (Monday), the month named at its first day
+    const ticks = [];
+    const start = new Date(from); start.setUTCHours(0, 0, 0, 0);
+    for (let d = start.getTime(); d <= to; d += DAY) {
+      const dt = new Date(d);
+      const first = dt.getUTCDate() === 1;
+      const mon = dt.getUTCDay() === 1;
+      ticks.push(`<line class="${first ? 'tk-m' : mon ? 'tk-w' : 'tk-d'}" x1="${x(d).toFixed(1)}" x2="${x(d).toFixed(1)}" y1="${rulerY - (first ? 14 : mon ? 8 : 4)}" y2="${rulerY}"/>`);
+      if (first) ticks.push(`<text class="mo" x="${(x(d) + 6).toFixed(1)}" y="${rulerY - 6}">${dt.toLocaleDateString(ui.loc, { month: 'long', timeZone: 'UTC' }).toUpperCase()}${dt.getUTCMonth() === 0 ? ` ${dt.getUTCFullYear()}` : ''}</text>`);
+    }
+    const nx = x(now);
+    const rows = list.map((f, i) => {
+      const y = top + i * rowH + 40;
+      const x0 = x(t(f.published)); const x1 = x(t(f.check)); const xn = Math.min(Math.max(nx, x0), x1);
+      const left = Math.max(0, Math.ceil((t(f.check) - now) / DAY));
+      const r = 15; const c = 2 * Math.PI * r;
+      const ms = (f.milestones || []).map((m) => { const at = m.date ? t(m.date) : t(`${m.month}-15`); const mx = x(at);
+        return `<g class="ms"><path d="M${mx} ${y - 5} L${mx + 5} ${y} L${mx} ${y + 5} L${mx - 5} ${y} Z"/><text x="${mx}" y="${y + 22}" text-anchor="middle">${esc(m.label)}</text></g>`; }).join('');
+      return `<g class="row" data-go="${esc(f.id)}" tabindex="0" role="link" aria-label="${esc(f.question)}" style="--d:${i * 120}ms">
+<line class="gone" x1="${x0}" x2="${xn}" y1="${y}" y2="${y}" pathLength="1"/>
+<line class="ahead" x1="${xn}" x2="${x1 - r - 4}" y1="${y}" y2="${y}"/>
+<circle class="start" cx="${x0}" cy="${y}" r="2.5"/>${ms}
+${left > 0 ? `<text class="left" x="${xn + 8}" y="${y + 20}">${ui.days(left)}</text>` : ''}
+<g class="ring" transform="translate(${x1} ${y})"><circle class="track" r="${r}"/><circle class="fill" r="${r}" stroke-dasharray="${(f.p * c).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90)"/></g>
+<text class="lbl" x="${x1 - r - 10}" y="${y - 26}" text-anchor="end">${esc(f.short || f.topic)}</text>
+<text class="pct" x="${x1 + r + 10}" y="${y + 5}">${pc(f.p, f)}</text>
+<text class="dt" x="${x1}" y="${y + r + 18}" text-anchor="middle">${new Date(t(f.check)).toLocaleDateString(ui.loc, { day: 'numeric', month: 'short', timeZone: 'UTC' })}</text></g>`;
+    }).join('');
+    box.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Timeline">
+<defs><radialGradient id="tl-glow"><stop offset="0" stop-color="#fff" stop-opacity="0.55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>
+<line class="axis" x1="${padL}" x2="${W - padR}" y1="${rulerY}" y2="${rulerY}"/>${ticks.join('')}
+<g class="now"><line x1="${nx}" x2="${nx}" y1="${rulerY}" y2="${H}"/><circle class="halo" cx="${nx}" cy="${rulerY}" r="14" fill="url(#tl-glow)"/><circle cx="${nx}" cy="${rulerY}" r="3.5"/>
+<text x="${nx + 9}" y="${rulerY + 16}">${ui.today.toUpperCase()} · ${new Date(now).toLocaleDateString(ui.loc, { day: 'numeric', month: 'short' })}</text></g>${rows}</svg>`;
+    box.querySelectorAll('[data-go]').forEach((g) => {
+      const go = () => { location.href = `/time?f=${encodeURIComponent(g.dataset.go)}`; };
+      g.addEventListener('click', go); g.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+    });
+  };
+  draw();
+  let w = box.clientWidth;
+  new ResizeObserver(() => { if (Math.abs(box.clientWidth - w) > 4) { w = box.clientWidth; draw(); } }).observe(box);
   const r = trackRecord(list);
-  document.getElementById('tl-meta').textContent = `${r.open} open · ${r.resolved} checked${r.brier === null ? '' : ` · mean Brier ${r.brier.toFixed(3)}`}`;
+  document.getElementById('tl-meta').textContent = `${r.open} ${ui.open} · ${r.resolved} ${ui.checked}${r.brier === null ? '' : ` · ${ui.brier} ${r.brier.toFixed(3)}`}`;
 }
 
 // ── scenario flows: H (left) → N (right), band width = probability ──
