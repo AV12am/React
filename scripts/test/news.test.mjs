@@ -679,3 +679,11 @@ test('the issue of 8 November: sport out, Russian outlets named, Latin places an
   assert.ok(needsFix('Можлива участь путіна в саміті G20.'));
   assert.ok(!needsFix('Німеччина не може передати Україні більше систем Patriot.'));
 });
+
+test('«російська сторона», «російське джерело» in a Russian outlet’s item: the outlet by its name', async () => {
+  const { nameSource } = await import('../../src/lib/news.js');
+  assert.equal(nameSource('ЗСУ за тиждень атакували Бєлгородську область понад 1,6 тис. разів, повідомила російська сторона.', 'tass.ru'),
+    'ЗСУ за тиждень атакували Бєлгородську область понад 1,6 тис. разів, повідомило ТАСС.');
+  assert.equal(nameSource('Російські військові, за повідомленням російського джерела, уразили електропідстанцію.', 'ria.ru'),
+    'Російські військові, за повідомленням РІА Новини, уразили електропідстанцію.');
+});
