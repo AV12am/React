@@ -8,7 +8,13 @@ import tailwindcss from '@tailwindcss/vite';
 // replaced at build (and in dev) with src/site/partials/*.html.
 const sitePartials = () => ({
   name: 'site-partials',
-  transformIndexHtml: { order: 'pre', handler(html) {
+  transformIndexHtml: { order: 'pre', handler(html, ctx) {
+    // Each site page names its own address (canonical) for search engines: /site.html is «/», /about.html is «/about».
+    if (html.includes('<!-- @header -->')) {
+      const name = String(ctx?.filename || ctx?.path || '').split('/').pop().replace(/\.html$/, '');
+      const href = `https://reactioncore.uk/${name === 'site' ? '' : name}`;
+      html = html.replace('</head>', `    <link rel="canonical" href="${href}" />\n    <meta property="og:site_name" content="Reaction Core" />\n    <meta property="og:url" content="${href}" />\n  </head>`);
+    }
     // A site page also gets the language boot (public/lang-boot.js): no flash of English before the translation.
     // …and the icons search engines and phones read (a white SVG mark is invisible on a white results page).
     // The site has its own language switcher: browsers' page translation (Edge, Chrome, Safari) is turned off —

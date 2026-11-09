@@ -1,0 +1,6 @@
+# REACTIONcore — the public site is open to search engines; the server functions and the workspace are not.
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://reactioncore.uk/sitemap.xml
