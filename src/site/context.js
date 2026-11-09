@@ -40,11 +40,16 @@ function split(s) {
   const m = t.match(/^(.{20,220}?[.!?])\s+(.+)$/s);
   return m ? [m[1], m[2]] : [t, ''];
 }
+const ruPicture = (u) => { try { return /(^|\.)(ru|рф|su)$/i.test(new URL(u).hostname); } catch { return false; } }; // as src/lib/news.js
+const viaServer = (u) => `/api/pulse?news=1&img=${encodeURIComponent(u)}`;
 function itemHtml(x) {
   const [head, rest] = lang === 'en' ? split(x.summary_en || x.summary || x.title) : [x.title || '', x.summary || ''];
   const img = safeUrl(x.image);
   const url = safeUrl(x.url);
-  return `<article class="item">${img ? `<div class="ph" style="background-image:url('${esc(img).replace(/'/g, '%27')}')" role="img" aria-label=""></div>` : ''}
+  // A Russian site's picture comes through the site's server (they refuse other sites); any picture that does not
+  // load is tried through the server, then the plain picture — never an empty dark box (as on /news).
+  const src = img && ruPicture(img) ? viaServer(img) : img;
+  return `<article class="item">${img ? `<div class="ph"><img src="${esc(src)}" data-orig="${esc(img)}" alt="" loading="lazy" referrerpolicy="no-referrer"></div>` : ''}
 <div class="bd"><h3>${esc(head)}</h3>${rest ? `<p>${esc(rest)}</p>` : ''}
 <div class="src"><span>${esc(x.domain || '')}</span>${url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${say.source} ↗</a>` : ''}</div></div></article>`;
 }
@@ -60,6 +65,12 @@ function drawIssue() {
 <div class="items${s.id === 'key' ? ' key' : ''}">${s.items.map(itemHtml).join('')}</div></details>`;
   }).join('') + `<p><a class="lnk" href="/news">${t.full} <span class="ar">→</span></a></p>`;
 }
+document.getElementById('digest-body')?.addEventListener('error', (e) => {
+  const img = e.target;
+  if (img.tagName !== 'IMG') return;
+  const orig = img.dataset.orig || '';
+  if (!img.dataset.step && orig.startsWith('http') && !img.src.includes('&img=')) { img.dataset.step = 'proxy'; img.src = viaServer(orig); } else if (img.dataset.step !== 'plain') { img.dataset.step = 'plain'; img.src = '/news-img/plain.jpg'; }
+}, true);
 async function digest() {
   const meta = document.getElementById('issue-meta');
   const body = document.getElementById('digest-body');
