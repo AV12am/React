@@ -10,7 +10,8 @@ const sitePartials = () => ({
   name: 'site-partials',
   transformIndexHtml(html) {
     // A site page also gets the language boot (public/lang-boot.js): no flash of English before the translation.
-    if (html.includes('<!-- @header -->')) html = html.replace('</head>', '    <script src="/lang-boot.js"></script>\n  </head>');
+    // …and the icons search engines and phones read (a white SVG mark is invisible on a white results page).
+    if (html.includes('<!-- @header -->')) html = html.replace('</head>', '    <link rel="icon" type="image/png" sizes="96x96" href="/site-icon-96.png" />\n    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />\n    <script src="/lang-boot.js"></script>\n  </head>');
     return html.replace(/<!-- @(header|footer) -->/g, (_, n) => readFileSync(fileURLToPath(new URL(`./src/site/partials/${n}.html`, import.meta.url)), 'utf8'));
   },
 });

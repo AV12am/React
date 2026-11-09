@@ -516,7 +516,10 @@ export function readTranslations(raw, texts) {
     const s = typeof raw === 'string' ? raw : JSON.stringify(raw);
     j = typeof raw === 'object' && raw ? raw : JSON.parse(s.slice(s.indexOf('{'), s.lastIndexOf('}') + 1));
   } catch { j = {}; }
-  const t = texts.map((_, i) => shape(String(j?.t?.[i] || '').replace(/[Ѐ-ӿ⺀-鿿]+/g, (m) => (m.length > 2 ? m : '')).trim()).text);
+  // An «English» text that is still Ukrainian (the model did not translate it) is no translation: left empty, it is
+  // asked again — never shown with its short words cut out.
+  const english = (x) => (String(x).match(/[Ѐ-ӿ]{3,}/g) || []).length < 3;
+  const t = texts.map((_, i) => { const x = String(j?.t?.[i] || ''); return english(x) ? shape(x.replace(/[Ѐ-ӿ⺀-鿿]+/g, (m) => (m.length > 2 ? m : '')).trim()).text : ''; });
   const q = texts.map((_, i) => String(j?.q?.[i] || '').replace(/[^\p{L}\p{N} '-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60));
   return { t, q };
 }

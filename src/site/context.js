@@ -25,10 +25,10 @@ showTab(location.hash === '#articles' ? 'articles' : 'digest');
 // The issue follows the site's language (src/site/i18n.js): Ukrainian in Ukrainian, English otherwise — the issue
 // itself is written in those two; the words around it are in the site's language.
 const W = {
-  uk: { day: 'uk-UA', issue: 'Випуск за', at: '17:00 за Києвом', source: 'Джерело', making: 'Збираю сьогоднішній випуск…', full: 'Відкрити повний випуск', down: 'Випуск зараз недоступний. Він виходить щодня о 17:00 за Києвом —', open: 'відкрити CONTEXT News' },
-  en: { day: 'en-GB', issue: 'Issue of', at: '17:00 Kyiv', source: 'Source', making: 'Today’s issue is being put together…', full: 'Open the full issue', down: 'The issue is not available right now. It is published every day at 17:00 Kyiv time —', open: 'open CONTEXT News' },
-  de: { day: 'de-DE', issue: 'Ausgabe vom', at: '17:00 Uhr Kyjiw', source: 'Quelle', making: 'Die heutige Ausgabe wird zusammengestellt…', full: 'Vollständige Ausgabe öffnen', down: 'Die Ausgabe ist gerade nicht verfügbar. Sie erscheint täglich um 17:00 Uhr Kyjiwer Zeit —', open: 'CONTEXT News öffnen' },
-  fr: { day: 'fr-FR', issue: 'Édition du', at: '17 h, heure de Kyiv', source: 'Source', making: 'L’édition du jour est en préparation…', full: 'Ouvrir l’édition complète', down: 'L’édition n’est pas disponible pour le moment. Elle paraît chaque jour à 17 h, heure de Kyiv —', open: 'ouvrir CONTEXT News' },
+  uk: { loading: 'Завантажую останній випуск…', day: 'uk-UA', issue: 'Випуск за', at: '17:00 за Києвом', source: 'Джерело', making: 'Збираю сьогоднішній випуск…', full: 'Відкрити повний випуск', down: 'Випуск зараз недоступний. Він виходить щодня о 17:00 за Києвом —', open: 'відкрити CONTEXT News' },
+  en: { loading: 'Loading the latest issue…', day: 'en-GB', issue: 'Issue of', at: '17:00 Kyiv', source: 'Source', making: 'Today’s issue is being put together…', full: 'Open the full issue', down: 'The issue is not available right now. It is published every day at 17:00 Kyiv time —', open: 'open CONTEXT News' },
+  de: { loading: 'Die neueste Ausgabe wird geladen…', day: 'de-DE', issue: 'Ausgabe vom', at: '17:00 Uhr Kyjiw', source: 'Quelle', making: 'Die heutige Ausgabe wird zusammengestellt…', full: 'Vollständige Ausgabe öffnen', down: 'Die Ausgabe ist gerade nicht verfügbar. Sie erscheint täglich um 17:00 Uhr Kyjiwer Zeit —', open: 'CONTEXT News öffnen' },
+  fr: { loading: 'Chargement de la dernière édition…', day: 'fr-FR', issue: 'Édition du', at: '17 h, heure de Kyiv', source: 'Source', making: 'L’édition du jour est en préparation…', full: 'Ouvrir l’édition complète', down: 'L’édition n’est pas disponible pour le moment. Elle paraît chaque jour à 17 h, heure de Kyiv —', open: 'ouvrir CONTEXT News' },
 };
 const lang = siteLang === 'uk' ? 'uk' : 'en'; // the issue's own language
 const say = W[siteLang] || W.en; // the words around it
@@ -74,10 +74,17 @@ document.getElementById('digest-body')?.addEventListener('error', (e) => {
 async function digest() {
   const meta = document.getElementById('issue-meta');
   const body = document.getElementById('digest-body');
+  // The state is told in the digest itself too: on a phone the bar's date line is hidden, and an empty page
+  // looked broken while the issue was loading or being made.
+  const wait = (text) => { meta.textContent = text; if (!body.querySelector('details')) body.innerHTML = `<p class="dg-wait">${esc(text)}</p>`; };
+  wait(say.loading);
   try {
-    const res = await fetch('/api/pulse?news=1');
+    // A slow network or a stuck request ends in the «not available» message after 30 s, not in an empty page.
+    const ctl = new AbortController();
+    const stop = setTimeout(() => ctl.abort(), 30000);
+    const res = await fetch('/api/pulse?news=1', { signal: ctl.signal }).finally(() => clearTimeout(stop));
     const j = await res.json().catch(() => ({}));
-    if (res.ok && !j.sections?.length && j.making) { meta.textContent = say.making; setTimeout(digest, 20000); return; }
+    if (res.ok && !j.sections?.length && j.making) { wait(say.making); setTimeout(digest, 20000); return; }
     if (!res.ok || !j.sections?.length) throw new Error(j.message || 'empty');
     issue = j;
     drawIssue();

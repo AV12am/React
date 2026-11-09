@@ -687,3 +687,10 @@ test('«російська сторона», «російське джерело
   assert.equal(nameSource('Російські військові, за повідомленням російського джерела, уразили електропідстанцію.', 'ria.ru'),
     'Російські військові, за повідомленням РІА Новини, уразили електропідстанцію.');
 });
+
+test('a «translation» still in Ukrainian is no translation (asked again, never shown with its short words cut)', async () => {
+  const { readTranslations } = await import('../../src/lib/news.js');
+  const out = readTranslations({ t: ['Удар по будівлі Aramco Tower у центрі саудівської столиці Ер-Ріяда завдали під час нових атак хуситів.', 'The Aramco Tower in Riyadh was hit.'] }, ['a', 'b']);
+  assert.equal(out.t[0], '');
+  assert.ok(out.t[1].startsWith('The Aramco Tower'));
+});
