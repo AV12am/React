@@ -332,3 +332,29 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 @keyframes tl-draw{to{stroke-dashoffset:0}}
 @keyframes tl-pulse{0%,100%{opacity:0.5;transform:scale(0.8)}50%{opacity:1;transform:scale(1.25)}}
 @media (prefers-reduced-motion: reduce){.tl .gone{animation:none;stroke-dashoffset:0}.tl .now .halo{animation:none}}
+
+/* CONTEXT: the digest's sections folded; a click opens one */
+.mx details.sec{margin-bottom:12px;border-radius:12px;background:#0f0f0f;transition:background 200ms}
+.mx details.sec[open]{background:transparent;margin-bottom:40px}
+.mx details.sec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:18px 20px;margin:0;border:0}
+.mx details.sec>summary::-webkit-details-marker{display:none}
+.mx details.sec>summary::after{content:"";width:8px;height:8px;border-right:1.5px solid var(--ink-3);border-bottom:1.5px solid var(--ink-3);transform:rotate(45deg);margin-left:auto;transition:transform 300ms var(--ease-out)}
+.mx details.sec[open]>summary::after{transform:rotate(-135deg)}
+.mx details.sec>summary:hover{color:var(--ink)}
+.mx details.sec .sec-n{color:var(--ink-2);font-variant-numeric:tabular-nums}
+.mx details.sec[open]>summary{padding:4px 0 18px}
+.mx details.sec[open] .items{animation:sec-in 380ms var(--ease-out)}
+@keyframes sec-in{from{opacity:0;transform:translateY(-6px)}}
+/* TIME: forecasts as tiles, no lines */
+.mx #tm-list:has(.tm-row){display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.mx .tm-row{display:flex;flex-direction:column;align-items:stretch;gap:14px;border:0 !important;padding:24px;border-radius:14px;background:#111;transition:background 240ms,transform 300ms var(--ease-out)}
+.mx .tm-row:hover{background:#151515;transform:translateY(-2px)}
+.mx .tm-row .tm-rq{white-space:normal}
+.mx .tm-row .tm-rp,.mx .tm-row .tm-rd{text-align:left}
+.mx .tm-row .tm-rp{font-size:40px;line-height:44px}
+.mx .tm-row .tm-foot{display:flex;align-items:center;justify-content:space-between;margin-top:auto}
+.mx .tm-row .tm-pdf{margin-left:0}
+@media (max-width: 900px){.mx .tm-row .tm-rd{display:inline}}
+.mx .tm-row{position:relative}
+.mx .tm-row .tm-open::after{content:"";position:absolute;inset:0;border-radius:14px}
+.mx .tm-row .tm-pdf{position:relative;z-index:1}

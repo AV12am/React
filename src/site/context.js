@@ -10,12 +10,16 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const day = (d) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Kyiv' });
 const safeUrl = (u) => (/^https:\/\//i.test(u || '') || /^\/[^/]/.test(u || '') ? u : '');
 
-// The section switcher follows the scroll.
+// The tabs switch the page between the digest and the articles (#articles opens the articles).
 const tabs = [...document.querySelectorAll('.seg a[data-s]')];
-const io = new IntersectionObserver((es) => es.forEach((e) => {
-  if (e.isIntersecting) tabs.forEach((t) => t.classList.toggle('on', t.dataset.s === e.target.id));
-}), { rootMargin: '-45% 0px -50% 0px' });
-['digest', 'articles'].forEach((id) => { const el = document.getElementById(id); if (el) io.observe(el); });
+function showTab(id) {
+  tabs.forEach((t) => t.classList.toggle('on', t.dataset.s === id));
+  ['digest', 'articles'].forEach((k) => { const el = document.getElementById(k); if (el) el.hidden = k !== id; });
+  const meta = document.getElementById('issue-meta');
+  if (meta) meta.style.visibility = id === 'digest' ? '' : 'hidden';
+}
+tabs.forEach((t) => t.addEventListener('click', (e) => { e.preventDefault(); showTab(t.dataset.s); history.replaceState(null, '', t.dataset.s === 'digest' ? location.pathname + location.search : `#${t.dataset.s}`); }));
+showTab(location.hash === '#articles' ? 'articles' : 'digest');
 
 // ── the digest ──
 // The issue follows the site's language (src/site/i18n.js): Ukrainian in Ukrainian, English otherwise — the issue
@@ -51,8 +55,9 @@ function drawIssue() {
   document.getElementById('digest-body').innerHTML = issue.sections.filter((s) => s.items?.length).map((s) => {
     const part = (lang === 'en' ? s.en?.part || s.part : s.part) || '';
     const title = lang === 'en' ? s.en?.title : s.title;
-    return `<div class="sec"><div class="sec-t">${esc(part.replace(/^(SECTION|РОЗДІЛ)\s*\d+\s*\|\s*/i, ''))}${title ? ` · ${esc(title)}` : ''}</div>
-<div class="items${s.id === 'key' ? ' key' : ''}">${s.items.map(itemHtml).join('')}</div></div>`;
+    // Each section folded: its name and how many items; a click opens it.
+    return `<details class="sec"><summary class="sec-t"><span>${esc(part.replace(/^(SECTION|РОЗДІЛ)\s*\d+\s*\|\s*/i, ''))}${title ? ` · ${esc(title)}` : ''}</span><span class="sec-n">${s.items.length}</span></summary>
+<div class="items${s.id === 'key' ? ' key' : ''}">${s.items.map(itemHtml).join('')}</div></details>`;
   }).join('') + `<p><a class="lnk" href="/news">${t.full} <span class="ar">→</span></a></p>`;
 }
 async function digest() {

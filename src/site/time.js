@@ -180,7 +180,7 @@ function row(f) {
 <span class="tm-rk">${esc(f.topic)}</span>
 <span class="tm-rt">${esc(f.short || f.question)}</span>
 <span class="tm-rq">${esc(f.question)}</span></a>
-<span class="tm-rp">${pc(f.p, f)}</span><span class="tm-rd">${l.check} · ${dmy(f.check, f)}</span>${pdfIcon(f)}</div>`;
+<span class="tm-rp">${pc(f.p, f)}</span><div class="tm-foot"><span class="tm-rd">${l.check} · ${dmy(f.check, f)}</span>${pdfIcon(f)}</div></div>`;
 }
 
 (async () => {
