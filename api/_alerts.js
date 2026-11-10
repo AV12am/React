@@ -81,3 +81,41 @@ export async function uaShapes() {
     return shapes;
   } catch { return []; }
 }
+
+// ── Live alerts for the workspace map ─────────────────────────────────────────────────────────────────────────
+// alerts.in.ua's active alerts, read at most every 30 seconds for everyone (kept as pulse / alerts-live, so many
+// open maps and many server instances still make one request per half minute — within the API's limits).
+const LIVE_TTL = 30 * 1000;
+const TYPES = { air_raid: 'Повітряна тривога', artillery_shelling: 'Загроза артобстрілу', urban_fights: 'Загроза вуличних боїв', chemical: 'Хімічна загроза', nuclear: 'Радіаційна загроза' };
+/** The API's active alerts → by oblast: 'A' the whole oblast, 'P' a part of it (a raion or a hromada). */
+export function liveShape(list, now = Date.now()) {
+  const oblasts = {};
+  const items = [];
+  for (const a of list || []) {
+    const key = uaKeyOf(a.location_oblast || a.location_title || '');
+    if (!key) continue;
+    const whole = a.location_type === 'oblast' || (a.location_type === 'city' && a.location_title === a.location_oblast);
+    if (whole) oblasts[key] = 'A'; else if (!oblasts[key]) oblasts[key] = 'P';
+    items.push({ key, place: a.location_title || key, whole, type: TYPES[a.alert_type] || a.alert_type || 'Тривога', since: a.started_at || null });
+  }
+  items.sort((x, y) => String(y.since || '').localeCompare(String(x.since || '')));
+  return { at: new Date(now).toISOString(), oblasts, items };
+}
+export async function liveAlerts(now = Date.now()) {
+  const row = (await db('core_docs?kind=eq.pulse&id=eq.alerts-live&select=doc').catch(() => []))[0]?.doc;
+  if (row && now - Date.parse(row.at) < LIVE_TTL) return row;
+  if (!alertsOn()) return { off: true, oblasts: {}, items: [] };
+  try {
+    const res = await fetch(`${API}/alerts/active.json`, { headers: { Authorization: `Bearer ${TOKEN()}`, 'User-Agent': 'ReactionCore/1.0 (workspace map)' }, signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return row ? { ...row, stale: true } : { error: res.status, oblasts: {}, items: [] };
+    const j = await res.json();
+    const doc = liveShape(Array.isArray(j?.alerts) ? j.alerts : Array.isArray(j) ? j : [], now);
+    await db('core_docs?on_conflict=kind,id', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: { kind: 'pulse', id: 'alerts-live', doc: { ...doc, id: 'alerts-live', clearance: 0 } } }).catch(() => {});
+    return doc;
+  } catch { return row ? { ...row, stale: true } : { error: 'fetch', oblasts: {}, items: [] }; }
+}
+/** The oblasts' outlines as GeoJSON for the map (feature property `key`, as liveShape names them). */
+export async function uaGeoJSON() {
+  const shapes = await uaShapes();
+  return { type: 'FeatureCollection', features: shapes.map((s) => ({ type: 'Feature', properties: { key: s.key }, geometry: { type: 'MultiPolygon', coordinates: s.rings } })) };
+}

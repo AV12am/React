@@ -15,6 +15,7 @@ import { newsGet } from './_news.js';
 import { json, db, caller, siteCaller } from './_core.js';
 import { companyProfile } from './_company.js';
 import { recordVisit, visitStats } from './_visits.js';
+import { liveAlerts, uaGeoJSON } from './_alerts.js';
 import * as XLSX from 'xlsx';
 import { timeline, anxiety, QUERY, FEEDS, parseFeed, crisisShare, ownIndex, cleanHeadlines, sharesByDay, GPR_URL, parseGpr, gprIndex, ANALYSIS_FEEDS, pickHeadlines } from '../src/lib/pulse.js';
 
@@ -190,6 +191,11 @@ export async function GET(req) {
     if (!/^\d{8}$/.test(code)) return json(400, { error: 'code', message: 'Потрібен код ЄДРПОУ (8 цифр)' });
     if (!(await caller(req)) && !(await siteCaller(req))) return json(401, { error: 'signin', message: 'Потрібен вхід із підтвердженням ключем' });
     try { return json(200, await companyTenders(code)); } catch (e) { return json(502, { error: 'prozorro', message: e.message }); }
+  }
+  if (sp.has('alerts')) {
+    // Live air-raid alerts for the workspace map (alerts.in.ua): a workspace member only.
+    if (!(await caller(req))) return json(401, { error: 'signin', message: 'Потрібен вхід' });
+    try { return json(200, sp.get('alerts') === 'shapes' ? await uaGeoJSON() : await liveAlerts()); } catch (e) { return json(502, { error: 'alerts', message: e.message }); }
   }
   if (sp.has('visits')) {
     // The public site's visits: an administrator of the workspace only.

@@ -403,6 +403,10 @@ kbd {
 .mode-mark .map-gl .maplibregl-canvas, .mode-measure .map-gl .maplibregl-canvas { cursor: crosshair; }
 .map-loading { position: absolute; inset: 0; display: grid; place-items: center; background: var(--surface); }
 .map-layers__note { max-width: 260px; padding-top: 8px; border-top: 1px solid var(--line); }
+.map-alerts { max-width: 260px; padding-top: 8px; border-top: 1px solid var(--line); display: grid; gap: 4px; }
+.map-alerts__dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+.map-alerts__dot.is-a { background: var(--conflict, #c0392b); }
+.map-alerts__dot.is-p { background: var(--brass, #b08d57); }
 .map-layers__grid { display: grid; gap: 6px; padding-bottom: 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
 .map-frame .maplibregl-ctrl-bottom-right { bottom: 56px; }
 .map-frame .maplibregl-ctrl-attrib {

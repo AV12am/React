@@ -21,6 +21,7 @@ import { buildStyle, palette, zonesGeoJSON, eventsGeoJSON } from '../map/style.j
 import { degreeGrid, mgrsGrid } from '../map/grid.js';
 import { useInstalledTiles, elevationAt } from '../map/tiles.js';
 import { LOCALE } from '../lib/locale.js';
+import { supabaseOn, authHeaders } from '../lib/supabase.js';
 
 /* ---------- geography ---------- */
 
@@ -197,7 +198,7 @@ export function MapView({ focus }) {
   const [touch, setTouch] = useState(() => window.matchMedia?.('(pointer: coarse)').matches ?? false);
   const [centre, setCentre] = useState(null);
   const [mode, setMode] = useState('view');
-  const [layers, setLayers] = useState({ relief: true, conflicts: true, events: true, grid: 'off', labels: true, cities: true, points: true, tracks: true, trails: true });
+  const [layers, setLayers] = useState({ alerts: true, relief: true, conflicts: true, events: true, grid: 'off', labels: true, cities: true, points: true, tracks: true, trails: true });
   const [sel, setSel] = useState(null); // {type:'point'|'track'|'event'|'coord', id?, lat?, lon?}
   const [follow, setFollow] = useState(null);
   const [measure, setMeasure] = useState([]);
@@ -279,13 +280,31 @@ export function MapView({ focus }) {
 
   const geo = detail || BASE;
   const zonesData = useMemo(() => zonesGeoJSON(zones, BASE.fc), [zones]);
+  // Live air-raid alerts (alerts.in.ua through the server, every 30 seconds while the layer is on and the tab seen).
+  const [alertShapes, setAlertShapes] = useState(null);
+  const [alertsLive, setAlertsLive] = useState(null);
+  useEffect(() => {
+    if (!layers.alerts) return undefined;
+    let gone = false;
+    const get = async (q) => (await fetch(new URL(`api/pulse?alerts=${q}`, document.baseURI), { headers: supabaseOn ? await authHeaders() : {}, cache: 'no-store' })).json();
+    if (!alertShapes) get('shapes').then((j) => { if (!gone && j?.features?.length) setAlertShapes(j); }).catch(() => {});
+    const tick = () => { if (document.visibilityState === 'visible') get('live').then((j) => { if (!gone) setAlertsLive(j); }).catch(() => {}); };
+    tick();
+    const t = setInterval(tick, 30000);
+    document.addEventListener('visibilitychange', tick);
+    return () => { gone = true; clearInterval(t); document.removeEventListener('visibilitychange', tick); };
+  }, [layers.alerts, alertShapes]);
+  const alertsData = useMemo(() => ({
+    type: 'FeatureCollection',
+    features: (alertShapes?.features || []).map((f) => ({ ...f, properties: { ...f.properties, status: alertsLive?.oblasts?.[f.properties.key] || 'N' } })),
+  }), [alertShapes, alertsLive]);
   const eventsData = useMemo(() => eventsGeoJSON(events), [events]);
   const selectedEvent = sel?.type === 'event' ? sel.id : '';
 
   const styleFor = useRef(null);
   styleFor.current = () => buildStyle({
     col: palette(wrapRef.current), theme, tiles, layers, baseOk,
-    data: { countries: geo.fc, borders: geo.borders, coast: geo.coast, ua: geo.ua, zones: zonesData, events: eventsData, selectedEvent },
+    data: { countries: geo.fc, borders: geo.borders, coast: geo.coast, ua: geo.ua, zones: zonesData, alerts: alertsData, events: eventsData, selectedEvent },
   });
 
   const project = useCallback(([lon, lat]) => {
@@ -571,6 +590,7 @@ export function MapView({ focus }) {
   // Data and visibility updates go straight to the sources and layers.
   const setData = (id, data) => { try { mapRef.current?.getSource(id)?.setData(data); } catch { /* style reloading */ } };
   useEffect(() => { if (ready) setData('zones', zonesData); }, [ready, zonesData]);
+  useEffect(() => { if (ready) setData('alerts', alertsData); }, [ready, alertsData]);
   useEffect(() => { if (ready) setData('events', eventsData); }, [ready, eventsData]);
   useEffect(() => {
     if (!ready) return;
@@ -581,6 +601,7 @@ export function MapView({ focus }) {
     if (!ready || !map) return;
     const vis = (id, on) => { if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none'); };
     vis('hillshade', layers.relief);
+    vis('alerts-fill', layers.alerts); vis('alerts-line', layers.alerts);
     vis('zones-fill', layers.conflicts); vis('zones-line', layers.conflicts); vis('events', layers.events);
   }, [ready, layers]);
   useEffect(() => {
@@ -780,7 +801,7 @@ export function MapView({ focus }) {
   const readout = touch ? centre : cursor;
   const LAYERS = [
     ...(tiles.terrain ? [['relief', 'Рельєф']] : []),
-    ['conflicts', 'Зони конфліктів'], ['events', 'Події ACLED'],
+    ['alerts', 'Повітряні тривоги (наживо)'], ['conflicts', 'Зони конфліктів'], ['events', 'Події ACLED'],
     ...(detailed && baseOk ? [] : [['labels', 'Назви країн'], ['cities', 'Міста']]),
     ['points', 'Позначки'], ['tracks', 'Об’єкти'], ['trails', 'Сліди руху'],
   ];
@@ -915,6 +936,7 @@ export function MapView({ focus }) {
               {LAYERS.map(([id, name]) => (
                 <label key={id} className="check"><input type="checkbox" checked={layers[id]} onChange={(e) => setLayers({ ...layers, [id]: e.target.checked })} /> {name}</label>
               ))}
+              {layers.alerts && <AlertsNote live={alertsLive} />}
               <div className="vx-hint map-layers__note">
                 {detailed && !baseOk && 'Детальна карта зараз недоступна (немає зв’язку з джерелом). Показано кордони Natural Earth.'}
                 {detailed && baseOk
@@ -1115,6 +1137,23 @@ export function MapView({ focus }) {
           </form>
         </Modal>
       )}
+    </div>
+  );
+}
+
+/** What the live alerts layer shows: whole oblasts under alert, the parts, when it was read. */
+function AlertsNote({ live }) {
+  if (!live) return <div className="vx-hint map-alerts">Тривоги: завантаження…</div>;
+  if (live.off) return <div className="vx-hint map-alerts">Тривоги: не підключено джерело (ALERTS_IN_UA_TOKEN).</div>;
+  if (live.error) return <div className="vx-hint map-alerts">Тривоги: джерело зараз недоступне.</div>;
+  const whole = [...new Set(live.items.filter((x) => x.whole).map((x) => x.key))];
+  const parts = live.items.filter((x) => !x.whole);
+  const time = (t) => (t ? new Date(t).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' }) : '');
+  return (
+    <div className="vx-hint map-alerts">
+      <div><span className="map-alerts__dot is-a" /> Уся область: {whole.length ? whole.join(', ') : 'немає'}</div>
+      <div><span className="map-alerts__dot is-p" /> Частина області: {parts.length ? parts.slice(0, 12).map((x) => x.place).join(', ') + (parts.length > 12 ? ` і ще ${parts.length - 12}` : '') : 'немає'}</div>
+      <div>alerts.in.ua · оновлено {time(live.at)}{live.stale ? ' (дані можуть бути застарілими)' : ''}</div>
     </div>
   );
 }

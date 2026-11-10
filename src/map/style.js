@@ -134,6 +134,7 @@ export function buildStyle({ col, theme, tiles, data, layers, baseOk = false }) 
     borders: { type: 'geojson', data: data.borders },
     ua: { type: 'geojson', data: data.ua },
     zones: { type: 'geojson', data: data.zones },
+    alerts: { type: 'geojson', data: data.alerts || { type: 'FeatureCollection', features: [] } },
     events: { type: 'geojson', data: data.events },
   };
   const style = { version: 8, sources, layers: [] };
@@ -203,6 +204,8 @@ export function buildStyle({ col, theme, tiles, data, layers, baseOk = false }) 
     ...baseLayers,
     { id: 'zones-fill', type: 'fill', source: 'zones', layout: { visibility: vis(layers.conflicts) }, paint: { 'fill-color': col.conflict, 'fill-opacity': 0.34 } },
     { id: 'zones-line', type: 'line', source: 'zones', layout: { visibility: vis(layers.conflicts) }, paint: { 'line-color': col.conflict, 'line-width': 1.2, 'line-opacity': 0.9 } },
+    { id: 'alerts-fill', type: 'fill', source: 'alerts', layout: { visibility: vis(layers.alerts) }, paint: { 'fill-color': ['match', ['get', 'status'], 'A', col.conflict, 'P', col.brass, 'rgba(0,0,0,0)'], 'fill-opacity': ['match', ['get', 'status'], 'A', 0.42, 'P', 0.3, 0] } },
+    { id: 'alerts-line', type: 'line', source: 'alerts', layout: { visibility: vis(layers.alerts) }, paint: { 'line-color': ['match', ['get', 'status'], 'A', col.conflict, 'P', col.brass, col.ink3], 'line-width': ['match', ['get', 'status'], 'A', 1.4, 'P', 1.1, 0.4], 'line-opacity': ['match', ['get', 'status'], 'A', 0.95, 'P', 0.85, 0.35] } },
     { id: 'borders', type: 'line', source: 'borders', paint: { 'line-color': detailed ? col.ink3 : col.border, 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 0.7, 10, 1.6] } },
     { id: 'ua-outline', type: 'line', source: 'ua', paint: { 'line-color': col.ink3, 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 1.1, 10, 2.2] } },
     {
