@@ -132,9 +132,40 @@ const readHash = () => {
   return { view, sub, id };
 };
 
+// Where the person left off: the last section / record (the hash) and how far down it was scrolled, per person,
+// on this device. An address with its own hash (a shared link) wins; without one, work resumes there.
+const PLACE_KEY = 'reaction-core/last-place';
+const readPlace = () => { try { return JSON.parse(localStorage.getItem(PLACE_KEY) || 'null'); } catch { return null; } };
+const keepPlace = (p) => { try { localStorage.setItem(PLACE_KEY, JSON.stringify(p)); } catch { /* private mode */ } };
+
 function Shell() {
   const { state, me, perms, dispatch } = useStore();
-  const [{ view, sub, id }, setRoute] = useState(readHash);
+  const [{ view, sub, id }, setRoute] = useState(() => {
+    const p = readPlace();
+    if ((!location.hash || location.hash === '#' || location.hash === '#/') && p?.user === me?.id && p.hash) history.replaceState(null, '', p.hash);
+    return readHash();
+  });
+  // Remember the place on every move and the scroll as it changes; on the way back, scroll to where it was.
+  useEffect(() => {
+    const save = () => keepPlace({ user: me?.id, hash: location.hash, y: Math.round(window.scrollY), at: Date.now() });
+    save();
+    let t = 0;
+    const onScroll = () => { clearTimeout(t); t = setTimeout(save, 400); };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('pagehide', save);
+    return () => { clearTimeout(t); window.removeEventListener('scroll', onScroll); window.removeEventListener('pagehide', save); };
+  }, [view, sub, id, me?.id]);
+  const restored = useRef(false);
+  useEffect(() => {
+    if (restored.current) return;
+    restored.current = true;
+    const p = readPlace();
+    if (!p || p.user !== me?.id || p.hash !== location.hash || !(p.y > 0)) return;
+    // The section draws its content a moment later (lazy parts, data): try a few times until the page is long enough.
+    let n = 0;
+    const tryScroll = () => { window.scrollTo(0, p.y); if (Math.abs(window.scrollY - p.y) > 4 && ++n < 12) setTimeout(tryScroll, 250); };
+    setTimeout(tryScroll, 300);
+  }, [me?.id]);
   const [menu, setMenu] = useState(false);
   const [palette, setPalette] = useState(false);
   const [bell, setBell] = useState(false);
