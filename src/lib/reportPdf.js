@@ -71,6 +71,19 @@ export async function reportPdf(m) {
     }
   };
   const space = (h) => { y -= h; };
+  // An attached PDF: its own pages copied in after the appendix heading, as they are — nothing re-typed.
+  // Whatever is written next starts on a fresh page. False when the file cannot be opened (then its text goes in).
+  const embedded = new Set();
+  const embedPdf = async (bytes) => {
+    try {
+      const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+      const copied = await doc.copyPages(src, src.getPageIndices());
+      if (!copied.length) return false;
+      copied.forEach((p) => { doc.addPage(p); embedded.add(p); });
+      y = 0;
+      return true;
+    } catch { return false; }
+  };
   const h2 = (s) => {
     room(40); space(14);
     page.drawText(safe(s).toUpperCase(), { x: M.l, y: y - 9.5, size: 9.5, font: B, color: color(ACCENT) });
@@ -156,6 +169,7 @@ export async function reportPdf(m) {
       text(`Додаток ${i + 1}. ${a.name}`, { size: 14, gap: 1.3 });
       text(sub(a), { size: 8.5, c: MUTED });
       space(6);
+      if (a.pdf && await embedPdf(a.pdf)) continue;
       if (a.image) await image(a.image);
       else if (a.table) {
         const cols = Math.min(6, a.table.head.length || 1);
@@ -173,11 +187,16 @@ export async function reportPdf(m) {
   const pages = doc.getPages();
   const band = safe(`${m.level.name} · ${m.number}`).toUpperCase();
   pages.forEach((p, i) => {
-    const bw = B.widthOfTextAtSize(band, 8);
-    p.drawText(band, { x: (A4[0] - bw) / 2, y: A4[1] - 32, size: 8, font: B, color: color(ACCENT) });
-    p.drawText(band, { x: (A4[0] - bw) / 2, y: 26, size: 8, font: B, color: color(ACCENT) });
+    // An embedded PDF's page keeps its own size: the marks are placed by it.
+    // (at the very edge, so as not to cover the document's own header and footer).
+    const { width: pw, height: ph } = p.getSize();
+    const own = !embedded.has(p);
+    const top = own ? ph - 32 : ph - 11; const bottom = own ? 26 : 5;
+    const bw = B.widthOfTextAtSize(band, own ? 8 : 6.5);
+    p.drawText(band, { x: (pw - bw) / 2, y: top, size: own ? 8 : 6.5, font: B, color: color(ACCENT) });
+    p.drawText(band, { x: (pw - bw) / 2, y: bottom, size: own ? 8 : 6.5, font: B, color: color(ACCENT) });
     const pn = `${i + 1} / ${pages.length}`;
-    p.drawText(pn, { x: A4[0] - M.r - F.widthOfTextAtSize(pn, 8), y: 26, size: 8, font: F, color: color(MUTED) });
+    p.drawText(pn, { x: pw - (own ? M.r : 18) - F.widthOfTextAtSize(pn, own ? 8 : 6.5), y: bottom, size: own ? 8 : 6.5, font: F, color: color(MUTED) });
   });
   return new Blob([await doc.save()], { type: 'application/pdf' });
 }

@@ -1,5 +1,5 @@
 // What a record page adds to its report: description, data, working entries, the cover photo and every
-// attached file as an appendix — photos as pictures, PDF / Word / Excel / text as their text.
+// attached file as an appendix — photos as pictures, PDF as its own pages, Word / Excel / text as their text.
 // Only what the reader may see and what is not above the record's own classification goes in.
 import { bodyOf, kindOf } from './attach.js';
 import { extractText } from './textract.js';
@@ -54,8 +54,12 @@ export async function reportExtra(record, { reg, files = [], backend, may = () =
         const t = await readTable(new File([(await bodyOf(backend, f)).blob], f.name, { type: f.type }));
         a.table = { head: t.head, rows: t.rows.slice(0, TABLE_ROWS).map((r) => t.head.map((_, j) => (r[j] == null ? '' : String(r[j])))), more: Math.max(0, t.rows.length - TABLE_ROWS) };
       } else if (['pdf', 'docx', 'xlsx', 'text'].includes(kind)) {
+        const blob = (await bodyOf(backend, f)).blob;
+        // A PDF goes into the report as its own pages (layout, tables and pictures kept); its text stays as the
+        // fallback for the print view and for a file the PDF library cannot open.
+        if (kind === 'pdf') a.pdf = new Uint8Array(await blob.arrayBuffer());
         // The whole text (up to REPORT_TEXT) from the file itself; the card's indexed text is only a part.
-        let text = await extractText(new File([(await bodyOf(backend, f)).blob], f.name, { type: f.type }), REPORT_TEXT).catch(() => '');
+        let text = await extractText(new File([blob], f.name, { type: f.type }), REPORT_TEXT).catch(() => '');
         if (!text) text = f.text || '';
         if (text) a.text = text.length >= REPORT_TEXT ? `${text}\n…(текст скорочено — повний файл у Сховищі)` : text;
       }
