@@ -1,6 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StoreProvider, useStore } from './store.jsx';
 import { Wordmark, Mark, Loader } from './brand/Mark.jsx';
+// The flower at the top leads back to the public site (from workspace.<domain> to <domain>).
+const SITE_HOME = typeof location !== 'undefined' && /^workspace\./.test(location.hostname) ? `https://${location.hostname.replace(/^workspace\./, '')}/` : '/';
 import { Icon } from './components/Icon.jsx';
 import { Avatar, Toasts, Modal, ClassBadge } from './components/ui.jsx';
 import { Splash, Login, Lock } from './views/Entry.jsx';
@@ -235,7 +237,7 @@ function Shell() {
   return (
     <div className={`shell ${ai ? 'has-ai' : ''} ${current === 'map' ? 'on-map' : ''}`}>
       <aside className={`sidebar ${menu ? 'is-open' : ''}`} ref={sideRef}>
-        <div className="sidebar__brand"><Wordmark /></div>
+        <a className="sidebar__brand" href={SITE_HOME} title="На сайт REACTIONcore" aria-label="На основний сайт REACTIONcore"><Wordmark /></a>
         <div className="sidebar__product vx-eyebrow">Core · внутрішня платформа</div>
         <nav className="sidebar__nav" aria-label="Головне меню">
           {side.map((n) => (
@@ -270,7 +272,7 @@ function Shell() {
 
       <div className="main">
         <header className="topbar">
-          <span className="topbar__brand" aria-hidden="true"><Mark size={22} title="" /><span className="topbar__word">REACTION</span></span>
+          <a className="topbar__brand" href={SITE_HOME} aria-label="На основний сайт REACTIONcore"><Mark size={22} title="" /><span className="topbar__word">REACTION</span></a>
           <button className="topbar__search" onClick={() => setPalette(true)} aria-label="Пошук">
             <Icon name="search" size={16} /> <span className="topbar__search-long">Пошук і команди</span> <kbd>Ctrl K</kbd>
           </button>

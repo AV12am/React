@@ -18,11 +18,11 @@ const L = {
   uk: { loc: 'uk-UA', today: 'Сьогодні', check: 'Перевірка', conf: 'рівень довіри', conclusion: 'Висновок', scen: 'Сценарії · рівень 1', p: 'P', chance: 'Шанс події', signs: 'Ознаки перегляду',
     flows: 'Сценарні течії', variants: 'варіанти', paths: 'шляхи', position: 'Позиція аналізу', method: 'Метод: коефіцієнти, дослідження, джерела', coef: 'Коефіцієнтна частка', level: 'Рів.', variable: 'Змінна',
     values: 'Коефіцієнти', why: 'Чому такі · дослідження', research: 'Дослідження', sources: 'Джерела', all: 'Усі варіанти', changes: 'Що змінить оцінку', pdf: 'Завантажити PDF', status: { open: 'відкритий', happened: 'сталося', not: 'не сталося' },
-    left: (n) => `${n} дн. до перевірки`, done: 'перевірено', pick: 'Оберіть сценарій — підсвітяться його течії та шляхи.', reset: 'Усі сценарії' },
+    left: (n) => `${n} дн. до перевірки`, done: 'перевірено', pick: 'Оберіть сценарій — підсвітяться його течії та шляхи.', excl: 'викл.', reset: 'Усі сценарії' },
   en: { loc: 'en-GB', today: 'Today', check: 'Check', conf: 'confidence', conclusion: 'Conclusion', scen: 'Scenarios · level 1', p: 'P', chance: 'Chance of the event', signs: 'Signs to watch',
     flows: 'Scenario flows', variants: 'variants', paths: 'paths', position: 'Position of the analysis', method: 'Method: coefficients, research, sources', coef: 'Coefficients', level: 'Lvl', variable: 'Variable',
     values: 'Coefficients', why: 'Why · research', research: 'Research', sources: 'Sources', all: 'All variants', changes: 'What changes the estimate', pdf: 'Download PDF', status: { open: 'open', happened: 'happened', not: 'did not happen' },
-    left: (n) => `${n} days to the check`, done: 'checked', pick: 'Pick a scenario — its flows and paths light up.', reset: 'All scenarios' },
+    left: (n) => `${n} days to the check`, done: 'checked', pick: 'Pick a scenario — its flows and paths light up.', excl: 'excl.', reset: 'All scenarios' },
 };
 const lab = (f) => L[f.lang] || L.en;
 // The brief's PDF: a small icon that downloads it.
@@ -121,7 +121,7 @@ function flows(f) {
   const node = (it, n, side) => `<g class="node ${side} ${it.base ? 'base' : ''}" ${side === 'l' ? `data-h="${it.id}"` : `data-n="${it.id}"`}>
 <rect x="${side === 'l' ? 0 : W - nodeW}" y="${n.y}" width="${nodeW}" height="${n.h}" rx="6"/>
 <text x="${(side === 'l' ? 0 : W - nodeW) + 12}" y="${n.y + 17}" class="t1">${esc(it.id)} · ${esc(side === 'l' ? it.short || it.name : `${pc(it.p, f)} · ${it.paths} ${lab(f).paths}`)}</text>
-${n.h > 34 ? `<text x="${(side === 'l' ? 0 : W - nodeW) + 12}" y="${n.y + 33}" class="t2">${esc(side === 'l' ? `${num(it.p, f)} · ${it.variants} ${lab(f).variants}` : it.name)}</text>` : ''}</g>`;
+${n.h > 34 ? `<text x="${(side === 'l' ? 0 : W - nodeW) + 12}" y="${n.y + 33}" class="t2">${esc(side === 'l' ? it.note || `${num(it.p, f)} · ${it.variants} ${lab(f).variants}` : it.name)}</text>` : ''}</g>`;
   return `<svg class="flows" viewBox="0 0 ${W} ${totalH}" role="img" aria-label="${esc(lab(f).flows)}">${bands}${f.scenarios.map((s) => node(s, left[s.id], 'l')).join('')}${f.outcomes.map((o) => node(o, right[o.id], 'r')).join('')}</svg>`;
 }
 
@@ -143,9 +143,10 @@ ${f.resolves ? `<p class="tm-res">${esc(f.resolves)}</p>` : ''}
 <div class="tm-head"><div class="tm-g">${gaugeSvg(f.p, 132)}<div class="tm-pct">${pc(f.p, f)}</div></div>
 <div><span class="tm-k">${l.conclusion}</span><p class="tm-con">${esc(f.conclusion)}</p></div></div>
 <div class="tm-two">
-<div class="tm-box"><span class="tm-k">${l.scen}</span>
-<table class="tm-scn"><thead><tr><th></th><th>${l.p}</th><th>${l.chance}</th></tr></thead><tbody>
-${f.scenarios.map((s) => `<tr data-h="${s.id}" tabindex="0"><td><b>${esc(s.id)}</b> · ${esc(s.name)}</td><td>${num(s.p, f)}</td><td>${pc(s.chance, f)}</td></tr>`).join('')}
+<div class="tm-box"><span class="tm-k">${esc(f.scenTitle || l.scen)}</span>
+<table class="tm-scn"><thead><tr><th></th><th>${l.p}</th><th>${esc(f.chanceLabel || l.chance)}</th></tr></thead><tbody>
+${f.tree ? f.tree.map((g) => `<tr class="tm-grp"><td colspan="3"><b>${esc(g.id)}</b> · ${esc(g.name)}${g.sub ? ` <span>${esc(g.sub)}</span>` : ''}</td></tr>${g.rows.map((s) => `<tr data-h="${s.id}" tabindex="0"><td class="tm-sub"><b>${esc(s.id)}</b> · ${esc(s.name)}</td><td>${num(s.p, f)}</td><td>${s.chance === null ? l.excl : pc(s.chance, f)}</td></tr>`).join('')}`).join('')
+    : f.scenarios.map((s) => `<tr data-h="${s.id}" tabindex="0"><td><b>${esc(s.id)}</b> · ${esc(s.name)}</td><td>${num(s.p, f)}</td><td>${pc(s.chance, f)}</td></tr>`).join('')}
 </tbody></table><p class="tm-hint">${l.pick} <button type="button" class="tm-reset" hidden>${l.reset}</button></p></div>
 <div class="tm-box"><span class="tm-k">${l.signs}</span><ul class="tm-sig">${(f.signals?.up || []).map((s) => `<li class="up">▲ ${esc(s)}</li>`).join('')}${(f.signals?.down || []).map((s) => `<li class="dn">▼ ${esc(s)}</li>`).join('')}</ul></div>
 </div>
