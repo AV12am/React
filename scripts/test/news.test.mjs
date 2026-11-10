@@ -694,3 +694,17 @@ test('a «translation» still in Ukrainian is no translation (asked again, never
   assert.equal(out.t[0], '');
   assert.ok(out.t[1].startsWith('The Aramco Tower'));
 });
+
+test('the issue of 9 November: one speaker once, empty news out, «російське ЗМІ» named', async () => {
+  const { speakerOf, emptyNews, nameSource } = await import('../../src/lib/news.js');
+  assert.equal(speakerOf('Рябков: Россия отмечает рост военной активности НАТО в Арктике'), 'рябков');
+  assert.equal(speakerOf('Европа не заинтересована в окончании конфликта на Украине, заявил Рябков'), 'рябков');
+  assert.equal(speakerOf('Цьогоріч завдяки ДШВ звільнені понад 800 км² на Олександрівському напрямку - Зеленський'), 'зеленський');
+  assert.equal(speakerOf('FT: Северная Европа создаст военно-морской альянс'), '');
+  assert.equal(speakerOf('Генштаб: ЗСУ вразили чотири пункти управління'), '');
+  assert.equal(speakerOf('В России обрушилось производство водки'), '');
+  assert.ok(emptyNews('Російське видання повідомило, що названо головних постачальників машин до рф за останні п’ять років, проте деталей у джерелі, які саме країни увійшли до списку, немає.'));
+  assert.ok(!emptyNews('Сили оборони уразили завод під Санкт-Петербургом.'));
+  assert.equal(nameSource('За повідомленням російського ЗМІ, у рф обвалилося виробництво горілки.', 'lenta.ru'), 'За повідомленням Лента.ру, у рф обвалилося виробництво горілки.');
+  assert.equal(nameSource('Російське видання повідомило, що названо постачальників.', 'lenta.ru'), 'Лента.ру повідомило, що названо постачальників.');
+});

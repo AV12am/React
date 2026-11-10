@@ -17,11 +17,11 @@ import { json, db, env } from './_core.js';
 import Anthropic from '@anthropic-ai/sdk';
 import sample from '../src/news/sample.js';
 import { refreshAlerts } from './_alerts.js';
-import { SECTIONS, PER_SECTION, POOL, FRESH, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, keyPrompt, eventsPrompt, repeatsPrompt, readRepeats, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, needsFix, fixPrompt, nameSource, nameSourceEn, LEAD_IMAGE, ruPicture, nightReport, airTally } from '../src/lib/news.js';
+import { SECTIONS, PER_SECTION, POOL, FRESH, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, keyPrompt, eventsPrompt, repeatsPrompt, readRepeats, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, needsFix, fixPrompt, nameSource, nameSourceEn, emptyNews, speakerOf, LEAD_IMAGE, ruPicture, nightReport, airTally } from '../src/lib/news.js';
 
 
 const MIN = 60000;
-const VERSION = 28; // 28: sport kept out (trampoline, gymnastics, football…), Russian outlets named at a sentence's end and in English, Latin place names and G7 / G20 set right, aid decisions not in section 3, civil industry not in 4.2, consequences of one event counted as a repeat; 27: Russian outlets named, English words and mixed letters set right, «ВСУ» told as Ukraine's army; 26: 26: no news about russia among the key news; section 3 repeating another section gives way; // 23: 4.2 reads the big newsrooms and takes the supply news first; 22: photos: only real photographs from the archive, text only when it covers the picture, Russian sites' own pictures kept; 21: a repeat is kept in the thinnest section; 5.2 judged by headline; 20: the editor scores 2 / 1 / 0, a short section takes the partly-on-topic ones; 19: a quiet day reaches back to 48 hours; 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
+const VERSION = 29; // 29: one speaker once in a section, a news with no details out, «російське ЗМІ / видання» named, consumer prices, rents and PR out of 4.1, trifles out of 3 and of the key news; 28: sport kept out (trampoline, gymnastics, football…), Russian outlets named at a sentence's end and in English, Latin place names and G7 / G20 set right, aid decisions not in section 3, civil industry not in 4.2, consequences of one event counted as a repeat; 27: Russian outlets named, English words and mixed letters set right, «ВСУ» told as Ukraine's army; 26: 26: no news about russia among the key news; section 3 repeating another section gives way; // 23: 4.2 reads the big newsrooms and takes the supply news first; 22: photos: only real photographs from the archive, text only when it covers the picture, Russian sites' own pictures kept; 21: a repeat is kept in the thinnest section; 5.2 judged by headline; 20: the editor scores 2 / 1 / 0, a short section takes the partly-on-topic ones; 19: a quiet day reaches back to 48 hours; 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -534,6 +534,17 @@ export async function makeIssue(now = Date.now()) {
       note.twice = gone.size;
     } catch (e) { note.twiceErr = String(e.message || e).slice(0, 120); }
   }
+  // Rules no editor round catches every time: a news with nothing in it («the source gives no details») goes, and
+  // one speaker speaks once in a section — four headlines from one speech are one news. A spare takes the place.
+  full.forEach((l, k) => {
+    const said = new Set();
+    full[k] = l.filter((x) => {
+      if (!x.lead && emptyNews(x.summary)) return false;
+      const who = speakerOf(x.title);
+      if (who && !x.lead) { if (said.has(who)) return false; said.add(who); }
+      return true;
+    });
+  });
   // The key news finally shown leave their sections (a spare key news, when it was needed, among them).
   const keyAt = SECTIONS.findIndex((s) => s.key);
   const shownKey = new Set(full[keyAt].slice(0, KEY_COUNT).map((x) => x.url));
