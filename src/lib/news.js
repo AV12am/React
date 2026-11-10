@@ -657,7 +657,7 @@ export function readSummaries(raw, items) {
     list = [...tail.matchAll(/"((?:[^"\\]|\\.)*)"\s*[,\]]/g)].map((m) => { try { return JSON.parse(`"${m[1]}"`); } catch { return ''; } });
   }
   return items.map((x, i) => {
-    const s = String(list[i] || '')
+    const s = String(list[i] || '').replace(/^\s*\d{1,2}[.)]\s+/, '')
       .replace(/[\u2E80-\u9FFF\uAC00-\uD7AF\uF900-\uFAFF\u3000-\u303F]+/g, '') // stray CJK the model sometimes slips in
       .replace(/\s*Це (важливо|сталося)[^.]*?(оскільки це|в [А-ЯІЇЄҐ][^.,]*)\.(?=\s|$)/g, '')
       .replace(/\s+/g, ' ').trim();
