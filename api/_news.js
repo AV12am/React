@@ -21,7 +21,7 @@ import { SECTIONS, PER_SECTION, POOL, FRESH, offTopic, KEY_COUNT, parseNewsFeed,
 
 
 const MIN = 60000;
-const VERSION = 32; // 32: one news per talks across the issue, list numbers off the summaries; 31: 31: names as the source gives them (no first names or posts from memory), shelling and foreign politicians out of 4.1, explainers and other armies' purchases out of 4.2, partners' aid out of 2.1, one news per talks in a section; 30: 30: a summary cut off («…», «[лише заголовок]») or about someone else than the headline's speaker out, round-ups of the day out of the sections, peace talks out of 4.2; 29: 29: one speaker once in a section, a news with no details out, «російське ЗМІ / видання» named, consumer prices, rents and PR out of 4.1, trifles out of 3 and of the key news; 28: sport kept out (trampoline, gymnastics, football…), Russian outlets named at a sentence's end and in English, Latin place names and G7 / G20 set right, aid decisions not in section 3, civil industry not in 4.2, consequences of one event counted as a repeat; 27: Russian outlets named, English words and mixed letters set right, «ВСУ» told as Ukraine's army; 26: 26: no news about russia among the key news; section 3 repeating another section gives way; // 23: 4.2 reads the big newsrooms and takes the supply news first; 22: photos: only real photographs from the archive, text only when it covers the picture, Russian sites' own pictures kept; 21: a repeat is kept in the thinnest section; 5.2 judged by headline; 20: the editor scores 2 / 1 / 0, a short section takes the partly-on-topic ones; 19: a quiet day reaches back to 48 hours; 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
+const VERSION = 33; // 33: a section short of news looks at the day before too and at a bigger pool; what a section never takes is barred before the editor, so it holds no place; 32: 32: one news per talks across the issue, list numbers off the summaries; 31: 31: names as the source gives them (no first names or posts from memory), shelling and foreign politicians out of 4.1, explainers and other armies' purchases out of 4.2, partners' aid out of 2.1, one news per talks in a section; 30: 30: a summary cut off («…», «[лише заголовок]») or about someone else than the headline's speaker out, round-ups of the day out of the sections, peace talks out of 4.2; 29: 29: one speaker once in a section, a news with no details out, «російське ЗМІ / видання» named, consumer prices, rents and PR out of 4.1, trifles out of 3 and of the key news; 28: sport kept out (trampoline, gymnastics, football…), Russian outlets named at a sentence's end and in English, Latin place names and G7 / G20 set right, aid decisions not in section 3, civil industry not in 4.2, consequences of one event counted as a repeat; 27: Russian outlets named, English words and mixed letters set right, «ВСУ» told as Ukraine's army; 26: 26: no news about russia among the key news; section 3 repeating another section gives way; // 23: 4.2 reads the big newsrooms and takes the supply news first; 22: photos: only real photographs from the archive, text only when it covers the picture, Russian sites' own pictures kept; 21: a repeat is kept in the thinnest section; 5.2 judged by headline; 20: the editor scores 2 / 1 / 0, a short section takes the partly-on-topic ones; 19: a quiet day reaches back to 48 hours; 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -387,11 +387,14 @@ export async function makeIssue(now = Date.now()) {
   // A news «not about Ukraine» (5.2) is judged by its headline: a conflict story that mentions Russia in passing stays.
   const fits = (x, s) => (!s.match || s.match.test(`${x.title} ${x.text}`)) && (!s.skip || !s.skip.test(x.title));
   // The last 24 hours; a section that has too few of them (a weekend, a quiet day) reaches back to 48 hours.
-  const cands = own.map((s) => {
-    const all = s.feeds.flatMap((u) => (got.get(u) || []).map((x) => ({ ...x, outlet: host(u) }))).filter((x) => !offTopic(x) && fits(x, s));
-    const take = (fresh) => pickItems(all, now, s.pool || POOL, s.pool ? (s.pool > 36 ? 12 : 8) : 4, fresh);
-    const day = take(FRESH);
-    return day.length >= 12 ? day : take(2 * FRESH);
+  // What a section never takes (its own «не підходить», checked by rule) is not offered to it at all — so it does
+  // not hold a place that a fitting news could take, and may still go to the section it belongs to.
+  const barred = (x, s) => offSection(s.id, x) || roundUp(x.title) || (s.id === 'defence' && talksNews(x));
+  const allOf = own.map((s) => s.feeds.flatMap((u) => (got.get(u) || []).map((x) => ({ ...x, outlet: host(u) }))).filter((x) => !offTopic(x) && fits(x, s) && !barred(x, s)));
+  const takeOf = (k, fresh) => pickItems(allOf[k], now, own[k].pool || POOL, own[k].pool ? (own[k].pool > 36 ? 12 : 8) : 4, fresh);
+  const cands = own.map((s, k) => {
+    const day = takeOf(k, FRESH);
+    return day.length >= 12 ? day : takeOf(k, 2 * FRESH);
   });
   // All candidates once (a feed two sections share gives the same news to both).
   const pool = [];
@@ -430,6 +433,26 @@ export async function makeIssue(now = Date.now()) {
       const p = at.get(norm(x));
       if (verdicts[k]?.[i] === 'maybe' && !sec[p] && sec.filter((v) => v === own[k].id).length < 8) sec[p] = own[k].id;
     });
+  }
+  // A section still short of news after that (fewer than six — four to five shown, the rest spare for the rules
+  // after the summaries) gets a second look: the day before as well, and a bigger pool from its feeds, judged by
+  // the editor the same way. Better a news of yesterday on the topic than a section of one.
+  const short = own.map((s, k) => k).filter((k) => !own[k].key && sec.filter((v) => v === own[k].id).length < 6);
+  if (short.length && any()) {
+    await Promise.all(short.map(async (k) => {
+      const more = pickItems(allOf[k], now, 2 * (own[k].pool || POOL), 12, 2 * FRESH).filter((x) => !at.has(norm(x)));
+      if (!more.length) return;
+      let said = null;
+      try { said = readKeep(await ask(keepPrompt(own[k], more), 600), more); } catch (e) { note.secondErr = String(e.message || e).slice(0, 120); return; }
+      let got2 = 0;
+      for (const v of [true, 'maybe']) {
+        more.forEach((x, i) => {
+          if (said?.[i] !== v || at.has(norm(x)) || sec.filter((id) => id === own[k].id).length >= 8) return;
+          at.set(norm(x), pool.length); pool.push(x); sec.push(own[k].id); got2 += 1;
+        });
+      }
+      note.second = { ...note.second, [own[k].id]: [more.length, got2] };
+    }));
   }
   // What the editor said per section: [clearly, partly, not] — to see why a page came out thin.
   note.said = Object.fromEntries(own.map((s, k) => [s.id, verdicts[k] ? [true, 'maybe', false].map((v) => verdicts[k].filter((x) => x === v).length) : cands[k].length ? 'none' : 'empty']));
