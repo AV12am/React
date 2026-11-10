@@ -734,3 +734,11 @@ test('section rules no editor score overrides', async () => {
   assert.ok(!offSection('infospace', { title: 'Марочко заявил о начале закрепления ВС РФ на окрестностях Таврийского' }));
   assert.equal(talksVenue({ title: 'What to expect as Russia, Ukraine and the US hold trilateral talks in Abu Dhabi' }), talksVenue({ title: 'Переговори в Абу-Дабі відновлюються' }));
 });
+
+test('a speaker named first in a headline', async () => {
+  const { speakerOf } = await import('../../src/lib/news.js');
+  assert.equal(speakerOf('Зеленський розповів про підступний план РФ щодо мостів в Україні'), 'зеленський');
+  assert.equal(speakerOf('Депутат Толстой назвал Зеленского препятствием движения к миру'), 'толстой');
+  assert.equal(speakerOf('Мирошник объяснил, почему в ЕС не станут ловить украинских уклонистов'), 'мирошник');
+  assert.equal(speakerOf('Сили безпілотних систем уразили російський «Сонцепьок»'), '');
+});

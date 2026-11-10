@@ -21,7 +21,7 @@ import { SECTIONS, PER_SECTION, POOL, FRESH, offTopic, KEY_COUNT, parseNewsFeed,
 
 
 const MIN = 60000;
-const VERSION = 34; // 34: the last 24 hours only, never the day before; a section short of news looks at a bigger pool of the day; what a section never takes is barred before the editor, so it holds no place; 32: 32: one news per talks across the issue, list numbers off the summaries; 31: 31: names as the source gives them (no first names or posts from memory), shelling and foreign politicians out of 4.1, explainers and other armies' purchases out of 4.2, partners' aid out of 2.1, one news per talks in a section; 30: 30: a summary cut off («…», «[лише заголовок]») or about someone else than the headline's speaker out, round-ups of the day out of the sections, peace talks out of 4.2; 29: 29: one speaker once in a section, a news with no details out, «російське ЗМІ / видання» named, consumer prices, rents and PR out of 4.1, trifles out of 3 and of the key news; 28: sport kept out (trampoline, gymnastics, football…), Russian outlets named at a sentence's end and in English, Latin place names and G7 / G20 set right, aid decisions not in section 3, civil industry not in 4.2, consequences of one event counted as a repeat; 27: Russian outlets named, English words and mixed letters set right, «ВСУ» told as Ukraine's army; 26: 26: no news about russia among the key news; section 3 repeating another section gives way; // 23: 4.2 reads the big newsrooms and takes the supply news first; 22: photos: only real photographs from the archive, text only when it covers the picture, Russian sites' own pictures kept; 21: a repeat is kept in the thinnest section; 5.2 judged by headline; 20: the editor scores 2 / 1 / 0, a short section takes the partly-on-topic ones; 19: a quiet day reaches back to 48 hours; 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
+const VERSION = 35; // 35: a section takes up to twelve candidates, a second look under ten; «1.» off every retelling; a speaker named first in a headline counted; 34: 34: the last 24 hours only, never the day before; a section short of news looks at a bigger pool of the day; what a section never takes is barred before the editor, so it holds no place; 32: 32: one news per talks across the issue, list numbers off the summaries; 31: 31: names as the source gives them (no first names or posts from memory), shelling and foreign politicians out of 4.1, explainers and other armies' purchases out of 4.2, partners' aid out of 2.1, one news per talks in a section; 30: 30: a summary cut off («…», «[лише заголовок]») or about someone else than the headline's speaker out, round-ups of the day out of the sections, peace talks out of 4.2; 29: 29: one speaker once in a section, a news with no details out, «російське ЗМІ / видання» named, consumer prices, rents and PR out of 4.1, trifles out of 3 and of the key news; 28: sport kept out (trampoline, gymnastics, football…), Russian outlets named at a sentence's end and in English, Latin place names and G7 / G20 set right, aid decisions not in section 3, civil industry not in 4.2, consequences of one event counted as a repeat; 27: Russian outlets named, English words and mixed letters set right, «ВСУ» told as Ukraine's army; 26: 26: no news about russia among the key news; section 3 repeating another section gives way; // 23: 4.2 reads the big newsrooms and takes the supply news first; 22: photos: only real photographs from the archive, text only when it covers the picture, Russian sites' own pictures kept; 21: a repeat is kept in the thinnest section; 5.2 judged by headline; 20: the editor scores 2 / 1 / 0, a short section takes the partly-on-topic ones; 19: a quiet day reaches back to 48 hours; 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -430,13 +430,13 @@ export async function makeIssue(now = Date.now()) {
   for (const k of order) {
     cands[k].forEach((x, i) => {
       const p = at.get(norm(x));
-      if (verdicts[k]?.[i] === 'maybe' && !sec[p] && sec.filter((v) => v === own[k].id).length < 8) sec[p] = own[k].id;
+      if (verdicts[k]?.[i] === 'maybe' && !sec[p] && sec.filter((v) => v === own[k].id).length < 12) sec[p] = own[k].id;
     });
   }
-  // A section still short of news after that (fewer than six — four to five shown, the rest spare for the rules
-  // after the summaries) gets a second look: a bigger pool of the same day from its feeds (more per outlet), judged
+  // A section still short of news after that (fewer than ten — four to five shown, the rest spare: repeats and the
+  // rules after the summaries take some away) gets a second look: a bigger pool of the same day from its feeds (more per outlet), judged
   // by the editor the same way.
-  const short = own.map((s, k) => k).filter((k) => !own[k].key && sec.filter((v) => v === own[k].id).length < 6);
+  const short = own.map((s, k) => k).filter((k) => !own[k].key && sec.filter((v) => v === own[k].id).length < 10);
   if (short.length && any()) {
     await Promise.all(short.map(async (k) => {
       const more = pickItems(allOf[k], now, 3 * (own[k].pool || POOL), 16, FRESH).filter((x) => !at.has(norm(x)));
@@ -446,7 +446,7 @@ export async function makeIssue(now = Date.now()) {
       let got2 = 0;
       for (const v of [true, 'maybe']) {
         more.forEach((x, i) => {
-          if (said?.[i] !== v || at.has(norm(x)) || sec.filter((id) => id === own[k].id).length >= 8) return;
+          if (said?.[i] !== v || at.has(norm(x)) || sec.filter((id) => id === own[k].id).length >= 12) return;
           at.set(norm(x), pool.length); pool.push(x); sec.push(own[k].id); got2 += 1;
         });
       }
@@ -578,6 +578,9 @@ export async function makeIssue(now = Date.now()) {
   // The key news finally shown leave their sections (a spare key news, when it was needed, among them).
   const keyAt = SECTIONS.findIndex((s) => s.key);
   const shownKey = new Set(full[keyAt].slice(0, KEY_COUNT).map((x) => x.url));
+  // A list number the model put in front of a retelling («1. …») never shows.
+  const unnumber = (t) => (typeof t === 'string' ? t.replace(/^\s*\d{1,2}[.)]\s+/, '') : t);
+  full.forEach((l) => l.forEach((x) => { x.summary = unnumber(x.summary); }));
   const chosen = full.map((l, k) => fitItems(k === keyAt ? l.slice(0, KEY_COUNT) : l.filter((x) => !shownKey.has(x.url)).slice(0, PER_SECTION)));
   note.short = chosen.flat().filter((x) => x.n < 2).length;
 
