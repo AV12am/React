@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Mark, Loader, DrawnMark } from '../brand/Mark.jsx';
 import { Icon } from '../components/Icon.jsx';
+// The flower on the sign-in page leads back to the public site — for someone who came here by mistake.
+const SITE_HOME = typeof location !== 'undefined' && /^workspace\./.test(location.hostname) ? `https://${location.hostname.replace(/^workspace\./, '')}/` : '/';
 import { Avatar } from '../components/ui.jsx';
 import { useStore } from '../store.jsx';
 import { ROLES } from '../data/seed.js';
@@ -147,13 +149,13 @@ export function Login() {
     <div className="login" data-lang="en">
       <div className="login__brand">
         <DrawnMark className="login__ghost" size={720} />
-        <div className="login__lockup">
+        <a className="login__lockup" href={SITE_HOME} aria-label="REACTIONcore — home" title="REACTIONcore">
           <Mark size={64} title="" />
-        </div>
+        </a>
       </div>
 
       <div className="login__panel">
-        <div className="login__mobile-brand"><Mark size={40} title="" /></div>
+        <a className="login__mobile-brand" href={SITE_HOME} aria-label="REACTIONcore — home"><Mark size={40} title="" /></a>
         <h1 className="vx-h1">{supabaseOn || stage === 'id' ? 'Вхід' : 'Підтвердження'}</h1>
 
         {supabaseOn ? <SupabaseLogin /> : stage === 'id' ? (
