@@ -602,7 +602,7 @@ export function MapView({ focus }) {
     const vis = (id, on) => { if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none'); };
     vis('hillshade', layers.relief);
     vis('alerts-fill', layers.alerts); vis('alerts-line', layers.alerts);
-    vis('zones-fill', layers.conflicts); vis('zones-line', layers.conflicts); vis('events', layers.events);
+    vis('zones-fill', layers.conflicts && !layers.alerts); vis('zones-line', layers.conflicts); vis('events', layers.events);
   }, [ready, layers]);
   useEffect(() => {
     const map = mapRef.current;
@@ -1148,11 +1148,12 @@ function AlertsNote({ live }) {
   if (live.error) return <div className="vx-hint map-alerts">Тривоги: джерело зараз недоступне.</div>;
   const whole = [...new Set(live.items.filter((x) => x.whole).map((x) => x.key))];
   const parts = live.items.filter((x) => !x.whole);
+  const partOblasts = [...new Set(parts.map((x) => x.key))].filter((k) => !whole.includes(k));
   const time = (t) => (t ? new Date(t).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' }) : '');
   return (
     <div className="vx-hint map-alerts">
       <div><span className="map-alerts__dot is-a" /> Уся область: {whole.length ? whole.join(', ') : 'немає'}</div>
-      <div><span className="map-alerts__dot is-p" /> Частина області: {parts.length ? parts.slice(0, 12).map((x) => x.place).join(', ') + (parts.length > 12 ? ` і ще ${parts.length - 12}` : '') : 'немає'}</div>
+      <div><span className="map-alerts__dot is-p" /> Частина області: {partOblasts.length ? `${partOblasts.join(', ')} (районів і громад: ${parts.length})` : 'немає'}</div>
       <div>alerts.in.ua · оновлено {time(live.at)}{live.stale ? ' (дані можуть бути застарілими)' : ''}</div>
     </div>
   );
