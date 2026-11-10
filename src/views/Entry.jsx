@@ -111,7 +111,7 @@ export function Splash({ onDone }) {
     return () => t.forEach(clearTimeout);
   }, [onDone]);
   return (
-    <div className="splash" data-lang="en" onClick={onDone}>
+    <div className="splash" data-lang="en">
       <Loader size={180} label="Reaction · loading" />
       <div key={step} className="splash__status vx-mono">{BOOT[step]}{step < 3 ? '…' : ''}</div>
     </div>
