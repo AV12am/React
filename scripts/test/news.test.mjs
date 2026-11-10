@@ -721,3 +721,16 @@ test('broken summaries, round-ups and talks in 4.2 are caught', async () => {
   assert.ok(talksNews({ title: 'Буданов про перемовини в Абу-Дабі: Потрібно інтенсифікувати обміни полоненими' }));
   assert.ok(!talksNews({ title: 'Пентагон підтвердив постачання озброєння на $400 мільйонів' }));
 });
+
+test('section rules no editor score overrides', async () => {
+  const { offSection, talksVenue } = await import('../../src/lib/news.js');
+  assert.ok(offSection('society', { title: 'Рубіо: Гарантії безпеки для України мають бути прийнятними для Росії' }));
+  assert.ok(offSection('society', { title: 'У Переяславі росіяни вдарили по будинку з людьми, які потребують догляду. Є поранені' }));
+  assert.ok(!offSection('society', { title: '"Росія намагається роз’єднати Україну по Дніпру" – Зеленський' }));
+  assert.ok(offSection('defence', { title: 'Чому проти дронів "Шахед" можуть обрати AIM-9X за сотні тисяч доларів замість дешевших APKWS - пояснюють ПС США' }));
+  assert.ok(offSection('defence', { title: 'Через 50 років після отримання зеніток Gepard, які зараз готують для ЗСУ, Бельгія замовила Skyranger 30 у Rheinmetall' }));
+  assert.ok(!offSection('defence', { title: 'Новий вбивця "гераней": американська компанія B&M Defense випробувала в Україні дрон-перехоплювач АА Lancer 7 (відео)' }));
+  assert.ok(offSection('infospace', { title: 'ЕС продлевает на два года миссию по подготовке украинских военных и выделяет на нее почти 300 млн евро' }));
+  assert.ok(!offSection('infospace', { title: 'Марочко заявил о начале закрепления ВС РФ на окрестностях Таврийского' }));
+  assert.equal(talksVenue({ title: 'What to expect as Russia, Ukraine and the US hold trilateral talks in Abu Dhabi' }), talksVenue({ title: 'Переговори в Абу-Дабі відновлюються' }));
+});
