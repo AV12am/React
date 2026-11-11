@@ -167,6 +167,9 @@ function Shell() {
     setTimeout(tryScroll, 300);
   }, [me?.id]);
   const [menu, setMenu] = useState(false);
+  // The side panel folded to its icons (desktop), remembered on this device.
+  const [rail, setRailState] = useState(() => { try { return localStorage.getItem('reaction-core/rail') === '1'; } catch { return false; } });
+  const setRail = (v) => { setRailState(v); try { localStorage.setItem('reaction-core/rail', v ? '1' : '0'); } catch { /* private mode */ } };
   const [palette, setPalette] = useState(false);
   const [bell, setBell] = useState(false);
   const [ai, setAi] = useState(false);
@@ -264,14 +267,18 @@ function Shell() {
   }[current];
 
   return (
-    <div className={`shell ${ai ? 'has-ai' : ''} ${current === 'map' ? 'on-map' : ''}`}>
+    <div className={`shell ${ai ? 'has-ai' : ''} ${current === 'map' ? 'on-map' : ''} ${rail ? 'is-rail' : ''}`}>
       <aside className={`sidebar ${menu ? 'is-open' : ''}`} ref={sideRef}>
-        <div className="sidebar__brand"><Wordmark /></div>
+        <div className="sidebar__top">
+          <div className="sidebar__brand"><span className="sidebar__word"><Wordmark /></span><span className="sidebar__mark"><Mark size={26} title="" /></span></div>
+          <button className="vx-btn vx-btn--ghost vx-btn--icon vx-btn--sm sidebar__fold" onClick={() => setRail(!rail)}
+            aria-label={rail ? 'Розгорнути панель' : 'Згорнути панель до іконок'} title={rail ? 'Розгорнути панель' : 'Згорнути панель'} aria-pressed={rail}><Icon name="chevron" /></button>
+        </div>
         <div className="sidebar__product vx-eyebrow">Core · внутрішня платформа</div>
         <nav className="sidebar__nav" aria-label="Головне меню">
           {side.map((n) => (
-            <button key={n.id} className={`vx-nav-item ${isActive(n) ? 'is-active' : ''}`} onClick={() => go(n.to || n.id)} aria-current={isActive(n) ? 'page' : undefined}>
-              <Icon name={n.icon} /> {n.label}
+            <button key={n.id} className={`vx-nav-item ${isActive(n) ? 'is-active' : ''}`} onClick={() => go(n.to || n.id)} title={rail ? n.label : undefined} aria-current={isActive(n) ? 'page' : undefined}>
+              <Icon name={n.icon} /> <span className="sidebar__label">{n.label}</span>
               {n.id === 'admin' && pending > 0 && perms.access >= 2 && <span className="vx-nav-item__count">{pending}</span>}
             </button>
           ))}
