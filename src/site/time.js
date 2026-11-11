@@ -187,10 +187,12 @@ function row(f) {
 (async () => {
   let all = [];
   try { all = (await (await fetch('/data/time.json', { cache: 'no-cache' })).json()).forecasts || []; } catch { /* none yet */ }
-  const list = visibleForecasts(all, new URLSearchParams(location.search).has('drafts')).sort((a, b) => t(a.check) - t(b.check));
+  // Each brief in the site's language: Ukrainian as written, every other language its English version.
+  const inLang = (f) => (siteLang === 'uk' || !f.en ? f : { ...f, ...f.en, lang: 'en', en: undefined });
+  const list = visibleForecasts(all.map(inLang), new URLSearchParams(location.search).has('drafts')).sort((a, b) => t(a.check) - t(b.check));
   const box = document.getElementById('tm-list');
   const id = new URLSearchParams(location.search).get('f');
-  const one = id && list.find((f) => f.id === id);
+  const one = id && list.find((f) => f.id === id || (f.aliases || []).includes(id));
   if (one) {
     // The forecast's own page: its first page, edge to edge.
     document.body.classList.add('tm-single');
