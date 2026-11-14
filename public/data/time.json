@@ -864,47 +864,47 @@
     {
       "id": "brief-03",
       "no": 3,
-      "lang": "en",
-      "topic": "US monetary policy",
-      "short": "Fed rate · December",
-      "question": "Will the Fed raise rates at its 9 December 2026 meeting?",
-      "confidence": "medium",
-      "resolves": "Resolves YES if the Federal Open Market Committee (FOMC) sets the target range for the federal funds rate above the current 3.75–4.00% on 9 December.",
+      "lang": "uk",
+      "topic": "Монетарна політика США",
+      "short": "Ставка ФРС · грудень",
+      "question": "Чи підвищить ФРС ставку на засіданні 9 грудня 2026 року?",
+      "confidence": "середній",
+      "resolves": "Подія сталася, якщо Комітет з операцій на відкритому ринку (FOMC) 9 грудня встановить цільовий діапазон ставки вище за чинні 3,75–4,00%.",
       "published": "2026-11-14",
       "check": "2026-12-09",
       "milestones": [
         {
-          "label": "November jobs report · 4 Dec",
+          "label": "Зайнятість за листопад · 04.12",
           "date": "2026-12-04"
         }
       ],
       "p": 0.7492,
       "status": "open",
-      "pdf": "/time/Reaction-Brief-03-Fed-rate-EN.pdf",
-      "conclusion": "A rate rise in December is likely — 74.92%. The Fed raised the range to 3.75–4.00% in September and held it in October, but two of the twelve Committee members voted for another increase. The Committee’s own September projections put the rate at 4.1% at year-end, which means one more step, and December is the last meeting of the year. Data since the October decision support that step: in October prices rose 0.4% on the month, core prices 0.3% for a third month running, the economy added 165,000 jobs and unemployment stood at 4.1%. The main risk to the forecast is a weak jobs report on 4 December: if the data weaken sharply, the chance falls to 20.70%.",
-      "scenTitle": "Scenarios · level 1 · chance of a hike in each",
-      "chanceLabel": "Hike",
+      "pdf": "/time/Reaction-Brief-03-Fed-rate.pdf",
+      "conclusion": "Підвищення ставки у грудні ймовірне — 74,92%. У вересні ФРС підняла діапазон до 3,75–4,00%, у жовтні залишила його без змін, але двоє з дванадцяти членів Комітету голосували за ще одне підвищення. Вересневий прогноз самих членів Комітету передбачає на кінець року 4,1%, тобто ще один крок, а грудневе засідання — останнє цього року. Дані після жовтневого рішення цей крок підтримують: у жовтні ціни зросли на 0,4% за місяць, базові — на 0,3% третій місяць поспіль, економіка додала 165 тис. робочих місць, безробіття — 4,1%. Головний ризик для прогнозу — слабкий звіт про зайнятість 4 грудня: за різкого ослаблення даних шанс падає до 20,70%.",
+      "scenTitle": "Сценарії · рівень 1 · шанс підвищення в кожному",
+      "chanceLabel": "Підвищ.",
       "scenarios": [
         {
           "id": "D1",
-          "name": "data confirm price pressure",
-          "short": "pressure confirmed",
+          "name": "дані підтверджують ціновий тиск",
+          "short": "тиск підтверджено",
           "p": 0.55,
           "chance": 0.912,
           "variants": 5
         },
         {
           "id": "D2",
-          "name": "data are mixed",
-          "short": "mixed data",
+          "name": "дані змішані",
+          "short": "змішані дані",
           "p": 0.33,
           "chance": 0.675,
           "variants": 5
         },
         {
           "id": "D3",
-          "name": "data weaken sharply",
-          "short": "sharp weakening",
+          "name": "дані різко слабшають",
+          "short": "різке ослаблення",
           "p": 0.12,
           "chance": 0.207,
           "variants": 4
@@ -913,7 +913,7 @@
       "outcomes": [
         {
           "id": "N1",
-          "name": "Hike of 0.25 pp · to 4.00–4.25%",
+          "name": "Підвищення на 0,25 в. п. · до 4,00–4,25%",
           "p": 0.7151,
           "paths": 6,
           "event": true,
@@ -921,14 +921,14 @@
         },
         {
           "id": "N2",
-          "name": "Hike of 0.50 pp",
+          "name": "Підвищення на 0,50 в. п.",
           "p": 0.0341,
           "paths": 2,
           "event": true
         },
         {
           "id": "N3",
-          "name": "Rate unchanged · 3.75–4.00%",
+          "name": "Ставка без змін · 3,75–4,00%",
           "p": 0.2508,
           "paths": 6
         }
@@ -1021,19 +1021,98 @@
       ],
       "signals": {
         "up": [
-          "November payrolls above 100,000",
-          "members publicly back a hike",
-          "October core PCE at +0.3% or more"
+          "зайнятість у листопаді: 100 тис.+",
+          "заяви членів Комітету за підвищення",
+          "базовий PCE за жовтень: від +0,3%"
         ],
         "down": [
-          "November payrolls below 50,000",
-          "the Fed chair speaks of “patience”",
-          "financial conditions tighten sharply"
+          "зайнятість у листопаді до 50 тис.",
+          "голова ФРС говорить про «терпіння»",
+          "різке погіршення фінансових умов"
         ]
       },
-      "position": "The analysis proceeds from N1 — “a hike of 0.25 pp” (71.51%). All three data scenarios lead to it: even with mixed data the Committee is more likely to deliver its own September projection than to step back from it. N3 — rate unchanged (25.08%) becomes the baseline if the jobs report on 4 December shows sharp weakening and Committee members do not prepare markets for a hike before the blackout period starts on 28 November. N2 (3.41%) — a 0.50 pp step at once — is possible only with hot data and a direct signal from the Committee.",
-      "limits": "Limitations: the market probability comes from secondary summaries, not exchange data. Because of last year’s US government shutdown there is no 12-month inflation figure for October, so the estimate rests on monthly changes. The Committee’s projection is known from a secondary account.",
-      "next": "Next review: after the jobs report on 4 December."
+      "position": "Аналіз ведеться з позиції N1 — «підвищення на 0,25 в. п.» (71,51%). До неї ведуть усі три сценарії даних: навіть за змішаних даних Комітет радше виконає власний вересневий прогноз, ніж відступить від нього. N3 — ставка без змін (25,08%) стане базовою, якщо звіт про зайнятість 4 грудня покаже різке ослаблення, а члени Комітету до початку «періоду тиші» 28 листопада не готуватимуть ринок до підвищення. N2 (3,41%) — крок одразу на 0,50 в. п. — можливий лише за гарячих даних і прямого сигналу Комітету.",
+      "en": {
+        "topic": "US monetary policy",
+        "short": "Fed rate · December",
+        "question": "Will the Fed raise rates at its 9 December 2026 meeting?",
+        "confidence": "medium",
+        "resolves": "Resolves YES if the Federal Open Market Committee (FOMC) sets the target range for the federal funds rate above the current 3.75–4.00% on 9 December.",
+        "milestones": [
+          {
+            "label": "November jobs report · 4 Dec",
+            "date": "2026-12-04"
+          }
+        ],
+        "pdf": "/time/Reaction-Brief-03-Fed-rate-EN.pdf",
+        "conclusion": "A rate rise in December is likely — 74.92%. The Fed raised the range to 3.75–4.00% in September and held it in October, but two of the twelve Committee members voted for another increase. The Committee’s own September projections put the rate at 4.1% at year-end, which means one more step, and December is the last meeting of the year. Data since the October decision support that step: in October prices rose 0.4% on the month, core prices 0.3% for a third month running, the economy added 165,000 jobs and unemployment stood at 4.1%. The main risk to the forecast is a weak jobs report on 4 December: if the data weaken sharply, the chance falls to 20.70%.",
+        "scenTitle": "Scenarios · level 1 · chance of a hike in each",
+        "chanceLabel": "Hike",
+        "scenarios": [
+          {
+            "id": "D1",
+            "name": "data confirm price pressure",
+            "short": "pressure confirmed",
+            "p": 0.55,
+            "chance": 0.912,
+            "variants": 5
+          },
+          {
+            "id": "D2",
+            "name": "data are mixed",
+            "short": "mixed data",
+            "p": 0.33,
+            "chance": 0.675,
+            "variants": 5
+          },
+          {
+            "id": "D3",
+            "name": "data weaken sharply",
+            "short": "sharp weakening",
+            "p": 0.12,
+            "chance": 0.207,
+            "variants": 4
+          }
+        ],
+        "outcomes": [
+          {
+            "id": "N1",
+            "name": "Hike of 0.25 pp · to 4.00–4.25%",
+            "p": 0.7151,
+            "paths": 6,
+            "event": true,
+            "base": true
+          },
+          {
+            "id": "N2",
+            "name": "Hike of 0.50 pp",
+            "p": 0.0341,
+            "paths": 2,
+            "event": true
+          },
+          {
+            "id": "N3",
+            "name": "Rate unchanged · 3.75–4.00%",
+            "p": 0.2508,
+            "paths": 6
+          }
+        ],
+        "signals": {
+          "up": [
+            "November payrolls above 100,000",
+            "members publicly back a hike",
+            "October core PCE at +0.3% or more"
+          ],
+          "down": [
+            "November payrolls below 50,000",
+            "the Fed chair speaks of “patience”",
+            "financial conditions tighten sharply"
+          ]
+        },
+        "position": "The analysis proceeds from N1 — “a hike of 0.25 pp” (71.51%). All three data scenarios lead to it: even with mixed data the Committee is more likely to deliver its own September projection than to step back from it. N3 — rate unchanged (25.08%) becomes the baseline if the jobs report on 4 December shows sharp weakening and Committee members do not prepare markets for a hike before the blackout period starts on 28 November. N2 (3.41%) — a 0.50 pp step at once — is possible only with hot data and a direct signal from the Committee.",
+        "limits": "Limitations: the market probability comes from secondary summaries, not exchange data. Because of last year’s US government shutdown there is no 12-month inflation figure for October, so the estimate rests on monthly changes. The Committee’s projection is known from a secondary account.",
+        "next": "Next review: after the jobs report on 4 December."
+      }
     },
     {
       "id": "brief-04",
