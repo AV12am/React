@@ -16,24 +16,32 @@ const HOUR = 3600 * 1000;
 // alerts.in.ua's oblast ids. The name the API gives back with each alert is what files the hours (not this list).
 export const OBLAST_UIDS = [3, 4, 5, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 31];
 
-const read = async () => (await db('core_docs?kind=eq.pulse&id=eq.alerts&select=doc').catch(() => []))[0]?.doc || null;
+// What was kept before the intervals were merged (sums over every raion and hromada) is not read at all.
+const read = async () => { const doc = (await db('core_docs?kind=eq.pulse&id=eq.alerts&select=doc').catch(() => []))[0]?.doc || null; return doc?.merged ? doc : null; };
 const keep = (doc) => db('core_docs?on_conflict=kind,id', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: { kind: 'pulse', id: 'alerts', doc: { ...doc, id: 'alerts', clearance: 0 } } }).catch(() => {});
 
 /** Hours under an air-raid alert within [from, to], from the API's alerts of one oblast. */
 export function hoursUnder(alerts, from, to) {
-  let ms = 0;
+  // One oblast has many alerts at once (the oblast, its raions, its hromadas): adding them up counts the same hour
+  // many times (1281 «hours» in a week of 168). The hours are those when at least one alert was on — the
+  // intervals merged, never more than the window itself.
+  const spans = [];
   for (const a of alerts || []) {
     if (a.alert_type && a.alert_type !== 'air_raid') continue;
     const s = Date.parse(a.started_at); const e = a.finished_at ? Date.parse(a.finished_at) : to;
-    if (!Number.isFinite(s)) continue;
-    ms += Math.max(0, Math.min(e, to) - Math.max(s, from));
+    if (!Number.isFinite(s) || !Number.isFinite(e)) continue;
+    const s1 = Math.max(s, from); const e1 = Math.min(e, to);
+    if (e1 > s1) spans.push([s1, e1]);
   }
+  spans.sort((x, y) => x[0] - y[0]);
+  let ms = 0; let end = -Infinity;
+  for (const [s, e] of spans) { if (e <= end) continue; ms += e - Math.max(s, end); end = e; }
   return Math.round((ms / HOUR) * 10) / 10;
 }
 
 /** Refreshes the oblasts read longest ago; returns the kept { byOblast: { name: { h24, h7, at } }, at }. */
 export async function refreshAlerts(budgetMs = 25000, now = Date.now()) {
-  const doc = (await read()) || { byOblast: {}, read: {} };
+  const doc = (await read()) || { byOblast: {}, read: {}, merged: true };
   if (!alertsOn()) return doc;
   const started = Date.now();
   const order = [...OBLAST_UIDS].sort((a, b) => (doc.read?.[a] || 0) - (doc.read?.[b] || 0));

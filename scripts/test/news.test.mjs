@@ -742,3 +742,11 @@ test('a speaker named first in a headline', async () => {
   assert.equal(speakerOf('Мирошник объяснил, почему в ЕС не станут ловить украинских уклонистов'), 'мирошник');
   assert.equal(speakerOf('Сили безпілотних систем уразили російський «Сонцепьок»'), '');
 });
+
+test('alert hours: overlapping alerts of one oblast are merged, never more than the window', async () => {
+  const { hoursUnder } = await import('../../api/_alerts.js');
+  const H = 3600e3; const t = Date.parse('2026-11-14T00:00:00Z');
+  const a = (s, e) => ({ alert_type: 'air_raid', started_at: new Date(t + s * H).toISOString(), finished_at: new Date(t + e * H).toISOString() });
+  assert.equal(hoursUnder([a(0, 5), a(1, 3), a(4, 8), a(10, 12), a(10, 12), a(10, 12)], t, t + 24 * H), 10);
+  assert.equal(hoursUnder(Array.from({ length: 40 }, () => a(-5, 30)), t, t + 24 * H), 24);
+});
