@@ -75,11 +75,11 @@ function timeline(list) {
 <line class="gone" x1="${x0}" x2="${xn}" y1="${y}" y2="${y}" pathLength="1"/>
 <line class="ahead" x1="${xn}" x2="${x1 - r - 4}" y1="${y}" y2="${y}"/>
 <circle class="start" cx="${x0}" cy="${y}" r="2.5"/>${ms}
-${left > 0 ? `<text class="left" x="${xn + 8}" y="${y + 20}">${ui.days(left)}</text>` : ''}
+${left > 0 ? (xn > 90 ? `<text class="left" x="${xn - 8}" y="${y + 20}" text-anchor="end">${ui.days(left)}</text>` : `<text class="left" x="${xn + 8}" y="${y + 20}">${ui.days(left)}</text>`) : ''}
 <g class="ring" transform="translate(${x1} ${y})"><circle class="track" r="${r}"/><circle class="fill" r="${r}" stroke-dasharray="${(f.p * c).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90)"/></g>
 <text class="lbl" x="${x1 - r - 10}" y="${y - 26}" text-anchor="end">${esc(f.short || f.topic)}</text>
 <text class="pct" x="${x1 + r + 10}" y="${y + 5}">${pc(f.p, f)}</text>
-<text class="dt" x="${x1}" y="${y + r + 18}" text-anchor="middle">${new Date(t(f.check)).toLocaleDateString(ui.loc, { day: 'numeric', month: 'short', timeZone: 'UTC' })}</text></g>`;
+<text class="dt" x="${x1 + r + 10}" y="${y + 22}">${new Date(t(f.check)).toLocaleDateString(ui.loc, { day: 'numeric', month: 'short', timeZone: 'UTC' })}</text></g>`;
     }).join('');
     box.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Timeline">
 <defs><radialGradient id="tl-glow"><stop offset="0" stop-color="#fff" stop-opacity="0.55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>

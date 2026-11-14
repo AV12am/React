@@ -724,9 +724,7 @@
       ],
       "limits": "Обмеження: середнє за січень–жовтень опубліковане з точністю до 0,01 °C, тому поріг рекорду відомий у межах ± 0,025 °C. Остаточний ранг визначає річний звіт C3S; оцінка не враховує інших наборів даних (NASA, NOAA, Met Office).",
       "next": "Наступний перегляд: бюлетень C3S за листопад (≈ 5 грудня).",
-      "aliases": [
-        "brief-03"
-      ],
+      "aliases": [],
       "en": {
         "pdf": "/time/Reaction-Brief-02-Warmest-year-2026-EN.pdf",
         "topic": "Climate",
@@ -861,6 +859,684 @@
         "position": "The analysis proceeds from N2 — “a close second” (63.18%): 2026 will fall short of 2024 by 0.01–0.03 °C. Both El Niño scenarios and every November band lead to it, because a record needs two consecutive months of unprecedented anomalies, while a wider gap needs cooling during a record El Niño. The position changes if November exceeds 1.05 °C: then N1 — a record becomes most likely (57.39% in that band). N3 (22.90%) — a distant second — becomes the baseline if November stays below 0.95 °C and El Niño peaks before December. Third place is excluded: it would require November and December to cool to 0.40 °C.",
         "limits": "Limitations: the January–October average is published to 0.01 °C, so the record threshold is known only within ± 0.025 °C. The final ranking is set by the C3S annual report; the estimate does not consider other datasets (NASA, NOAA, Met Office).",
         "next": "Next review: the C3S bulletin for November (≈ 5 December)."
+      }
+    },
+    {
+      "id": "brief-03",
+      "no": 3,
+      "lang": "en",
+      "topic": "US monetary policy",
+      "short": "Fed rate · December",
+      "question": "Will the Fed raise rates at its 9 December 2026 meeting?",
+      "confidence": "medium",
+      "resolves": "Resolves YES if the Federal Open Market Committee (FOMC) sets the target range for the federal funds rate above the current 3.75–4.00% on 9 December.",
+      "published": "2026-11-14",
+      "check": "2026-12-09",
+      "milestones": [
+        {
+          "label": "November jobs report · 4 Dec",
+          "date": "2026-12-04"
+        }
+      ],
+      "p": 0.7492,
+      "status": "open",
+      "pdf": "/time/Reaction-Brief-03-Fed-rate-EN.pdf",
+      "conclusion": "A rate rise in December is likely — 74.92%. The Fed raised the range to 3.75–4.00% in September and held it in October, but two of the twelve Committee members voted for another increase. The Committee’s own September projections put the rate at 4.1% at year-end, which means one more step, and December is the last meeting of the year. Data since the October decision support that step: in October prices rose 0.4% on the month, core prices 0.3% for a third month running, the economy added 165,000 jobs and unemployment stood at 4.1%. The main risk to the forecast is a weak jobs report on 4 December: if the data weaken sharply, the chance falls to 20.70%.",
+      "scenTitle": "Scenarios · level 1 · chance of a hike in each",
+      "chanceLabel": "Hike",
+      "scenarios": [
+        {
+          "id": "D1",
+          "name": "data confirm price pressure",
+          "short": "pressure confirmed",
+          "p": 0.55,
+          "chance": 0.912,
+          "variants": 5
+        },
+        {
+          "id": "D2",
+          "name": "data are mixed",
+          "short": "mixed data",
+          "p": 0.33,
+          "chance": 0.675,
+          "variants": 5
+        },
+        {
+          "id": "D3",
+          "name": "data weaken sharply",
+          "short": "sharp weakening",
+          "p": 0.12,
+          "chance": 0.207,
+          "variants": 4
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "N1",
+          "name": "Hike of 0.25 pp · to 4.00–4.25%",
+          "p": 0.7151,
+          "paths": 6,
+          "event": true,
+          "base": true
+        },
+        {
+          "id": "N2",
+          "name": "Hike of 0.50 pp",
+          "p": 0.0341,
+          "paths": 2,
+          "event": true
+        },
+        {
+          "id": "N3",
+          "name": "Rate unchanged · 3.75–4.00%",
+          "p": 0.2508,
+          "paths": 6
+        }
+      ],
+      "paths": [
+        {
+          "h": "D1",
+          "steps": [],
+          "p": 0.396,
+          "n": "N1"
+        },
+        {
+          "h": "D1",
+          "steps": [],
+          "p": 0.0308,
+          "n": "N2"
+        },
+        {
+          "h": "D1",
+          "steps": [],
+          "p": 0.0132,
+          "n": "N3"
+        },
+        {
+          "h": "D1",
+          "steps": [],
+          "p": 0.0748,
+          "n": "N1"
+        },
+        {
+          "h": "D1",
+          "steps": [],
+          "p": 0.0352,
+          "n": "N3"
+        },
+        {
+          "h": "D2",
+          "steps": [],
+          "p": 0.1452,
+          "n": "N1"
+        },
+        {
+          "h": "D2",
+          "steps": [],
+          "p": 0.0033,
+          "n": "N2"
+        },
+        {
+          "h": "D2",
+          "steps": [],
+          "p": 0.0165,
+          "n": "N3"
+        },
+        {
+          "h": "D2",
+          "steps": [],
+          "p": 0.0743,
+          "n": "N1"
+        },
+        {
+          "h": "D2",
+          "steps": [],
+          "p": 0.0908,
+          "n": "N3"
+        },
+        {
+          "h": "D3",
+          "steps": [],
+          "p": 0.0126,
+          "n": "N1"
+        },
+        {
+          "h": "D3",
+          "steps": [],
+          "p": 0.0054,
+          "n": "N3"
+        },
+        {
+          "h": "D3",
+          "steps": [],
+          "p": 0.0122,
+          "n": "N1"
+        },
+        {
+          "h": "D3",
+          "steps": [],
+          "p": 0.0898,
+          "n": "N3"
+        }
+      ],
+      "signals": {
+        "up": [
+          "November payrolls above 100,000",
+          "members publicly back a hike",
+          "October core PCE at +0.3% or more"
+        ],
+        "down": [
+          "November payrolls below 50,000",
+          "the Fed chair speaks of “patience”",
+          "financial conditions tighten sharply"
+        ]
+      },
+      "position": "The analysis proceeds from N1 — “a hike of 0.25 pp” (71.51%). All three data scenarios lead to it: even with mixed data the Committee is more likely to deliver its own September projection than to step back from it. N3 — rate unchanged (25.08%) becomes the baseline if the jobs report on 4 December shows sharp weakening and Committee members do not prepare markets for a hike before the blackout period starts on 28 November. N2 (3.41%) — a 0.50 pp step at once — is possible only with hot data and a direct signal from the Committee.",
+      "limits": "Limitations: the market probability comes from secondary summaries, not exchange data. Because of last year’s US government shutdown there is no 12-month inflation figure for October, so the estimate rests on monthly changes. The Committee’s projection is known from a secondary account.",
+      "next": "Next review: after the jobs report on 4 December."
+    },
+    {
+      "id": "brief-04",
+      "no": 4,
+      "lang": "uk",
+      "topic": "Монетарна політика України",
+      "short": "Облікова ставка · грудень",
+      "question": "Чи підвищить НБУ облікову ставку 17 грудня 2026 року?",
+      "confidence": "середній",
+      "resolves": "Подія сталася, якщо Правління НБУ 17 грудня встановить облікову ставку вище за чинні 16,5%.",
+      "published": "2026-11-14",
+      "check": "2026-12-17",
+      "milestones": [
+        {
+          "label": "Інфляція за листопад · ≈ 10.12",
+          "date": "2026-12-10"
+        }
+      ],
+      "p": 0.1921,
+      "status": "open",
+      "pdf": "/time/Reaction-Brief-04-NBU-key-rate.pdf",
+      "conclusion": "Четверте поспіль підвищення ставки у грудні малоймовірне — 19,21%. НБУ піднімав ставку тричі: у липні до 15,5%, у вересні до 16%, у жовтні до 16,5%. Власний прогноз банку передбачає, що цей рівень збережеться до ІІ кварталу 2027 року. Жовтнева інфляція — 11,0% за рік, базова 9,7% — прискорилася, але, за оцінкою самого НБУ, була близькою до його прогнозу. Грудневе рішення ухвалюють без нового макропрогнозу, тому для підвищення потрібен новий аргумент: інфляція за листопад помітно вища за прогнозну траєкторію або тиск на валютному ринку. Якщо збігаються обидва чинники, шанс зростає до 60,00%.",
+      "scenTitle": "Сценарії · рівень 1 · шанс підвищення в кожному",
+      "chanceLabel": "Підвищ.",
+      "scenarios": [
+        {
+          "id": "I1",
+          "name": "інфляція на траєкторії прогнозу",
+          "short": "на траєкторії · 11,4–12,0%",
+          "p": 0.5,
+          "chance": 0.085,
+          "variants": 6
+        },
+        {
+          "id": "I2",
+          "name": "інфляція вища за прогноз",
+          "short": "вища · понад 12,0%",
+          "p": 0.35,
+          "chance": 0.42,
+          "variants": 6
+        },
+        {
+          "id": "I3",
+          "name": "інфляція нижча за прогноз",
+          "short": "нижча · до 11,4%",
+          "p": 0.15,
+          "chance": 0.0175,
+          "variants": 6
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "N1",
+          "name": "Підвищення · ставка вище 16,5%",
+          "p": 0.1921,
+          "paths": 6,
+          "event": true
+        },
+        {
+          "id": "N2",
+          "name": "Пауза з сигналом готовності підвищити",
+          "p": 0.3264,
+          "paths": 6
+        },
+        {
+          "id": "N3",
+          "name": "Пауза · прогноз підтверджено",
+          "p": 0.4814,
+          "paths": 6,
+          "base": true
+        }
+      ],
+      "paths": [
+        {
+          "h": "I1",
+          "steps": [],
+          "p": 0.015,
+          "n": "N1"
+        },
+        {
+          "h": "I1",
+          "steps": [],
+          "p": 0.0975,
+          "n": "N2"
+        },
+        {
+          "h": "I1",
+          "steps": [],
+          "p": 0.2625,
+          "n": "N3"
+        },
+        {
+          "h": "I1",
+          "steps": [],
+          "p": 0.0275,
+          "n": "N1"
+        },
+        {
+          "h": "I1",
+          "steps": [],
+          "p": 0.06,
+          "n": "N2"
+        },
+        {
+          "h": "I1",
+          "steps": [],
+          "p": 0.0375,
+          "n": "N3"
+        },
+        {
+          "h": "I2",
+          "steps": [],
+          "p": 0.063,
+          "n": "N1"
+        },
+        {
+          "h": "I2",
+          "steps": [],
+          "p": 0.105,
+          "n": "N2"
+        },
+        {
+          "h": "I2",
+          "steps": [],
+          "p": 0.042,
+          "n": "N3"
+        },
+        {
+          "h": "I2",
+          "steps": [],
+          "p": 0.084,
+          "n": "N1"
+        },
+        {
+          "h": "I2",
+          "steps": [],
+          "p": 0.0448,
+          "n": "N2"
+        },
+        {
+          "h": "I2",
+          "steps": [],
+          "p": 0.0112,
+          "n": "N3"
+        },
+        {
+          "h": "I3",
+          "steps": [],
+          "p": 0.0013,
+          "n": "N1"
+        },
+        {
+          "h": "I3",
+          "steps": [],
+          "p": 0.0115,
+          "n": "N2"
+        },
+        {
+          "h": "I3",
+          "steps": [],
+          "p": 0.1147,
+          "n": "N3"
+        },
+        {
+          "h": "I3",
+          "steps": [],
+          "p": 0.0013,
+          "n": "N1"
+        },
+        {
+          "h": "I3",
+          "steps": [],
+          "p": 0.0077,
+          "n": "N2"
+        },
+        {
+          "h": "I3",
+          "steps": [],
+          "p": 0.0135,
+          "n": "N3"
+        }
+      ],
+      "signals": {
+        "up": [
+          "інфляція за листопад понад 12,0% за рік",
+          "НБУ різко нарощує продаж валюти",
+          "опитування НБУ: очікування погіршуються"
+        ],
+        "down": [
+          "інфляція за листопад до 11,4%",
+          "узгоджено фінансування на 2027 рік",
+          "Правління підтверджує паузу до ІІ кварталу"
+        ]
+      },
+      "position": "Аналіз ведеться з позиції N3 — «пауза, прогноз підтверджено» (48,14%): НБУ залишає 16,5% і повторює, що утримуватиме ставку до ІІ кварталу 2027 року. Це узгоджується з його жовтневим прогнозом і з тим, що три попередні підвищення ще не подіяли повною мірою. N2 (32,64%) — пауза з прямим сигналом про готовність підвищити ставку в січні — стане базовою, якщо інфляція за листопад перевищить прогноз, а валютний ринок залишиться спокійним. N1 — підвищення (19,21%) потребує водночас вищої інфляції й тиску на гривню: саме курсовий канал в Україні найсильніший.",
+      "limits": "Обмеження: смуги для листопадової інфляції — розрахунок Reaction, помісячного прогнозу НБУ не публікує. Розподіл голосів у жовтні відомий із вторинного викладу. Війна може змінити умови швидше, ніж це відображає дерево: удари по енергетиці й портах, рішення про зовнішнє фінансування.",
+      "next": "Наступний перегляд: після даних Держстату про інфляцію за листопад (≈ 10 грудня).",
+      "en": {
+        "pdf": "/time/Reaction-Brief-04-NBU-key-rate-EN.pdf",
+        "topic": "Ukraine’s monetary policy",
+        "short": "NBU key rate · December",
+        "question": "Will the National Bank of Ukraine raise its key rate on 17 December 2026?",
+        "confidence": "medium",
+        "resolves": "Resolves YES if the NBU Board sets the key policy rate above the current 16.5% on 17 December.",
+        "milestones": [
+          {
+            "label": "November inflation · ≈ 10 Dec",
+            "date": "2026-12-10"
+          }
+        ],
+        "conclusion": "A fourth consecutive rate rise in December is unlikely — 19.21%. The NBU has raised the rate three times: to 15.5% in July, 16% in September and 16.5% in October. The bank’s own forecast keeps this level until the second quarter of 2027. October inflation — 11.0% year on year, core 9.7% — accelerated but, by the NBU’s own assessment, was close to its forecast. The December decision is taken without a new macroeconomic forecast, so a hike needs a new argument: November inflation well above the forecast path, or pressure on the foreign exchange market. If both occur together, the chance rises to 60.00%.",
+        "scenTitle": "Scenarios · level 1 · chance of a hike in each",
+        "chanceLabel": "Hike",
+        "scenarios": [
+          {
+            "id": "I1",
+            "name": "inflation on the forecast path",
+            "short": "on path · 11.4–12.0%",
+            "p": 0.5,
+            "chance": 0.085,
+            "variants": 6
+          },
+          {
+            "id": "I2",
+            "name": "inflation above the forecast",
+            "short": "above · over 12.0%",
+            "p": 0.35,
+            "chance": 0.42,
+            "variants": 6
+          },
+          {
+            "id": "I3",
+            "name": "inflation below the forecast",
+            "short": "below · up to 11.4%",
+            "p": 0.15,
+            "chance": 0.0175,
+            "variants": 6
+          }
+        ],
+        "outcomes": [
+          {
+            "id": "N1",
+            "name": "Hike · rate above 16.5%",
+            "p": 0.1921,
+            "paths": 6,
+            "event": true
+          },
+          {
+            "id": "N2",
+            "name": "Hold with a signal of readiness to hike",
+            "p": 0.3264,
+            "paths": 6
+          },
+          {
+            "id": "N3",
+            "name": "Hold · forecast confirmed",
+            "p": 0.4814,
+            "paths": 6,
+            "base": true
+          }
+        ],
+        "signals": {
+          "up": [
+            "November inflation above 12.0%",
+            "the NBU sharply increases FX sales",
+            "NBU surveys: expectations worsen"
+          ],
+          "down": [
+            "November inflation at 11.4% or lower",
+            "external financing for 2027 agreed",
+            "the Board confirms a hold until Q2"
+          ]
+        },
+        "position": "The analysis proceeds from N3 — “hold, forecast confirmed” (48.14%): the NBU keeps 16.5% and repeats that it will hold the rate until the second quarter of 2027. This matches its October forecast and the fact that the three previous hikes have not yet taken full effect. N2 (32.64%) — a hold with a direct signal of readiness to hike in January — becomes the baseline if November inflation exceeds the forecast while the FX market stays calm. N1 — a hike (19.21%) requires both higher inflation and pressure on the hryvnia: the exchange rate channel is the strongest one in Ukraine.",
+        "limits": "Limitations: the bands for November inflation are Reaction’s calculation; the NBU publishes no monthly forecast. The October vote split is known from a secondary account. The war can change conditions faster than the tree reflects: strikes on energy and ports, decisions on external financing.",
+        "next": "Next review: after Ukrstat’s November inflation data (≈ 10 December)."
+      }
+    },
+    {
+      "id": "brief-05",
+      "no": 5,
+      "lang": "uk",
+      "topic": "Внутрішня політика України",
+      "short": "Держбюджет-2027 · строк",
+      "question": "Чи ухвалить Верховна Рада держбюджет на 2027 рік до 1 грудня 2026 року?",
+      "confidence": "середній",
+      "resolves": "Подія сталася, якщо Рада проголосує за законопроєкт № 16000 у цілому не пізніше 1 грудня — строку, визначеного Бюджетним кодексом.",
+      "published": "2026-11-14",
+      "check": "2026-12-01",
+      "milestones": [
+        {
+          "label": "Друге читання за планом · 23–26.11",
+          "date": "2026-11-24"
+        }
+      ],
+      "p": 0.6329,
+      "status": "open",
+      "pdf": "/time/Reaction-Brief-05-Ukraine-budget-2027.pdf",
+      "conclusion": "Рада, імовірно, ухвалить бюджет на 2027 рік вчасно — 63,29%, але запас невеликий. Перше читання відбулося 28 жовтня, на вісім днів пізніше за строк, і зібрало 239 голосів за потрібних 226. Друге читання й голосування в цілому заплановані на 23–26 листопада, тож до законодавчої межі 1 грудня лишається менш як тиждень резерву. Торік за схожого графіка бюджет ухвалили 3 грудня. Ризики цього року вищі: рекордні 5236 поправок, частина доходів закладена під податкові зміни, яких ще немає в законі, а 32,6 млрд дол. зовнішнього фінансування не мають підтвердженого джерела. Якщо уряд поверне доопрацьований проєкт після 20 листопада, шанс падає до 43,40%.",
+      "scenTitle": "Сценарії · рівень 1 · шанс вчасно в кожному",
+      "chanceLabel": "Вчасно",
+      "scenarios": [
+        {
+          "id": "G1",
+          "name": "проєкт у Раді до 20 листопада",
+          "short": "проєкт у Раді до 20.11",
+          "p": 0.65,
+          "chance": 0.74,
+          "variants": 6
+        },
+        {
+          "id": "G2",
+          "name": "проєкт у Раді після 20 листопада",
+          "short": "проєкт у Раді після 20.11",
+          "p": 0.35,
+          "chance": 0.434,
+          "variants": 6
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "N1",
+          "name": "Ухвалено за графіком · до 26.11",
+          "p": 0.3822,
+          "paths": 4,
+          "event": true,
+          "base": true
+        },
+        {
+          "id": "N2",
+          "name": "Ухвалено в останні дні · 27.11–01.12",
+          "p": 0.2507,
+          "paths": 4,
+          "event": true
+        },
+        {
+          "id": "N3",
+          "name": "Ухвалено після 1 грудня",
+          "p": 0.3671,
+          "paths": 4
+        }
+      ],
+      "paths": [
+        {
+          "h": "G1",
+          "steps": [],
+          "p": 0.2681,
+          "n": "N1"
+        },
+        {
+          "h": "G1",
+          "steps": [],
+          "p": 0.0608,
+          "n": "N2"
+        },
+        {
+          "h": "G1",
+          "steps": [],
+          "p": 0.0286,
+          "n": "N3"
+        },
+        {
+          "h": "G1",
+          "steps": [],
+          "p": 0.0644,
+          "n": "N1"
+        },
+        {
+          "h": "G1",
+          "steps": [],
+          "p": 0.0878,
+          "n": "N2"
+        },
+        {
+          "h": "G1",
+          "steps": [],
+          "p": 0.1404,
+          "n": "N3"
+        },
+        {
+          "h": "G2",
+          "steps": [],
+          "p": 0.0392,
+          "n": "N1"
+        },
+        {
+          "h": "G2",
+          "steps": [],
+          "p": 0.056,
+          "n": "N2"
+        },
+        {
+          "h": "G2",
+          "steps": [],
+          "p": 0.0448,
+          "n": "N3"
+        },
+        {
+          "h": "G2",
+          "steps": [],
+          "p": 0.0105,
+          "n": "N1"
+        },
+        {
+          "h": "G2",
+          "steps": [],
+          "p": 0.0462,
+          "n": "N2"
+        },
+        {
+          "h": "G2",
+          "steps": [],
+          "p": 0.1533,
+          "n": "N3"
+        }
+      ],
+      "signals": {
+        "up": [
+          "уряд вніс доопрацьований проєкт",
+          "комітет рекомендував друге читання",
+          "Рада ухвалила податкові закони"
+        ],
+        "down": [
+          "друге читання перенесено за 26.11",
+          "фракції відмовляються голосувати",
+          "МВФ вимагає змін до проєкту"
+        ]
+      },
+      "position": "Аналіз ведеться з позиції N1 — «ухвалено за графіком, до 26 листопада» (38,22%), але перевага мінімальна: N3 — ухвалення після 1 грудня має 36,71%. Різницю між ними визначають дві речі: чи встигне уряд повернути доопрацьований проєкт до 20 листопада і чи збереться більшість без нового торгу щодо податків. N2 (25,07%) — голосування в останні дні перед строком — проміжний результат: графік зірвано, але закон дотримано. Подія вважається такою, що сталася, у вузлах N1 і N2 разом.",
+      "limits": "Обмеження: невідомо, чи уряд уже подав доопрацьований проєкт, — картка законопроєкту цього не показує. Дати ухвалення бюджетів 2023–2025 років наведено без звірки з картками законів. Результати голосувань і суми взято з вторинного викладу. Повітряні тривоги й удари можуть зірвати пленарні засідання.",
+      "next": "Наступний перегляд: 20 листопада, за рішенням бюджетного комітету щодо другого читання.",
+      "en": {
+        "pdf": "/time/Reaction-Brief-05-Ukraine-budget-2027-EN.pdf",
+        "topic": "Ukraine’s domestic politics",
+        "short": "Ukraine budget 2027 · deadline",
+        "question": "Will Ukraine’s parliament adopt the 2027 state budget by 1 December 2026?",
+        "confidence": "medium",
+        "resolves": "Resolves YES if the Verkhovna Rada votes for bill No. 16000 as a whole no later than 1 December, the deadline set by the Budget Code.",
+        "milestones": [
+          {
+            "label": "Second reading as planned · 23–26 Nov",
+            "date": "2026-11-24"
+          }
+        ],
+        "conclusion": "Parliament is likely to adopt the 2027 budget on time — 63.29%, but the margin is thin. The first reading took place on 28 October, eight days after the deadline, and gathered 239 votes against the 226 required. The second reading and the final vote are planned for 23–26 November, which leaves less than a week of reserve before the legal limit of 1 December. Last year, on a similar schedule, the budget was adopted on 3 December. This year’s risks are higher: a record 5,236 amendments, part of revenue resting on tax changes that are not yet law, and $32.6 billion of external financing without a confirmed source. If the government returns the revised draft after 20 November, the chance falls to 43.40%.",
+        "scenTitle": "Scenarios · level 1 · on-time chance in each",
+        "chanceLabel": "On time",
+        "scenarios": [
+          {
+            "id": "G1",
+            "name": "revised draft back by 20 November",
+            "short": "draft in parliament by 20 Nov",
+            "p": 0.65,
+            "chance": 0.74,
+            "variants": 6
+          },
+          {
+            "id": "G2",
+            "name": "revised draft back after 20 November",
+            "short": "draft in parliament after 20 Nov",
+            "p": 0.35,
+            "chance": 0.434,
+            "variants": 6
+          }
+        ],
+        "outcomes": [
+          {
+            "id": "N1",
+            "name": "Adopted on schedule · by 26 Nov",
+            "p": 0.3822,
+            "paths": 4,
+            "event": true,
+            "base": true
+          },
+          {
+            "id": "N2",
+            "name": "Adopted in the last days · 27 Nov–1 Dec",
+            "p": 0.2507,
+            "paths": 4,
+            "event": true
+          },
+          {
+            "id": "N3",
+            "name": "Adopted after 1 December",
+            "p": 0.3671,
+            "paths": 4
+          }
+        ],
+        "signals": {
+          "up": [
+            "the government submits the revised draft",
+            "the committee backs a second reading",
+            "parliament passes the tax laws"
+          ],
+          "down": [
+            "second reading moved beyond 26 Nov",
+            "factions refuse to vote",
+            "the IMF demands changes to the draft"
+          ]
+        },
+        "position": "The analysis proceeds from N1 — “adopted on schedule, by 26 November” (38.22%), but the lead is minimal: N3 — adoption after 1 December stands at 36.71%. Two things decide between them: whether the government returns the revised draft by 20 November, and whether a majority forms without fresh bargaining over taxes. N2 (25.07%) — a vote in the last days before the deadline — is the intermediate outcome: the schedule slips, but the law is observed. The event counts as having occurred in nodes N1 and N2 together.",
+        "limits": "Limitations: it is not known whether the government has already submitted the revised draft — the bill card does not show it. The adoption dates of the 2023–2025 budgets are cited without checking the law cards. Vote counts and amounts come from secondary accounts. Air-raid alerts and strikes can disrupt plenary sittings.",
+        "next": "Next review: 20 November, on the Budget Committee’s decision about the second reading."
       }
     }
   ]
