@@ -40,8 +40,8 @@ test('actions are checked against the person', () => {
   // local lookup reaches classified records the person may see (the model never learns the names)
   assert.equal(findRecords(state, me, 'Альфа')[0].id, 'r2');
   assert.equal(findRecords(state, { ...me, clearance: 0 }, 'Альфа').length, 0);
-  const task = checkAction({ type: 'task', title: 'Перевірити', due: '2026-11-01' }, opts);
-  assert.equal(task.confirm, true); assert.equal(task.task.target, 'r1'); assert.equal(task.task.due, '2026-11-01');
+  const task = checkAction({ type: 'task', title: 'Перевірити', due: '2099-11-01' }, opts);
+  assert.equal(task.confirm, true); assert.equal(task.task.target, 'r1'); assert.equal(task.task.due, '2099-11-01');
   const entry = checkAction({ type: 'entry', title: 'Підсумок', text: 'Готово' }, opts);
   assert.equal(entry.kind, 'entry'); assert.equal(entry.confirm, true);
   assert.ok(checkAction({ type: 'entry', text: 'x' }, { ...opts, route: { view: 'vault' } }).error);

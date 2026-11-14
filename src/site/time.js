@@ -19,8 +19,8 @@ const L = {
     flows: 'Сценарні течії', variants: 'варіанти', paths: 'шляхи', position: 'Позиція аналізу', method: 'Метод: коефіцієнти, дослідження, джерела', coef: 'Коефіцієнтна частка', level: 'Рів.', variable: 'Змінна',
     values: 'Коефіцієнти', why: 'Чому такі · дослідження', research: 'Дослідження', sources: 'Джерела', all: 'Усі варіанти', changes: 'Що змінить оцінку', pdf: 'Завантажити PDF', status: { open: 'відкритий', happened: 'сталося', not: 'не сталося' },
     left: (n) => `${n} дн. до перевірки`, done: 'перевірено', pick: 'Оберіть сценарій — підсвітяться його течії та шляхи.', excl: 'викл.', reset: 'Усі сценарії' },
-  en: { loc: 'en-GB', today: 'Today', check: 'Check', conf: 'confidence', conclusion: 'Conclusion', scen: 'Scenarios · level 1', p: 'P', chance: 'Chance of the event', signs: 'Signs to watch',
-    flows: 'Scenario flows', variants: 'variants', paths: 'paths', position: 'Position of the analysis', method: 'Method: coefficients, research, sources', coef: 'Coefficients', level: 'Lvl', variable: 'Variable',
+  en: { loc: 'en-GB', today: 'Today', check: 'Check', conf: 'confidence', conclusion: 'Conclusion', scen: 'Scenarios · level 1', p: 'P', chance: 'Chance of the event', signs: 'Revision signals',
+    flows: 'Scenario flows', variants: 'variants', paths: 'paths', position: 'Analytical position', method: 'Method: coefficients, research, sources', coef: 'Coefficients', level: 'Lvl', variable: 'Variable',
     values: 'Coefficients', why: 'Why · research', research: 'Research', sources: 'Sources', all: 'All variants', changes: 'What changes the estimate', pdf: 'Download PDF', status: { open: 'open', happened: 'happened', not: 'did not happen' },
     left: (n) => `${n} days to the check`, done: 'checked', pick: 'Pick a scenario — its flows and paths light up.', excl: 'excl.', reset: 'All scenarios' },
 };
@@ -30,7 +30,8 @@ const PDF_SVG = '<svg width="16" height="18" viewBox="0 0 16 18" aria-hidden="tr
 const pdfIcon = (f) => (f.pdf ? `<a class="tm-pdf" href="${esc(f.pdf)}" download="${esc(f.pdf.split('/').pop())}" title="${esc(lab(f).pdf)}" aria-label="${esc(lab(f).pdf)}">${PDF_SVG}</a>` : '');
 const pc = (x, f, d = 2) => `${(x * 100).toLocaleString(lab(f).loc, { minimumFractionDigits: d, maximumFractionDigits: d })}%`;
 const num = (x, f) => x.toLocaleString(lab(f).loc, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const dmy = (d, f) => new Date(t(d)).toLocaleDateString(lab(f).loc, { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
+// Dates as the briefs write them: 14.11.2026 in Ukrainian, 14 Nov 2026 in English.
+const dmy = (d, f) => new Date(t(d)).toLocaleDateString(lab(f).loc, lab(f).loc === 'uk-UA' ? { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' } : { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
 // ── the timeline: a ruler of days and weeks, the months named in the site's language; the time gone solid, the
 // time ahead dashed; today a glowing point; each forecast a ring filled to its probability at its check date,
@@ -86,6 +87,14 @@ ${left > 0 ? (xn > 90 ? `<text class="left" x="${xn - 8}" y="${y + 20}" text-anc
 <line class="axis" x1="${padL}" x2="${W - padR}" y1="${rulerY}" y2="${rulerY}"/>${ticks.join('')}
 <g class="now"><line x1="${nx}" x2="${nx}" y1="${rulerY}" y2="${H}"/><circle class="halo" cx="${nx}" cy="${rulerY}" r="14" fill="url(#tl-glow)"/><circle cx="${nx}" cy="${rulerY}" r="3.5"/>
 <text x="${nx + 9}" y="${rulerY + 16}">${ui.today.toUpperCase()} · ${new Date(now).toLocaleDateString(ui.loc, { day: 'numeric', month: 'short' })}</text></g>${rows}</svg>`;
+    // A label that would run past the picture's edge (a narrow screen, a check date close to today) is moved in.
+    const fit = () => box.querySelectorAll('svg text').forEach((el) => {
+      let bb; try { bb = el.getBBox(); } catch { return; }
+      if (!bb.width) return;
+      if (bb.x < 4) { el.setAttribute('text-anchor', 'start'); el.setAttribute('x', '4'); }
+      else if (bb.x + bb.width > W - 4) { el.setAttribute('text-anchor', 'end'); el.setAttribute('x', String(W - 4)); }
+    });
+    fit(); document.fonts?.ready.then(fit);
     box.querySelectorAll('[data-go]').forEach((g) => {
       const go = () => { location.href = `/time?f=${encodeURIComponent(g.dataset.go)}`; };
       g.addEventListener('click', go); g.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
@@ -100,7 +109,7 @@ ${left > 0 ? (xn > 90 ? `<text class="left" x="${xn - 8}" y="${y + 20}" text-anc
 
 // ── scenario flows: H (left) → N (right), band width = probability ──
 function flows(f) {
-  const W = 760; const H = 300; const nodeW = 210; const gap = 12;
+  const W = 760; const H = 300; const nodeW = 262; const gap = 12;
   const scale = (H - gap * (Math.max(f.scenarios.length, f.outcomes.length) - 1)) / 1;
   const stack = (items) => { let y = 0; return Object.fromEntries(items.map((it) => { const h = Math.max(26, it.p * scale); const out = [it.id, { y, h, used: 0, usedIn: 0 }]; y += h + gap; return out; })); };
   const left = stack(f.scenarios); const right = stack(f.outcomes);
