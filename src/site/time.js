@@ -122,10 +122,26 @@ function timeline(list) {
 
 // ── scenario flows: H (left) → N (right), band width = probability ──
 function flows(f) {
-  const W = 760; const H = 300; const nodeW = 262; const gap = 12;
+  // A phone gets its own drawing: narrow nodes with the words wrapped, the whole picture in the screen's width —
+  // nothing to scroll sideways, the text at its real size.
+  const phone = typeof window !== 'undefined' && window.innerWidth < 700;
+  const W = phone ? 380 : 760; const H = 300; const nodeW = phone ? 150 : 262; const gap = phone ? 10 : 12;
+  const fs = phone ? 12 : 12; const lh = 15; const pad = phone ? 10 : 12;
+  const maxCh = Math.floor((nodeW - 2 * pad) / (fs * 0.5));
+  const wrap = (text) => {
+    if (!phone) return [text];
+    const out = []; let line = '';
+    for (const w of String(text).split(' ')) { const next = line ? `${line} ${w}` : w; if (next.length > maxCh && line) { out.push(line); line = w; } else line = next; }
+    if (line) out.push(line);
+    return out;
+  };
+  const words = (it, side) => ({
+    t1: wrap(`${it.id} · ${side === 'l' ? it.short || it.name : `${pc(it.p, f)} · ${it.paths} ${lab(f).paths}`}`),
+    t2: wrap(side === 'l' ? it.note || `${num(it.p, f)} · ${it.variants} ${lab(f).variants}` : it.name),
+  });
   const scale = (H - gap * (Math.max(f.scenarios.length, f.outcomes.length) - 1)) / 1;
-  const stack = (items) => { let y = 0; return Object.fromEntries(items.map((it) => { const h = Math.max(26, it.p * scale); const out = [it.id, { y, h, used: 0, usedIn: 0 }]; y += h + gap; return out; })); };
-  const left = stack(f.scenarios); const right = stack(f.outcomes);
+  const stack = (items, side) => { let y = 0; return Object.fromEntries(items.map((it) => { const w = words(it, side); const need = phone ? 10 + (w.t1.length + w.t2.length) * lh + 8 : 26; const h = Math.max(need, it.p * scale); const out = [it.id, { y, h, used: 0, usedIn: 0, w }]; y += h + gap; return out; })); };
+  const left = stack(f.scenarios, 'l'); const right = stack(f.outcomes, 'r');
   const totalH = Math.max(...Object.values(left).map((n) => n.y + n.h), ...Object.values(right).map((n) => n.y + n.h));
   // (H, N) links: the sum of the paths between them.
   const links = {};
@@ -138,13 +154,17 @@ function flows(f) {
     // A thin line through the middle of the link's share of each node; its weight follows the probability.
     const ya = y0 + ha / 2; const yb = y1 + hb / 2;
     const d = `M${x0},${ya} C${cx},${ya} ${cx},${yb} ${x1},${yb}`;
-    return `<path class="band" data-h="${h}" data-n="${n}" d="${d}" style="stroke-width:${(1 + p * 8).toFixed(2)}"><title>${h} → ${n}: ${pc(p, f)}</title></path>`;
+    return `<path class="band" data-h="${h}" data-n="${n}" d="${d}" style="stroke-width:${(1 + p * (phone ? 5 : 8)).toFixed(2)}"><title>${h} → ${n}: ${pc(p, f)}</title></path>`;
   }).join('');
-  const node = (it, n, side) => `<g class="node ${side} ${it.base ? 'base' : ''}" ${side === 'l' ? `data-h="${it.id}"` : `data-n="${it.id}"`}>
+  const node = (it, n, side) => {
+    const x = (side === 'l' ? 0 : W - nodeW) + pad;
+    const lines = (list, cls, from) => list.map((t, k) => `<text x="${x}" y="${n.y + from + k * lh}" class="${cls}">${esc(t)}</text>`).join('');
+    const second = phone || n.h > 34;
+    return `<g class="node ${side} ${it.base ? 'base' : ''}" ${side === 'l' ? `data-h="${it.id}"` : `data-n="${it.id}"`}>
 <rect x="${side === 'l' ? 0 : W - nodeW}" y="${n.y}" width="${nodeW}" height="${n.h}" rx="6"/>
-<text x="${(side === 'l' ? 0 : W - nodeW) + 12}" y="${n.y + 17}" class="t1">${esc(it.id)} · ${esc(side === 'l' ? it.short || it.name : `${pc(it.p, f)} · ${it.paths} ${lab(f).paths}`)}</text>
-${n.h > 34 ? `<text x="${(side === 'l' ? 0 : W - nodeW) + 12}" y="${n.y + 33}" class="t2">${esc(side === 'l' ? it.note || `${num(it.p, f)} · ${it.variants} ${lab(f).variants}` : it.name)}</text>` : ''}</g>`;
-  return `<svg class="flows" viewBox="0 0 ${W} ${totalH}" role="img" aria-label="${esc(lab(f).flows)}">${bands}${f.scenarios.map((s) => node(s, left[s.id], 'l')).join('')}${f.outcomes.map((o) => node(o, right[o.id], 'r')).join('')}</svg>`;
+${lines(n.w.t1, 't1', 17)}${second ? lines(n.w.t2, 't2', 17 + n.w.t1.length * lh + (phone ? 0 : 1)) : ''}</g>`;
+  };
+  return `<svg class="flows${phone ? ' is-phone' : ''}" viewBox="0 0 ${W} ${totalH}" role="img" aria-label="${esc(lab(f).flows)}">${bands}${f.scenarios.map((s) => node(s, left[s.id], 'l')).join('')}${f.outcomes.map((o) => node(o, right[o.id], 'r')).join('')}</svg>`;
 }
 
 function card(f) {

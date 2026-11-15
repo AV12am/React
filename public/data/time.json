@@ -53,7 +53,8 @@
           "short": "блок до кінця року",
           "p": 0.4,
           "chance": 0,
-          "variants": 1
+          "variants": 1,
+          "note": "0,40 · 1 варіант"
         }
       ],
       "outcomes": [
