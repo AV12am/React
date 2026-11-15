@@ -33,72 +33,83 @@ const num = (x, f) => x.toLocaleString(lab(f).loc, { minimumFractionDigits: 2, m
 // Dates as the briefs write them: 14.11.2026 in Ukrainian, 14 Nov 2026 in English.
 const dmy = (d, f) => new Date(t(d)).toLocaleDateString(lab(f).loc, lab(f).loc === 'uk-UA' ? { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' } : { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
-// ── the timeline: a ruler of days and weeks, the months named in the site's language; the time gone solid, the
-// time ahead dashed; today a glowing point; each forecast a ring filled to its probability at its check date,
-// with the days left. Drawn at the box's real width (text stays sharp) and again when the width changes.
+// ── the timeline. On a wide screen a field: across — when each forecast is checked, up — how probable the event
+// is, so «what comes soon» and «what is likely» read at one glance. On a phone an agenda: the forecasts by check
+// date, each with the days left and its probability on a 0–100% bar. Drawn at the box's real width, again on resize.
 const UI = {
-  en: { loc: 'en-GB', today: 'Today', open: 'open', checked: 'checked', days: (n) => `${n} ${n === 1 ? 'day' : 'days'}`, brier: 'mean Brier' },
-  de: { loc: 'de-DE', today: 'Heute', open: 'offen', checked: 'geprüft', days: (n) => `${n} ${n === 1 ? 'Tag' : 'Tage'}`, brier: 'mittlerer Brier-Wert' },
-  fr: { loc: 'fr-FR', today: 'Aujourd’hui', open: 'ouvertes', checked: 'vérifiées', days: (n) => `${n} ${n === 1 ? 'jour' : 'jours'}`, brier: 'Brier moyen' },
-  uk: { loc: 'uk-UA', today: 'Сьогодні', open: 'відкритих', checked: 'перевірених', days: (n) => `${n} ${n % 10 === 1 && n % 100 !== 11 ? 'день' : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? 'дні' : 'днів'}`, brier: 'середній Брайєр' },
+  en: { loc: 'en-GB', today: 'Today', open: 'open', checked: 'checked', days: (n) => `${n} ${n === 1 ? 'day' : 'days'}`, brier: 'mean Brier', likely: 'Likely', unlikely: 'Unlikely', prob: 'Probability', inDays: (d) => `in ${d}`, due: 'check' },
+  de: { loc: 'de-DE', today: 'Heute', open: 'offen', checked: 'geprüft', days: (n) => `${n} ${n === 1 ? 'Tag' : 'Tagen'}`, brier: 'mittlerer Brier-Wert', likely: 'Wahrscheinlich', unlikely: 'Unwahrscheinlich', prob: 'Wahrscheinlichkeit', inDays: (d) => `in ${d}`, due: 'Prüfung' },
+  fr: { loc: 'fr-FR', today: 'Aujourd’hui', open: 'ouvertes', checked: 'vérifiées', days: (n) => `${n} ${n === 1 ? 'jour' : 'jours'}`, brier: 'Brier moyen', likely: 'Probable', unlikely: 'Peu probable', prob: 'Probabilité', inDays: (d) => `dans ${d}`, due: 'vérification' },
+  uk: { loc: 'uk-UA', today: 'Сьогодні', open: 'відкритих', checked: 'перевірених', days: (n) => `${n} ${n % 10 === 1 && n % 100 !== 11 ? 'день' : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? 'дні' : 'днів'}`, brier: 'середній Брайєр', likely: 'Імовірно', unlikely: 'Малоймовірно', prob: 'Імовірність', inDays: (d) => `через ${d}`, due: 'перевірка' },
 };
 const ui = UI[siteLang] || UI.en;
 function timeline(list) {
   const box = document.getElementById('timeline');
-  const draw = () => {
-    const W = Math.max(320, box.clientWidth);
-    const now = Date.now();
-    const from = Math.min(now, ...list.map((f) => t(f.published))) - 5 * DAY;
-    const to = Math.max(now + 21 * DAY, ...list.map((f) => t(f.check))) + 10 * DAY;
-    const padL = 8; const padR = 84; // room on the right for the last ring's percentage
+  const short = (ms) => new Date(ms).toLocaleDateString(ui.loc, { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const leftOf = (f, now) => Math.max(0, Math.ceil((t(f.check) - now) / DAY));
+  const href = (f) => `/time?f=${encodeURIComponent(f.id)}`;
+
+  // The agenda (a phone): a list by check date.
+  const agenda = (now) => `<div class="ag">${list.map((f) => {
+    const d = new Date(t(f.check)); const n = leftOf(f, now);
+    return `<a class="ag-row" href="${href(f)}" lang="${esc(f.lang || 'en')}">
+<span class="ag-date"><b>${d.getUTCDate()}</b><i>${esc(d.toLocaleDateString(ui.loc, { month: 'short', timeZone: 'UTC' }))}</i></span>
+<span class="ag-what"><b>${esc(f.short || f.topic)}</b><i>${n > 0 ? esc(ui.inDays(ui.days(n))) : esc(ui.checked)}</i></span>
+<span class="ag-p"><i>${esc(ui.prob)}</i><b>${pc(f.p, f)}</b></span>
+<span class="ag-bar" role="img" aria-label="${esc(ui.prob)} ${pc(f.p, f)}"><u style="width:${(f.p * 100).toFixed(1)}%"></u><s></s></span>
+<span class="ag-scale"><i>0%</i><i>50%</i><i>100%</i></span></a>`;
+  }).join('')}</div>`;
+
+  // The field (a wide screen).
+  const field = (W, now) => {
+    const from = now - 6 * DAY;
+    const to = Math.max(now + 21 * DAY, ...list.map((f) => t(f.check))) + 8 * DAY;
+    const padL = 48; const padR = 16; const top = 26; const bot = 300; const H = bot + 34;
     const x = (ms) => padL + ((ms - from) / (to - from)) * (W - padL - padR);
-    const rulerY = 34; const rowH = 92; const top = 70;
-    const H = top + list.length * rowH;
-    // the ruler: a tick a day, a longer one a week (Monday), the month named at its first day
-    const ticks = [];
+    const y = (p) => bot - p * (bot - top);
+    let g = '';
+    for (const v of [0, 0.25, 0.5, 0.75, 1]) g += `<line class="${v === 0.5 ? 'half' : 'grid'}" x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}"/><text class="ax" x="${padL - 10}" y="${y(v) + 4}" text-anchor="end">${v * 100}%</text>`;
+    g += `<text class="mo" x="${W - padR - 8}" y="${y(1) + 15}" text-anchor="end">${esc(ui.likely.toUpperCase())}</text><text class="mo" x="${W - padR - 8}" y="${y(0) - 8}" text-anchor="end">${esc(ui.unlikely.toUpperCase())}</text>`;
     const start = new Date(from); start.setUTCHours(0, 0, 0, 0);
     for (let d = start.getTime(); d <= to; d += DAY) {
       const dt = new Date(d);
-      const first = dt.getUTCDate() === 1;
-      const mon = dt.getUTCDay() === 1;
-      ticks.push(`<line class="${first ? 'tk-m' : mon ? 'tk-w' : 'tk-d'}" x1="${x(d).toFixed(1)}" x2="${x(d).toFixed(1)}" y1="${rulerY - (first ? 14 : mon ? 8 : 4)}" y2="${rulerY}"/>`);
-      if (first) ticks.push(`<text class="mo" x="${(x(d) + 6).toFixed(1)}" y="${rulerY - 6}">${dt.toLocaleDateString(ui.loc, { month: 'long', timeZone: 'UTC' }).toUpperCase()}${dt.getUTCMonth() === 0 ? ` ${dt.getUTCFullYear()}` : ''}</text>`);
+      if (dt.getUTCDate() !== 1) continue;
+      g += `<line class="grid" x1="${x(d).toFixed(1)}" x2="${x(d).toFixed(1)}" y1="${top}" y2="${bot}"/><text class="mo" x="${(x(d) + 6).toFixed(1)}" y="${bot + 18}">${esc(dt.toLocaleDateString(ui.loc, { month: 'long', timeZone: 'UTC' }).toUpperCase())}${dt.getUTCMonth() === 0 ? ` ${dt.getUTCFullYear()}` : ''}</text>`;
     }
     const nx = x(now);
+    g += `<g class="now"><line x1="${nx}" x2="${nx}" y1="${top}" y2="${bot}"/><circle class="halo" cx="${nx}" cy="${bot}" r="14" fill="url(#tl-glow)"/><circle cx="${nx}" cy="${bot}" r="3.5"/><text x="${nx + 9}" y="${bot + 18}">${esc(ui.today.toUpperCase())} · ${esc(short(now))}</text></g>`;
     const rows = list.map((f, i) => {
-      const y = top + i * rowH + 40;
-      const x0 = x(t(f.published)); const x1 = x(t(f.check)); const xn = Math.min(Math.max(nx, x0), x1);
-      const left = Math.max(0, Math.ceil((t(f.check) - now) / DAY));
-      const r = 15; const c = 2 * Math.PI * r;
-      const ms = (f.milestones || []).map((m) => { const at = m.date ? t(m.date) : t(`${m.month}-15`); const mx = x(at);
-        return `<g class="ms"><path d="M${mx} ${y - 5} L${mx + 5} ${y} L${mx} ${y + 5} L${mx - 5} ${y} Z"/><text x="${mx}" y="${y + 22}" text-anchor="middle">${esc(m.label)}</text></g>`; }).join('');
-      return `<g class="row" data-go="${esc(f.id)}" tabindex="0" role="link" aria-label="${esc(f.question)}" style="--d:${i * 120}ms">
-<line class="gone" x1="${x0}" x2="${xn}" y1="${y}" y2="${y}" pathLength="1"/>
-<line class="ahead" x1="${xn}" x2="${x1 - r - 4}" y1="${y}" y2="${y}"/>
-<circle class="start" cx="${x0}" cy="${y}" r="2.5"/>${ms}
-${left > 0 ? (xn > 90 ? `<text class="left" x="${xn - 8}" y="${y + 20}" text-anchor="end">${ui.days(left)}</text>` : `<text class="left" x="${xn + 8}" y="${y + 20}">${ui.days(left)}</text>`) : ''}
-<g class="ring" transform="translate(${x1} ${y})"><circle class="track" r="${r}"/><circle class="fill" r="${r}" stroke-dasharray="${(f.p * c).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90)"/></g>
-<text class="lbl" x="${x1 - r - 10}" y="${y - 26}" text-anchor="end">${esc(f.short || f.topic)}</text>
-<text class="pct" x="${x1 + r + 10}" y="${y + 5}">${pc(f.p, f)}</text>
-<text class="dt" x="${x1 + r + 10}" y="${y + 22}">${new Date(t(f.check)).toLocaleDateString(ui.loc, { day: 'numeric', month: 'short', timeZone: 'UTC' })}</text></g>`;
+      const px = x(t(f.check)); const py = y(f.p); const n = leftOf(f, now);
+      return `<a class="row" href="${href(f)}" aria-label="${esc(f.question)}" style="--d:${i * 90}ms"><line class="drop" x1="${px}" x2="${px}" y1="${py}" y2="${bot}"/><circle class="dot" cx="${px}" cy="${py}" r="8"/>
+<g class="tag" data-x="${px}" data-y="${py}"><text class="lbl" x="${px + 18}" y="${py - 2}">${esc(f.short || f.topic)}</text><text class="dt" x="${px + 18}" y="${py + 15}">${pc(f.p, f)} · ${esc(short(t(f.check)))}${n > 0 ? ` · ${esc(ui.days(n))}` : ''}</text></g></a>`;
     }).join('');
-    box.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Timeline">
-<defs><radialGradient id="tl-glow"><stop offset="0" stop-color="#fff" stop-opacity="0.55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>
-<line class="axis" x1="${padL}" x2="${W - padR}" y1="${rulerY}" y2="${rulerY}"/>${ticks.join('')}
-<g class="now"><line x1="${nx}" x2="${nx}" y1="${rulerY}" y2="${H}"/><circle class="halo" cx="${nx}" cy="${rulerY}" r="14" fill="url(#tl-glow)"/><circle cx="${nx}" cy="${rulerY}" r="3.5"/>
-<text x="${nx + 9}" y="${rulerY + 16}">${ui.today.toUpperCase()} · ${new Date(now).toLocaleDateString(ui.loc, { day: 'numeric', month: 'short' })}</text></g>${rows}</svg>`;
-    // A label that would run past the picture's edge (a narrow screen, a check date close to today) is moved in.
-    const fit = () => box.querySelectorAll('svg text').forEach((el) => {
-      let bb; try { bb = el.getBBox(); } catch { return; }
-      if (!bb.width) return;
-      if (bb.x < 4) { el.setAttribute('text-anchor', 'start'); el.setAttribute('x', '4'); }
-      else if (bb.x + bb.width > W - 4) { el.setAttribute('text-anchor', 'end'); el.setAttribute('x', String(W - 4)); }
+    return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Timeline">
+<defs><radialGradient id="tl-glow"><stop offset="0" stop-color="#fff" stop-opacity="0.55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>${g}${rows}</svg>`;
+  };
+  // Each label beside its point where it fits: to the right, else to the left, else above or below — never over
+  // another label, a point or the edge.
+  const place = (W) => {
+    const taken = [...box.querySelectorAll('.dot')].map((c) => { const b = c.getBBox(); return { x: b.x - 4, y: b.y - 4, w: b.width + 8, h: b.height + 8 }; });
+    const hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+    box.querySelectorAll('svg > .mo, .now text').forEach((el) => { const b = el.getBBox(); taken.push({ x: b.x, y: b.y, w: b.width, h: b.height }); });
+    // from the latest date back: the one nearest the right edge has the fewest places to go
+    [...box.querySelectorAll('.tag')].reverse().forEach((tag) => {
+      const px = +tag.dataset.x; const py = +tag.dataset.y; const texts = [...tag.querySelectorAll('text')];
+      const tries = [['start', 18, 0], ['end', -18, 0], ['start', 14, -30], ['end', -14, -30], ['start', 14, 30], ['end', -14, 30], ['middle', 0, -40], ['middle', 0, 44]];
+      for (const [anchor, dx, dy] of tries) {
+        texts.forEach((el, k) => { el.setAttribute('text-anchor', anchor); el.setAttribute('x', px + dx); el.setAttribute('y', py + dy + (k ? 15 : -2)); });
+        const b = tag.getBBox(); const r = { x: b.x - 4, y: b.y - 2, w: b.width + 8, h: b.height + 4 };
+        if (r.x >= 50 && r.x + r.w <= W - 2 && r.y >= 0 && r.y + r.h <= 300 && !taken.some((o) => hit(r, o))) { taken.push(r); return; }
+      }
+      const b = tag.getBBox(); taken.push({ x: b.x, y: b.y, w: b.width, h: b.height });
     });
-    fit(); document.fonts?.ready.then(fit);
-    box.querySelectorAll('[data-go]').forEach((g) => {
-      const go = () => { location.href = `/time?f=${encodeURIComponent(g.dataset.go)}`; };
-      g.addEventListener('click', go); g.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
-    });
+  };
+  const draw = () => {
+    const W = Math.max(300, box.clientWidth);
+    const now = Date.now();
+    if (W < 700) { box.innerHTML = agenda(now); return; }
+    box.innerHTML = field(W, now);
+    place(W); document.fonts?.ready.then(() => place(W));
   };
   draw();
   let w = box.clientWidth;

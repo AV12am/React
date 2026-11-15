@@ -313,7 +313,7 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 .mx .tl-sec{padding-top:48px;padding-bottom:8px}
 .tl svg{display:block;overflow:visible}
 .tl .axis{stroke:var(--line-2);stroke-width:1}
-@media (max-width: 560px){.tl .lbl{font-size:18px}.tl .ms text{display:none}}
+
 .tl .tk-d{stroke:var(--line-2);stroke-width:1}
 .tl .tk-w{stroke:var(--ink-3);stroke-width:1}
 .tl .tk-m{stroke:var(--ink-2);stroke-width:1}
@@ -335,6 +335,32 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 .tl .lbl{fill:var(--ink);font-family:"Cormorant Garamond",Georgia,serif;font-size:22px}
 .tl .pct{fill:var(--ink);font-size:14px;font-variant-numeric:tabular-nums}
 .tl .dt{fill:var(--ink-3);font-size:11px}
+.tl .grid{stroke:var(--line);stroke-width:1}
+.tl .half{stroke:var(--line-2);stroke-width:1;stroke-dasharray:4 5}
+.tl .ax{fill:var(--ink-3);font-size:11px;font-variant-numeric:tabular-nums}
+.tl a.row{cursor:pointer;outline:none;text-decoration:none}
+.tl .drop{stroke:var(--line-2);stroke-width:1}
+.tl .dot{fill:var(--ink);stroke:#0a0a0a;stroke-width:2;transition:r 200ms;animation:tl-in 500ms var(--ease-out) var(--d) both}
+.tl a.row:hover .dot,.tl a.row:focus .dot{r:11}
+.tl a.row:hover .lbl,.tl a.row:focus .lbl{text-decoration:underline;text-underline-offset:4px}
+@keyframes tl-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+/* the agenda (a phone): forecasts by check date, the probability named and on a 0–100% bar */
+.ag{display:grid}
+.ag-row{display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:16px 0;border-top:1px solid var(--line);color:inherit;text-decoration:none}
+.ag-row:last-child{border-bottom:1px solid var(--line)}
+.ag-row i{font-style:normal}
+.ag-date b{display:block;font:400 34px/34px "Cormorant Garamond",Georgia,serif;color:var(--ink)}
+.ag-date i{display:block;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-3)}
+.ag-what b{display:block;font:400 21px/25px "Cormorant Garamond",Georgia,serif;color:var(--ink)}
+.ag-what i{display:block;font-size:12px;color:var(--ink-3)}
+.ag-p{text-align:right}
+.ag-p i{display:block;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-3)}
+.ag-p b{display:block;font-size:18px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.ag-bar{grid-column:1/-1;position:relative;height:6px;border-radius:3px;background:var(--line);margin-top:8px}
+.ag-bar u{position:absolute;inset:0 auto 0 0;border-radius:3px;background:var(--ink);text-decoration:none}
+.ag-bar s{position:absolute;left:50%;top:-4px;width:1px;height:14px;background:var(--ink-3)}
+.ag-scale{grid-column:1/-1;display:flex;justify-content:space-between;font-size:10px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion: reduce){.tl .dot{animation:none}}
 .tl-meta{margin-top:4px;font-size:12px;color:var(--ink-3);letter-spacing:0.04em}
 @keyframes tl-draw{to{stroke-dashoffset:0}}
 @keyframes tl-pulse{0%,100%{opacity:0.5;transform:scale(0.8)}50%{opacity:1;transform:scale(1.25)}}
