@@ -225,6 +225,8 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 .tm-two{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px}
 .tm-box{border-top:1px solid var(--line);padding:20px 0;margin-bottom:8px}
 .tm-box p{margin:0;color:var(--ink-2);line-height:24px}
+/* The running text of a forecast stands flush with both edges (no hyphenation), as on the About page. */
+.tm-con,.tm-box>p:not(.tm-hint),.tm-res{text-align:justify;hyphens:none}
 .tm table{width:100%;border-collapse:collapse;font-size:13px}
 .tm th{text-align:left;font-weight:500;color:var(--ink-3);font-size:11px;padding:0 8px 8px 0}
 .tm td{padding:8px 8px 8px 0;border-top:1px solid var(--line);color:var(--ink-2);vertical-align:top}
