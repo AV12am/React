@@ -245,7 +245,7 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 .flows{display:block;width:100%;height:auto}
 /* A phone has its own drawing of the flows (narrow nodes, wrapped words), in the screen's width. */
 @media (max-width: 700px){.flows:not(.is-phone){min-width:660px}.tm-box:has(.flows:not(.is-phone)){overflow-x:auto}}
-.flows .band{fill:none;stroke:var(--ink);stroke-linecap:round;opacity:0.28;transition:opacity 240ms}
+.flows .band{fill:none;stroke:var(--ink);stroke-linecap:butt;opacity:0.3;transition:opacity 240ms}
 .flows .band:hover{opacity:0.6}
 .flows .node rect{fill:#111;stroke:var(--line-2);transition:stroke 200ms,fill 200ms}
 .flows .node.l{cursor:pointer}

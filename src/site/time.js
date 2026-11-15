@@ -151,10 +151,10 @@ function flows(f) {
     const ha = (p / f.scenarios.find((s) => s.id === h).p) * a.h; const hb = (p / f.outcomes.find((o) => o.id === n).p) * b.h;
     const y0 = a.y + a.used; a.used += ha; const y1 = b.y + b.usedIn; b.usedIn += hb;
     const x0 = nodeW; const x1 = W - nodeW; const cx = (x0 + x1) / 2;
-    // A thin line through the middle of the link's share of each node; its weight follows the probability.
+    // A line through the middle of the link's share of each node; its weight shows the probability (1 px + the share).
     const ya = y0 + ha / 2; const yb = y1 + hb / 2;
     const d = `M${x0},${ya} C${cx},${ya} ${cx},${yb} ${x1},${yb}`;
-    return `<path class="band" data-h="${h}" data-n="${n}" d="${d}" style="stroke-width:${(1 + p * (phone ? 5 : 8)).toFixed(2)}"><title>${h} → ${n}: ${pc(p, f)}</title></path>`;
+    return `<path class="band" data-h="${h}" data-n="${n}" d="${d}" style="stroke-width:${(1 + p * (phone ? 16 : 24)).toFixed(2)}"><title>${h} → ${n}: ${pc(p, f)}</title></path>`;
   }).join('');
   const node = (it, n, side) => {
     const x = (side === 'l' ? 0 : W - nodeW) + pad;
