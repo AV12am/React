@@ -107,6 +107,8 @@ function timeline(list) {
   const draw = () => {
     const W = Math.max(300, box.clientWidth);
     const now = Date.now();
+    // On a phone the agenda's tiles are the way in: the list of tiles below would only repeat them.
+    document.body.classList.toggle('tm-phone', W < 700);
     if (W < 700) { box.innerHTML = agenda(now); return; }
     box.innerHTML = field(W, now);
     place(W); document.fonts?.ready.then(() => place(W));

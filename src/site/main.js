@@ -2,14 +2,12 @@
 import './site.css';
 import './chrome.js';
 
-// The workspace moved to its own subdomain. The home-screen app installed from the main domain, and an old
-// link into the platform (it carries a query), go on to the workspace; the site itself has none.
+// The workspace moved to its own subdomain. Only an old link into the platform — its routes live in the hash
+// («#/…») — goes on to the workspace. A page saved to the phone's home screen opens as that page (it used to be
+// sent to the workspace whenever it ran full-screen), and a query such as ?lang= is the site's own.
 const WORKSPACE = 'https://workspace.reactioncore.uk';
-const standalone = window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
-// (Ad and share tags — utm_…, gclid, fbclid — are the site's own visitors, not old platform links.)
-const oldLink = location.search && ![...new URLSearchParams(location.search).keys()].some((k) => /^(utm_|gclid|fbclid|ref$)/.test(k));
-if (location.hostname === 'reactioncore.uk' && (standalone || oldLink)) {
-  location.replace(`${WORKSPACE}/${location.search}${location.hash}`);
+if (location.hostname === 'reactioncore.uk' && /^#\/./.test(location.hash)) {
+  location.replace(`${WORKSPACE}/${location.hash}`);
 }
 
 function build() {
