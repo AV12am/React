@@ -19,14 +19,13 @@ export const titleOfRecord = (r) => {
 /**
  * @param {object} p
  * @param {object[]} p.records  all records the caller has
- * @param {object[]} [p.requests]
  * @param {object} p.me         {id, role, clearance}
  * @param {number} [p.now]
  * @param {number} [p.hours]    look-back window (default 24)
  * @param {number} [p.nameUpTo] highest level whose titles may be shown (default: the reader's clearance)
  * @param {number} [p.limit]    items listed per section (default 6)
  */
-export function buildBrief({ records = [], requests = [], tasks = [], comments = [], users = [], me, now = Date.now(), hours = 24, nameUpTo, limit = 6 }) {
+export function buildBrief({ records = [], tasks = [], comments = [], users = [], me, now = Date.now(), hours = 24, nameUpTo, limit = 6 }) {
   const since = new Date(now - hours * 3600000).toISOString();
   const today = isoDay(now);
   const soon = isoDay(now + 7 * DAY);
@@ -68,9 +67,6 @@ export function buildBrief({ records = [], requests = [], tasks = [], comments =
   const mentions = comments.filter((c) => (c.mentions || []).includes(me.id) && c.author !== me.id && (c.at || '') >= since && (c.clearance ?? 0) <= me.clearance)
     .map((c) => { const r = byId.get(c.target); return { id: c.id, comment: true, target: c.target, div: r?.div, col: r?.col, level: c.clearance ?? 0, title: (c.clearance ?? 0) <= top ? `${who(c.author)}: ${c.text.slice(0, 140)}` : null, note: r && (r.clearance ?? 0) <= top ? titleOfRecord(r) : '' }; });
 
-  const canDecide = ['admin', 'lead'].includes(me.role);
-  const pending = canDecide ? requests.filter((r) => r.status === 'pending') : [];
-
   const sections = [
     section('tasks', 'Мої завдання', myTasks, 'Термінових завдань немає'),
     section('mentions', 'Вас згадали', mentions, 'Згадок немає'),
@@ -78,10 +74,24 @@ export function buildBrief({ records = [], requests = [], tasks = [], comments =
     section('review', 'Потребують перегляду', review, 'Усе переглянуто'),
     section('orgs', 'Змінені картки компаній', orgNews, 'Змін у компаніях немає'),
     section('deadlines', 'Терміни на 3 дні', deadlines, 'Термінових справ немає'),
-    ...(canDecide ? [section('requests', 'Запити на доступ', pending.map((r) => ({ id: r.id, level: 0, title: r.reason || 'Запит на доступ', note: r.kind })), 'Запитів немає')] : []),
   ];
-  const attentionCount = myTasks.filter((x) => /прострочено|сьогодні/.test(x.note)).length + mentions.length + due.filter((x) => x.note.startsWith('настала')).length + review.length + deadlines.filter((x) => !/^\d/.test(x.note)).length + pending.length;
+  const attentionCount = myTasks.filter((x) => /прострочено|сьогодні/.test(x.note)).length + mentions.length + due.filter((x) => x.note.startsWith('настала')).length + review.length + deadlines.filter((x) => !/^\d/.test(x.note)).length;
   return { since, until: new Date(now).toISOString(), sections, total: sections.reduce((a, s) => a + s.total, 0), attention: attentionCount };
+}
+
+/** The public site's visits for the brief: the last 7 days of `visitStats(14)` (the 7 before them give the change). */
+export function visitsPicture(v) {
+  if (!v?.daily?.length) return null;
+  const d = v.daily;
+  const cur = d.slice(-7); const prev = d.slice(-14, -7);
+  const sum = (a, k) => a.reduce((x, y) => x + y[k], 0);
+  const visitors = sum(cur, 'visitors'); const views = sum(cur, 'views');
+  if (!views) return null;
+  const pv = sum(prev, 'visitors');
+  const label = (s) => s.slice(8) + '.' + s.slice(5, 7);
+  return { visitors, views, change: prev.length === 7 && pv ? Math.round(((visitors - pv) / pv) * 100) : null,
+    daily: cur.map((x) => ({ ...x, label: label(x.day) })),
+    pages: (v.pages || []).slice(0, 4), countries: (v.countries || []).slice(0, 4), refs: (v.refs || []).slice(0, 4) };
 }
 
 /** Plain-text and HTML renderings for the e-mail. */
@@ -353,7 +363,7 @@ export function gprPicture(series) {
 export const heat = (h, max) => (h == null || !max ? 0 : Math.max(0.08, Math.min(1, h / max)));
 const mix = (a) => { const c = [140, 28, 50]; const w = [255, 255, 255]; return `#${c.map((v, i) => Math.round(w[i] + (v - w[i]) * a).toString(16).padStart(2, '0')).join('')}`; };
 
-export function worldHtml({ gpr, alerts } = {}) {
+export function worldHtml({ gpr, alerts, visits } = {}) {
   const head = (t) => `<tr><td style="padding:22px 0 8px;font:600 13px/18px Georgia,serif;letter-spacing:.06em;text-transform:uppercase;color:#8c1c32">◆ ${esc(t)}</td></tr>`;
   const note = (t) => `<tr><td style="padding:4px 0;font:12px/17px Georgia,serif;color:#777">${t}</td></tr>`;
   let out = '';
@@ -365,6 +375,20 @@ export function worldHtml({ gpr, alerts } = {}) {
       + `<tr><td style="font:15px/22px Georgia,serif;color:#1a1a1a">Середнє за тиждень <b>${g.week}</b> · за місяць ${g.month} · ${g.change >= 0 ? 'вище' : 'нижче'} місячного на ${Math.abs(g.change)}%</td></tr>`
       + `<tr><td style="padding-top:6px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="height:58px"><tr>${bars}</tr></table></td></tr>`
       + note(`Щоденний індекс Caldara–Iacoviello за 30 днів (100 — середній рівень 1985–2019), останній день у даних — ${esc(g.last)}. Бордовим — дні вище місячного середнього.`);
+  }
+  const vp = visitsPicture(visits);
+  if (vp) {
+    const mx = Math.max(1, ...vp.daily.map((d) => d.visitors));
+    const bars = vp.daily.map((d) => `<td style="vertical-align:bottom;padding:0 2px"><div style="height:${Math.max(2, Math.round((d.visitors / mx) * 44))}px;background:#8c1c32"></div></td>`).join('');
+    const labels = vp.daily.map((d) => `<td style="text-align:center;font:10px Georgia,serif;color:#777;padding-top:3px">${esc(d.label)}</td>`).join('');
+    const list = (rows) => rows.map((r) => `${esc(r.id)} — ${r.visitors}`).join(' · ');
+    out += head('Відвідування платформи за 7 днів')
+      + `<tr><td style="font:15px/22px Georgia,serif;color:#1a1a1a"><b>${vp.visitors}</b> відвідувачів · ${vp.views} переглядів${vp.change == null ? '' : ` · ${vp.change >= 0 ? '+' : '−'}${Math.abs(vp.change)}% до попередніх 7 днів`}</td></tr>`
+      + `<tr><td style="padding-top:6px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr style="height:46px">${bars}</tr><tr>${labels}</tr></table></td></tr>`
+      + (vp.pages.length ? note(`Сторінки: ${list(vp.pages)}.`) : '')
+      + (vp.countries.length ? note(`Країни: ${list(vp.countries)}.`) : '')
+      + (vp.refs.length ? note(`Звідки прийшли: ${list(vp.refs)}.`) : '')
+      + note('Без cookies і IP-адрес; відвідувач — анонімний добовий відбиток. Боти не враховані.');
   }
   const tiles = alertTiles(alerts);
   const known = tiles.filter((t) => t.h7 != null);

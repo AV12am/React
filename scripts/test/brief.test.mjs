@@ -18,7 +18,7 @@ test('sections pick the right records; old and finished ones stay out', () => {
   assert.match(sec(b, 'due').items[0].note, /настала/);
   assert.deepEqual(sec(b, 'deadlines').items.map((i) => i.id), ['p1']);
   assert.equal(sec(b, 'orgs').total, 1);
-  assert.equal(sec(b, 'requests'), undefined); // only for those who decide
+  assert.equal(sec(b, 'requests'), undefined); // access requests are not part of the brief
 });
 
 test('a reader never sees records above their clearance', () => {

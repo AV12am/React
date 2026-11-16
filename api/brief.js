@@ -18,6 +18,7 @@ import { refreshAlerts, readAlerts, uaShapes } from './_alerts.js';
 import { buildBrief, briefHtml, briefText, buildInsights, insightsHtml, worldHtml, insightsText, insightsPrompt, readInsights } from '../src/lib/brief.js';
 import { env, json, db, caller, SB_URL, SERVICE } from './_core.js';
 import { sendPush, pushReady } from './_push.js';
+import { visitStats } from './_visits.js';
 import { checkApplication, applicationMail, isBot } from '../src/lib/apply.js';
 import { clientIp } from '../src/lib/ip.js';
 
@@ -104,15 +105,18 @@ const pdfFonts = (appUrl) => (fontsP ||= Promise.all(['Regular', 'Bold'].map(asy
 // The security picture for every letter of the run: the GPR series the platform already keeps, and the oblasts'
 // air-raid alerts (refreshed here as far as the API lets; what was read before stands otherwise).
 async function worldOf(refresh) {
-  const [gprRow, alerts] = await Promise.all([
+  const [gprRow, alerts, visits] = await Promise.all([
     db('core_docs?kind=eq.pulse&id=eq.gpr&select=doc').catch(() => []),
     refresh ? refreshAlerts(30000).catch(() => readAlerts()) : readAlerts(),
+    visitStats(14).catch(() => null), // the public site's visits: shown to administrators only (see letter())
   ]);
   // The oblasts' outlines only when there are alerts to show on them.
   const shapes = Object.keys(alerts?.byOblast || {}).length ? await uaShapes() : [];
-  return { gpr: gprRow?.[0]?.doc?.series || [], alerts, shapes };
+  return { gpr: gprRow?.[0]?.doc?.series || [], alerts, shapes, visits };
 }
-async function letter(m, data, now, news, appUrl, world = {}) {
+async function letter(m, data, now, news, appUrl, world0 = {}) {
+  const { visits, ...rest } = world0;
+  const world = m.doc?.role === 'admin' ? { ...rest, visits } : rest; // the visit figures are an administrator's
   const b = briefFor(m, data, now);
   const ins = insightsFor(m, data, now);
   const ai = await analyse(ins, b);

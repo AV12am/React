@@ -6,7 +6,7 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 import { geoMercator, geoPath } from 'd3-geo';
 import fontkit from '@pdf-lib/fontkit';
-import { plainConclusions, gprPicture, alertTiles, heat } from './brief.js';
+import { plainConclusions, gprPicture, alertTiles, heat, visitsPicture } from './brief.js';
 
 const A4 = [595.28, 841.89];
 const M = 48; // side margin
@@ -167,6 +167,7 @@ export async function briefPdf({ brief, insights: ins, ai = null, news = [], nam
   // What is inside: the sections that follow, as a short list.
   const inside = [
     (gprPicture(world.gpr) || alertTiles(world.alerts).some((t) => t.h7 != null)) && ['Безпекова обстановка', 'геополітичний ризик і повітряні тривоги'],
+    visitsPicture(world.visits) && ['Відвідування платформи', 'відвідувачі, сторінки, країни'],
     ['Аналітичні висновки', 'активність, проєкти, завдання'],
     ['Прогноз і що варто розвивати', 'за поточного темпу, проєкти з сигналами'],
     ['Оцінка стану', 'контрольні питання'],
@@ -269,6 +270,34 @@ export async function briefPdf({ brief, insights: ins, ai = null, news = [], nam
       text('Найдовше під тривогою:', M, y, { size: 9.5, font: B, color: C.slate }); y -= 14;
       para(topList.map((t) => `${t.key} — ${Math.round(t.h7)} год за тиждень${t.h24 != null ? `, ${Math.round(t.h24)} год за добу` : ''}`).join('; ') + '.', M, 9.5, W, { color: C.ink });
     }
+  }
+
+  /* ---------- Visits to the platform (administrators only: world.visits is given to them) ---------- */
+  const vp = visitsPicture(world.visits);
+  if (vp) {
+    newPage();
+    heading('Відвідування платформи', 'ОСТАННІ 7 ДНІВ');
+    panel(210, (top) => {
+      text(`${vp.visitors} відвідувачів`, M + 16, top - 30, { size: 18 });
+      text(`${vp.views} ПЕРЕГЛЯДІВ${vp.change == null ? '' : ` · ${vp.change >= 0 ? '+' : '−'}${Math.abs(vp.change)}% ДО ПОПЕРЕДНІХ 7 ДНІВ`}`, M + 16, top - 44, { size: 7.5, font: B, color: C.muted });
+      const x0 = M + 24; const y0 = top - 180; const cw = W - 48; const ch = 100;
+      const mx = Math.max(1, ...vp.daily.map((d) => d.visitors)); const bw = cw / vp.daily.length;
+      page.drawLine({ start: { x: x0, y: y0 }, end: { x: x0 + cw, y: y0 }, thickness: 0.5, color: col(C.line) });
+      vp.daily.forEach((d, k) => {
+        const h = Math.max(1.5, (d.visitors / mx) * ch);
+        page.drawRectangle({ x: x0 + k * bw + bw * 0.18, y: y0, width: bw * 0.64, height: h, color: col(C.crimson) });
+        const v = String(d.visitors); text(v, x0 + k * bw + bw / 2 - width(v, 7.5, B) / 2, y0 + h + 4, { size: 7.5, font: B, color: C.slate });
+        text(d.label, x0 + k * bw + bw / 2 - width(d.label, 7) / 2, y0 - 12, { size: 7, color: C.muted });
+      });
+    });
+    const lists = [['Сторінки', vp.pages], ['Країни', vp.countries], ['Звідки прийшли', vp.refs]].filter(([, r]) => r.length);
+    for (const [t, rows] of lists) {
+      room(30 + rows.length * 14);
+      text(t.toUpperCase(), M, y, { size: 8, font: B, color: C.muted }); y -= 14;
+      for (const r of rows) { text(r.id, M, y, { size: 10 }); const v = `${r.visitors}`; text(v, M + W - width(v, 10, B), y, { size: 10, font: B }); y -= 14; }
+      y -= 8;
+    }
+    text('Без cookies і IP-адрес; відвідувач — анонімний добовий відбиток. Боти не враховані.', M, y, { size: 7, color: C.muted });
   }
 
   /* ---------- Conclusions ---------- */
