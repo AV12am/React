@@ -47,7 +47,7 @@ export const FROM_EN = {
   'Briefings': 'Briefings', 'Analytical notes on request': 'Analytische Notizen auf Anfrage', 'Trends': 'Trends', 'About': 'Über uns', 'Who we are and how we work': 'Wer wir sind und wie wir arbeiten',
   'Careers': 'Karriere', 'A permanent role or expert collaboration': 'Eine feste Stelle oder Zusammenarbeit als Experte', 'Tell us what you need to find out': 'Sagen Sie uns, was Sie herausfinden müssen',
   'Monitoring': 'Monitoring', 'Workspace': 'Workspace', 'Menu': 'Menü', 'Close': 'Schließen', 'Language': 'Sprache',
-  'is a trading name of': 'ist ein Handelsname von', 'Registration:': 'Registrierung:', 'Email:': 'E-Mail:', 'Privacy:': 'Datenschutz:', 'Legal': 'Rechtliches',
+  'is an independent analytical project.': 'ist ein unabhängiges Analyseprojekt.', 'is a trading name of': 'ist ein Handelsname von', 'Registration:': 'Registrierung:', 'Email:': 'E-Mail:', 'Privacy:': 'Datenschutz:', 'Legal': 'Rechtliches',
   'Privacy policy': 'Datenschutzerklärung', 'Terms of use': 'Nutzungsbedingungen', 'Cookies': 'Cookies', '© 2026 REACTIONcore. All rights reserved.': '© 2026 REACTIONcore. Alle Rechte vorbehalten.',
   'Open sources only.': 'Nur offene Quellen.',
   // home

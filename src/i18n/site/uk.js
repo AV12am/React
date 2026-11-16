@@ -40,7 +40,7 @@ export const FROM_EN = {
   'Briefings': 'Брифінги', 'Analytical notes on request': 'Аналітичні записки на запит', 'Trends': 'Тренди', 'About': 'Про нас', 'Who we are and how we work': 'Хто ми і як працюємо',
   'Careers': 'Кар’єра', 'A permanent role or expert collaboration': 'Постійна посада або експертна співпраця', 'Tell us what you need to find out': 'Розкажіть, що потрібно з’ясувати',
   'Monitoring': 'Моніторинг', 'Workspace': 'Workspace', 'Menu': 'Меню', 'Close': 'Закрити', 'Language': 'Мова',
-  'is a trading name of': '— торгова назва', 'Registration:': 'Реєстрація:', 'Email:': 'Пошта:', 'Privacy:': 'Конфіденційність:', 'Legal': 'Правова інформація',
+  'is an independent analytical project.': '— незалежний аналітичний проєкт.', 'is a trading name of': '— торгова назва', 'Registration:': 'Реєстрація:', 'Email:': 'Пошта:', 'Privacy:': 'Конфіденційність:', 'Legal': 'Правова інформація',
   'Privacy policy': 'Політика конфіденційності', 'Terms of use': 'Умови користування', 'Cookies': 'Cookies', '© 2026 REACTIONcore. All rights reserved.': '© 2026 REACTIONcore. Усі права захищено.',
   'Open sources only.': 'Лише відкриті джерела.',
   'The REACTIONcore mark in three dimensions': 'Знак REACTIONcore у трьох вимірах',
