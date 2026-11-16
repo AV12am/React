@@ -167,7 +167,7 @@ export async function briefPdf({ brief, insights: ins, ai = null, news = [], nam
   // What is inside: the sections that follow, as a short list.
   const inside = [
     (gprPicture(world.gpr) || alertTiles(world.alerts).some((t) => t.h7 != null)) && ['Безпекова обстановка', 'геополітичний ризик і повітряні тривоги'],
-    visitsPicture(world.visits) && ['Відвідування платформи', 'відвідувачі, країни, пристрої, сторінки'],
+    visitsPicture(world.visits) && ['Відвідування платформи', 'відвідувачі, країни, сторінки'],
     ['Аналітичні висновки', 'активність, проєкти, завдання'],
     ['Прогноз і що варто розвивати', 'за поточного темпу, проєкти з сигналами'],
     ['Оцінка стану', 'контрольні питання'],
@@ -305,7 +305,7 @@ export async function briefPdf({ brief, insights: ins, ai = null, news = [], nam
     });
     // the seven tables, two to a row: name · visitors · views · share bar
     const colW = (W - 14) / 2;
-    const tableH = (sh) => 34 + sh.rows.length * 13;
+    const tableH = (sh) => 34 + sh.rows.length * 13 + 6;
     for (let i = 0; i < vp.shares.length; i += 2) {
       const pair = vp.shares.slice(i, i + 2);
       room(Math.max(...pair.map(tableH)) + 8);
@@ -330,7 +330,7 @@ export async function briefPdf({ brief, insights: ins, ai = null, news = [], nam
       y = top - Math.max(...pair.map(tableH)) - 6;
     }
     room(20);
-    text('Без cookies і збереження IP-адрес; відвідувач рахується в межах доби. Боти не враховані.', M, y, { size: 7, color: C.muted });
+    text('Топ-3 за кожним зрізом. Повні таблиці — у «Доступи», вкладка «Відвідування». Без cookies і IP-адрес.', M, y, { size: 7, color: C.muted });
   }
 
   /* ---------- Conclusions ---------- */
