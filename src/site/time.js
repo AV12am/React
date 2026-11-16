@@ -81,7 +81,7 @@ function timeline(list) {
     const rows = list.map((f, i) => {
       const px = x(t(f.check)); const py = y(f.p); const n = leftOf(f, now);
       return `<g class="row" style="--d:${i * 90}ms"><title>${esc(f.question)}</title><line class="drop" x1="${px}" x2="${px}" y1="${py + 8}" y2="${bot}"/><circle class="foot" cx="${px}" cy="${bot}" r="2.5"/><circle class="dot" cx="${px}" cy="${py}" r="8"/>
-<g class="tag" data-x="${px}" data-y="${py}"><text class="lbl" x="${px + 18}" y="${py - 2}">${esc(f.short || f.topic)}</text><text class="dt" x="${px + 18}" y="${py + 15}">${pc(f.p, f)} · ${esc(short(t(f.check)))}${n > 0 ? ` · ${esc(ui.days(n))}` : ''}</text></g></g>`;
+<g class="tag" data-x="${px}" data-y="${py}"><text class="lbl" x="${px + 18}" y="${py + 7}">${esc(f.short || f.topic)}</text><text class="dt" x="${px + 18}" y="${py + 23}">${pc(f.p, f)} · ${esc(short(t(f.check)))}${n > 0 ? ` · ${esc(ui.days(n))}` : ''}</text></g></g>`;
     }).join('');
     return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Timeline">
 <defs><radialGradient id="tl-glow"><stop offset="0" stop-color="#fff" stop-opacity="0.55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>${g}${rows}</svg>`;
@@ -97,7 +97,7 @@ function timeline(list) {
       const px = +tag.dataset.x; const py = +tag.dataset.y; const texts = [...tag.querySelectorAll('text')];
       const tries = [['start', 18, 0], ['end', -18, 0], ['start', 14, -30], ['end', -14, -30], ['start', 14, 30], ['end', -14, 30], ['middle', 0, -40], ['middle', 0, 44]];
       for (const [anchor, dx, dy] of tries) {
-        texts.forEach((el, k) => { el.setAttribute('text-anchor', anchor); el.setAttribute('x', px + dx); el.setAttribute('y', py + dy + (k ? 15 : -2)); });
+        texts.forEach((el, k) => { el.setAttribute('text-anchor', anchor); el.setAttribute('x', px + dx); el.setAttribute('y', py + dy + (k ? 23 : 7)); });
         const b = tag.getBBox(); const r = { x: b.x - 4, y: b.y - 2, w: b.width + 8, h: b.height + 4 };
         if (r.x >= 50 && r.x + r.w <= W - 2 && r.y >= 0 && r.y + r.h <= 300 && !taken.some((o) => hit(r, o))) { taken.push(r); return; }
       }

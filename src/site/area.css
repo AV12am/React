@@ -342,13 +342,15 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 /* an event's own line: dashed and lighter than the grid, ending in a small mark on the axis */
 .tl .drop{stroke:var(--ink-3);stroke-width:1;stroke-dasharray:1 5;stroke-linecap:round;transition:stroke 200ms}
 .tl .foot{fill:var(--ink-3);transition:fill 200ms}
-.tl .dot{fill:var(--ink);stroke:#0a0a0a;stroke-width:2;transition:r 200ms,filter 200ms;animation:tl-in 500ms var(--ease-out) var(--d) both}
+.tl .dot{fill:var(--ink);stroke:none;transition:r 200ms,filter 200ms;animation:tl-in 500ms var(--ease-out) var(--d) both}
 /* pointing at one: it lights up, the rest step back */
 .tl svg:has(g.row:hover) g.row:not(:hover){opacity:0.32}
 .tl g.row:hover .dot{r:10;filter:drop-shadow(0 0 8px rgba(255,255,255,0.65))}
 .tl g.row:hover .drop{stroke:var(--ink);stroke-dasharray:none}
 .tl g.row:hover .foot{fill:var(--ink)}
-.tl g.row:hover .dt{fill:var(--ink-2)}
+/* the figures (probability, date, days left) show for the one pointed at */
+.tl g.row .dt{opacity:0;transition:opacity 200ms}
+.tl g.row:hover .dt{opacity:1;fill:var(--ink-2)}
 @keyframes tl-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 /* the agenda (a phone): forecasts by check date, the probability named and on a 0–100% bar */
 .ag{display:grid;gap:12px}
