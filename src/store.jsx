@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, useCallback, useRef, useState } from 'react';
 import { USERS, REQUESTS, FILES, FOLDERS, SEED_AUDIT, PERMISSIONS, CLEARANCE } from './data/seed.js';
 import { canSeeLevel, levelOf, remark, MAX_LEVEL, SEAL } from './data/clearance.js';
-import { nextReview } from './data/academy/meta.js';
 import { storage } from './lib/storage.js';
 import { createSync, isRlsError } from './lib/sync.js';
 import { status as passkeyStatus } from './lib/passkey.js';
@@ -121,33 +120,6 @@ function reducer(state, a) {
         });
       if (!changes.length) return state;
       return withAudit({ ...state, users }, me, 'access', `${before.code} ${before.name}: ${changes.join(', ')}`);
-    }
-    case 'training/result': {
-      // A test attempt of the signed-in person: best score kept, a pass is valid for a year (see data/academy/meta.js).
-      const u = state.users.find((x) => x.id === me);
-      const prev = u?.training?.[a.course] || {};
-      const pct = Math.round((a.score / a.total) * 100);
-      const now = new Date().toISOString();
-      const rec = {
-        best: Math.max(prev.best || 0, pct), last: pct, attempts: (prev.attempts || 0) + 1,
-        passed: a.passed || !!prev.passed, at: a.passed ? now : prev.at || null, tried: now,
-        review: nextReview(prev.review, { wrong: a.wrong || [], right: a.right || [] }),
-      };
-      const users = state.users.map((x) => (x.id === me ? { ...x, training: { ...(x.training || {}), [a.course]: rec } } : x));
-      return withAudit({ ...state, users }, me, 'training', `Курс «${a.title}»: ${a.score}/${a.total} (${pct}%) — ${a.passed ? 'складено' : 'не складено'}`);
-    }
-    case 'training/review': {
-      // A review session: each answer moves its question along the review boxes; no effect on passing.
-      const u = state.users.find((x) => x.id === me);
-      if (!u) return state;
-      const training = { ...(u.training || {}) };
-      for (const [course, ans] of Object.entries(a.byCourse)) {
-        const prev = training[course] || {};
-        training[course] = { ...prev, review: nextReview(prev.review, ans) };
-      }
-      const right = Object.values(a.byCourse).reduce((n, x) => n + x.right.length, 0);
-      const total = Object.values(a.byCourse).reduce((n, x) => n + x.right.length + x.wrong.length, 0);
-      return withAudit({ ...state, users: state.users.map((x) => (x.id === me ? { ...x, training } : x)) }, me, 'training', `Повторення помилок: ${right}/${total}`);
     }
     case 'user/invite': {
       const n = state.users.filter((u) => u.code.startsWith('V-')).length + 80;

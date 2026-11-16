@@ -67,28 +67,8 @@ export const WORKSPACES = {
   },
 
   int: {
-    tagline: 'Джерела, їх оцінка й цикл опрацювання',
+    tagline: 'Джерела, організації й картки компаній',
     registers: [
-      {
-        id: 'intake', name: 'Опрацювання', one: 'надходження', icon: 'layers', title: 'title', level: 1,
-        stages: ['Надійшло', 'Оцінка', 'Верифікація', 'Аналіз', 'Звіт готовий', 'Архів'],
-        fields: [
-          { id: 'title', label: 'Суть', type: 'text', required: true },
-          { id: 'source', label: 'Джерело', type: 'ref', ref: 'sources', list: true },
-          { id: 'credibility', label: 'Достовірність', type: 'select', list: true, options: CREDIBILITY },
-          { id: 'received', label: 'Отримано', type: 'date', list: true },
-          { id: 'method', label: 'Методика', type: 'ref', ref: 'methods' },
-          { id: 'assignee', label: 'Аналітик', type: 'user', list: true },
-          { id: 'where', label: 'Місце', type: 'coords' },
-          { id: 'summary', label: 'Зміст і висновок', type: 'longtext' },
-          { id: 'url', label: 'Посилання', type: 'url' },
-          { id: 'watchlist', label: 'Список спостереження', type: 'ref', ref: 'watchlists' },
-          { id: 'org', label: 'Організація', type: 'ref', ref: 'orgs' },
-          { id: 'file', label: 'Матеріал', type: 'file' },
-          { id: 'fingerprint', type: 'hidden', hidden: true },
-          { id: 'origin', type: 'hidden', hidden: true },
-        ],
-      },
       {
         id: 'sources', name: 'Джерела', one: 'джерело', icon: 'compass', title: 'name', level: 1,
         fields: [
@@ -138,22 +118,8 @@ export const WORKSPACES = {
           { id: 'file', label: 'Методичка', type: 'file' },
         ],
       },
-      {
-        // What the conveyor watches in open sources (api/watch.js). The list itself shows the company's interests: UMBRA.
-        id: 'watchlists', name: 'Списки спостереження', one: 'список', icon: 'eye', title: 'name', level: 1,
-        fields: [
-          { id: 'name', label: 'Назва', type: 'text', required: true },
-          { id: 'kind', label: 'Що шукати', type: 'select', list: true, required: true, options: WATCH_KINDS },
-          { id: 'terms', label: 'Об’єкти й фрази', type: 'longtext', required: true, hint: 'По одному на рядок. Медіа: назва або фраза. Контрагенти: назва компанії; код (ЄДРПОУ, реєстраційний) — через «;», напр. «ТОВ Ромашка; 12345678».' },
-          { id: 'feeds', label: 'Додаткові RSS-стрічки', type: 'longtext', hint: 'Адреси RSS по одній на рядок (необов’язково, лише для «Медіа»).' },
-          { id: 'state', label: 'Стан', type: 'select', list: true, options: ['Активний', 'Призупинений'] },
-          { id: 'owner', label: 'Відповідальний', type: 'user', list: true },
-          { id: 'lastRun', type: 'hidden', hidden: true },
-          { id: 'lastFound', type: 'hidden', hidden: true },
-        ],
-      },
     ],
-    views: [{ id: 'companies', name: 'Компанії' }, { id: 'watch', name: 'Конвеєр' }],
+    views: [{ id: 'companies', name: 'Компанії' }],
   },
 
   ana: {
@@ -173,7 +139,7 @@ export const WORKSPACES = {
           { id: 'analyst', label: 'Аналітик', type: 'user', list: true },
           { id: 'due', label: 'Термін', type: 'date', list: true },
           { id: 'questions', label: 'Ключові питання', type: 'longtext' },
-          { id: 'basis', label: 'Підстави — звідки ми це знаємо', type: 'links', refs: [['int', 'intake'], ['int', 'sources'], ['int', 'orgs']] },
+          { id: 'basis', label: 'Підстави — звідки ми це знаємо', type: 'links', refs: [['int', 'sources'], ['int', 'orgs']] },
           { id: 'file', label: 'Документ', type: 'file', hidden: true }, // earlier single document from the Vault
         ],
       },
@@ -190,7 +156,7 @@ export const WORKSPACES = {
           { id: 'due', label: 'Дата перевірки', type: 'date', list: true, create: true, hint: 'Для прогнозу: коли стане відомо, чи справдився. На головній — позначка на шкалі тривожності.' },
           { id: 'outcome', label: 'Результат', type: 'select', list: true, options: OUTCOMES },
           { id: 'analyst', label: 'Аналітик', type: 'user', list: true },
-          { id: 'basis', label: 'Підстави — звідки ми це знаємо', type: 'links', refs: [['int', 'intake'], ['int', 'sources'], ['int', 'orgs']] },
+          { id: 'basis', label: 'Підстави — звідки ми це знаємо', type: 'links', refs: [['int', 'sources'], ['int', 'orgs']] },
           { id: 'notes', label: 'Міркування', type: 'longtext' },
           { id: 'resolvedAt', type: 'hidden', hidden: true },
           { id: 'resolvedBy', type: 'hidden', hidden: true },
@@ -206,7 +172,6 @@ export const WORKSPACES = {
           { id: 'effect', label: 'Якщо спостерігається', type: 'select', list: true, options: ['Підтримує судження', 'Послаблює судження'] },
           { id: 'state', label: 'Стан', type: 'select', list: true, options: ['Не спостерігається', 'Спостерігається'] },
           { id: 'observed', label: 'Коли помічено', type: 'date', list: true },
-          { id: 'evidence', label: 'Що це показало', type: 'links', refs: [['int', 'intake']] },
           { id: 'owner', label: 'Хто стежить', type: 'user' },
         ],
       },

@@ -12,15 +12,13 @@ import { needsReview } from '../lib/provenance.js';
 import { toHash } from '../lib/routes.js';
 import { wordFor } from '../lib/forecast.js';
 import { RecordExtras, ReportButtons, ReviewView, ForecastsView, reviewCount } from './Analysis.jsx';
-import { WatchView } from './Watch.jsx';
 import { CompaniesView } from './Companies.jsx';
 import { Discussion, RecordTasks } from './Team.jsx';
 import { ImportButton } from './Import.jsx';
-import { BUILTIN as ACAD_BUILTIN, BUILTIN_NOTE as ACAD_NOTE, builtinCount } from './AcademyRegisters.jsx';
 import { OrgDirectory } from './Orgs.jsx';
 
-const BUILTIN = { ...ACAD_BUILTIN, 'int:orgs': OrgDirectory };
-const BUILTIN_NOTE = { ...ACAD_NOTE, 'int:orgs': 'Реєстр організацій' };
+const BUILTIN = { 'int:orgs': OrgDirectory };
+const BUILTIN_NOTE = { 'int:orgs': 'Реєстр організацій' };
 import { parseCoords, fmtDD, fmtMGRS, distanceKm, fmtKm } from '../map/coords.js';
 
 /* ---------- access ---------- */
@@ -103,14 +101,6 @@ function FieldValue({ field, value, look, go, compact = false }) {
     case 'longtext': return <span className="ws-long">{value}</span>;
     default: return <span>{String(value)}</span>;
   }
-}
-
-// Admiralty grading for an intake item: source reliability letter + information credibility number (e.g. B2).
-function grading(r, look) {
-  const src = r.source && look.record(r.source);
-  const a = src?.reliability && src.clearance <= look.me.clearance ? src.reliability[0] : null;
-  const b = r.credibility ? r.credibility[0] : null;
-  return a || b ? `${a || '?'}${b || '?'}` : null;
 }
 
 /* ---------- form ---------- */
@@ -200,7 +190,6 @@ function RecordDrawer({ d, reg, record, access, onClose, go, onCreated, startEdi
   const [draft, setDraft] = useState(() => (record ? { ...record } : {
     stage: reg.stages?.[0] ?? null, clearance: Math.min(reg.level, me.clearance),
     ...(reg.id === 'judgments' ? { kind: 'Прогноз', probability: 50, outcome: 'Відкрито', analyst: me.id } : {}),
-    ...(reg.id === 'watchlists' ? { state: 'Активний', owner: me.id } : {}),
   }));
   const [armed, setArmed] = useState(false);
   const where = `${d.name} · ${reg.name}`;
@@ -241,7 +230,6 @@ function RecordDrawer({ d, reg, record, access, onClose, go, onCreated, startEdi
   const src = record || draft;
   const from = reg.fields.find((f) => f.id === 'fromAt'), to = reg.fields.find((f) => f.id === 'toAt');
   const a = from && parseCoords(src.fromAt || ''), b = to && parseCoords(src.toAt || '');
-  const grade = reg.id === 'intake' ? grading(src, look) : null;
 
   return (
     <Drawer title={isNew ? `Новий запис · ${reg.name}` : titleOf(reg, record)} onClose={onClose}
@@ -287,7 +275,6 @@ function RecordDrawer({ d, reg, record, access, onClose, go, onCreated, startEdi
           <div className="ws-head">
             <ClassBadge level={record.clearance} />
             {reg.stages && <span className="vx-tag">{record.stage}</span>}
-            {grade && <span className="vx-tag vx-mono" title="Надійність джерела + достовірність інформації">{grade}</span>}
           </div>
           <dl className="meta">
             {reg.fields.filter((f) => !f.hidden && f.type !== 'files').map((f) => <FieldRow key={f.id} f={f} record={record} look={look} go={go} />)}
@@ -594,10 +581,9 @@ function Overview({ d, go, setTab }) {
       <div className="grid grid--3">
         {regs.map((reg) => {
           const rs = recs.filter((r) => r.col === reg.id);
-          const built = builtinCount(d.id, reg.id, state.users);
           return (
             <button key={reg.id} className="vx-panel ws-reg" onClick={() => setTab(reg.id)}>
-              <span className="ws-reg__head"><Icon name={reg.icon} /> <b>{reg.name}</b><span className="vx-num ws-reg__n">{rs.length + built}</span></span>
+              <span className="ws-reg__head"><Icon name={reg.icon} /> <b>{reg.name}</b><span className="vx-num ws-reg__n">{rs.length}</span></span>
               {reg.stages ? (
                 <span className="ws-reg__stages">
                   {reg.stages.map((s) => <span key={s}><span className="vx-hint">{s}</span> <b className="vx-num">{rs.filter((r) => (r.stage || reg.stages[0]) === s).length}</b></span>)}
@@ -626,9 +612,9 @@ function Overview({ d, go, setTab }) {
 /* ---------- workspace ---------- */
 
 // Main tabs per division (others go under «Ще»); a division not listed shows its first three.
-const PRIMARY_TABS = { int: ['intake', 'companies', 'sources'] };
+const PRIMARY_TABS = { int: ['companies', 'sources'] };
 
-const VIEWS = { review: ReviewView, forecasts: ForecastsView, watch: WatchView, companies: CompaniesView };
+const VIEWS = { review: ReviewView, forecasts: ForecastsView, companies: CompaniesView };
 
 export function Workspace({ divId, tab, go }) {
   const { state, me, perms } = useStore();
@@ -639,7 +625,7 @@ export function Workspace({ divId, tab, go }) {
   const [tabId, ...rest] = (tab || '').split(':');
   const openId = rest.join(':') || undefined; // e.g. «graph:org-…» keeps its own colon
   // A division with one register and no screens of its own opens straight into it, without tabs.
-  const single = regs.length === 1 && !views.length && divId !== 'acad';
+  const single = regs.length === 1 && !views.length;
   const current = regs.find((r) => r.id === tabId) || views.find((v) => v.id === tabId) ? tabId : single ? regs[0].id : 'overview';
   const access = workspaceAccess(me, perms, d);
   const setTab = (t) => go('divisions', divId, t === 'overview' ? null : t);
@@ -692,7 +678,6 @@ export function Workspace({ divId, tab, go }) {
             )}
           </span>
         )}
-        {divId === 'acad' && <button role="tab" aria-selected="false" className="vx-tab" onClick={() => go('learn')}>Навчання й тести</button>}
       </nav>}
       {reg ? <RegisterView key={`${reg.id}:${openId || ''}`} d={d} reg={reg} access={access} go={go} openId={openId} />
         : View ? <View d={d} access={access} go={go} openId={openId} /> : <Overview d={d} go={go} setTab={setTab} />}

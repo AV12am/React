@@ -103,10 +103,6 @@
       "schedule": "5 13 * * *"
     },
     {
-      "path": "/api/watch",
-      "schedule": "40 4 * * *"
-    },
-    {
       "path": "/api/brief",
       "schedule": "0 6 * * *"
     },

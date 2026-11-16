@@ -48,7 +48,7 @@ export const DIVISIONS = [
   { id: 'ops', name: 'Операції та логістика', icon: 'truck', lead: null, status: 'ok', hidden: true,
     about: 'Планування і забезпечення польової роботи, транспорт, обладнання, зв’язок.',
     projects: [] },
-  { id: 'acad', name: 'Академія', icon: 'book', lead: null, status: 'ok',
+  { id: 'acad', name: 'Академія', icon: 'book', lead: null, status: 'ok', hidden: true,
     about: 'Навчання персоналу та партнерів, методички, атестація.',
     projects: [] },
   { id: 'res', name: 'Дослідження', icon: 'atom', lead: null, status: 'ok',

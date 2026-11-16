@@ -8,7 +8,6 @@ import { PasskeyStep } from './views/Passkey.jsx';
 import { status as passkeyStatus } from './lib/passkey.js';
 import { supabaseOn, signOut } from './lib/supabase.js';
 import { Dashboard } from './views/Dashboard.jsx';
-import { COURSES } from './data/academy/meta.js';
 import { ROLES, VISIBLE_DIVISIONS } from './data/seed.js';
 import { DialogHost } from './components/Dialog.jsx';
 import { Assistant } from './components/Assistant.jsx';
@@ -45,13 +44,12 @@ const Access = section(() => import('./views/Access.jsx'), 'Access');
 const Vault = section(() => import('./views/Vault.jsx'), 'Vault');
 const Audit = section(() => import('./views/Audit.jsx'), 'Audit');
 const Settings = section(() => import('./views/Settings.jsx'), 'Settings');
-const Learn = section(() => import('./views/Academy.jsx'), 'Learn');
 const Info = section(() => import('./views/Info.jsx'), 'Info');
 // v0 sandbox — dev server only; dropped from production builds.
 const V0Sandbox = import.meta.env.DEV ? lazy(() => import('./v0/Sandbox.jsx')) : null;
 
 // `side: false` — a section that has its own address (and is in search) but no item in the side menu:
-// «Доступи» and «Журнал аудиту» sit under «Адміністрування»; «Навчання» opens from the Academy.
+// «Доступи» and «Журнал аудиту» sit under «Адміністрування».
 const NAV = [
   { id: 'overview', label: 'Огляд', icon: 'overview' },
   { id: 'divisions', label: 'Напрями', icon: 'divisions' },
@@ -59,7 +57,6 @@ const NAV = [
   { id: 'map', label: 'Карта', icon: 'map' },
   { id: 'access', label: 'Доступи', icon: 'access', side: false, admin: true },
   { id: 'audit', label: 'Журнал аудиту', icon: 'audit', side: false, admin: true },
-  { id: 'learn', label: 'Навчання', icon: 'book', always: true, side: false },
   { id: 'info', label: 'Інформація', icon: 'info', always: true },
   { id: 'settings', label: 'Налаштування', icon: 'settings', always: true },
 ];
@@ -260,9 +257,8 @@ function Shell() {
     vault: <Vault focus={sub} setFocus={(f) => go('vault', f)} />,
     map: <MapView key={sub || 'map'} focus={sub} go={go} />,
     audit: <><AdminTabs tabs={adminTabs} current={current} go={go} /><Audit /></>,
-    learn: <Learn key={sub || 'all'} focus={sub} go={go} />,
     info: <Info />,
-    settings: <Settings go={go} />,
+    settings: <Settings />,
     v0: V0Sandbox && <Suspense fallback={null}><V0Sandbox /></Suspense>,
   }[current];
 
@@ -468,13 +464,12 @@ function Palette({ onClose, go, allowed, lock }) {
         text: Object.entries(r).filter(([k, v]) => typeof v === 'string' && !['id', 'div', 'col', 'owner', 'at', 'updated', 'fingerprint', 'logo'].includes(k)).map(([, v]) => v).join(' \n '),
         run: () => go('divisions', r.div, `${r.col}:${r.id}`),
       })) : [];
-    const courses = COURSES.map((c) => ({ id: `c-${c.id}`, icon: 'book', label: c.title, hint: 'Курс', run: () => go('learn', c.id) }));
     const actions = [
       { id: 'lock', icon: 'lock', label: 'Заблокувати сесію', hint: 'Ctrl L', run: lock },
       { id: 'theme', icon: 'eye', label: state.settings.theme === 'matte' ? 'Тема: Папір' : 'Тема: Матова чорна', run: () => { dispatch({ type: 'settings', patch: { theme: state.settings.theme === 'matte' ? 'paper' : 'matte' } }); onClose(); } },
       { id: 'logout', icon: 'logout', label: 'Вийти', run: () => dispatch({ type: 'logout' }) },
     ];
-    const all = [...nav, ...actions, ...people, ...files, ...records, ...places, ...courses];
+    const all = [...nav, ...actions, ...people, ...files, ...records, ...places];
     const t = q.trim().toLowerCase();
     if (!t) return [...nav, ...actions].slice(0, 9);
     // Names first, then matches inside the content (with the place they occur).

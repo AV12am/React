@@ -1,6 +1,6 @@
 // Intelligence · «Компанії»: a layer of company cards on top of the «Організації» register.
 //   List  — logo, name, sector, city, status; search and filters.
-//   Card  — logo, photo gallery, description, registry data, documents, related records, watch buttons.
+//   Card  — logo, photo gallery, description, documents, related records.
 // Every logo, photo and document is a Vault file in the company's own folder («Компанії / <назва>»),
 // stored by the active backend under companies/<ЄДРПОУ>/… — with a document number, grif and audit entry.
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
@@ -19,8 +19,6 @@ import { ReportButtons } from './Analysis.jsx';
 import { CompanyGraph } from './CompanyGraph.jsx';
 import { Discussion, RecordTasks } from './Team.jsx';
 import { relatedThroughOwners } from '../lib/orggraph.js';
-import { diffEdr, edrIntake, EDR_SOURCE } from '../../scripts/lib/edr.mjs';
-import { supabaseOn, authHeaders } from '../lib/supabase.js';
 import { imageUrl } from '../lib/imgurl.js';
 
 const isImage = (f) => /^image\//.test(f?.type || '');
@@ -216,53 +214,6 @@ function CompanyList({ access, go, graphFocus = null }) {
   );
 }
 
-/* ---------- card: the register (ЄДР) ---------- */
-
-const EDR_ROWS = [['name', 'Назва'], ['status', 'Стан'], ['head', 'Керівник'], ['address', 'Адреса'], ['activity', 'Основний вид діяльності'], ['owners', 'Засновники й бенефіціари']];
-
-/** The company's register snapshot, and «Перевірити зараз» — a change becomes an intake item. */
-function EdrPanel({ org, canEdit, go }) {
-  const { state, me, dispatch, toast } = useStore();
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState('');
-  const snap = org.edr?.data;
-  const check = async () => {
-    setBusy(true); setNote('');
-    try {
-      const res = await fetch(new URL('api/edr', document.baseURI), { method: 'POST', headers: supabaseOn ? await authHeaders({ 'Content-Type': 'application/json' }) : { 'Content-Type': 'application/json' }, body: JSON.stringify({ codes: [org.code] }) });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.message || (res.status === 404 ? 'Серверна функція недоступна (працює лише на Vercel)' : `HTTP ${res.status}`));
-      const r = body.results?.[0];
-      if (!r?.data) throw new Error(r?.error || 'Немає відповіді реєстру');
-      const changes = diffEdr(snap, r.data);
-      const records = [];
-      if (changes.length) {
-        if (!(state.records || []).some((x) => x.id === EDR_SOURCE.id)) records.push({ ...EDR_SOURCE, div: 'int', col: 'sources', state: 'Активне', clearance: 0 });
-        records.push(edrIntake(org, changes, { owner: me.id }));
-      }
-      dispatch({ type: 'record/bulk', where: 'Розвідка · Компанії', label: `ЄДР: ${org.name}${changes.length ? ` — змін ${changes.length}` : ''}`, records, patches: [{ id: org.id, patch: { edr: { checked: body.checked, data: r.data } } }] });
-      setNote(!snap ? 'Перший знімок збережено — далі платформа повідомлятиме про зміни.' : changes.length ? `Змін: ${changes.length} — додано в «Опрацювання».` : 'Змін немає.');
-    } catch (e) { setNote(''); toast(e.message, 'error'); } finally { setBusy(false); }
-  };
-  if (!org.code) return null;
-  return (
-    <Panel title="Реєстр (ЄДР)" action={canEdit && <button className="vx-btn vx-btn--sm" disabled={busy} onClick={check}>{busy ? <Loader size={16} /> : <><Icon name="refresh" /> Перевірити зараз</>}</button>}>
-      <div className="stack">
-        {snap ? (
-          <dl className="meta">
-            {EDR_ROWS.map(([k, l]) => {
-              const v = k === 'owners' ? (snap.owners || []).join('; ') : snap[k];
-              return v ? <Fragment key={k}><dt>{l}</dt><dd>{v}</dd></Fragment> : null;
-            })}
-          </dl>
-        ) : <div className="vx-hint">Знімка з реєстру ще немає. Перевірте вручну або додайте компанію на спостереження — тоді її перевірятимуть щодня й повідомлять про зміну керівника, власників, адреси чи стану.</div>}
-        {org.edr?.checked && <div className="vx-hint">Перевірено {fmtDate(org.edr.checked)} · джерело: ЄДР через Opendatabot</div>}
-        {note && <div className="vx-hint">{note} {/Опрацювання/.test(note) && <button className="ws-link" onClick={() => go('divisions', 'int', 'intake')}>Відкрити</button>}</div>}
-      </div>
-    </Panel>
-  );
-}
-
 /* ---------- card ---------- */
 
 function Photo({ file, onOpen }) {
@@ -334,7 +285,7 @@ function CompanyPage({ org, access, go }) {
   const docs = files.filter((f) => f.role === 'doc' || (!isImage(f) && f.role !== 'logo'));
   const related = useMemo(() => {
     const recs = state.records || [];
-    return [...recs.filter((r) => r.col === 'intake' && r.org === org.id), ...usedBy(org.id, recs)].filter((r) => r.clearance <= me.clearance);
+    return usedBy(org.id, recs).filter((r) => r.clearance <= me.clearance);
   }, [state.records, org.id, me.clearance]);
   const canEdit = access.canEdit && backend?.writable !== false;
   const owners = useMemo(() => relatedThroughOwners(org, (state.records || []).filter((r) => r.col === 'orgs' && r.clearance <= me.clearance)), [org, state.records, me.clearance]);
@@ -451,7 +402,6 @@ function CompanyPage({ org, access, go }) {
         </div>
       </Panel>
 
-      <EdrPanel org={org} canEdit={canEdit} go={go} />
 
       {owners.length > 0 && (
         <Panel title="Пов’язані через власників" bodyClass="list">

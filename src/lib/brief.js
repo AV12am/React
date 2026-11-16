@@ -40,10 +40,6 @@ export function buildBrief({ records = [], requests = [], tasks = [], comments =
   };
   const section = (id, title, list, empty) => ({ id, title, total: list.length, items: list.slice(0, limit), empty });
 
-  const intake = mine.filter((r) => r.col === 'intake' && (r.at || '') >= since).sort((a, b) => (b.at || '').localeCompare(a.at || ''));
-  const watchName = (id) => byId.get(id)?.name;
-  const auto = intake.filter((r) => r.origin === 'auto');
-  const manual = intake.filter((r) => r.origin !== 'auto');
 
   const forecasts = mine.filter((r) => r.col === 'judgments' && r.kind === 'Прогноз' && isOpen(r) && r.due && r.due <= soon)
     .sort((a, b) => a.due.localeCompare(b.due));
@@ -53,14 +49,9 @@ export function buildBrief({ records = [], requests = [], tasks = [], comments =
     .filter((x) => x.reasons.some((rr) => attention(rr) && rr.kind !== 'due'))
     .map((x) => item(x.record, x.reasons.find((rr) => rr.kind === 'review')?.text));
 
-  // Companies on watch: their findings, and changes to their cards.
-  const watched = new Set(['w-list-orgs-sanctions', 'w-list-orgs-media'].flatMap((id) => String(byId.get(id)?.terms || '').split('\n').map((l) => l.split(';')[0].trim()).filter(Boolean)));
-  const orgs = mine.filter((r) => r.col === 'orgs' && (watched.has(r.name) || r.relation && r.relation !== 'Немає'));
-  const orgIds = new Set(orgs.map((o) => o.id));
-  const orgNews = [
-    ...intake.filter((r) => r.org && orgIds.has(r.org)).map((r) => item(r, byId.get(r.org)?.name)),
-    ...orgs.filter((o) => (o.updated || '') >= since && (o.at || '') < since).map((o) => item(o, 'картку змінено')),
-  ];
+  // Companies the team follows (a relation set on the card): changes to their cards.
+  const orgs = mine.filter((r) => r.col === 'orgs' && r.relation && r.relation !== 'Немає');
+  const orgNews = orgs.filter((o) => (o.updated || '') >= since && (o.at || '') < since).map((o) => item(o, 'картку змінено'));
 
   const deadlines = mine.filter((r) => {
     const d = r.due || r.deadline;
@@ -83,8 +74,6 @@ export function buildBrief({ records = [], requests = [], tasks = [], comments =
   const sections = [
     section('tasks', 'Мої завдання', myTasks, 'Термінових завдань немає'),
     section('mentions', 'Вас згадали', mentions, 'Згадок немає'),
-    section('watch', 'Знахідки конвеєра', auto.map((r) => item(r, watchName(r.watchlist))), 'Нових знахідок немає'),
-    section('intake', 'Нові надходження', manual.map((r) => item(r, r.received)), 'Нових надходжень немає'),
     section('due', 'Прогнози на перевірку', due, 'Прогнозів із близькою датою немає'),
     section('review', 'Потребують перегляду', review, 'Усе переглянуто'),
     section('orgs', 'Компанії під спостереженням', orgNews, 'Змін у компаніях немає'),

@@ -10,7 +10,6 @@ import { supabaseOn, rpc, rest, setPassword, authHeaders } from '../lib/supabase
 import { Columns } from '../components/charts.jsx';
 import { issueCode, status as passkeyStatus } from '../lib/passkey.js';
 import { validRule, rulesOf, ipAllowed, relayIp } from '../lib/ip.js';
-import { missingFor } from '../data/academy/meta.js';
 import { copyText } from '../lib/io.js';
 
 const STATUS = {
@@ -447,12 +446,6 @@ function Requests() {
                       : <>Доступ до папки <b>{folder?.name}</b> <ClassBadge level={folder?.clearance ?? 0} /></>}
                 </div>
                 <div className="vx-muted">«{r.reason}»</div>
-                {r.kind === 'clearance' && r.status === 'pending' && (() => {
-                  const miss = missingFor(u, r.to);
-                  return miss.length
-                    ? <Status kind="warn">Не складено: {miss.map((c) => c.title).join(', ')}</Status>
-                    : <Status kind="ok">Обов’язкові курси складено</Status>;
-                })()}
               </div>
               <div className="request__actions">
                 {r.status === 'pending' ? (canDecide ? <>

@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react';
-import { useStore, fmtBytes, fmtAgo } from '../store.jsx';
-import { supabaseOn, rest } from '../lib/supabase.js';
-import { Panel, StatTile, Status, BarList, Trend, Avatar } from '../components/ui.jsx';
+import { useStore, fmtAgo } from '../store.jsx';
+import { Panel, Status, BarList, Trend, Avatar } from '../components/ui.jsx';
 import { Icon } from '../components/Icon.jsx';
-import { STORAGE_QUOTA, VISIBLE_DIVISIONS as DIVISIONS } from '../data/seed.js';
+import { VISIBLE_DIVISIONS as DIVISIONS } from '../data/seed.js';
 import { BriefPanel } from './Brief.jsx';
 import { TasksPanel } from './Team.jsx';
 import { LOCALE } from '../lib/locale.js';
@@ -17,25 +15,6 @@ const WEEK = 7 * 86400000;
 export function Dashboard({ go }) {
   const { state, me, userById, backend } = useStore();
   const now = Date.now();
-  const pending = state.requests.filter((r) => r.status === 'pending').length;
-  const active = state.users.filter((u) => u.status === 'active');
-  // With Supabase: real passkey coverage from the server; otherwise the (simulated) MFA flag.
-  const [withKeys, setWithKeys] = useState(null);
-  useEffect(() => {
-    if (!supabaseOn || !['admin'].includes(me?.role)) return;
-    rest('core_passkeys?select=member_id').then((rows) => setWithKeys(new Set(rows.map((r) => r.member_id)))).catch(() => {});
-  }, [me?.role, state.users.length]);
-  const hasFactor = (u) => (supabaseOn ? withKeys?.has(u.id) : u.mfa);
-  const mfa = active.length ? Math.round((active.filter(hasFactor).length / active.length) * 100) : 0;
-  // Where new files go and the room there, as the server reports it (Cloudflare R2: 9,75 ГБ).
-  const [usage, setUsage] = useState(null);
-  useEffect(() => { backend?.usage?.().then(setUsage).catch(() => {}); }, [backend, state.files.length]);
-  const used = usage?.bytes ?? state.files.reduce((s, f) => s + f.size, 0);
-  const quota = usage?.maxBytes || backend?.quota || STORAGE_QUOTA;
-  const where = usage?.label || backend?.label;
-  const since = (iso, weeks = 1) => iso && now - new Date(iso).getTime() < weeks * WEEK;
-  const newFiles = state.files.filter((f) => since(f.at)).length;
-  const events = state.audit.filter((e) => since(e.at)).length;
 
   // Activity per week from the audit log, 12 weeks, oldest first.
   const weekly = Array.from({ length: 12 }, (_, i) => {
@@ -50,7 +29,7 @@ export function Dashboard({ go }) {
   const shared = state.files.filter((f) => !state.folders.find((x) => x.id === f.folder)?.division).length;
 
   const checks = [
-    { name: 'Сховище файлів', status: backend ? 'ok' : 'idle', note: backend ? where : 'Підключення…' },
+    { name: 'Сховище файлів', status: backend ? 'ok' : 'idle', note: backend ? (backend.label || 'Підключено') : 'Підключення…' },
     { name: 'З’єднання', status: location.protocol === 'https:' ? 'ok' : 'warn', note: location.protocol === 'https:' ? 'HTTPS' : 'Без шифрування — увімкніть HTTPS' },
     { name: 'Мережа', status: navigator.onLine ? 'ok' : 'warn', note: navigator.onLine ? 'Онлайн' : 'Офлайн' },
   ];
@@ -70,20 +49,6 @@ export function Dashboard({ go }) {
       <Pulse go={go} />
       <BriefPanel go={go} />
       <TasksPanel go={go} />
-
-      <div className="grid grid--stats">
-        <StatTile label="Нові файли · тиждень" value={newFiles} delta={`усього ${state.files.length}`} />
-        <StatTile label="Дії в журналі · тиждень" value={events} delta={`усього записів ${state.audit.length}`} sensitive={false} />
-        <button className="tile-link" onClick={() => go('access')} disabled={!me || !['admin', 'lead', 'engineer'].includes(me.role)}>
-          <StatTile label="Запити на доступ" value={pending} sensitive={false}
-            delta={pending ? <><b>Очікують рішення</b> · відкрити</> : 'Черга порожня'} />
-        </button>
-        <StatTile label="Сховище" value={fmtBytes(used)} unit={`/ ${fmtBytes(quota)}`}
-          meter={(used / quota) * 100} delta={`${backend ? where : '…'} · ${state.files.length} файлів у ${state.folders.length} папках`} />
-        <StatTile label={supabaseOn ? 'Ключі доступу' : 'Покриття MFA'} value={supabaseOn && !withKeys ? '—' : mfa} unit={supabaseOn && !withKeys ? '' : '%'} meter={mfa} meterBrass={mfa < 100}
-          delta={supabaseOn ? (withKeys ? `${active.filter((u) => !withKeys.has(u.id)).length} активних без ключа` : 'бачить адміністратор') : `${active.filter((u) => !u.mfa).length} активних без MFA`} sensitive={false} />
-        <StatTile label="Активні користувачі" value={active.length} delta={`${state.users.filter((u) => u.status === 'invited').length} запрошено`} sensitive={false} />
-      </div>
 
       <div className="grid grid--2">
         <Panel title="Файли за напрямами" action={<span className="vx-hint">усього</span>}>
