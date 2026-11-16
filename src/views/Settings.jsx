@@ -31,7 +31,7 @@ function BriefMail() {
     } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
   };
   return (
-    <Panel title="Ранковий бриф">
+    <Panel title="Morning briefing">
       <div className="stack">
         <Switch checked={on} onChange={(v) => dispatch({ type: 'user/update', id: me.id, patch: { brief: v } })} label="Щоранку о 8:00 на пошту" />
         {/* The sign-in name is only a login; letters go to the address given here. */}
@@ -86,7 +86,7 @@ function PushSettings() {
     } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
   };
   return (
-    <Panel title="Сповіщення на пристрій" info="Згадки, нові завдання, запити на доступ, знахідки конвеєра й ранковий бриф — навіть коли платформу закрито. Текст сповіщення короткий; подробиці — лише після входу.">
+    <Panel title="Сповіщення на пристрій" info="Згадки, нові завдання, запити на доступ і Morning briefing — навіть коли платформу закрито. Текст сповіщення короткий; подробиці — лише після входу.">
       <div className="stack">
         {!supported ? <div className="vx-hint">Цей браузер не підтримує push-сповіщення.</div>
           : ios ? <div className="vx-hint">На iPhone спершу додайте платформу на початковий екран (Поділитися → «На початковий екран»), відкрийте звідти — і ввімкніть тут.</div>

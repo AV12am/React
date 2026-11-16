@@ -119,12 +119,12 @@ async function letter(m, data, now, news, appUrl, world = {}) {
   let pdf = null;
   try {
     const bytes = await briefPdf({ brief: b, insights: ins, ai, news, world, name: m.doc?.name || '', fonts: await pdfFonts(appUrl) });
-    pdf = { filename: `Reaction-brief-${new Date(now).toISOString().slice(0, 10)}.pdf`, content: Buffer.from(bytes).toString('base64') };
+    pdf = { filename: `Reaction-Morning-briefing-${new Date(now).toISOString().slice(0, 10)}.pdf`, content: Buffer.from(bytes).toString('base64') };
   } catch { pdf = null; } // the letter goes without the PDF rather than not at all
   return { b, ins, pdf, extra: insightsHtml(ins, ai, news) + worldHtml(world), extraText: insightsText(ins, ai, news), ai: Boolean(ai) };
 }
 
-const subjectOf = (b) => `Ранковий бриф · ${new Date(b.until).toLocaleDateString('uk-UA', { timeZone: 'Europe/Kyiv', day: 'numeric', month: 'long' })}${b.attention ? ` · потребує уваги: ${b.attention}` : ''}`;
+const subjectOf = (b) => `Morning briefing · ${new Date(b.until).toLocaleDateString('uk-UA', { timeZone: 'Europe/Kyiv', day: 'numeric', month: 'long' })}${b.attention ? ` · потребує уваги: ${b.attention}` : ''}`;
 
 async function send(to, b, name, appUrl, extra = '', extraText = '', pdf = null) {
   const res = await fetch('https://api.resend.com/emails', {
@@ -166,7 +166,7 @@ export async function GET(req) {
       // Sent when there is something to read: the day's items, or a week with projects, tasks or activity.
       if (!b.total && !ins.projects.total && !ins.tasks.open && !ins.thisWeek) { skipped++; continue; }
       try { await send(to, b, d.name || '', appUrlOf(req), extra, extraText, pdf); sent++; } catch (e) { errors.push(e.message); }
-      if (b.attention && pushReady()) await sendPush([m.id], { title: 'Ранковий бриф', body: `Потребує уваги: ${b.attention}. Відкрийте «Огляд».`, url: '/#/overview', tag: 'brief' }).catch(() => {});
+      if (b.attention && pushReady()) await sendPush([m.id], { title: 'Morning briefing', body: `Потребує уваги: ${b.attention}. Відкрийте «Огляд».`, url: '/#/overview', tag: 'brief' }).catch(() => {});
     }
     return json(200, { sent, skipped, errors });
   } catch (e) {
@@ -210,7 +210,7 @@ export async function POST(req) {
     if (why) return json(503, { error: 'not_configured', message: why });
     const data = await load();
     const to = mailOf(m);
-    if (!to) return json(400, { error: 'no_mail', message: 'Додайте адресу для листів у «Налаштуваннях» → «Ранковий бриф»' });
+    if (!to) return json(400, { error: 'no_mail', message: 'Додайте адресу для листів у «Налаштуваннях» → «Morning briefing»' });
     const [news, world] = await Promise.all([keyNews(appUrlOf(req)), worldOf(true)]);
     const { b, extra, extraText, ai, pdf } = await letter(m, data, Date.now(), news, appUrlOf(req), world);
     await send(to, b, m.doc?.name || '', appUrlOf(req), extra, extraText, pdf);

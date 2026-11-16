@@ -59,7 +59,7 @@ test('cron: sends one letter per active member with news, respects opt-out', asy
     assert.equal(res.status, 200, JSON.stringify(body));
     assert.equal(body.sent, 1);
     assert.deepEqual(sent[0].to, ['a@x.test']);
-    assert.match(sent[0].subject, /Ранковий бриф/);
+    assert.match(sent[0].subject, /Morning briefing/);
     assert.ok(!sent[0].html.includes('Ціни зростуть'));
   } finally { globalThis.fetch = realFetch; }
 });

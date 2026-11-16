@@ -25,7 +25,7 @@ export async function briefPdf({ brief, insights: ins, ai = null, news = [], nam
   const B = await doc.embedFont(boldBytes, { subset: true });
   const date = new Date(brief.until);
   const dateUa = date.toLocaleDateString('uk-UA', { timeZone: 'Europe/Kyiv', day: 'numeric', month: 'long', year: 'numeric' });
-  doc.setTitle(`Ранковий бриф · ${dateUa}`);
+  doc.setTitle(`Morning briefing · ${dateUa}`);
   doc.setCreator('Reaction Core');
   const col = (c) => rgb(...c);
   const W = A4[0] - 2 * M;
@@ -47,14 +47,15 @@ export async function briefPdf({ brief, insights: ins, ai = null, news = [], nam
   };
   const diamond = (x, yy, r, c) => page.drawSvgPath(`M 0 ${-r} L ${r} 0 L 0 ${r} L ${-r} 0 Z`, { x, y: yy, color: col(c) });
   const footer = () => {
-    text('REACTION CORE · РАНКОВИЙ БРИФ', M, 28, { size: 7, color: C.faint, font: B });
+    text('REACTION CORE · MORNING BRIEFING', M, 28, { size: 7, color: C.faint, font: B });
     const p = String(++n);
     text(p, A4[0] - M - width(p, 8), 28, { size: 8, color: C.faint });
     page.drawLine({ start: { x: M, y: 40 }, end: { x: A4[0] - M, y: 40 }, thickness: 0.5, color: col(C.line) });
   };
-  const newPage = (bg = C.paper) => {
+  const newPage = (bg = C.paper, { cover = false } = {}) => {
     page = doc.addPage(A4);
     page.drawRectangle({ x: 0, y: 0, width: A4[0], height: A4[1], color: col(bg) });
+    if (cover) { n += 1; y = A4[1] - 70; return; } // the cover: no brand line, no footer — it is the brand
     // the brand line at the top: the gold mark and the wordmark
     diamond(M + 4, A4[1] - 31, 4, C.gold);
     text('REACTION CORE', M + 14, A4[1] - 34, { size: 8, font: B, color: bg === C.night ? C.gold : C.slate });
@@ -78,15 +79,50 @@ export async function briefPdf({ brief, insights: ins, ai = null, news = [], nam
   const source = (s, yy) => { page.drawRectangle({ x: M + 16, y: yy - 1, width: 1.6, height: 9, color: col(C.crimson) }); text(s, M + 22, yy, { size: 7, color: C.muted }); };
 
   /* ---------- Cover: the week at a glance ---------- */
+  /* ---------- Cover: the Reaction mark on night ---------- */
+  newPage(C.night, { cover: true });
+  const IVORY = [0.95, 0.94, 0.92];
+  const cx = A4[0] / 2; const cy = 600;
+  // Faint rings and a ruled field behind the mark, like the site's own.
+  for (const [r, a] of [[222, 0.45], [172, 0.7], [134, 1]]) page.drawSvgPath(`M ${-r} 0 A ${r} ${r} 0 0 1 ${r} 0`, { x: cx, y: cy + 4, borderColor: col([0.17, 0.16, 0.15]), borderWidth: 0.6, opacity: a });
+  for (let k = 0; k < 6; k++) page.drawLine({ start: { x: 0, y: 70 + k * 7 }, end: { x: A4[0], y: 70 + k * 7 }, thickness: 0.3, color: col([0.14, 0.13, 0.12]) });
+  // The mark: eight petals (the site's drawing), each with its cut spine, and the core diamond.
+  const PETAL = [[0, -96], [13.44, -57.6], [2.4, -23.04], [0, -26.88], [-2.4, -23.04], [-13.44, -57.6]];
+  const SPINE = [[0, -86.4], [0.77, -65.28], [3.07, -55.68], [0.77, -46.08], [0, -32.64], [-0.77, -46.08], [-3.07, -55.68], [-0.77, -65.28]];
+  const K = 1.28;
+  const poly = (pts, a) => pts.map(([px, py], i) => {
+    const rx = (px * Math.cos(a) - py * Math.sin(a)) * K; const ry = (px * Math.sin(a) + py * Math.cos(a)) * K;
+    return `${i ? 'L' : 'M'} ${rx.toFixed(2)} ${ry.toFixed(2)}`;
+  }).join(' ') + ' Z';
+  for (let k = 0; k < 8; k++) {
+    const a = (k * Math.PI) / 4;
+    page.drawSvgPath(poly(PETAL, a), { x: cx, y: cy, color: col(k % 2 ? [0.6, 0.6, 0.58] : IVORY) });
+    page.drawSvgPath(poly(SPINE, a), { x: cx, y: cy, color: col(C.night) });
+  }
+  diamond(cx, cy, 5.5, C.gold);
+  // The wordmark, spaced out, and the line under it.
+  const spaced = (str, size, font, colr, yy, gap) => {
+    const chars = [...str]; const total = chars.reduce((a, c) => a + width(c, size, font) + gap, -gap);
+    let x = (A4[0] - total) / 2;
+    for (const c of chars) { text(c, x, yy, { font, size, color: colr }); x += width(c, size, font) + gap; }
+  };
+  spaced('REACTION', 30, B, IVORY, 424, 11);
+  spaced('CORE', 9, B, C.gold, 402, 8);
+  page.drawLine({ start: { x: cx - 24, y: 380 }, end: { x: cx + 24, y: 380 }, thickness: 1, color: col(C.gold) });
+  const title = 'Morning briefing';
+  text(title, (A4[0] - width(title, 34)) / 2, 326, { size: 34, color: IVORY });
+  const meta = `${dateUa}${name ? ` · ${name}` : ''}`;
+  text(meta, (A4[0] - width(meta, 11)) / 2, 298, { size: 11, color: [0.78, 0.77, 0.74] });
+  const lead = 'Аналітика, графіки, прогноз і що варто розвивати';
+  text(lead, (A4[0] - width(lead, 9.5)) / 2, 280, { size: 9.5, color: [0.55, 0.54, 0.52] });
+  const tag = 'ВІДКРИТІ ДЖЕРЕЛА · ОДНА КАРТИНА';
+  text(tag, (A4[0] - width(tag, 7)) / 2, 40, { size: 7, font: B, color: [0.5, 0.45, 0.36] });
+
+  /* ---------- The week at a glance (dark too) ---------- */
   newPage(C.night);
-  page.drawRectangle({ x: 0, y: A4[1] - 300, width: A4[0], height: 300, color: col([0.09, 0.08, 0.08]) });
-  for (let i = 0; i < 26; i++) page.drawLine({ start: { x: 0, y: A4[1] - 300 + i * 11.5 }, end: { x: A4[0], y: A4[1] - 300 + i * 11.5 }, thickness: 0.3, color: col([0.16, 0.14, 0.13]) });
-  text('РАНКОВИЙ', M, A4[1] - 150, { font: B, size: 40, color: [0.95, 0.94, 0.92] });
-  text('БРИФ', M, A4[1] - 196, { font: B, size: 40, color: C.gold });
-  text(`${name ? `${name} · ` : ''}${dateUa}`, M, A4[1] - 226, { size: 11, color: [0.8, 0.79, 0.76] });
-  text('Аналітика, графіки, прогноз і що варто розвивати', M, A4[1] - 244, { size: 10, color: [0.6, 0.59, 0.56] });
-  y = A4[1] - 340;
-  text('Головне за тиждень', M, y, { size: 18, color: [0.95, 0.94, 0.92] }); y -= 30;
+  y = A4[1] - 120;
+  text('ГОЛОВНЕ', M, y + 22, { font: B, size: 8, color: C.gold });
+  text('Головне за тиждень', M, y, { size: 22, color: IVORY }); y -= 40;
 
   // Four stat callouts: big figure, a small visual, one line of meaning.
   const f = ins.forecast;
@@ -96,15 +132,15 @@ export async function briefPdf({ brief, insights: ins, ai = null, news = [], nam
     { big: String(ins.tasks.open), label: 'відкритих завдань', note: ins.tasks.overdue ? `${ins.tasks.overdue} прострочено` : 'прострочених немає', viz: 'bars' },
     { big: String(f.deadlines30), label: 'термінів за 30 днів', note: f.clearDays != null ? `черга завдань — ~${f.clearDays} дн. за темпу` : 'темп виконання ще не видно', viz: 'cal' },
   ];
-  const cw = (W - 18) / 2; const ch = 118;
+  const cw = (W - 18) / 2; const ch = 164;
   stats.forEach((s, i) => {
     const x = M + (i % 2) * (cw + 18); const top = y - Math.floor(i / 2) * (ch + 16);
     page.drawRectangle({ x, y: top - ch, width: cw, height: ch, borderColor: col([0.25, 0.22, 0.2]), borderWidth: 0.8, color: col([0.08, 0.09, 0.11]) });
-    text(s.big, x + 16, top - 50, { font: F, size: 32, color: [0.96, 0.95, 0.93] });
-    text(s.label.toUpperCase(), x + 16, top - 68, { font: B, size: 7.5, color: C.gold });
-    let ly = top - 86;
+    text(s.big, x + 18, top - 64, { font: F, size: 46, color: [0.96, 0.95, 0.93] });
+    text(s.label.toUpperCase(), x + 18, top - 86, { font: B, size: 8, color: C.gold });
+    let ly = top - 106;
     for (const l of wrap(s.note, 9, cw - 120)) { text(l, x + 16, ly, { size: 9, color: [0.72, 0.71, 0.68] }); ly -= 12; }
-    const vx = x + cw - 92; const vy = top - 92;
+    const vx = x + cw - 100; const vy = top - 138;
     if (s.viz === 'spark') {
       const vals = ins.activity.map((a) => a.created + a.updated + a.notes); const mx = Math.max(1, ...vals);
       const pts = vals.map((v, k) => `${k === 0 ? 'M' : 'L'} ${k * 12} ${-v / mx * 40}`).join(' ');
@@ -128,6 +164,23 @@ export async function briefPdf({ brief, insights: ins, ai = null, news = [], nam
   });
   y -= 2 * ch + 16 + 30;
   text('Цифри — з даних платформи в межах вашого допуску. Назви записів вище LUMEN не показуються.', M, y, { size: 8, color: [0.5, 0.49, 0.47] });
+  // What is inside: the sections that follow, as a short list.
+  const inside = [
+    (gprPicture(world.gpr) || alertTiles(world.alerts).some((t) => t.h7 != null)) && ['Безпекова обстановка', 'геополітичний ризик і повітряні тривоги'],
+    ['Аналітичні висновки', 'активність, проєкти, завдання'],
+    ['Прогноз і що варто розвивати', 'за поточного темпу, проєкти з сигналами'],
+    ['Оцінка стану', 'контрольні питання'],
+    (brief.sections.some((x) => x.total) || news.length) && ['За добу і ключові новини', 'що потребує уваги, CONTEXT News'],
+  ].filter(Boolean);
+  y -= 46;
+  text('У ЦЬОМУ БРИФІ', M, y, { font: B, size: 8, color: C.gold }); y -= 10;
+  page.drawLine({ start: { x: M, y }, end: { x: M + W, y }, thickness: 0.5, color: col([0.2, 0.19, 0.18]) }); y -= 22;
+  inside.forEach(([t, d], k) => {
+    text(String(k + 1).padStart(2, '0'), M, y, { font: B, size: 10, color: C.gold });
+    text(t, M + 30, y, { size: 12, color: IVORY });
+    text(d, M + W - width(d, 8.5), y, { size: 8.5, color: [0.55, 0.54, 0.52] });
+    y -= 12; page.drawLine({ start: { x: M, y }, end: { x: M + W, y }, thickness: 0.4, color: col([0.15, 0.14, 0.14]) }); y -= 18;
+  });
 
   /* ---------- Security picture: GPR and the oblasts' air-raid alerts ---------- */
   const g = gprPicture(world.gpr);

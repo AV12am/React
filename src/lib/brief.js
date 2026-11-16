@@ -76,7 +76,7 @@ export function buildBrief({ records = [], requests = [], tasks = [], comments =
     section('mentions', 'Вас згадали', mentions, 'Згадок немає'),
     section('due', 'Прогнози на перевірку', due, 'Прогнозів із близькою датою немає'),
     section('review', 'Потребують перегляду', review, 'Усе переглянуто'),
-    section('orgs', 'Компанії під спостереженням', orgNews, 'Змін у компаніях немає'),
+    section('orgs', 'Змінені картки компаній', orgNews, 'Змін у компаніях немає'),
     section('deadlines', 'Терміни на 3 дні', deadlines, 'Термінових справ немає'),
     ...(canDecide ? [section('requests', 'Запити на доступ', pending.map((r) => ({ id: r.id, level: 0, title: r.reason || 'Запит на доступ', note: r.kind })), 'Запитів немає')] : []),
   ];
@@ -86,7 +86,7 @@ export function buildBrief({ records = [], requests = [], tasks = [], comments =
 
 /** Plain-text and HTML renderings for the e-mail. */
 export function briefText(b, { name = '', appUrl = '', extraText = '' } = {}) {
-  const lines = [`Ранковий бриф Reaction Core${name ? ` — ${name}` : ''}`, `За добу до ${new Date(b.until).toLocaleString('uk-UA', { timeZone: 'Europe/Kyiv' })}`, '', ...(extraText ? [extraText, ''] : [])];
+  const lines = [`Morning briefing · Reaction Core${name ? ` — ${name}` : ''}`, `За добу до ${new Date(b.until).toLocaleString('uk-UA', { timeZone: 'Europe/Kyiv' })}`, '', ...(extraText ? [extraText, ''] : [])];
   for (const s of b.sections) {
     lines.push(`${s.title}: ${s.total}`);
     for (const i of s.items) lines.push(`  · ${i.title ?? 'запис вищого грифа'}${i.note ? ` — ${i.note}` : ''}`);
@@ -99,21 +99,34 @@ export function briefText(b, { name = '', appUrl = '', extraText = '' } = {}) {
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 export function briefHtml(b, { name = '', appUrl = '', extra = '' } = {}) {
   const quiet = b.sections.filter((s) => !s.total);
-  const sec = (extra ? `<tr><td style="padding:22px 0 0;font:600 13px/18px Georgia,serif;letter-spacing:.06em;text-transform:uppercase;color:#8c1c32">◆ За добу</td></tr>` : '') + b.sections.filter((s) => s.total || !extra).map((s) => `
-    <tr><td style="padding:18px 0 6px;font:600 13px/18px Georgia,serif;letter-spacing:.06em;text-transform:uppercase;color:#8c1c32">◆ ${esc(s.title)} · ${s.total}</td></tr>
-    ${s.items.length ? s.items.map((i) => `<tr><td style="padding:4px 0;font:15px/21px Georgia,serif;color:#1a1a1a">${i.title ? esc(i.title) : '<i style="color:#777">запис вищого грифа — відкрийте платформу</i>'}${i.note ? ` <span style="color:#777">— ${esc(i.note)}</span>` : ''}</td></tr>`).join('') : `<tr><td style="padding:4px 0;font:14px/20px Georgia,serif;color:#999">${esc(s.empty)}</td></tr>`}
-    ${s.total > s.items.length ? `<tr><td style="padding:2px 0;font:13px Georgia,serif;color:#777">… і ще ${s.total - s.items.length}</td></tr>` : ''}`).join('')
-    + (extra && quiet.length ? `<tr><td style="padding:8px 0 0;font:13px/19px Georgia,serif;color:#999">Без змін: ${quiet.map((s) => esc(s.title.toLowerCase())).join(', ')}.</td></tr>` : '');
-  return `<!doctype html><html><body style="margin:0;background:#f4f3f1">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f3f1"><tr><td align="center" style="padding:24px 12px">
-  <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border:1px solid #e2e0dc;padding:28px 32px">
-    <tr><td style="font:600 12px/16px Georgia,serif;letter-spacing:.2em;color:#555">REACTION CORE</td></tr>
-    <tr><td style="padding-top:6px;font:400 28px/34px Georgia,serif;color:#111">Ранковий бриф${name ? `, ${esc(name.split(' ')[0])}` : ''}</td></tr>
-    <tr><td style="padding-top:4px;font:14px Georgia,serif;color:#777">За добу до ${esc(new Date(b.until).toLocaleString('uk-UA', { timeZone: 'Europe/Kyiv', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }))} · потребує уваги: ${b.attention}</td></tr>
-    ${extra}
-    ${sec}
-    ${appUrl ? `<tr><td style="padding-top:24px"><a href="${esc(appUrl)}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font:600 14px Georgia,serif;padding:12px 20px">Відкрити платформу</a></td></tr>` : ''}
-    <tr><td style="padding-top:24px;font:12px/17px Georgia,serif;color:#999">Назви записів вище грифа LUMEN у листі не показуються. Вимкнути бриф: Налаштування → Ранковий бриф.</td></tr>
+  const SERIF = 'Georgia,\'Times New Roman\',serif';
+  const title = (t, n) => `<tr><td style="padding:26px 0 8px;font:600 12px/18px ${SERIF};letter-spacing:.14em;text-transform:uppercase;color:#8c1c32"><span style="color:#b89760">◆</span>&nbsp; ${esc(t)}${n == null ? '' : `<span style="color:#9a9892;letter-spacing:.04em"> &nbsp;${n}</span>`}</td></tr>`;
+  const row = (inner) => `<tr><td style="padding:9px 0;border-bottom:1px solid #ece9e3;font:15px/22px ${SERIF};color:#1a1a1a">${inner}</td></tr>`;
+  const sec = (extra ? title('За добу') : '') + b.sections.filter((s) => s.total || !extra).map((s) => `
+    ${title(s.title, s.total)}
+    ${s.items.length ? s.items.map((i) => row(`${i.title ? esc(i.title) : '<i style="color:#777">запис вищого грифа — відкрийте платформу</i>'}${i.note ? ` <span style="color:#7a7872">— ${esc(i.note)}</span>` : ''}`)).join('') : `<tr><td style="padding:6px 0;font:14px/20px ${SERIF};color:#9a9892">${esc(s.empty)}</td></tr>`}
+    ${s.total > s.items.length ? `<tr><td style="padding:8px 0 0;font:13px ${SERIF};color:#7a7872">… і ще ${s.total - s.items.length}</td></tr>` : ''}`).join('')
+    + (extra && quiet.length ? `<tr><td style="padding:14px 0 0;font:13px/19px ${SERIF};color:#9a9892">Без змін: ${quiet.map((s) => esc(s.title.toLowerCase())).join(', ')}.</td></tr>` : '');
+  const until = new Date(b.until).toLocaleString('uk-UA', { timeZone: 'Europe/Kyiv', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  const mark = appUrl ? `<img src="${esc(appUrl.replace(/\/$/, ''))}/icons/icon-192.png" width="52" height="52" alt="" style="display:block;border:0;outline:none">` : '<span style="font:26px/52px Georgia,serif;color:#b89760">◆</span>';
+  return `<!doctype html><html><body style="margin:0;background:#e9e7e3">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#e9e7e3"><tr><td align="center" style="padding:24px 12px">
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff">
+    <tr><td style="background:#141414;padding:30px 32px 30px">
+      <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+        <td width="52" valign="middle">${mark}</td>
+        <td valign="middle" style="padding-left:16px;font:600 13px/17px ${SERIF};letter-spacing:.34em;color:#f1efe9">REACTION<br><span style="font-size:9px;letter-spacing:.5em;color:#b89760">CORE</span></td>
+      </tr></table>
+      <div style="padding-top:36px;font:400 34px/40px ${SERIF};color:#f1efe9">Morning briefing${name ? `, ${esc(name.split(' ')[0])}` : ''}</div>
+      <div style="padding-top:10px;font:14px/20px ${SERIF};color:#a8a6a1">За добу до ${esc(until)} · потребує уваги: <span style="color:#f1efe9">${b.attention}</span></div>
+      <div style="margin-top:24px;width:44px;height:2px;line-height:2px;font-size:0;background:#b89760">&nbsp;</div>
+    </td></tr>
+    <tr><td style="padding:4px 32px 30px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      ${extra}
+      ${sec}
+      ${appUrl ? `<tr><td style="padding-top:30px"><a href="${esc(appUrl)}" style="display:inline-block;background:#141414;color:#f1efe9;text-decoration:none;font:600 14px ${SERIF};letter-spacing:.04em;padding:13px 24px;border-bottom:2px solid #b89760">Відкрити платформу</a></td></tr>` : ''}
+    </table></td></tr>
+    <tr><td style="background:#141414;padding:20px 32px 22px;font:12px/18px ${SERIF};color:#8d8b86">Назви записів вище грифа LUMEN у листі не показуються. Вимкнути лист: Налаштування → Morning briefing.<div style="padding-top:10px;font-size:9px;letter-spacing:.3em;color:#6f6c66">ВІДКРИТІ ДЖЕРЕЛА · ОДНА КАРТИНА</div></td></tr>
   </table></td></tr></table></body></html>`;
 }
 

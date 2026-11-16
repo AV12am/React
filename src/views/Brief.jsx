@@ -17,7 +17,7 @@ export function BriefPanel({ go }) {
   const openRecord = (id) => { const r = records.find((x) => x.id === id); if (r) go('divisions', r.div, r.col === 'orgs' ? `companies:${r.id}` : `${r.col}:${r.id}`); };
   const open = (s, i) => (s.id === 'requests' ? go('access') : i.task ? (i.target ? openRecord(i.target) : go('overview')) : i.comment ? openRecord(i.target) : go('divisions', i.div, `${i.col}:${i.id}`));
   return (
-    <Panel className="brief" title="Ранковий бриф"
+    <Panel className="brief" title="Morning briefing"
       action={(
         <span className="segmented brief__range" role="group" aria-label="Період">
           {[[24, 'Доба'], [72, '3 доби'], [168, 'Тиждень']].map(([h, l]) => <button key={h} className={hours === h ? 'is-active' : ''} onClick={() => setHours(h)}>{l}</button>)}

@@ -420,7 +420,7 @@ export const EXACT = {"Джерела зараз не відповідають �
 "Звіт":"Report",
 "Звіт готовий":"Report ready",
 "Звіт для замовника":"Client report",
-"Згадки, нові завдання, запити на доступ, знахідки конвеєра й ранковий бриф — навіть коли платформу закрито. Текст сповіщення короткий; подробиці — лише після входу.":"Mentions, new tasks, access requests, conveyor findings and the morning brief — even when the platform is closed. The notification text is short; details only after signing in.",
+"Згадки, нові завдання, запити на доступ і Morning briefing — навіть коли платформу закрито. Текст сповіщення короткий; подробиці — лише після входу.":"Mentions, new tasks, access requests and the Morning briefing — even when the platform is closed. The notification text is short; details only after signing in.",
 "Згорнути":"Collapse",
 "Згорнути бічну панель":"Collapse the side panel",
 "Згорнути панель інструментів":"Collapse the toolbar",

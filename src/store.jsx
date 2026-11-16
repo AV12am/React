@@ -114,7 +114,7 @@ function reducer(state, a) {
           if (k === 'division') return `напрям → ${a.patch[k]}`;
           if (k === 'mfa') return a.patch[k] ? 'MFA увімкнено' : 'MFA вимкнено';
           if (k === 'ips') return a.patch[k].length ? `дозволені IP → ${a.patch[k].map((x) => x.ip).join(', ')}` : 'обмеження за IP знято';
-          if (k === 'brief') return a.patch[k] ? 'ранковий бриф увімкнено' : 'ранковий бриф вимкнено';
+          if (k === 'brief') return a.patch[k] ? 'Morning briefing увімкнено' : 'Morning briefing вимкнено';
           if (k === 'mailTo') return a.patch[k] ? `адреса для листів → ${a.patch[k]}` : 'адресу для листів прибрано';
           return k;
         });
