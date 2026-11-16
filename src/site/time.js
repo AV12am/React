@@ -34,7 +34,7 @@ const num = (x, f) => x.toLocaleString(lab(f).loc, { minimumFractionDigits: 2, m
 const dmy = (d, f) => new Date(t(d)).toLocaleDateString(lab(f).loc, lab(f).loc === 'uk-UA' ? { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' } : { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
 // ── the timeline. On a wide screen a field: across — when each forecast is checked, up — how probable the event
-// is, so «what comes soon» and «what is likely» read at one glance. On a phone an agenda: the forecasts by check
+// is, so «what comes soon» and «what is likely» read at one glance (a picture to read, not a menu: the tiles below open the forecasts). On a phone an agenda: the forecasts by check
 // date, each with the days left and its probability on a 0–100% bar. Drawn at the box's real width, again on resize.
 const UI = {
   en: { loc: 'en-GB', today: 'Today', open: 'open', checked: 'checked', days: (n) => `${n} ${n === 1 ? 'day' : 'days'}`, brier: 'mean Brier', likely: 'Likely', unlikely: 'Unlikely', prob: 'Probability', inDays: (d) => `in ${d}`, due: 'check' },
@@ -80,8 +80,8 @@ function timeline(list) {
     g += `<g class="now"><line x1="${nx}" x2="${nx}" y1="${top}" y2="${bot}"/><circle class="halo" cx="${nx}" cy="${bot}" r="14" fill="url(#tl-glow)"/><circle cx="${nx}" cy="${bot}" r="3.5"/><text x="${nx + 9}" y="${bot + 18}">${esc(ui.today.toUpperCase())} · ${esc(short(now))}</text></g>`;
     const rows = list.map((f, i) => {
       const px = x(t(f.check)); const py = y(f.p); const n = leftOf(f, now);
-      return `<a class="row" href="${href(f)}" aria-label="${esc(f.question)}" style="--d:${i * 90}ms"><line class="drop" x1="${px}" x2="${px}" y1="${py}" y2="${bot}"/><circle class="dot" cx="${px}" cy="${py}" r="8"/>
-<g class="tag" data-x="${px}" data-y="${py}"><text class="lbl" x="${px + 18}" y="${py - 2}">${esc(f.short || f.topic)}</text><text class="dt" x="${px + 18}" y="${py + 15}">${pc(f.p, f)} · ${esc(short(t(f.check)))}${n > 0 ? ` · ${esc(ui.days(n))}` : ''}</text></g></a>`;
+      return `<g class="row" style="--d:${i * 90}ms"><title>${esc(f.question)}</title><line class="drop" x1="${px}" x2="${px}" y1="${py + 8}" y2="${bot}"/><circle class="foot" cx="${px}" cy="${bot}" r="2.5"/><circle class="dot" cx="${px}" cy="${py}" r="8"/>
+<g class="tag" data-x="${px}" data-y="${py}"><text class="lbl" x="${px + 18}" y="${py - 2}">${esc(f.short || f.topic)}</text><text class="dt" x="${px + 18}" y="${py + 15}">${pc(f.p, f)} · ${esc(short(t(f.check)))}${n > 0 ? ` · ${esc(ui.days(n))}` : ''}</text></g></g>`;
     }).join('');
     return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Timeline">
 <defs><radialGradient id="tl-glow"><stop offset="0" stop-color="#fff" stop-opacity="0.55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>${g}${rows}</svg>`;
