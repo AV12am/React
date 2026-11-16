@@ -1618,6 +1618,283 @@
         "limits": "Limitations: it is not known whether the government has already submitted the revised draft — the bill card does not show it. The adoption dates of the 2023–2025 budgets are cited without checking the law cards. Vote counts and amounts come from secondary accounts. Air-raid alerts and strikes can disrupt plenary sittings.",
         "next": "Next review: 20 November, on the Budget Committee’s decision about the second reading."
       }
+    },
+    {
+      "id": "brief-06",
+      "no": 6,
+      "lang": "uk",
+      "topic": "Фондовий ринок США",
+      "short": "S&P 500 · Санта-ралі",
+      "question": "Чи зросте S&P 500 за «вікно Санта-ралі» з 24 грудня 2026 по 5 січня 2027 року?",
+      "confidence": "низький",
+      "resolves": "Подія сталася, якщо офіційне закриття S&P 500 5 січня 2027 року буде вищим за закриття 23 грудня 2026 року; вікно — останні п’ять торгових днів грудня і перші два січня.",
+      "published": "2026-11-16",
+      "check": "2027-01-05",
+      "milestones": [
+        {
+          "label": "ФРС 09.12 · CPI 10.12",
+          "date": "2026-12-09"
+        }
+      ],
+      "p": 0.645,
+      "status": "open",
+      "pdf": "/time/Reaction-Brief-06-SP500-Santa-rally.pdf",
+      "conclusion": "Санта-ралі цього року ймовірне — 64,50%, але нижче за історичну норму. З 1950 року S&P 500 зростав у цьому вікні в 78% випадків, у середньому на 1,3%, тоді як звичайний семиденний відрізок дає близько 0,2%. Проте три останні вікна закінчилися падінням — уперше з 1950 року, тож закономірність, імовірно, слабшає. Вікно цього року: 24, 28–31 грудня, 4–5 січня. Перед вікном ринок чекає рішення ФРС 9 грудня і даних CPI за листопад 10 грудня; на початку листопада індекс пережив різкий розпродаж через сумніви щодо прибутковості ШІ і майже відновився. Головний ризик — яструбиний сюрприз ФРС: тоді шанс падає до 50,05%.",
+      "scenTitle": "Сценарії · рівень 1 · шанс зростання в кожному",
+      "chanceLabel": "Зростання",
+      "scenarios": [
+        {
+          "id": "M1",
+          "name": "ФРС підвищує без нових сигналів",
+          "short": "підвищення без сюрпризу",
+          "p": 0.47,
+          "chance": 0.6936,
+          "variants": 6
+        },
+        {
+          "id": "M2",
+          "name": "яструбиний сюрприз ФРС або CPI",
+          "short": "яструбиний сюрприз",
+          "p": 0.28,
+          "chance": 0.5005,
+          "variants": 6
+        },
+        {
+          "id": "M3",
+          "name": "ФРС залишає ставку",
+          "short": "ставка без змін",
+          "p": 0.25,
+          "chance": 0.7155,
+          "variants": 6
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "N1",
+          "name": "Зростання на 1% і більше",
+          "p": 0.2958,
+          "paths": 6,
+          "event": true
+        },
+        {
+          "id": "N2",
+          "name": "Зростання від 0 до 1%",
+          "p": 0.3492,
+          "paths": 6,
+          "event": true
+        },
+        {
+          "id": "N3",
+          "name": "Падіння або без змін",
+          "p": 0.355,
+          "paths": 6,
+          "base": true
+        }
+      ],
+      "paths": [
+        {
+          "h": "M1",
+          "steps": [],
+          "p": 0.1224,
+          "n": "N1"
+        },
+        {
+          "h": "M1",
+          "steps": [],
+          "p": 0.1107,
+          "n": "N2"
+        },
+        {
+          "h": "M1",
+          "steps": [],
+          "p": 0.0583,
+          "n": "N3"
+        },
+        {
+          "h": "M1",
+          "steps": [],
+          "p": 0.0321,
+          "n": "N1"
+        },
+        {
+          "h": "M1",
+          "steps": [],
+          "p": 0.0607,
+          "n": "N2"
+        },
+        {
+          "h": "M1",
+          "steps": [],
+          "p": 0.0857,
+          "n": "N3"
+        },
+        {
+          "h": "M2",
+          "steps": [],
+          "p": 0.0353,
+          "n": "N1"
+        },
+        {
+          "h": "M2",
+          "steps": [],
+          "p": 0.0479,
+          "n": "N2"
+        },
+        {
+          "h": "M2",
+          "steps": [],
+          "p": 0.0428,
+          "n": "N3"
+        },
+        {
+          "h": "M2",
+          "steps": [],
+          "p": 0.0154,
+          "n": "N1"
+        },
+        {
+          "h": "M2",
+          "steps": [],
+          "p": 0.0416,
+          "n": "N2"
+        },
+        {
+          "h": "M2",
+          "steps": [],
+          "p": 0.097,
+          "n": "N3"
+        },
+        {
+          "h": "M3",
+          "steps": [],
+          "p": 0.0731,
+          "n": "N1"
+        },
+        {
+          "h": "M3",
+          "steps": [],
+          "p": 0.0585,
+          "n": "N2"
+        },
+        {
+          "h": "M3",
+          "steps": [],
+          "p": 0.0309,
+          "n": "N3"
+        },
+        {
+          "h": "M3",
+          "steps": [],
+          "p": 0.0175,
+          "n": "N1"
+        },
+        {
+          "h": "M3",
+          "steps": [],
+          "p": 0.0297,
+          "n": "N2"
+        },
+        {
+          "h": "M3",
+          "steps": [],
+          "p": 0.0403,
+          "n": "N3"
+        }
+      ],
+      "signals": {
+        "up": [
+          "ФРС підвищила ставку без нових кроків у прогнозі на 2027 рік",
+          "CPI за листопад на рівні очікувань або нижче",
+          "індекс до 23 грудня тримається біля максимумів"
+        ],
+        "down": [
+          "точкові прогнози ФРС показують нові підвищення",
+          "новий розпродаж акцій компаній ШІ",
+          "стрибок цін на нафту через Близький Схід"
+        ]
+      },
+      "position": "Аналіз ведеться з позиції N3 — «падіння або без змін» (35,50%): це найімовірніший окремий результат, хоча зростання загалом переважає — N1 (29,58%) і N2 (34,92%) разом дають 64,50%. Так дерево показує суть прогнозу: ринок, найімовірніше, зросте, але слабко, а коли не зросте — падіння стане найчастішим окремим наслідком. Позиція зміститься до N1, якщо ФРС 9 грудня підвищить ставку без нових сигналів і CPI 10 грудня не перевищить очікувань.",
+      "limits": "Обмеження: історична база — закономірність без надійного механізму; три невдалі вікна поспіль можуть означати, що ринок її вже враховує. Рівень індексу і серія невдалих вікон — із вторинних зведень. Один результат семиденного вікна мало говорить про точність методу.",
+      "next": "Наступний перегляд: 10 грудня, після рішення ФРС і даних CPI за листопад.",
+      "en": {
+        "pdf": "/time/Reaction-Brief-06-SP500-Santa-rally-EN.pdf",
+        "topic": "US equity market",
+        "short": "S&P 500 · Santa Claus rally",
+        "question": "Will the S&P 500 rise over the Santa Claus rally window, 24 December 2026 to 5 January 2027?",
+        "confidence": "low",
+        "resolves": "Resolves YES if the official S&P 500 close on 5 January 2027 is above the close on 23 December 2026; the window is the last five trading days of December and the first two of January.",
+        "milestones": [
+          {
+            "label": "Fed 9 Dec · CPI 10 Dec",
+            "date": "2026-12-09"
+          }
+        ],
+        "conclusion": "A Santa Claus rally is likely this year — 64.50%, but below the historical norm. Since 1950 the S&P 500 has risen in this window 78% of the time, by 1.3% on average, against about 0.2% for an ordinary seven-day stretch. Yet the last three windows ended lower — a first since 1950 — so the pattern is probably weakening. This year’s window: 24, 28–31 December, 4–5 January. Before the window the market awaits the Fed decision on 9 December and November CPI on 10 December; in early November the index went through a sharp sell-off on doubts about AI profitability and has almost recovered. The main risk is a hawkish surprise from the Fed: the chance then falls to 50.05%.",
+        "scenTitle": "Scenarios · level 1 · chance of a rise in each",
+        "chanceLabel": "Rise",
+        "scenarios": [
+          {
+            "id": "M1",
+            "name": "Fed hikes with no new signals",
+            "short": "hike, no surprise",
+            "p": 0.47,
+            "chance": 0.6936,
+            "variants": 6
+          },
+          {
+            "id": "M2",
+            "name": "hawkish surprise from Fed or CPI",
+            "short": "hawkish surprise",
+            "p": 0.28,
+            "chance": 0.5005,
+            "variants": 6
+          },
+          {
+            "id": "M3",
+            "name": "Fed holds",
+            "short": "rate on hold",
+            "p": 0.25,
+            "chance": 0.7155,
+            "variants": 6
+          }
+        ],
+        "outcomes": [
+          {
+            "id": "N1",
+            "name": "Rise of 1% or more",
+            "p": 0.2958,
+            "paths": 6,
+            "event": true
+          },
+          {
+            "id": "N2",
+            "name": "Rise of 0 to 1%",
+            "p": 0.3492,
+            "paths": 6,
+            "event": true
+          },
+          {
+            "id": "N3",
+            "name": "Fall or unchanged",
+            "p": 0.355,
+            "paths": 6,
+            "base": true
+          }
+        ],
+        "signals": {
+          "up": [
+            "the Fed hikes with no new steps in its 2027 projections",
+            "November CPI at or below expectations",
+            "the index holds near its highs into 23 December"
+          ],
+          "down": [
+            "the Fed dot plot shows further hikes",
+            "a new sell-off in AI stocks",
+            "an oil price spike over the Middle East"
+          ]
+        },
+        "position": "The analysis proceeds from N3 — “fall or unchanged” (35.50%): it is the single most likely outcome, even though a rise prevails overall — N1 (29.58%) and N2 (34.92%) together give 64.50%. This is the core of the forecast: the market will most likely rise, but weakly, and when it does not, a fall is the most frequent single result. The position shifts to N1 if the Fed hikes on 9 December with no new signals and CPI on 10 December does not exceed expectations."
+      }
     }
   ]
 }
