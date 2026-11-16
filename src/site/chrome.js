@@ -1,4 +1,5 @@
 import { mountSwitcher } from './i18n.js';
+import { inject } from '@vercel/analytics';
 
 // A tab opened before the site was updated asks for script files that no longer exist (each update renames them):
 // the page reloads once and takes the new version, instead of hanging. Once per 30 s, so it never loops.
@@ -30,4 +31,11 @@ try {
   if (navigator.doNotTrack !== '1' && navigator.sendBeacon && /(^|\.)reactioncore\.uk$/.test(location.hostname)) {
     navigator.sendBeacon('/api/pulse?visit=1', new Blob([JSON.stringify({ path: location.pathname, ref: document.referrer, lang: document.documentElement.lang })], { type: 'application/json' }));
   }
+} catch { /* not counted */ }
+
+// Vercel Web Analytics (cookie-free, no personal data; the numbers are in the project's Analytics tab). Only the
+// public site, not the workspace; «Do Not Track» is respected here too. Where Analytics is not switched on the
+// script simply does not answer.
+try {
+  if (navigator.doNotTrack !== '1' && /^(www\.)?reactioncore\.uk$/.test(location.hostname)) inject({ mode: 'production' });
 } catch { /* not counted */ }
