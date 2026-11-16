@@ -108,7 +108,8 @@ async function worldOf(refresh) {
   const [gprRow, alerts, visits] = await Promise.all([
     db('core_docs?kind=eq.pulse&id=eq.gpr&select=doc').catch(() => []),
     refresh ? refreshAlerts(30000).catch(() => readAlerts()) : readAlerts(),
-    visitStats(14).catch(() => null), // the public site's visits: shown to administrators only (see letter())
+    // the public site's visits: the last 7 days in full, and the 7 before them for the change (administrators only, see letter())
+    Promise.all([visitStats(7), visitStats(14)]).then(([v7, v14]) => ({ ...v7, prevVisitors: v14.daily.slice(0, 7).reduce((a, d) => a + d.visitors, 0) })).catch(() => null),
   ]);
   // The oblasts' outlines only when there are alerts to show on them.
   const shapes = Object.keys(alerts?.byOblast || {}).length ? await uaShapes() : [];

@@ -79,19 +79,24 @@ export function buildBrief({ records = [], tasks = [], comments = [], users = []
   return { since, until: new Date(now).toISOString(), sections, total: sections.reduce((a, s) => a + s.total, 0), attention: attentionCount };
 }
 
-/** The public site's visits for the brief: the last 7 days of `visitStats(14)` (the 7 before them give the change). */
+/** The public site's visits for the brief, as the workspace's «Відвідування» shows them: `v` is visitStats(7) plus `prevVisitors` (the 7 days before). */
+const REGION = (() => { try { const d = new Intl.DisplayNames(['uk'], { type: 'region' }); return (c) => { try { return c && c !== '—' ? d.of(c) : 'Невідомо'; } catch { return c; } }; } catch { return (c) => c; } })();
+const LANG = { en: 'English', de: 'Deutsch', fr: 'Français', uk: 'Українська' };
 export function visitsPicture(v) {
-  if (!v?.daily?.length) return null;
-  const d = v.daily;
-  const cur = d.slice(-7); const prev = d.slice(-14, -7);
-  const sum = (a, k) => a.reduce((x, y) => x + y[k], 0);
-  const visitors = sum(cur, 'visitors'); const views = sum(cur, 'views');
-  if (!views) return null;
-  const pv = sum(prev, 'visitors');
-  const label = (s) => s.slice(8) + '.' + s.slice(5, 7);
-  return { visitors, views, change: prev.length === 7 && pv ? Math.round(((visitors - pv) / pv) * 100) : null,
-    daily: cur.map((x) => ({ ...x, label: label(x.day) })),
-    pages: (v.pages || []).slice(0, 4), countries: (v.countries || []).slice(0, 4), refs: (v.refs || []).slice(0, 4) };
+  if (!v?.daily?.length || !v.views) return null;
+  const label = (s) => `${s.slice(8)}.${s.slice(5, 7)}`;
+  const share = (title, rows, name = (x) => x, n = 8) => ({ title, rows: (rows || []).slice(0, n).map((r) => ({ name: name(r.id), visitors: r.visitors, views: r.views, pct: v.visitors ? Math.round((r.visitors / v.visitors) * 100) : 0 })) });
+  return {
+    visitors: v.visitors, views: v.views,
+    perVisitor: v.visitors ? (v.views / v.visitors).toFixed(1) : '—',
+    countryCount: (v.countries || []).filter((c) => c.id !== '—').length,
+    change: v.prevVisitors ? Math.round(((v.visitors - v.prevVisitors) / v.prevVisitors) * 100) : null,
+    daily: v.daily.map((x) => ({ ...x, label: label(x.day) })),
+    shares: [
+      share('Країни', v.countries, REGION), share('Пристрої', v.devices), share('Браузери', v.browsers), share('Системи', v.os),
+      share('Сторінки', v.pages), share('Звідки прийшли', v.refs), share('Мова сайту', v.langs, (x) => LANG[x] || x),
+    ].filter((x) => x.rows.length),
+  };
 }
 
 /** Plain-text and HTML renderings for the e-mail. */
@@ -378,17 +383,18 @@ export function worldHtml({ gpr, alerts, visits } = {}) {
   }
   const vp = visitsPicture(visits);
   if (vp) {
-    const mx = Math.max(1, ...vp.daily.map((d) => d.visitors));
-    const bars = vp.daily.map((d) => `<td style="vertical-align:bottom;padding:0 2px"><div style="height:${Math.max(2, Math.round((d.visitors / mx) * 44))}px;background:#8c1c32"></div></td>`).join('');
-    const labels = vp.daily.map((d) => `<td style="text-align:center;font:10px Georgia,serif;color:#777;padding-top:3px">${esc(d.label)}</td>`).join('');
-    const list = (rows) => rows.map((r) => `${esc(r.id)} — ${r.visitors}`).join(' · ');
+    const mx = Math.max(1, ...vp.daily.map((d) => d.views));
+    const col = (d) => `<td style="vertical-align:bottom;padding:0 2px;text-align:center"><div style="height:${Math.max(2, Math.round((d.views / mx) * 46))}px;background:#d9c9a8"></div><div style="height:${Math.max(2, Math.round((d.visitors / mx) * 46))}px;margin-top:-${Math.max(2, Math.round((d.visitors / mx) * 46))}px;width:50%;margin-left:25%;background:#8c1c32"></div></td>`;
+    const kpi = (l, x) => `<td style="padding:0 14px 0 0;vertical-align:top"><div style="font:600 24px/28px Georgia,serif;color:#1a1a1a">${x}</div><div style="font:11px/15px Georgia,serif;color:#777">${l}</div></td>`;
+    const table = (sh) => `<tr><td style="padding:14px 0 4px;font:600 11px Georgia,serif;letter-spacing:.1em;text-transform:uppercase;color:#555">${esc(sh.title)}</td></tr>`
+      + `<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${sh.rows.map((r) => `<tr><td style="width:38%;font:13px Georgia,serif;color:#333;padding:2px 8px 2px 0">${esc(r.name)}</td><td style="padding:2px 0"><table role="presentation" cellpadding="0" cellspacing="0" style="width:100%"><tr><td style="height:8px;width:${Math.max(2, r.pct)}%;background:#8c1c32"></td><td style="background:#ece9e3"></td></tr></table></td><td style="width:92px;text-align:right;font:12px Georgia,serif;color:#555;padding-left:8px">${r.visitors} · ${r.views}</td></tr>`).join('')}</table></td></tr>`;
     out += head('Відвідування платформи за 7 днів')
-      + `<tr><td style="font:15px/22px Georgia,serif;color:#1a1a1a"><b>${vp.visitors}</b> відвідувачів · ${vp.views} переглядів${vp.change == null ? '' : ` · ${vp.change >= 0 ? '+' : '−'}${Math.abs(vp.change)}% до попередніх 7 днів`}</td></tr>`
-      + `<tr><td style="padding-top:6px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr style="height:46px">${bars}</tr><tr>${labels}</tr></table></td></tr>`
-      + (vp.pages.length ? note(`Сторінки: ${list(vp.pages)}.`) : '')
-      + (vp.countries.length ? note(`Країни: ${list(vp.countries)}.`) : '')
-      + (vp.refs.length ? note(`Звідки прийшли: ${list(vp.refs)}.`) : '')
-      + note('Без cookies і IP-адрес; відвідувач — анонімний добовий відбиток. Боти не враховані.');
+      + `<tr><td style="padding-top:2px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>${kpi('відвідувачі', vp.visitors)}${kpi('перегляди', vp.views)}${kpi('переглядів на відвідувача', vp.perVisitor)}${kpi('країн', vp.countryCount)}</tr></table></td></tr>`
+      + (vp.change == null ? '' : note(`${vp.change >= 0 ? '+' : '−'}${Math.abs(vp.change)}% відвідувачів до попередніх 7 днів`))
+      + `<tr><td style="padding-top:8px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr style="height:50px">${vp.daily.map(col).join('')}</tr><tr>${vp.daily.map((d) => `<td style="text-align:center;font:10px Georgia,serif;color:#777;padding-top:3px">${esc(d.label)}</td>`).join('')}</tr></table></td></tr>`
+      + note('<span style="color:#8c1c32">■</span> відвідувачі &nbsp; <span style="color:#d9c9a8">■</span> перегляди · у таблицях: відвідувачі · перегляди')
+      + vp.shares.map(table).join('')
+      + note('Сайт reactioncore.uk · без cookies і без збереження IP-адрес; відвідувач рахується в межах доби. Боти не враховані.');
   }
   const tiles = alertTiles(alerts);
   const known = tiles.filter((t) => t.h7 != null);

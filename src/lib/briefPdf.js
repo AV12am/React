@@ -167,7 +167,7 @@ export async function briefPdf({ brief, insights: ins, ai = null, news = [], nam
   // What is inside: the sections that follow, as a short list.
   const inside = [
     (gprPicture(world.gpr) || alertTiles(world.alerts).some((t) => t.h7 != null)) && ['Безпекова обстановка', 'геополітичний ризик і повітряні тривоги'],
-    visitsPicture(world.visits) && ['Відвідування платформи', 'відвідувачі, сторінки, країни'],
+    visitsPicture(world.visits) && ['Відвідування платформи', 'відвідувачі, країни, пристрої, сторінки'],
     ['Аналітичні висновки', 'активність, проєкти, завдання'],
     ['Прогноз і що варто розвивати', 'за поточного темпу, проєкти з сигналами'],
     ['Оцінка стану', 'контрольні питання'],
@@ -276,28 +276,61 @@ export async function briefPdf({ brief, insights: ins, ai = null, news = [], nam
   const vp = visitsPicture(world.visits);
   if (vp) {
     newPage();
-    heading('Відвідування платформи', 'ОСТАННІ 7 ДНІВ');
-    panel(210, (top) => {
-      text(`${vp.visitors} відвідувачів`, M + 16, top - 30, { size: 18 });
-      text(`${vp.views} ПЕРЕГЛЯДІВ${vp.change == null ? '' : ` · ${vp.change >= 0 ? '+' : '−'}${Math.abs(vp.change)}% ДО ПОПЕРЕДНІХ 7 ДНІВ`}`, M + 16, top - 44, { size: 7.5, font: B, color: C.muted });
-      const x0 = M + 24; const y0 = top - 180; const cw = W - 48; const ch = 100;
-      const mx = Math.max(1, ...vp.daily.map((d) => d.visitors)); const bw = cw / vp.daily.length;
+    heading('Відвідування платформи', 'САЙТ REACTIONCORE.UK · ОСТАННІ 7 ДНІВ');
+    // four figures, as in the workspace
+    const kw = (W - 3 * 10) / 4;
+    [['Відвідувачі', vp.visitors], ['Перегляди', vp.views], ['Переглядів на відвідувача', vp.perVisitor], ['Країн', vp.countryCount]].forEach(([l, v], i) => {
+      const x = M + i * (kw + 10);
+      page.drawRectangle({ x, y: y - 58, width: kw, height: 58, color: col(C.panel), borderColor: col(C.line), borderWidth: 0.8 });
+      text(String(v), x + 12, y - 30, { size: 22 });
+      text(l.toUpperCase(), x + 12, y - 47, { size: 6.2, font: B, color: C.muted });
+    });
+    y -= 58 + 14;
+    if (vp.change != null) { text(`${vp.change >= 0 ? '+' : '−'}${Math.abs(vp.change)}% відвідувачів до попередніх 7 днів`, M, y, { size: 8.5, color: C.muted }); y -= 14; }
+    panel(150, (top) => {
+      text('За днями', M + 16, top - 24, { size: 12 });
+      const lx = M + W - 16;
+      page.drawRectangle({ x: lx - 150, y: top - 26, width: 7, height: 7, color: col(C.crimson) }); text('відвідувачі', lx - 140, top - 25, { size: 7, color: C.muted });
+      page.drawRectangle({ x: lx - 70, y: top - 26, width: 7, height: 7, color: col([0.85, 0.78, 0.66]) }); text('перегляди', lx - 60, top - 25, { size: 7, color: C.muted });
+      const x0 = M + 24; const y0 = top - 126; const cw = W - 48; const ch = 74;
+      const mx = Math.max(1, ...vp.daily.map((d) => d.views)); const bw = cw / vp.daily.length;
       page.drawLine({ start: { x: x0, y: y0 }, end: { x: x0 + cw, y: y0 }, thickness: 0.5, color: col(C.line) });
       vp.daily.forEach((d, k) => {
-        const h = Math.max(1.5, (d.visitors / mx) * ch);
-        page.drawRectangle({ x: x0 + k * bw + bw * 0.18, y: y0, width: bw * 0.64, height: h, color: col(C.crimson) });
-        const v = String(d.visitors); text(v, x0 + k * bw + bw / 2 - width(v, 7.5, B) / 2, y0 + h + 4, { size: 7.5, font: B, color: C.slate });
-        text(d.label, x0 + k * bw + bw / 2 - width(d.label, 7) / 2, y0 - 12, { size: 7, color: C.muted });
+        const hv = Math.max(1.5, (d.views / mx) * ch); const hu = Math.max(1.5, (d.visitors / mx) * ch);
+        page.drawRectangle({ x: x0 + k * bw + bw * 0.14, y: y0, width: bw * 0.72, height: hv, color: col([0.85, 0.78, 0.66]) });
+        page.drawRectangle({ x: x0 + k * bw + bw * 0.3, y: y0, width: bw * 0.4, height: hu, color: col(C.crimson) });
+        const v = String(d.views); text(v, x0 + k * bw + bw / 2 - width(v, 7, B) / 2, y0 + hv + 3, { size: 7, font: B, color: C.slate });
+        text(d.label, x0 + k * bw + bw / 2 - width(d.label, 6.8) / 2, y0 - 11, { size: 6.8, color: C.muted });
       });
     });
-    const lists = [['Сторінки', vp.pages], ['Країни', vp.countries], ['Звідки прийшли', vp.refs]].filter(([, r]) => r.length);
-    for (const [t, rows] of lists) {
-      room(30 + rows.length * 14);
-      text(t.toUpperCase(), M, y, { size: 8, font: B, color: C.muted }); y -= 14;
-      for (const r of rows) { text(r.id, M, y, { size: 10 }); const v = `${r.visitors}`; text(v, M + W - width(v, 10, B), y, { size: 10, font: B }); y -= 14; }
-      y -= 8;
+    // the seven tables, two to a row: name · visitors · views · share bar
+    const colW = (W - 14) / 2;
+    const tableH = (sh) => 34 + sh.rows.length * 13;
+    for (let i = 0; i < vp.shares.length; i += 2) {
+      const pair = vp.shares.slice(i, i + 2);
+      room(Math.max(...pair.map(tableH)) + 8);
+      const top = y;
+      pair.forEach((sh, j) => {
+        const x = M + j * (colW + 14);
+        text(sh.title.toUpperCase(), x, top - 10, { size: 7.5, font: B, color: C.slate });
+        text('ВІДВ.', x + colW - 96, top - 10, { size: 6, font: B, color: C.muted });
+        text('ПЕРЕГЛ.', x + colW - 58, top - 10, { size: 6, font: B, color: C.muted });
+        page.drawLine({ start: { x, y: top - 16 }, end: { x: x + colW, y: top - 16 }, thickness: 0.5, color: col(C.line) });
+        sh.rows.forEach((r, k) => {
+          const yy = top - 29 - k * 13;
+          const nm = wrap(r.name, 8.5, colW - 150)[0] || '';
+          text(nm, x, yy, { size: 8.5 });
+          page.drawRectangle({ x: x + colW - 150 + 4, y: yy + 1, width: 40, height: 4, color: col(C.line) });
+          page.drawRectangle({ x: x + colW - 150 + 4, y: yy + 1, width: Math.max(1, (r.pct / 100) * 40), height: 4, color: col(C.crimson) });
+          const a1 = String(r.visitors); const a2 = String(r.views);
+          text(a1, x + colW - 80 - width(a1, 8.5, B), yy, { size: 8.5, font: B });
+          text(a2, x + colW - width(a2, 8.5), yy, { size: 8.5, color: C.slate });
+        });
+      });
+      y = top - Math.max(...pair.map(tableH)) - 6;
     }
-    text('Без cookies і IP-адрес; відвідувач — анонімний добовий відбиток. Боти не враховані.', M, y, { size: 7, color: C.muted });
+    room(20);
+    text('Без cookies і збереження IP-адрес; відвідувач рахується в межах доби. Боти не враховані.', M, y, { size: 7, color: C.muted });
   }
 
   /* ---------- Conclusions ---------- */
