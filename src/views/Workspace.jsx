@@ -17,9 +17,10 @@ import { CompaniesView } from './Companies.jsx';
 import { Discussion, RecordTasks } from './Team.jsx';
 import { ImportButton } from './Import.jsx';
 import { OrgDirectory } from './Orgs.jsx';
+import { SourceDirectory } from './SourceDirectory.jsx';
 
-const BUILTIN = { 'int:orgs': OrgDirectory };
-const BUILTIN_NOTE = { 'int:orgs': 'Реєстр організацій' };
+const BUILTIN = { 'int:orgs': OrgDirectory, 'int:sources': SourceDirectory };
+const BUILTIN_NOTE = { 'int:orgs': 'Реєстр організацій', 'int:sources': 'Реєстр джерел' };
 import { parseCoords, fmtDD, fmtMGRS, distanceKm, fmtKm } from '../map/coords.js';
 
 /* ---------- access ---------- */

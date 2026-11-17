@@ -78,6 +78,7 @@ export const WORKSPACES = {
           { id: 'access', label: 'Доступ до інформації', type: 'select', list: true, options: ['Прямий', 'Опосередкований', 'Відкриті дані'] },
           { id: 'state', label: 'Стан', type: 'select', list: true, options: ['Активне', 'На перевірці', 'Призупинене', 'Закрите'] },
           { id: 'handler', label: 'Куратор', type: 'user' },
+          { id: 'url', label: 'Посилання', type: 'url' },
           { id: 'notes', label: 'Примітки', type: 'longtext' },
         ],
         // HUMINT identifies people: it opens at NOX by default.
