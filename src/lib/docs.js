@@ -36,10 +36,12 @@ export function cleanHtml(html = '') {
 
 /** Plain text of a document (search, empty check). */
 export const textOf = (html = '') => { const d = document.createElement('div'); d.innerHTML = cleanHtml(html); return d.textContent.trim(); };
+/** The first line of text of a document (for a title when none was typed). */
+export const firstLine = (html = '') => { const b = blocksOf(html).find((x) => x.runs?.some((r) => r.text?.trim())); return b ? b.runs.map((r) => r.text).join('').replace(/\s+/g, ' ').trim().slice(0, 80) : ''; };
 export const hasContent = (html = '') => /<img /.test(html) || !!textOf(html);
 
 /** A picture file → a JPEG data URL no wider than `max` px (white behind transparency). */
-export async function pictureData(file, max = 1100, quality = 0.82) {
+export async function pictureData(file, max = 1000, quality = 0.78) {
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('Не вдалося прочитати зображення')); i.src = url; });

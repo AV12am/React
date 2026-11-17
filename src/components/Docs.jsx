@@ -6,7 +6,7 @@ import { Panel } from './ui.jsx';
 import { Icon } from './Icon.jsx';
 import { ask } from './Dialog.jsx';
 import { saveFile } from '../lib/io.js';
-import { cleanHtml, hasContent, pictureData, docxBlob, pdfBlob } from '../lib/docs.js';
+import { cleanHtml, hasContent, firstLine, pictureData, docxBlob, pdfBlob } from '../lib/docs.js';
 
 const MAX_BYTES = 4 * 1024 * 1024; // one document's size (pictures included)
 
@@ -28,6 +28,7 @@ function Editor({ doc, onSave, onCancel }) {
   const box = useRef(null);
   const file = useRef(null);
   const [busy, setBusy] = useState(false);
+  const [dirty, setDirty] = useState(false);
   useEffect(() => {
     if (!box.current) return;
     box.current.innerHTML = cleanHtml(doc?.html || '');
@@ -54,11 +55,15 @@ function Editor({ doc, onSave, onCancel }) {
   const save = () => {
     const html = cleanHtml(box.current?.innerHTML || '');
     if (html.length > MAX_BYTES) { toast('Документ завеликий: зменште або приберіть частину зображень'); return; }
-    onSave({ title: title.trim(), html });
+    if (!hasContent(html) && !title.trim()) { toast('Документ порожній: напишіть текст або додайте зображення'); return; }
+    // No title typed: the first line of the text stands for it
+    const first = firstLine(html);
+    onSave({ title: title.trim() || first || 'Без назви', html });
   };
+  const cancel = async () => { if (!dirty || (await ask('Скасувати зміни в документі?', { ok: 'Скасувати зміни', danger: true }))) onCancel(); };
   return (
     <div className="doc-editor">
-      <input className="vx-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Назва документа" aria-label="Назва документа" />
+      <input className="vx-input" value={title} onChange={(e) => { setTitle(e.target.value); setDirty(true); }} placeholder="Назва документа (необов’язково)" aria-label="Назва документа" />
       <div className="doc-tools" role="toolbar" aria-label="Форматування">
         {TOOLS.map((t, i) => (t
           ? <button key={t[0]} type="button" className={`vx-btn vx-btn--ghost vx-btn--sm doc-tool doc-tool--${t[0] === 'B' ? 'b' : t[0] === 'I' ? 'i' : t[0] === 'U' ? 'u' : ''}`} title={t[1]} aria-label={t[1]} onMouseDown={(e) => e.preventDefault()} onClick={() => run(t[2], t[3])}>{t[0]}</button>
@@ -70,10 +75,10 @@ function Editor({ doc, onSave, onCancel }) {
         <button type="button" className="vx-btn vx-btn--ghost vx-btn--sm" title="Повторити дію" aria-label="Повторити дію" onMouseDown={(e) => e.preventDefault()} onClick={() => run('redo')}>↷</button>
       </div>
       <div ref={box} className="doc-body doc-surface" contentEditable suppressContentEditableWarning role="textbox" aria-multiline="true" aria-label="Текст документа" data-placeholder="Пишіть тут. Зображення можна вставити з буфера, перетягнути сюди або додати кнопкою."
-        onPaste={onPaste} onDrop={onDrop} />
+        onPaste={onPaste} onDrop={onDrop} onInput={() => setDirty(true)} />
       <div className="toolbar">
-        <button type="button" className="vx-btn vx-btn--primary" disabled={!title.trim() || busy} onClick={save}><Icon name="check" /> Зберегти</button>
-        <button type="button" className="vx-btn" onClick={onCancel}>Скасувати</button>
+        <button type="button" className="vx-btn vx-btn--primary" disabled={busy} onClick={save}><Icon name="check" /> Зберегти</button>
+        <button type="button" className="vx-btn" onClick={cancel}>Скасувати</button>
       </div>
     </div>
   );
