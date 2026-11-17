@@ -126,7 +126,7 @@ export const WORKSPACES = {
     tagline: 'Аналітичні продукти: документи, звіти й матеріали — з переглядом просто на платформі',
     registers: [
       {
-        id: 'products', name: 'Продукти', one: 'продукт', icon: 'chart', title: 'title', level: 1, layout: 'cards', about: 'about', entryLabel: 'Робота над продуктом',
+        id: 'products', name: 'Продукти', one: 'продукт', icon: 'chart', title: 'title', level: 1, layout: 'cards', docs: true, about: 'about', entryLabel: 'Робота над продуктом',
         stages: ['Чернетка', 'Рецензія', 'Затверджено', 'Видано'],
         fields: [
           { id: 'title', label: 'Назва', type: 'text', required: true, create: true },

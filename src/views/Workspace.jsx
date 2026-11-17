@@ -5,6 +5,7 @@ import { Icon } from '../components/Icon.jsx';
 import { DIVISIONS, CLEARANCE } from '../data/seed.js';
 import { WORKSPACES, registersOf, registerOf, viewsOf } from '../data/workspaces.js';
 import { Attachments, Cover, CoverInput } from '../components/Attachments.jsx';
+import { DocsPanel } from '../components/Docs.jsx';
 import { ask } from '../components/Dialog.jsx';
 import { workspaceAccess } from '../lib/access.js';
 import { DateInput } from '../components/DateInput.jsx';
@@ -438,6 +439,7 @@ function RecordPage({ d, reg, record, access, go }) {
 
       <div className="rp-cols">
         <div className="stack">
+          {reg.docs && <DocsPanel docs={record.docs} users={state.users} canEdit={access.canEdit} onChange={(list, note) => patch({ docs: list }, note)} />}
           {filesField && (
             <Panel title={`${filesField.label} · ${(record[filesField.id] || []).length}`}>
               <Attachments value={record[filesField.id]} onChange={(ids) => patch({ [filesField.id]: ids }, 'файли')} canEdit={access.canEdit}
@@ -635,7 +637,9 @@ export function Workspace({ divId, tab, go }) {
   // Only the main tabs are shown; the rest sit under «Ще».
   const tabs = [...regs, ...views];
   const keep = PRIMARY_TABS[divId];
-  const main = keep ? tabs.filter((t) => keep.includes(t.id)).sort((a, b) => keep.indexOf(a.id) - keep.indexOf(b.id)) : tabs.slice(0, 3);
+  // Up to four tabs all show (nothing collapses into «Ще»); with more, the listed main ones, else the first three.
+  const main = tabs.length <= 4 ? (keep ? [...tabs].sort((a, b) => (keep.includes(a.id) ? keep.indexOf(a.id) : 99) - (keep.includes(b.id) ? keep.indexOf(b.id) : 99)) : tabs)
+    : keep ? tabs.filter((t) => keep.includes(t.id)).sort((a, b) => keep.indexOf(a.id) - keep.indexOf(b.id)) : tabs.slice(0, 3);
   const more = tabs.filter((t) => !main.includes(t));
   const moreCurrent = more.find((t) => t.id === current);
   const [moreOpen, setMoreOpen] = useState(false);
