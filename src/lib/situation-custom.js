@@ -51,7 +51,7 @@ export function resolveCfg(cfg, subject) {
   }
   return out;
 }
-const ORG_ROWS = () => ORGS_UA.map((o) => { const f = factsOf(o.code); return { id: o.code, name: o.name, legal: o.legal, code: o.code, sector: o.sector, city: o.city, founded: +f.founded || '', owners: f.owners, website: f.website, source: o.source }; });
+const ORG_ROWS = () => ORGS_UA.map((o) => { const f = o.code ? factsOf(o.code) : { founded: o.founded, owners: o.owners, website: o.website }; return { id: o.id || o.code, name: o.name, legal: o.legal, code: o.code, sector: o.sector, city: o.city, founded: +f.founded || '', owners: f.owners, website: f.website, source: o.source }; });
 
 const DAY = 86400000;
 const WEEK = 7 * DAY;

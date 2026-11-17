@@ -500,7 +500,7 @@ function SubjectForm({ kind: kind0, initial, onDone, onClose }) {
         {kind === 'company' && <>
           <label className="vx-field"><span className="vx-label">Компанія (з довідника 200 провідних або будь-яка)</span>
             <input className="vx-input" list="sit-orgs" value={sub.label || ''} onChange={(e) => pickCompany(e.target.value)} placeholder="Почніть вводити назву" />
-            <datalist id="sit-orgs">{ORGS_UA.map((o) => <option key={o.code} value={o.name}>{o.sector}</option>)}</datalist></label>
+            <datalist id="sit-orgs">{ORGS_UA.map((o) => <option key={o.id || o.code} value={o.name}>{o.sector}</option>)}</datalist></label>
           <div className="sit-editor__row">
             <label className="vx-field"><span className="vx-label">ЄДРПОУ</span><input className="vx-input" value={sub.code || ''} onChange={(e) => set({ code: e.target.value.replace(/\D/g, '').slice(0, 8) })} /></label>
             <label className="vx-field"><span className="vx-label">Галузь</span><select className="vx-select" value={sub.sector || ''} onChange={(e) => set({ sector: e.target.value })}><option value="">—</option>{ORG_SECTORS.map((x) => <option key={x} value={x}>{x}</option>)}</select></label>

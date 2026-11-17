@@ -132,7 +132,7 @@ test('outside sources and the cross-filter: companies by sector, a picked value 
   assert.deepEqual(lines.labels, ['2022', '2023']);
   assert.deepEqual(computeCustom({ ...wb, visual: 'bars' }, st, me, { days: 30 }, NOW).rows.map((r) => r.value), [5.3, 0.2]); // the latest year
   const d = drillRows({ ...defaultCfg('ext:orgs', st) }, st, me, { days: 30 });
-  assert.equal(d.total, 200);
+  assert.equal(d.total, 220);
   assert.ok(toCsv({ cols: ['a'], rows: [['x"y']] }).includes('"x""y"'));
 });
 

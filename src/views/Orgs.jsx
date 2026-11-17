@@ -5,10 +5,14 @@ import { Icon } from '../components/Icon.jsx';
 import { ORGS_UA, ORGS_CHECKED, ORG_SECTORS, aboutOf, factsOf } from '../data/orgs-ua.js';
 
 const statusOf = (note) => (/банкрут/i.test(note) ? 'Банкрутство' : /припинен/i.test(note) ? 'У стані припинення' : 'Діє');
+const idOf = (o) => o.id || `org-${o.code}`;
+// A directory row with a code: everything from the verified lists; a row without one (IT companies of Kyiv) carries
+// its own about / website / founded and is not marked as checked.
 const toRecord = (o) => ({
-  id: `org-${o.code}`, div: 'int', col: 'orgs', clearance: 0,
+  id: idOf(o), div: 'int', col: 'orgs', clearance: 0,
   name: o.name, legal: o.legal, code: o.code, sector: o.sector, city: o.city === '—' ? '' : o.city,
-  status: statusOf(o.note), relation: 'Немає', notes: o.note, source: o.source, checked: ORGS_CHECKED, about: aboutOf(o.code), ...factsOf(o.code),
+  status: statusOf(o.note), relation: 'Немає', notes: o.note, source: o.source,
+  ...(o.code ? { checked: ORGS_CHECKED, about: aboutOf(o.code), ...factsOf(o.code) } : { checked: '', about: o.about || '', website: o.website || '', founded: o.founded || '', owners: '' }),
 });
 export const orgToRecord = toRecord;
 
@@ -24,7 +28,7 @@ export function OrgDirectory({ go }) {
   const { state, me, dispatch, toast } = useStore();
   const records = state.records || [];
   const inRegister = records.filter((r) => r.col === 'orgs' && r.clearance <= me.clearance);
-  const missing = ORGS_UA.filter((o) => !records.some((r) => r.id === `org-${o.code}`));
+  const missing = ORGS_UA.filter((o) => !records.some((r) => r.id === idOf(o)));
   const load = () => {
     dispatch({ type: 'record/bulk', records: missing.map(toRecord), where: 'Розвідка · Організації', label: `завантажено довідник: ${missing.length} компаній` });
     toast(`Додано ${missing.length} компаній`);
@@ -36,7 +40,7 @@ export function OrgDirectory({ go }) {
     toast(`Доповнено: ${backfill.length}`);
   };
   return (
-    <Panel title="Довідник: 200 провідних компаній і підприємств України" action={<span className="vx-hint">коди звірено {fmtDate(ORGS_CHECKED, false)}</span>}>
+    <Panel title={`Довідник: ${ORGS_UA.length} компаній і підприємств України`} action={<span className="vx-hint">коди звірено {fmtDate(ORGS_CHECKED, false)} · IT Києва — без кодів</span>}>
       <div className="stack">
         <div className="vx-hint">
           {ORG_SECTORS.length} галузей: код ЄДРПОУ, сайт, рік заснування, власники й посилання на реєстр. Дані з відкритих джерел — звіряйте з реєстром.
