@@ -111,32 +111,34 @@ export function briefText(b, { name = '', appUrl = '', extraText = '' } = {}) {
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 export function briefHtml(b, { name = '', appUrl = '', extra = '' } = {}) {
   const quiet = b.sections.filter((s) => !s.total);
-  const SERIF = 'Georgia,\'Times New Roman\',serif';
-  const title = (t, n) => `<tr><td style="padding:26px 0 8px;font:600 12px/18px ${SERIF};letter-spacing:.14em;text-transform:uppercase;color:#111111"><span style="color:#8a8a8a">◆</span>&nbsp; ${esc(t)}${n == null ? '' : `<span style="color:#9a9892;letter-spacing:.04em"> &nbsp;${n}</span>`}</td></tr>`;
-  const row = (inner) => `<tr><td style="padding:9px 0;border-bottom:1px solid #ece9e3;font:15px/22px ${SERIF};color:#1a1a1a">${inner}</td></tr>`;
+  const SERIF = "Inter,'Helvetica Neue',Helvetica,Arial,sans-serif"; // text
+  const HEAD = "'Cormorant Garamond',Georgia,'Times New Roman',serif"; // headings
+  const WORD = "Cinzel,'Cormorant Garamond',Inter,'Helvetica Neue',Helvetica,Arial,sans-serif"; // the wordmark
+  const title = (t, n) => `<tr><td style="padding:28px 0 8px;border-bottom:1px solid #111111;font:600 10px/16px ${SERIF};letter-spacing:.18em;text-transform:uppercase;color:#111111">${esc(t)}${n == null ? '' : `<span style="color:#9a9892;letter-spacing:.04em"> &nbsp;${n}</span>`}</td></tr>`;
+  const row = (inner) => `<tr><td style="padding:9px 0;border-bottom:1px solid #e6e6e6;font:15px/22px ${SERIF};color:#1a1a1a">${inner}</td></tr>`;
   const sec = (extra ? title('За добу') : '') + b.sections.filter((s) => s.total || !extra).map((s) => `
     ${title(s.title, s.total)}
     ${s.items.length ? s.items.map((i) => row(`${i.title ? esc(i.title) : '<i style="color:#777">запис вищого грифа — відкрийте платформу</i>'}${i.note ? ` <span style="color:#7a7872">— ${esc(i.note)}</span>` : ''}`)).join('') : `<tr><td style="padding:6px 0;font:14px/20px ${SERIF};color:#9a9892">${esc(s.empty)}</td></tr>`}
     ${s.total > s.items.length ? `<tr><td style="padding:8px 0 0;font:13px ${SERIF};color:#7a7872">… і ще ${s.total - s.items.length}</td></tr>` : ''}`).join('')
     + (extra && quiet.length ? `<tr><td style="padding:14px 0 0;font:13px/19px ${SERIF};color:#9a9892">Без змін: ${quiet.map((s) => esc(s.title.toLowerCase())).join(', ')}.</td></tr>` : '');
   const until = new Date(b.until).toLocaleString('uk-UA', { timeZone: 'Europe/Kyiv', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
-  const mark = appUrl ? `<img src="${esc(appUrl.replace(/\/$/, ''))}/icons/icon-192.png" width="52" height="52" alt="" style="display:block;border:0;outline:none">` : '<span style="font:26px/52px Georgia,serif;color:#8a8a8a">◆</span>';
+  const mark = appUrl ? `<img src="${esc(appUrl.replace(/\/$/, ''))}/icons/brief-mark.png" width="52" height="52" alt="" style="display:block;border:0;outline:none">` : '<span style="font:26px/52px Arial,sans-serif;color:#8a8a8a">◆</span>';
   return `<!doctype html><html><body style="margin:0;background:#e9e7e3">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#e9e7e3"><tr><td align="center" style="padding:24px 12px">
   <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff">
     <tr><td style="background:#141414;padding:30px 32px 30px">
       <table role="presentation" cellpadding="0" cellspacing="0"><tr>
         <td width="52" valign="middle">${mark}</td>
-        <td valign="middle" style="padding-left:16px;font:600 13px/17px ${SERIF};letter-spacing:.34em;color:#f1efe9">REACTION<br><span style="font-size:9px;letter-spacing:.5em;color:#8a8a8a">CORE</span></td>
+        <td valign="middle" style="padding-left:16px;font:500 13px/17px ${WORD};letter-spacing:.34em;color:#f1efe9">REACTION<br><span style="font-size:9px;letter-spacing:.5em;color:#8a8a8a">CORE</span></td>
       </tr></table>
-      <div style="padding-top:36px;font:400 34px/40px ${SERIF};color:#f1efe9">Morning briefing${name ? `, ${esc(name.split(' ')[0])}` : ''}</div>
+      <div style="padding-top:36px;font:500 38px/42px ${HEAD};color:#f1efe9">Morning briefing${name ? `, ${esc(name.split(' ')[0])}` : ''}</div>
       <div style="padding-top:10px;font:14px/20px ${SERIF};color:#a8a6a1">За добу до ${esc(until)} · потребує уваги: <span style="color:#f1efe9">${b.attention}</span></div>
       <div style="margin-top:24px;width:44px;height:2px;line-height:2px;font-size:0;background:#8a8a8a">&nbsp;</div>
     </td></tr>
     <tr><td style="padding:4px 32px 30px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">
       ${extra}
       ${sec}
-      ${appUrl ? `<tr><td style="padding-top:30px"><a href="${esc(appUrl)}" style="display:inline-block;background:#141414;color:#f1efe9;text-decoration:none;font:600 14px ${SERIF};letter-spacing:.04em;padding:13px 24px;border-bottom:2px solid #8a8a8a">Відкрити платформу</a></td></tr>` : ''}
+      ${appUrl ? `<tr><td style="padding-top:30px"><a href="${esc(appUrl)}" style="display:inline-block;background:#141414;color:#f1efe9;text-decoration:none;font:600 14px ${SERIF};letter-spacing:.04em;padding:13px 24px">Відкрити платформу</a></td></tr>` : ''}
     </table></td></tr>
     <tr><td style="background:#141414;padding:20px 32px 22px;font:12px/18px ${SERIF};color:#8d8b86">Назви записів вище грифа LUMEN у листі не показуються. Вимкнути лист: Налаштування → Morning briefing.<div style="padding-top:10px;font-size:9px;letter-spacing:.3em;color:#6f6c66">ВІДКРИТІ ДЖЕРЕЛА · ОДНА КАРТИНА</div></td></tr>
   </table></td></tr></table></body></html>`;
@@ -270,12 +272,12 @@ const bar = (n, max, color = '#111111') => (n > 0 && max
   : '<div style="height:12px;border-bottom:1px solid #e2e0dc"></div>');
 const DAYS_UA = ['нд', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
 export function insightsHtml(ins, ai = null, news = []) {
-  const head = (t) => `<tr><td style="padding:22px 0 8px;font:600 13px/18px Georgia,serif;letter-spacing:.06em;text-transform:uppercase;color:#111111">◆ ${esc(t)}</td></tr>`;
-  const p = (t, c = '#1a1a1a') => `<tr><td style="padding:3px 0;font:15px/22px Georgia,serif;color:${c}">${t}</td></tr>`;
+  const head = (t) => `<tr><td style="padding:28px 0 8px;border-bottom:1px solid #111111;font:600 10px/16px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:#111111">${esc(t)}</td></tr>`;
+  const p = (t, c = '#1a1a1a') => `<tr><td style="padding:3px 0;font:15px/22px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;color:${c}">${t}</td></tr>`;
   const maxA = Math.max(1, ...ins.activity.map((x) => x.created + x.updated + x.notes));
-  const act = ins.activity.map((x) => { const n = x.created + x.updated + x.notes; return `<tr><td style="width:36px;font:12px Georgia,serif;color:#777;padding:2px 6px 2px 0">${DAYS_UA[new Date(x.day).getUTCDay()]} ${+x.day.slice(8)}</td><td style="padding:2px 0">${bar(n, maxA)}</td><td style="width:28px;text-align:right;font:12px Georgia,serif;color:#555">${n}</td></tr>`; }).join('');
+  const act = ins.activity.map((x) => { const n = x.created + x.updated + x.notes; return `<tr><td style="width:36px;font:12px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#777;padding:2px 6px 2px 0">${DAYS_UA[new Date(x.day).getUTCDay()]} ${+x.day.slice(8)}</td><td style="padding:2px 0">${bar(n, maxA)}</td><td style="width:28px;text-align:right;font:12px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#555">${n}</td></tr>`; }).join('');
   const maxS = Math.max(1, ...ins.projects.byState.map((x) => x.n));
-  const states = ins.projects.byState.map((x) => `<tr><td style="width:96px;font:12px Georgia,serif;color:#777;padding:2px 6px 2px 0">${esc(x.label)}</td><td style="padding:2px 0">${bar(x.n, maxS, '#333')}</td><td style="width:28px;text-align:right;font:12px Georgia,serif;color:#555">${x.n}</td></tr>`).join('');
+  const states = ins.projects.byState.map((x) => `<tr><td style="width:96px;font:12px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#777;padding:2px 6px 2px 0">${esc(x.label)}</td><td style="padding:2px 0">${bar(x.n, maxS, '#333')}</td><td style="width:28px;text-align:right;font:12px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#555">${x.n}</td></tr>`).join('');
   const t = ins.tasks;
   const conclusions = (ai?.conclusions?.length ? ai.conclusions : plainConclusions(ins)).map((c) => p(`· ${esc(c)}`)).join('');
   const f = ins.forecast;
@@ -290,8 +292,8 @@ export function insightsHtml(ins, ai = null, news = []) {
   const newsRows = news.length ? head('Ключові новини доби · CONTEXT') + news.map((n) => {
     const t = typeof n === 'string' ? { text: n } : n;
     const pic = t.image ? `<td style="width:132px;padding:6px 14px 6px 0;vertical-align:top">${t.url ? `<a href="${esc(t.url)}">` : ''}<img src="${esc(t.image)}" width="132" alt="" style="display:block;width:132px;height:auto;border-radius:3px;border:0">${t.url ? '</a>' : ''}</td>` : '';
-    const src = t.domain ? `<div style="font:12px Georgia,serif;color:#777;padding-top:4px">${t.url ? `<a href="${esc(t.url)}" style="color:#777">${esc(t.domain)}</a>` : esc(t.domain)}</div>` : '';
-    return `<tr><td style="padding:6px 0;border-bottom:1px solid #eee"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${pic}<td style="vertical-align:top;font:15px/22px Georgia,serif;color:#1a1a1a">${esc(t.text)}${src}</td></tr></table></td></tr>`;
+    const src = t.domain ? `<div style="font:12px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#777;padding-top:4px">${t.url ? `<a href="${esc(t.url)}" style="color:#777">${esc(t.domain)}</a>` : esc(t.domain)}</div>` : '';
+    return `<tr><td style="padding:6px 0;border-bottom:1px solid #eee"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${pic}<td style="vertical-align:top;font:15px/22px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1a1a1a">${esc(t.text)}${src}</td></tr></table></td></tr>`;
   }).join('') : '';
   return `
     ${p('<span style="font-size:13px;color:#777">Повний бриф із графіками й схемами — у PDF у вкладенні.</span>')}
@@ -300,7 +302,7 @@ export function insightsHtml(ins, ai = null, news = []) {
     ${p(`<span style="font-size:13px;color:#777">Створено, змінено записів і додано записів у роботу над проєктами. Цього тижня: ${ins.thisWeek}${ins.prevWeek ? `, минулого: ${ins.prevWeek}` : ''}.</span>`)}
     ${ins.projects.total ? `${head(`Проєкти за станом · ${ins.projects.total}`)}<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${states}</table></td></tr>` : ''}
     ${head('Завдання')}<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-      ${[['відкрито', t.open, '#111'], ['прострочено', t.overdue, '#111111'], ['нових за тиждень', t.newWeek, '#555'], ['виконано за тиждень', t.doneWeek, '#2e6b3f']].map(([l, n, c]) => `<td style="padding:6px 8px 6px 0;vertical-align:top"><div style="font:400 26px/30px Georgia,serif;color:${c}">${n}</div><div style="font:12px Georgia,serif;color:#777">${l}</div></td>`).join('')}
+      ${[['відкрито', t.open, '#111'], ['прострочено', t.overdue, '#111111'], ['нових за тиждень', t.newWeek, '#555'], ['виконано за тиждень', t.doneWeek, '#2e6b3f']].map(([l, n, c]) => `<td style="padding:6px 8px 6px 0;vertical-align:top"><div style="font:400 26px/30px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;color:${c}">${n}</div><div style="font:12px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#777">${l}</div></td>`).join('')}
     </tr></table></td></tr>
     ${head('Прогноз')}${p(esc(forecastText))}
     ${head('Що варто розвивати')}${develop}
@@ -366,15 +368,15 @@ export const heat = (h, max) => (h == null || !max ? 0 : Math.max(0.08, Math.min
 const mix = (a) => { const c = [17, 17, 17]; const w = [255, 255, 255]; return `#${c.map((v, i) => Math.round(w[i] + (v - w[i]) * a).toString(16).padStart(2, '0')).join('')}`; };
 
 export function worldHtml({ gpr, alerts, visits } = {}) {
-  const head = (t) => `<tr><td style="padding:22px 0 8px;font:600 13px/18px Georgia,serif;letter-spacing:.06em;text-transform:uppercase;color:#111111">◆ ${esc(t)}</td></tr>`;
-  const note = (t) => `<tr><td style="padding:4px 0;font:12px/17px Georgia,serif;color:#777">${t}</td></tr>`;
+  const head = (t) => `<tr><td style="padding:28px 0 8px;border-bottom:1px solid #111111;font:600 10px/16px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:#111111">${esc(t)}</td></tr>`;
+  const note = (t) => `<tr><td style="padding:4px 0;font:12px/17px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#777">${t}</td></tr>`;
   let out = '';
   const g = gprPicture(gpr);
   if (g) {
     const max = Math.max(...g.days.map((d) => d.value));
     const bars = g.days.map((d) => `<td style="vertical-align:bottom;padding:0 1px"><div style="height:${Math.max(2, Math.round((d.value / max) * 56))}px;background:${d.value >= g.month ? '#111111' : '#bdbdbd'}"></div></td>`).join('');
     out += head('Індекс геополітичного ризику (GPR)')
-      + `<tr><td style="font:15px/22px Georgia,serif;color:#1a1a1a">Середнє за тиждень <b>${g.week}</b> · за місяць ${g.month} · ${g.change >= 0 ? 'вище' : 'нижче'} місячного на ${Math.abs(g.change)}%</td></tr>`
+      + `<tr><td style="font:15px/22px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1a1a1a">Середнє за тиждень <b>${g.week}</b> · за місяць ${g.month} · ${g.change >= 0 ? 'вище' : 'нижче'} місячного на ${Math.abs(g.change)}%</td></tr>`
       + `<tr><td style="padding-top:6px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="height:58px"><tr>${bars}</tr></table></td></tr>`
       + note(`Щоденний індекс Caldara–Iacoviello за 30 днів (100 — середній рівень 1985–2019), останній день у даних — ${esc(g.last)}. Бордовим — дні вище місячного середнього.`);
   }
@@ -382,12 +384,12 @@ export function worldHtml({ gpr, alerts, visits } = {}) {
   if (vp) {
     const mx = Math.max(1, ...vp.daily.map((d) => d.views));
     const col = (d) => `<td style="vertical-align:bottom;padding:0 2px;text-align:center"><div style="height:${Math.max(2, Math.round((d.views / mx) * 46))}px;background:#cfcfcf"></div><div style="height:${Math.max(2, Math.round((d.visitors / mx) * 46))}px;margin-top:-${Math.max(2, Math.round((d.visitors / mx) * 46))}px;width:50%;margin-left:25%;background:#111111"></div></td>`;
-    const kpi = (l, x) => `<td style="padding:0 14px 0 0;vertical-align:top"><div style="font:600 24px/28px Georgia,serif;color:#1a1a1a">${x}</div><div style="font:11px/15px Georgia,serif;color:#777">${l}</div></td>`;
-    const line = (sh) => `<tr><td style="padding:3px 0;font:13px/19px Georgia,serif;color:#333"><span style="color:#777">${esc(sh.title)}:</span> ${sh.rows.map((r) => `${esc(r.name)} <b>${r.visitors}</b>`).join(' · ')}</td></tr>`;
+    const kpi = (l, x) => `<td style="padding:0 14px 0 0;vertical-align:top"><div style="font:300 28px/32px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#111111">${x}</div><div style="font:11px/15px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#777">${l}</div></td>`;
+    const line = (sh) => `<tr><td style="padding:3px 0;font:13px/19px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#333"><span style="color:#777">${esc(sh.title)}:</span> ${sh.rows.map((r) => `${esc(r.name)} <b>${r.visitors}</b>`).join(' · ')}</td></tr>`;
     out += head('Відвідування платформи за 7 днів')
       + `<tr><td style="padding-top:2px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>${kpi('відвідувачі', vp.visitors)}${kpi('перегляди', vp.views)}${kpi('переглядів на відвідувача', vp.perVisitor)}${kpi('країн', vp.countryCount)}</tr></table></td></tr>`
       + (vp.change == null ? '' : note(`${vp.change >= 0 ? '+' : '−'}${Math.abs(vp.change)}% відвідувачів до попередніх 7 днів`))
-      + `<tr><td style="padding-top:8px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr style="height:50px">${vp.daily.map(col).join('')}</tr><tr>${vp.daily.map((d) => `<td style="text-align:center;font:10px Georgia,serif;color:#777;padding-top:3px">${esc(d.label)}</td>`).join('')}</tr></table></td></tr>`
+      + `<tr><td style="padding-top:8px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr style="height:50px">${vp.daily.map(col).join('')}</tr><tr>${vp.daily.map((d) => `<td style="text-align:center;font:10px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#777;padding-top:3px">${esc(d.label)}</td>`).join('')}</tr></table></td></tr>`
       + note('<span style="color:#111111">■</span> відвідувачі &nbsp; <span style="color:#cfcfcf">■</span> перегляди')
       + vp.shares.map(line).join('')
       + note('Сайт reactioncore.uk · без cookies і IP-адрес. Повні таблиці — у «Доступи → Відвідування».');
@@ -399,8 +401,8 @@ export function worldHtml({ gpr, alerts, visits } = {}) {
     const barCell = (n, m) => `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%"><tr><td style="height:12px;width:${Math.max(2, Math.round((n / m) * 100))}%;background:${mix(heat(n, m))}"></td><td></td></tr></table>`;
     const top = [...known].filter((t) => !t.occupied).sort((a, b) => b.h7 - a.h7).slice(0, 3);
     out += head('Повітряні тривоги за 7 днів')
-      + `<tr><td style="font:15px/22px Georgia,serif;color:#1a1a1a">Найдовше під тривогою: ${top.map((t) => `<b>${esc(t.key)}</b> (${Math.round(t.h7)} год)`).join(', ')}.</td></tr>`
-      + `<tr><td style="padding-top:6px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${[...known].filter((t) => !t.occupied).sort((a, b) => b.h7 - a.h7).slice(0, 8).map((t) => `<tr><td style="width:150px;font:13px Georgia,serif;color:#333;padding:2px 8px 2px 0">${esc(t.key)}</td><td style="padding:2px 0">${barCell(t.h7, max)}</td><td style="width:56px;text-align:right;font:12px Georgia,serif;color:#555">${Math.round(t.h7)} год</td></tr>`).join('')}</table></td></tr>`
+      + `<tr><td style="font:15px/22px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1a1a1a">Найдовше під тривогою: ${top.map((t) => `<b>${esc(t.key)}</b> (${Math.round(t.h7)} год)`).join(', ')}.</td></tr>`
+      + `<tr><td style="padding-top:6px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${[...known].filter((t) => !t.occupied).sort((a, b) => b.h7 - a.h7).slice(0, 8).map((t) => `<tr><td style="width:150px;font:13px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#333;padding:2px 8px 2px 0">${esc(t.key)}</td><td style="padding:2px 0">${barCell(t.h7, max)}</td><td style="width:56px;text-align:right;font:12px Inter,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#555">${Math.round(t.h7)} год</td></tr>`).join('')}</table></td></tr>`
       + note('Сумарні години офіційних повітряних тривог за тиждень (дані alerts.in.ua) — огляд минулого, не прогноз. Карта областей — у PDF у вкладенні.');
   }
   return out;
