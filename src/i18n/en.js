@@ -481,7 +481,7 @@ export const EXACT = {"Джерела зараз не відповідають �
 "Карти та геодані":"Maps and geodata",
 "Картка компанії: логотип, фото, документи":"Company card: logo, photos, documents",
 "Картки компаній":"Company cards",
-"Карток ще немає. Завантажте довідник 200 провідних компаній і підприємств України або додайте організацію у вкладці «Організації».":"No cards yet. Load the directory of 200 leading companies and enterprises of Ukraine or add an organisation in the «Organisations» tab.",
+"Карток ще немає. Завантажте довідник провідних компаній і підприємств України або додайте організацію у вкладці «Організації».":"No cards yet. Load the directory of leading companies and enterprises of Ukraine or add an organisation in the «Organisations» tab.",
 "Категорія":"Category",
 "КБ":"KB",
 "Кейс":"Case",

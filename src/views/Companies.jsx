@@ -20,6 +20,7 @@ import { CompanyGraph } from './CompanyGraph.jsx';
 import { Discussion, RecordTasks } from './Team.jsx';
 import { relatedThroughOwners } from '../lib/orggraph.js';
 import { imageUrl } from '../lib/imgurl.js';
+import { supabaseOn, authHeaders } from '../lib/supabase.js';
 
 const isImage = (f) => /^image\//.test(f?.type || '');
 const openRecord = (go, r) => go('divisions', r.div, `${r.col}:${r.id}`);
@@ -114,6 +115,19 @@ async function logoDataUrl(file) {
   }
 }
 
+/** The logo from the company's own website (api/_logo.js), shrunk like an uploaded one. */
+const hostOf = (site) => { try { return new URL(/^https?:\/\//.test(site) ? site : `https://${site}`).hostname; } catch { return ''; } };
+async function logoFromSite(site) {
+  const host = hostOf(site);
+  if (!host) throw new Error('У картці немає адреси сайту');
+  const res = await fetch(new URL(`api/pulse?logo=${encodeURIComponent(host)}`, document.baseURI), { headers: supabaseOn ? await authHeaders() : {} });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok || !j.data) throw new Error(j.message || `Сайт не віддав значок (HTTP ${res.status})`);
+  const bytes = Uint8Array.from(atob(j.data), (c) => c.charCodeAt(0));
+  const ext = { 'image/svg+xml': 'svg', 'image/x-icon': 'ico', 'image/vnd.microsoft.icon': 'ico', 'image/jpeg': 'jpg' }[j.type] || j.type.split('/')[1] || 'png';
+  return logoDataUrl(new File([bytes], `logo.${ext}`, { type: j.type }));
+}
+
 function useCompanyFiles(org) {
   const ctx = useStore();
   const { dispatch, backend } = ctx;
@@ -169,11 +183,31 @@ function CompanyList({ access, go, graphFocus = null }) {
     dispatch({ type: 'record/bulk', records: [], patches: backfill, where: 'Розвідка · Компанії', label: `доповнено довідкові дані: ${backfill.length}` });
     toast(`Доповнено: ${backfill.length}`);
   };
+  // Logos from the companies' own sites, for cards that have a site and no logo yet — one by one, saved as they come.
+  const noLogo = orgs.filter((o) => o.website && !o.logo && !o.logoData);
+  const [logos, setLogos] = useState(null); // {done, total, ok} while running
+  const stopLogos = useRef(false);
+  const fetchLogos = async () => {
+    const list = noLogo.slice(); let ok = 0;
+    stopLogos.current = false;
+    setLogos({ done: 0, total: list.length, ok: 0 });
+    for (let i = 0; i < list.length && !stopLogos.current; i++) {
+      const o = list[i];
+      try {
+        const logoData = await logoFromSite(o.website);
+        dispatch({ type: 'record/update', id: o.id, patch: { logoData, logo: null }, where: 'Розвідка · Компанії', label: o.name, note: 'логотип із сайту' });
+        ok++;
+      } catch { /* this site gave none: the card keeps its initials */ }
+      setLogos({ done: i + 1, total: list.length, ok });
+    }
+    setLogos(null);
+    toast(`Логотипи: додано ${ok} з ${list.length}${ok < list.length ? ' — решта сайтів значка не віддали' : ''}`);
+  };
   if (!orgs.length) {
     return (
       <Panel title="Компанії">
         <div className="stack">
-          <div className="vx-hint">Карток ще немає. Завантажте довідник 200 провідних компаній і підприємств України або додайте організацію у вкладці «Організації».</div>
+          <div className="vx-hint">Карток ще немає. Завантажте довідник провідних компаній і підприємств України або додайте організацію у вкладці «Організації».</div>
           {access.canEdit && <button className="vx-btn vx-btn--primary" onClick={loadAll}><Icon name="download" /> Завантажити довідник ({missing.length})</button>}
         </div>
       </Panel>
@@ -207,6 +241,8 @@ function CompanyList({ access, go, graphFocus = null }) {
         <span className="vx-hint">{shown.length} з {orgs.length}</span>
         {access.canEdit && missing.length > 0 && <button className="vx-btn vx-btn--sm" onClick={loadAll}><Icon name="download" /> Нові з довідника ({missing.length})</button>}
         {access.canEdit && backfill.length > 0 && <button className="vx-btn vx-btn--sm" onClick={fill}><Icon name="file" /> Доповнити сайти, роки, власників ({backfill.length})</button>}
+        {access.canEdit && supabaseOn && !logos && noLogo.length > 0 && <button className="vx-btn vx-btn--sm" onClick={fetchLogos} title="Значок із власного сайту кожної компанії, де є адреса сайту й ще немає логотипа"><Icon name="download" /> Логотипи з сайтів ({noLogo.length})</button>}
+        {logos && <><span className="vx-hint"><Loader size={14} /> Логотипи: {logos.done} з {logos.total}, знайдено {logos.ok}</span><button className="vx-btn vx-btn--ghost vx-btn--sm" onClick={() => { stopLogos.current = true; }}>Зупинити</button></>}
       </div>
       <div className="co-grid">{shown.map((o) => <CompanyCard key={o.id} org={o} go={go} />)}</div>
       {!shown.length && <div className="vx-empty"><Icon name="search" /><div>Нічого не знайдено</div></div>}
@@ -296,6 +332,10 @@ function CompanyPage({ org, access, go }) {
     patch({ logoData: await logoDataUrl(list[0]), logo: null }, 'новий логотип');
     toast('Логотип оновлено');
   });
+  const onSiteLogo = () => run('sitelogo', async () => {
+    patch({ logoData: await logoFromSite(org.website), logo: null }, 'логотип із сайту');
+    toast('Логотип узято з сайту компанії');
+  });
   const onPhotos = (list) => run('photo', async () => {
     const ms = await upload(list, 'photo');
     if (ms.length) { patch({ photos: [...(org.photos || []), ...ms.map((m) => m.id)] }, `додано фото: ${ms.length}`); toast(`Додано фото: ${ms.length}`); }
@@ -324,6 +364,7 @@ function CompanyPage({ org, access, go }) {
           {canEdit && <>
             <input ref={logoIn} type="file" accept="image/*" hidden onChange={(e) => { onLogo(Array.from(e.target.files)); e.target.value = ''; }} />
             <button className="vx-btn vx-btn--sm" disabled={!!busy} onClick={() => logoIn.current.click()}>{busy === 'logo' ? <Loader size={16} /> : <><Icon name="upload" /> Логотип</>}</button>
+            {supabaseOn && org.website && <button className="vx-btn vx-btn--ghost vx-btn--sm" disabled={!!busy} onClick={onSiteLogo} title="Взяти значок із сайту компанії">{busy === 'sitelogo' ? <Loader size={16} /> : 'Із сайту'}</button>}
           </>}
         </div>
         <div className="co-hero__main">

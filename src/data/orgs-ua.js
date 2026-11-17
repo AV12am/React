@@ -711,8 +711,77 @@ const ORG_FACTS = {
   '23152907': ['https://suspilne.media', '', `${S} — 100 % (засновник — Кабінет Міністрів)`],
   '40235671': ['', '', `${S} (державне підприємство; сфера управління — Мінкультури)`],
 };
+// Доповнення до ORG_FACTS: сайт і рік заснування там, де їх бракувало. Внесено із загальновідомих даних
+// 17 листопада 2026 р. БЕЗ звірки з джерелом (на відміну від основної таблиці) — перевіряйте перед використанням.
+// Лише те, у чому є достатня певність; решта лишається порожньою. Рядок: назва з довідника → [сайт, рік].
+const ORG_FACTS_MORE = {
+  'Південний ГЗК': ['https://ugok.com.ua', ''],
+  'Борщагівський ХФЗ': ['https://bcpp.com.ua', 1947],
+  'Фармацевтична компанія «Здоров’я»': ['https://www.zt.com.ua', ''],
+  'Галичфарм': ['', 1911],
+  'Датагруп': ['', 2000],
+  'Львівобленерго': ['https://loe.lviv.ua', ''],
+  'Запоріжжяобленерго': ['https://www.zoe.com.ua', ''],
+  'Київтеплоенерго': ['https://kte.kmda.gov.ua', 2018],
+  'Хмельницькобленерго': ['https://hoe.com.ua', ''],
+  'Вінницяобленерго': ['https://www.voe.com.ua', ''],
+  'Полтаваобленерго': ['https://www.poe.pl.ua', ''],
+  'Тернопільобленерго': ['https://www.toe.com.ua', ''],
+  'Прикарпаттяобленерго': ['https://www.oe.if.ua', ''],
+  'Сумиобленерго': ['https://www.soe.com.ua', ''],
+  'Миколаївобленерго': ['https://www.energy.mk.ua', ''],
+  'Рівнеобленерго': ['https://www.roe.vsei.ua', ''],
+  'Газорозподільні мережі України': ['https://grmu.com.ua', ''],
+  'SOCAR Україна': ['https://socar.ua', ''],
+  'Meest': ['', 1989],
+  'SkyUp': ['', 2017],
+  'Аеропорт «Львів»': ['https://lwo.aero', ''],
+  'Київпастранс': ['https://kpt.kyiv.ua', ''],
+  'Харківський метрополітен': ['https://www.metro.kharkiv.ua', ''],
+  'Одесміськелектротранс': ['https://oget.od.ua', ''],
+  'Північний ГЗК': ['', 1963],
+  'Центральний ГЗК': ['', 1961],
+  'Інгулецький ГЗК': ['', 1965],
+  'Запорізький титано-магнієвий комбінат': ['https://ztmc.zp.ua', ''],
+  'ОГХК': ['https://umcc-titanium.com', 2014],
+  'Нікопольський завод феросплавів': ['https://nzf.com.ua', 1966],
+  'Запорізький завод феросплавів': ['https://zfz.com.ua', 1933],
+  'Укрграфіт': ['https://ukrgrafit.com.ua', 1933],
+  'Nestlé Україна': ['https://www.nestle.ua', ''],
+  'Галичина': ['https://galychyna.com.ua', ''],
+  'Вітмарк-Україна': ['https://vitmark.com', ''],
+  'Cargill Україна': ['https://www.cargill.com.ua', ''],
+  'Louis Dreyfus Україна': ['https://www.ldc.com', ''],
+  'Агротон': ['https://agroton.com.ua', ''],
+  'Ліси України': ['https://e-forest.gov.ua', 2022],
+  'Біосфера': ['https://biosphere-corp.com', ''],
+  'Сумихімпром': ['https://sumykhimprom.com.ua', 1954],
+  'Фора': ['', 2002],
+  'JYSK Україна': ['', 2004],
+  'Алло': ['', 1998],
+  'Prom.ua (EVO)': ['', 2008],
+  'Укрсиббанк': ['', 1990],
+  'ПроКредит Банк': ['', 2001],
+  'Кредобанк': ['', 1990],
+  'Банк Кредит Дніпро': ['', 1993],
+  'Банк Південний': ['', 1993],
+  'Київський вітамінний завод': ['', 1944],
+  'АвтоКрАЗ': ['https://autokraz.com.ua', 1958],
+  'Завод імені Малишева': ['https://malyshevplant.com', 1895],
+  'Київводоканал': ['https://vodokanal.kiev.ua', 1872],
+  'Харківводоканал': ['https://vodokanal.kharkov.ua', ''],
+  'Львівводоканал': ['https://lvivvodokanal.com.ua', ''],
+  'Київзеленбуд': ['https://kyivzelenbud.com.ua', ''],
+  'Суспільне (НСТУ)': ['', 2017],
+  'Охматдит': ['https://ohmatdyt.com.ua', ''],
+  'Національний інститут раку': ['https://unci.org.ua', 1920],
+};
+const MORE_BY_CODE = Object.fromEntries(ROWS.filter((r) => ORG_FACTS_MORE[r[0]]).map((r) => [+r[2], ORG_FACTS_MORE[r[0]]]));
+export const ORG_FACTS_MORE_NAMES = Object.keys(ORG_FACTS_MORE);
+
 /** {website, founded, owners} for a directory company (empty strings where unknown). */
 export const factsOf = (code) => {
   const [website = '', founded = '', owners = ''] = ORG_FACTS[code] || ORG_FACTS[+code] || [];
-  return { website, founded, owners };
+  const [w2 = '', f2 = ''] = MORE_BY_CODE[+code] || [];
+  return { website: website || w2, founded: founded || f2, owners };
 };
