@@ -19,9 +19,11 @@ const STATUS = {
 };
 const LEVEL = ['—', 'Перегляд', 'Редагування', 'Керування'];
 
-export function Access({ tab, setTab, focus, setFocus }) {
-  const { state } = useStore();
-  const pending = state.requests.filter((r) => r.status === 'pending').length;
+// «Запити» and «Ролі та права» are put aside for now (their code stays; add the ids back to TABS to bring them back).
+const TABS = [['people', 'Люди'], ['levels', 'Рівні допуску'], ['signins', 'Журнал входів'], ['external', 'Зовнішні користувачі'], ['visits', 'Відвідування']];
+
+export function Access({ tab: wanted, setTab, focus, setFocus }) {
+  const tab = TABS.some(([id]) => id === wanted) ? wanted : 'people';
   return (
     <div className="page">
       <header className="page__head">
@@ -31,13 +33,11 @@ export function Access({ tab, setTab, focus, setFocus }) {
         </div>
       </header>
       <nav className="vx-tabs" role="tablist">
-        {[['people', 'Люди'], ['requests', `Запити${pending ? ` · ${pending}` : ''}`], ['roles', 'Ролі та права'], ['levels', 'Рівні допуску'], ['signins', 'Журнал входів'], ['external', 'Зовнішні користувачі'], ['visits', 'Відвідування']].map(([id, l]) => (
+        {TABS.map(([id, l]) => (
           <button key={id} role="tab" aria-selected={tab === id} className={`vx-tab ${tab === id ? 'is-active' : ''}`} onClick={() => setTab(id)}>{l}</button>
         ))}
       </nav>
       {tab === 'people' && <People focus={focus} setFocus={setFocus} />}
-      {tab === 'requests' && <Requests />}
-      {tab === 'roles' && <Roles />}
       {tab === 'levels' && <Levels />}
       {tab === 'signins' && <SignIns />}
       {tab === 'external' && <External />}
@@ -404,7 +404,7 @@ function Invite({ onClose }) {
   );
 }
 
-function Requests() {
+export function Requests() {
   const { state, me, perms, dispatch, userById, toast } = useStore();
   const [show, setShow] = useState('pending');
   const rows = state.requests.filter((r) => (show === 'pending' ? r.status === 'pending' : r.status !== 'pending'));
@@ -463,7 +463,7 @@ function Requests() {
   );
 }
 
-function Roles() {
+export function Roles() {
   return (
     <Panel bodyClass="vx-table-wrap">
       <table className="vx-table matrix">

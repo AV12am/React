@@ -109,7 +109,7 @@ export const WORKSPACES = {
         ],
       },
       {
-        id: 'methods', name: 'Методики', one: 'методику', icon: 'book', title: 'name', level: 0,
+        id: 'methods', name: 'Методики', one: 'методику', icon: 'book', title: 'name', level: 0, hidden: true,
         fields: [
           { id: 'name', label: 'Назва', type: 'text', required: true },
           { id: 'class', label: 'Для класу джерел', type: 'select', list: true, options: SOURCE_CLASSES },
@@ -146,7 +146,7 @@ export const WORKSPACES = {
       {
         // «Форсайти»: forecasts and key judgments, each with a probability and its basis. A «Прогноз» is checked on
         // its date — that feeds calibration — and stands on the anxiety index's time line on the overview.
-        id: 'judgments', name: 'Форсайти', one: 'форсайт', icon: 'target', title: 'statement', level: 1,
+        id: 'judgments', name: 'Форсайти', one: 'форсайт', icon: 'target', title: 'statement', level: 1, hidden: true,
         fields: [
           { id: 'statement', label: 'Що очікуємо', type: 'text', required: true, create: true, hint: 'Одне речення, яке можна перевірити: що, де, до коли.' },
           { id: 'product', label: 'Продукт', type: 'ref', ref: 'products', list: true },
