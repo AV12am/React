@@ -97,11 +97,12 @@ const insightsFor = (m, data, now) => buildInsights({
 // The designed PDF goes with the letter (charts, schemes, the full analysis). Its font (Noto Serif, with Cyrillic)
 // is the site's own, read once per run.
 let fontsP = null;
-const pdfFonts = (appUrl) => (fontsP ||= Promise.all(['Regular', 'Bold'].map(async (w) => {
-  const res = await fetch(`${appUrl.replace(/\/$/, '')}/fonts/NotoSerif-${w}.ttf`);
-  if (!res.ok) throw new Error(`font ${res.status}`);
+// The PDF's fonts (served from /fonts): text, text bold, headings, the wordmark, small mono marks.
+const pdfFonts = (appUrl) => (fontsP ||= Promise.all(['Inter-Regular', 'Inter-SemiBold', 'CormorantGaramond-Medium', 'Cinzel-Medium', 'JetBrainsMono-Regular'].map(async (n) => {
+  const res = await fetch(`${appUrl.replace(/\/$/, '')}/fonts/${n}.ttf`);
+  if (!res.ok) throw new Error(`font ${n} ${res.status}`);
   return new Uint8Array(await res.arrayBuffer());
-})).catch((e) => { fontsP = null; throw e; }));
+})).then(([F, B, H, W, K]) => ({ F, B, H, W, K })).catch((e) => { fontsP = null; throw e; }));
 // The security picture for every letter of the run: the GPR series the platform already keeps, and the oblasts'
 // air-raid alerts (refreshed here as far as the API lets; what was read before stands otherwise).
 async function worldOf(refresh) {

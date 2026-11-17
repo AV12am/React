@@ -112,7 +112,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 export function briefHtml(b, { name = '', appUrl = '', extra = '' } = {}) {
   const quiet = b.sections.filter((s) => !s.total);
   const SERIF = 'Georgia,\'Times New Roman\',serif';
-  const title = (t, n) => `<tr><td style="padding:26px 0 8px;font:600 12px/18px ${SERIF};letter-spacing:.14em;text-transform:uppercase;color:#8c1c32"><span style="color:#b89760">◆</span>&nbsp; ${esc(t)}${n == null ? '' : `<span style="color:#9a9892;letter-spacing:.04em"> &nbsp;${n}</span>`}</td></tr>`;
+  const title = (t, n) => `<tr><td style="padding:26px 0 8px;font:600 12px/18px ${SERIF};letter-spacing:.14em;text-transform:uppercase;color:#111111"><span style="color:#8a8a8a">◆</span>&nbsp; ${esc(t)}${n == null ? '' : `<span style="color:#9a9892;letter-spacing:.04em"> &nbsp;${n}</span>`}</td></tr>`;
   const row = (inner) => `<tr><td style="padding:9px 0;border-bottom:1px solid #ece9e3;font:15px/22px ${SERIF};color:#1a1a1a">${inner}</td></tr>`;
   const sec = (extra ? title('За добу') : '') + b.sections.filter((s) => s.total || !extra).map((s) => `
     ${title(s.title, s.total)}
@@ -120,23 +120,23 @@ export function briefHtml(b, { name = '', appUrl = '', extra = '' } = {}) {
     ${s.total > s.items.length ? `<tr><td style="padding:8px 0 0;font:13px ${SERIF};color:#7a7872">… і ще ${s.total - s.items.length}</td></tr>` : ''}`).join('')
     + (extra && quiet.length ? `<tr><td style="padding:14px 0 0;font:13px/19px ${SERIF};color:#9a9892">Без змін: ${quiet.map((s) => esc(s.title.toLowerCase())).join(', ')}.</td></tr>` : '');
   const until = new Date(b.until).toLocaleString('uk-UA', { timeZone: 'Europe/Kyiv', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
-  const mark = appUrl ? `<img src="${esc(appUrl.replace(/\/$/, ''))}/icons/icon-192.png" width="52" height="52" alt="" style="display:block;border:0;outline:none">` : '<span style="font:26px/52px Georgia,serif;color:#b89760">◆</span>';
+  const mark = appUrl ? `<img src="${esc(appUrl.replace(/\/$/, ''))}/icons/icon-192.png" width="52" height="52" alt="" style="display:block;border:0;outline:none">` : '<span style="font:26px/52px Georgia,serif;color:#8a8a8a">◆</span>';
   return `<!doctype html><html><body style="margin:0;background:#e9e7e3">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#e9e7e3"><tr><td align="center" style="padding:24px 12px">
   <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff">
     <tr><td style="background:#141414;padding:30px 32px 30px">
       <table role="presentation" cellpadding="0" cellspacing="0"><tr>
         <td width="52" valign="middle">${mark}</td>
-        <td valign="middle" style="padding-left:16px;font:600 13px/17px ${SERIF};letter-spacing:.34em;color:#f1efe9">REACTION<br><span style="font-size:9px;letter-spacing:.5em;color:#b89760">CORE</span></td>
+        <td valign="middle" style="padding-left:16px;font:600 13px/17px ${SERIF};letter-spacing:.34em;color:#f1efe9">REACTION<br><span style="font-size:9px;letter-spacing:.5em;color:#8a8a8a">CORE</span></td>
       </tr></table>
       <div style="padding-top:36px;font:400 34px/40px ${SERIF};color:#f1efe9">Morning briefing${name ? `, ${esc(name.split(' ')[0])}` : ''}</div>
       <div style="padding-top:10px;font:14px/20px ${SERIF};color:#a8a6a1">За добу до ${esc(until)} · потребує уваги: <span style="color:#f1efe9">${b.attention}</span></div>
-      <div style="margin-top:24px;width:44px;height:2px;line-height:2px;font-size:0;background:#b89760">&nbsp;</div>
+      <div style="margin-top:24px;width:44px;height:2px;line-height:2px;font-size:0;background:#8a8a8a">&nbsp;</div>
     </td></tr>
     <tr><td style="padding:4px 32px 30px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">
       ${extra}
       ${sec}
-      ${appUrl ? `<tr><td style="padding-top:30px"><a href="${esc(appUrl)}" style="display:inline-block;background:#141414;color:#f1efe9;text-decoration:none;font:600 14px ${SERIF};letter-spacing:.04em;padding:13px 24px;border-bottom:2px solid #b89760">Відкрити платформу</a></td></tr>` : ''}
+      ${appUrl ? `<tr><td style="padding-top:30px"><a href="${esc(appUrl)}" style="display:inline-block;background:#141414;color:#f1efe9;text-decoration:none;font:600 14px ${SERIF};letter-spacing:.04em;padding:13px 24px;border-bottom:2px solid #8a8a8a">Відкрити платформу</a></td></tr>` : ''}
     </table></td></tr>
     <tr><td style="background:#141414;padding:20px 32px 22px;font:12px/18px ${SERIF};color:#8d8b86">Назви записів вище грифа LUMEN у листі не показуються. Вимкнути лист: Налаштування → Morning briefing.<div style="padding-top:10px;font-size:9px;letter-spacing:.3em;color:#6f6c66">ВІДКРИТІ ДЖЕРЕЛА · ОДНА КАРТИНА</div></td></tr>
   </table></td></tr></table></body></html>`;
@@ -265,12 +265,12 @@ export function readInsights(raw, ins) {
 }
 
 // E-mail-safe charts: plain table bars (pictures and SVG are blocked by many mail clients).
-const bar = (n, max, color = '#8c1c32') => (n > 0 && max
+const bar = (n, max, color = '#111111') => (n > 0 && max
   ? `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%"><tr><td style="height:12px;width:${Math.max(2, Math.round((n / max) * 100))}%;background:${color}"></td><td style="height:12px"></td></tr></table>`
   : '<div style="height:12px;border-bottom:1px solid #e2e0dc"></div>');
 const DAYS_UA = ['нд', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
 export function insightsHtml(ins, ai = null, news = []) {
-  const head = (t) => `<tr><td style="padding:22px 0 8px;font:600 13px/18px Georgia,serif;letter-spacing:.06em;text-transform:uppercase;color:#8c1c32">◆ ${esc(t)}</td></tr>`;
+  const head = (t) => `<tr><td style="padding:22px 0 8px;font:600 13px/18px Georgia,serif;letter-spacing:.06em;text-transform:uppercase;color:#111111">◆ ${esc(t)}</td></tr>`;
   const p = (t, c = '#1a1a1a') => `<tr><td style="padding:3px 0;font:15px/22px Georgia,serif;color:${c}">${t}</td></tr>`;
   const maxA = Math.max(1, ...ins.activity.map((x) => x.created + x.updated + x.notes));
   const act = ins.activity.map((x) => { const n = x.created + x.updated + x.notes; return `<tr><td style="width:36px;font:12px Georgia,serif;color:#777;padding:2px 6px 2px 0">${DAYS_UA[new Date(x.day).getUTCDay()]} ${+x.day.slice(8)}</td><td style="padding:2px 0">${bar(n, maxA)}</td><td style="width:28px;text-align:right;font:12px Georgia,serif;color:#555">${n}</td></tr>`; }).join('');
@@ -300,7 +300,7 @@ export function insightsHtml(ins, ai = null, news = []) {
     ${p(`<span style="font-size:13px;color:#777">Створено, змінено записів і додано записів у роботу над проєктами. Цього тижня: ${ins.thisWeek}${ins.prevWeek ? `, минулого: ${ins.prevWeek}` : ''}.</span>`)}
     ${ins.projects.total ? `${head(`Проєкти за станом · ${ins.projects.total}`)}<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${states}</table></td></tr>` : ''}
     ${head('Завдання')}<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-      ${[['відкрито', t.open, '#111'], ['прострочено', t.overdue, '#8c1c32'], ['нових за тиждень', t.newWeek, '#555'], ['виконано за тиждень', t.doneWeek, '#2e6b3f']].map(([l, n, c]) => `<td style="padding:6px 8px 6px 0;vertical-align:top"><div style="font:400 26px/30px Georgia,serif;color:${c}">${n}</div><div style="font:12px Georgia,serif;color:#777">${l}</div></td>`).join('')}
+      ${[['відкрито', t.open, '#111'], ['прострочено', t.overdue, '#111111'], ['нових за тиждень', t.newWeek, '#555'], ['виконано за тиждень', t.doneWeek, '#2e6b3f']].map(([l, n, c]) => `<td style="padding:6px 8px 6px 0;vertical-align:top"><div style="font:400 26px/30px Georgia,serif;color:${c}">${n}</div><div style="font:12px Georgia,serif;color:#777">${l}</div></td>`).join('')}
     </tr></table></td></tr>
     ${head('Прогноз')}${p(esc(forecastText))}
     ${head('Що варто розвивати')}${develop}
@@ -363,16 +363,16 @@ export function gprPicture(series) {
 }
 // A tile's colour: the brand crimson at a strength that follows the hours (semi-transparent over the page).
 export const heat = (h, max) => (h == null || !max ? 0 : Math.max(0.08, Math.min(1, h / max)));
-const mix = (a) => { const c = [140, 28, 50]; const w = [255, 255, 255]; return `#${c.map((v, i) => Math.round(w[i] + (v - w[i]) * a).toString(16).padStart(2, '0')).join('')}`; };
+const mix = (a) => { const c = [17, 17, 17]; const w = [255, 255, 255]; return `#${c.map((v, i) => Math.round(w[i] + (v - w[i]) * a).toString(16).padStart(2, '0')).join('')}`; };
 
 export function worldHtml({ gpr, alerts, visits } = {}) {
-  const head = (t) => `<tr><td style="padding:22px 0 8px;font:600 13px/18px Georgia,serif;letter-spacing:.06em;text-transform:uppercase;color:#8c1c32">◆ ${esc(t)}</td></tr>`;
+  const head = (t) => `<tr><td style="padding:22px 0 8px;font:600 13px/18px Georgia,serif;letter-spacing:.06em;text-transform:uppercase;color:#111111">◆ ${esc(t)}</td></tr>`;
   const note = (t) => `<tr><td style="padding:4px 0;font:12px/17px Georgia,serif;color:#777">${t}</td></tr>`;
   let out = '';
   const g = gprPicture(gpr);
   if (g) {
     const max = Math.max(...g.days.map((d) => d.value));
-    const bars = g.days.map((d) => `<td style="vertical-align:bottom;padding:0 1px"><div style="height:${Math.max(2, Math.round((d.value / max) * 56))}px;background:${d.value >= g.month ? '#8c1c32' : '#c9b48f'}"></div></td>`).join('');
+    const bars = g.days.map((d) => `<td style="vertical-align:bottom;padding:0 1px"><div style="height:${Math.max(2, Math.round((d.value / max) * 56))}px;background:${d.value >= g.month ? '#111111' : '#bdbdbd'}"></div></td>`).join('');
     out += head('Індекс геополітичного ризику (GPR)')
       + `<tr><td style="font:15px/22px Georgia,serif;color:#1a1a1a">Середнє за тиждень <b>${g.week}</b> · за місяць ${g.month} · ${g.change >= 0 ? 'вище' : 'нижче'} місячного на ${Math.abs(g.change)}%</td></tr>`
       + `<tr><td style="padding-top:6px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="height:58px"><tr>${bars}</tr></table></td></tr>`
@@ -381,14 +381,14 @@ export function worldHtml({ gpr, alerts, visits } = {}) {
   const vp = visitsPicture(visits);
   if (vp) {
     const mx = Math.max(1, ...vp.daily.map((d) => d.views));
-    const col = (d) => `<td style="vertical-align:bottom;padding:0 2px;text-align:center"><div style="height:${Math.max(2, Math.round((d.views / mx) * 46))}px;background:#d9c9a8"></div><div style="height:${Math.max(2, Math.round((d.visitors / mx) * 46))}px;margin-top:-${Math.max(2, Math.round((d.visitors / mx) * 46))}px;width:50%;margin-left:25%;background:#8c1c32"></div></td>`;
+    const col = (d) => `<td style="vertical-align:bottom;padding:0 2px;text-align:center"><div style="height:${Math.max(2, Math.round((d.views / mx) * 46))}px;background:#cfcfcf"></div><div style="height:${Math.max(2, Math.round((d.visitors / mx) * 46))}px;margin-top:-${Math.max(2, Math.round((d.visitors / mx) * 46))}px;width:50%;margin-left:25%;background:#111111"></div></td>`;
     const kpi = (l, x) => `<td style="padding:0 14px 0 0;vertical-align:top"><div style="font:600 24px/28px Georgia,serif;color:#1a1a1a">${x}</div><div style="font:11px/15px Georgia,serif;color:#777">${l}</div></td>`;
     const line = (sh) => `<tr><td style="padding:3px 0;font:13px/19px Georgia,serif;color:#333"><span style="color:#777">${esc(sh.title)}:</span> ${sh.rows.map((r) => `${esc(r.name)} <b>${r.visitors}</b>`).join(' · ')}</td></tr>`;
     out += head('Відвідування платформи за 7 днів')
       + `<tr><td style="padding-top:2px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>${kpi('відвідувачі', vp.visitors)}${kpi('перегляди', vp.views)}${kpi('переглядів на відвідувача', vp.perVisitor)}${kpi('країн', vp.countryCount)}</tr></table></td></tr>`
       + (vp.change == null ? '' : note(`${vp.change >= 0 ? '+' : '−'}${Math.abs(vp.change)}% відвідувачів до попередніх 7 днів`))
       + `<tr><td style="padding-top:8px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr style="height:50px">${vp.daily.map(col).join('')}</tr><tr>${vp.daily.map((d) => `<td style="text-align:center;font:10px Georgia,serif;color:#777;padding-top:3px">${esc(d.label)}</td>`).join('')}</tr></table></td></tr>`
-      + note('<span style="color:#8c1c32">■</span> відвідувачі &nbsp; <span style="color:#d9c9a8">■</span> перегляди')
+      + note('<span style="color:#111111">■</span> відвідувачі &nbsp; <span style="color:#cfcfcf">■</span> перегляди')
       + vp.shares.map(line).join('')
       + note('Сайт reactioncore.uk · без cookies і IP-адрес. Повні таблиці — у «Доступи → Відвідування».');
   }
