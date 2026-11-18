@@ -91,6 +91,8 @@ ${others.map(([, s]) => `<a class="lnk" href="${s.path}">${esc(L(s.k).charAt(0) 
 //   a click / Enter: scrolled to, framed and the rest dimmed until a click outside, Esc, or the reader scrolls by hand.
 // On a phone (no hover) a tap scrolls to the section and lights it for 1.5 s.
 const REDUCED = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// The page's own CSS scrolls smoothly (html { scroll-behavior: smooth }), so «auto» would glide too: reduced motion jumps.
+const HOW = () => (REDUCED() ? 'instant' : 'smooth');
 const TOUCH = () => window.matchMedia('(hover: none), (max-width: 768px)').matches;
 function liveSample() {
   const spec = root.querySelector('.spec--real');
@@ -100,7 +102,9 @@ function liveSample() {
   const pages = [...spec.querySelectorAll('.pg')];
   const st = { act: 0, hov: 0, pin: 0 };
   let leave = 0; let fade = 0;
-  const draw = () => {
+  // follow: keep the current call-out in view inside the list — not when the pointer is in the list (it would slide
+  // another call-out under the cursor).
+  const draw = (follow = true) => {
     const shown = st.pin || st.hov || st.act;
     const dim = Boolean(st.pin || st.hov);
     spec.classList.toggle('is-dim', dim);
@@ -123,31 +127,35 @@ function liveSample() {
     });
     // The current call-out kept in view inside the (sticky, scrolling) list.
     const li = notes.querySelector(`[data-note="${shown}"]`);
-    if (li && notes.scrollHeight > notes.clientHeight + 4) {
-      const top = li.offsetTop - notes.offsetTop; const bot = top + li.offsetHeight;
-      if (top < notes.scrollTop || bot > notes.scrollTop + notes.clientHeight) notes.scrollTo({ top: Math.max(0, top - notes.clientHeight / 3), behavior: REDUCED() ? 'auto' : 'smooth' });
+    if (follow && li && notes.scrollHeight > notes.clientHeight + 4) {
+      const top = li.getBoundingClientRect().top - notes.getBoundingClientRect().top + notes.scrollTop;
+      const bot = top + li.offsetHeight;
+      if (top < notes.scrollTop || bot > notes.scrollTop + notes.clientHeight) notes.scrollTo({ top: Math.max(0, top - notes.clientHeight / 3), behavior: HOW() });
     }
   };
-  const hover = (n) => { clearTimeout(leave); if (st.hov !== n) { st.hov = n; draw(); } };
+  const inList = (el) => Boolean(el?.closest?.('.notes'));
+  const hover = (n, from) => { clearTimeout(leave); if (st.hov !== n) { st.hov = n; draw(!inList(from)); } };
   // Leaving a call-out waits a moment: moving to the next one hands the light over instead of switching it off.
-  const unhover = () => { clearTimeout(leave); leave = setTimeout(() => { st.hov = 0; draw(); }, 140); };
+  const unhover = () => { clearTimeout(leave); leave = setTimeout(() => { if (st.hov) { st.hov = 0; draw(false); } }, 140); };
   const unpin = () => { if (!st.pin) return; clearTimeout(fade); st.pin = 0; draw(); };
-  const pin = (n) => {
+  const pin = (n, from) => {
     clearTimeout(fade);
-    st.pin = n; st.hov = 0; draw();
-    secs.find((el) => +el.dataset.section === n)?.scrollIntoView({ behavior: REDUCED() ? 'auto' : 'smooth', block: 'center' });
+    st.pin = n; st.hov = 0; draw(!inList(from));
+    secs.find((el) => +el.dataset.section === n)?.scrollIntoView({ behavior: HOW(), block: 'center' });
     if (TOUCH()) fade = setTimeout(unpin, 1500); // a tap lights it for a moment
   };
   const num = (e) => { const el = e.target.closest('[data-note], .pg-m'); return el ? +(el.dataset.note || el.dataset.section) : 0; };
   // Hover is a mouse's; a finger's «hover» is a tap.
-  spec.addEventListener('pointerover', (e) => { if (e.pointerType === 'mouse' && num(e)) hover(num(e)); });
-  spec.addEventListener('pointerout', (e) => { if (e.pointerType === 'mouse' && num(e)) unhover(); });
-  spec.addEventListener('focusin', (e) => { if (num(e)) hover(num(e)); });
+  // Over anything else in the block (a gap between call-outs, the page itself) the light goes after a moment — unless
+  // the pointer reaches the next call-out first; leaving the block, the same.
+  spec.addEventListener('pointerover', (e) => { if (e.pointerType !== 'mouse') return; const n = num(e); if (n) hover(n, e.target); else if (st.hov) unhover(); });
+  spec.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') unhover(); });
+  spec.addEventListener('focusin', (e) => { if (num(e)) hover(num(e), e.target); });
   spec.addEventListener('focusout', (e) => { if (num(e)) unhover(); });
-  spec.addEventListener('click', (e) => { const n = num(e); if (n) { e.preventDefault(); pin(n); } });
+  spec.addEventListener('click', (e) => { const n = num(e); if (n) { e.preventDefault(); pin(n, e.target); } });
   spec.addEventListener('keydown', (e) => {
     const n = num(e);
-    if (n && (e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-note]')) { e.preventDefault(); pin(n); }
+    if (n && (e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-note]')) { e.preventDefault(); pin(n, e.target); }
   });
   const onKey = (e) => { if (e.key === 'Escape') { st.hov = 0; clearTimeout(leave); unpin(); draw(); } };
   const onDown = (e) => { if (st.pin && !e.target.closest('.spec--real')) unpin(); };
@@ -180,7 +188,7 @@ if (svc) {
   pick();
   window.addEventListener('hashchange', () => {
     pick();
-    if (window.matchMedia('(max-width: 900px)').matches) document.querySelector('.svc-spec')?.scrollIntoView({ behavior: REDUCED() ? 'auto' : 'smooth', block: 'start' });
+    if (window.matchMedia('(max-width: 900px)').matches) document.querySelector('.svc-spec')?.scrollIntoView({ behavior: HOW(), block: 'start' });
   });
   // The structure sketch (a product without a sample yet): a call-out and its block light up together.
   root.addEventListener('mouseover', (e) => {

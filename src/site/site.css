@@ -250,3 +250,4 @@ html{scroll-behavior:smooth}
 a.col{display:block;color:inherit}
 .col .go{display:inline-flex;gap:6px;margin-top:18px;font-size:14px;color:var(--ink-2);transition:color 200ms}
 a.col:hover .go{color:var(--ink)}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
