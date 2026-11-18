@@ -466,8 +466,9 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 .notes li span:not(.sp-n){color:var(--ink-2);font-size:14px;line-height:21px}
 .notes li.hi{background:rgba(255,255,255,.06)}
 .sp-b.hi{background:rgba(0,0,0,.07)}
-.svc-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 40px;margin:32px 0 0;padding-top:24px;border-top:1px solid var(--line)}
-.svc-meta .m-who,.svc-meta .m-gets{grid-column:auto}.svc-meta .m-sources{grid-column:1/-1}
+.svc-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"who gets" "who size" "src lim";gap:20px 40px;margin:32px 0 0;padding-top:24px;border-top:1px solid var(--line)}
+.svc-meta .m-who{grid-area:who}.svc-meta .m-gets{grid-area:gets}.svc-meta .m-size{grid-area:size}.svc-meta .m-sources{grid-area:src}.svc-meta .m-limits{grid-area:lim}
+.svc-meta .m-sources,.svc-meta .m-limits{padding-top:20px;border-top:1px solid var(--line)}
 .svc-meta dd{line-height:23px}
 .svc-meta dt{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
 .svc-meta dd{margin:4px 0 0;color:var(--ink);font-size:15px}
@@ -492,7 +493,7 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 .std .n{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;color:var(--ink-3)}
 .std b{display:block;margin:12px 0 8px;font-weight:500;color:var(--ink);font-size:16px}
 .std p{margin:0;color:var(--ink-2);font-size:14px;line-height:22px}
-@media (max-width:900px){.std-g{grid-template-columns:1fr}.svc-meta{grid-template-columns:1fr}}
+@media (max-width:900px){.std-g{grid-template-columns:1fr}.svc-meta{grid-template-columns:1fr;grid-template-areas:"who" "gets" "size" "src" "lim"}}
 .svc-dl{display:flex;justify-content:space-between;align-items:center;gap:12px 20px;flex-wrap:wrap;margin-top:20px}
 .svc-dl-b{display:flex;gap:8px;flex-wrap:wrap}
 .spec--real{grid-template-columns:minmax(0,1.7fr) minmax(0,1fr)}
