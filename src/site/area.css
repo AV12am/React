@@ -493,3 +493,16 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 .std b{display:block;margin:12px 0 8px;font-weight:500;color:var(--ink);font-size:16px}
 .std p{margin:0;color:var(--ink-2);font-size:14px;line-height:22px}
 @media (max-width:900px){.std-g{grid-template-columns:1fr}.svc-meta{grid-template-columns:1fr}}
+.svc-dl{display:flex;justify-content:space-between;align-items:center;gap:12px 20px;flex-wrap:wrap;margin-top:20px}
+.svc-dl-b{display:flex;gap:8px;flex-wrap:wrap}
+.spec--real{grid-template-columns:minmax(0,1.7fr) minmax(0,1fr)}
+.spec--real .notes{position:sticky;top:110px}
+.spec--real .notes li{cursor:pointer}
+.pages{display:grid;gap:18px}
+.pg{position:relative;background:#fff;border-radius:4px;box-shadow:0 30px 80px rgba(0,0,0,.5);overflow:hidden}
+.pg img{display:block;width:100%;height:auto;aspect-ratio:1190/1684}
+.pg-m{position:absolute;width:20px;height:20px;font-size:10px;background:#0a0a0a;color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.9);transition:transform 200ms,background 200ms}
+.pg-m.hi{transform:scale(1.45)}
+.notes li.hi .sp-n{box-shadow:0 0 0 3px rgba(255,255,255,.25)}
+.svc-p b em.has-sample{color:var(--ink);border:1px solid var(--line-2);border-radius:999px;padding:1px 6px}
+@media (max-width:1100px){.spec--real{grid-template-columns:1fr}.spec--real .notes{position:static}}

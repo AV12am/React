@@ -199,6 +199,73 @@ export const STANDARDS = [
 ];
 
 export const WORDS = {
-  en: { products: 'Products', example: 'Example', soon: 'A sample of this product is being prepared. For now — its structure: what each part of the document gives you.', who: 'Who it is for', question: 'The question', gets: 'You get', size: 'Length · turnaround', sources: 'Sources', limits: 'Limits', discuss: 'Discuss a task', other: 'Other services', standards: 'Every product', standardsLead: 'Built to one format: the answer on the first page, then the decision, the reasoning and the sources.' },
-  uk: { products: 'Продукти', example: 'Приклад', soon: 'Зразок цього продукту готується. Поки що — його структура: що дає кожна частина документа.', who: 'Для кого', question: 'Питання', gets: 'Ви отримуєте', size: 'Обсяг · строк', sources: 'Джерела', limits: 'Межі', discuss: 'Обговорити задачу', other: 'Інші послуги', standards: 'Кожен продукт', standardsLead: 'Один формат: відповідь на першій сторінці, далі рішення, обґрунтування й джерела.' },
+  en: { sample: 'Sample', pdf: 'Download PDF', pdfEn: 'English', pdfUk: 'Українська', fromSample: 'Call-outs on the real document. The sample is built on public information only.', products: 'Products', example: 'Example', soon: 'A sample of this product is being prepared. For now — its structure: what each part of the document gives you.', who: 'Who it is for', question: 'The question', gets: 'You get', size: 'Length · turnaround', sources: 'Sources', limits: 'Limits', discuss: 'Discuss a task', other: 'Other services', standards: 'Every product', standardsLead: 'Built to one format: the answer on the first page, then the decision, the reasoning and the sources.' },
+  uk: { sample: 'Зразок', pdf: 'Завантажити PDF', pdfEn: 'English', pdfUk: 'Українська', fromSample: 'Виноски — на справжньому документі. Зразок зроблено лише з публічної інформації.', products: 'Продукти', example: 'Приклад', soon: 'Зразок цього продукту готується. Поки що — його структура: що дає кожна частина документа.', who: 'Для кого', question: 'Питання', gets: 'Ви отримуєте', size: 'Обсяг · строк', sources: 'Джерела', limits: 'Межі', discuss: 'Обговорити задачу', other: 'Інші послуги', standards: 'Кожен продукт', standardsLead: 'Один формат: відповідь на першій сторінці, далі рішення, обґрунтування й джерела.' },
+};
+
+// Ready samples: the real documents (their pages as pictures, the PDFs to download) with call-outs placed on them.
+// marks: [page, x, y] — where each part begins on its page (fractions of the page), one per part, per language.
+export const SAMPLES = {
+  'verification-note': {
+    code: 'VN-001', dir: '/products/vn-001', pages: { en: 2, uk: 2 },
+    title: t('Did North Korea steal $6.3 billion from Binance?', 'Чи вкрала Північна Корея $6,3 млрд у Binance?'),
+    pdf: { en: '/products/Reaction_VN-001_Binance.pdf', uk: '/products/Reaction_VN-001_Binance_UA.pdf' },
+    parts: [
+      [t('The claim', 'Твердження'), t('The question, and the claim word for word as it spread — with its variants.', 'Питання й саме твердження дослівно, як воно поширювалося, — разом із варіантами.')],
+      [t('Verdict and probability', 'Вердикт і ймовірність'), t('One of four verdicts on the core claim, the probability and the confidence — and why it is not 100%.', 'Один із чотирьох вердиктів щодо основного твердження, ймовірність і рівень довіри — і чому не 100%.')],
+      [t('For your decision', 'Для вашого рішення'), t('What to do about it: what to screen, where the attack came in, your exposure.', 'Що з цим робити: що перевіряти, звідки прийшла атака, ваша вразливість.')],
+      [t('What we checked, part by part', 'Що ми перевірили, по частинах'), t('Each part of the claim gets its own verdict and basis — two popular variants turn out wrong.', 'Кожна частина твердження — з власним вердиктом і підставою; дві поширені версії виявляються хибними.')],
+      [t('How it unfolded', 'Як це розгорталося'), t('The timeline of the attack, from preparation to attribution.', 'Хронологія атаки — від підготовки до атрибуції.')],
+      [t('Evidence for and against', 'Докази за і проти'), t('The evidence for the attribution, numbered — and what speaks against it.', 'Пронумеровані докази на користь атрибуції — і що свідчить проти.')],
+      [t('What remains open', 'Що лишається відкритим'), t('What the sources cannot yet show.', 'Чого джерела поки показати не можуть.')],
+      [t('What would change the verdict', 'Що змінило б вердикт'), t('The signal that would move the verdict — and whether it has been seen.', 'Сигнал, що змінив би вердикт, — і чи його вже видно.')],
+      [t('Sources', 'Джерела'), t('Every source with its date and its grade on the A1–F6 scale.', 'Кожне джерело — з датою й оцінкою за шкалою A1–F6.')],
+    ],
+    marks: {
+      en: [[0, 0.071, 0.099], [0, 0.089, 0.243], [0, 0.089, 0.439], [0, 0.071, 0.581], [1, 0.071, 0.079], [1, 0.089, 0.226], [1, 0.524, 0.315], [1, 0.089, 0.476], [1, 0.071, 0.553]],
+      uk: [[0, 0.071, 0.099], [0, 0.089, 0.243], [0, 0.089, 0.452], [0, 0.071, 0.61], [1, 0.071, 0.079], [1, 0.089, 0.226], [1, 0.524, 0.331], [1, 0.089, 0.492], [1, 0.071, 0.585]],
+    },
+  },
+  'counterparty-screening': {
+    code: 'CS-001', dir: '/products/cs-001', pages: { en: 2, uk: 2 },
+    title: t('Jaguar Land Rover Limited', 'Jaguar Land Rover Limited'),
+    pdf: { en: '/products/Reaction_CS-001_Jaguar_Land_Rover.pdf', uk: '/products/Reaction_CS-001_Jaguar_Land_Rover_UA.pdf' },
+    parts: [
+      [t('The company and the purpose', 'Компанія й мета перевірки'), t('Who is checked, by the register — and why: the deal the check is for.', 'Кого перевіряємо за реєстром — і навіщо: угода, для якої перевірка.')],
+      [t('Bottom line', 'Головне'), t('Proceed, Proceed with conditions or Do not proceed — with the grid in one line.', 'Proceed, Proceed with conditions або Do not proceed — і підсумок таблиці одним рядком.')],
+      [t('Conditions to proceed', 'Умови для співпраці'), t('What to put in the contract and in your insurance before signing.', 'Що закласти в договір і страховку до підписання.')],
+      [t('Red-flag grid', 'Таблиця ризиків'), t('Every area — Clear, Note, Flag or Not run — with the finding and its source.', 'Кожна сфера — Clear, Note, Flag або Not run — з висновком і джерелом.')],
+      [t('Findings', 'Факти'), t('The facts behind the flags, numbered, each with its source.', 'Факти за прапорцями — пронумеровані, кожен із джерелом.')],
+      [t('Not checked · Scope', 'Не перевірено · Обсяг'), t('What lies outside this check, said plainly — and what was in it.', 'Що лишилося поза перевіркою — прямо, і що в неї входило.')],
+      [t('Sources', 'Джерела'), t('Every register and report, with its date and grade.', 'Кожен реєстр і звіт — з датою й оцінкою.')],
+    ],
+    marks: {
+      en: [[0, 0.071, 0.099], [0, 0.089, 0.185], [0, 0.089, 0.39], [0, 0.071, 0.535], [1, 0.071, 0.079], [1, 0.089, 0.319], [1, 0.071, 0.5]],
+      uk: [[0, 0.071, 0.099], [0, 0.089, 0.185], [0, 0.089, 0.393], [0, 0.071, 0.553], [1, 0.071, 0.079], [1, 0.089, 0.35], [1, 0.071, 0.525]],
+    },
+  },
+  'country-market-risk-brief': {
+    code: 'CR-001', dir: '/products/cr-001', pages: { en: 4 },
+    title: t('Poland 2027: strong economy, weak public finances, an election in the autumn', 'Польща 2027: сильна економіка, слабкі публічні фінанси, вибори восени'),
+    pdf: { en: '/products/Reaction_CR-001_Poland_2027.pdf' },
+    parts: [
+      [t('The question and the client', 'Питання й клієнт'), t('The market, the horizon and who the brief is prepared for.', 'Ринок, горизонт і для кого підготовлено огляд.')],
+      [t('Key figures', 'Ключові цифри'), t('Four numbers that set the scene, each with its source.', 'Чотири цифри, що задають картину, — кожна з джерелом.')],
+      [t('Bottom line', 'Головне'), t('Where the risk is and where it is not, with the base case and the main downside.', 'Де ризик є і де його немає — з базовим сценарієм і головним негативним.')],
+      [t('Scenarios at a glance', 'Сценарії коротко'), t('Three scenarios with probabilities to two decimals, summing to 100%.', 'Три сценарії з імовірностями до сотих, що разом дають 100%.')],
+      [t('For your decision', 'Для вашого рішення'), t('What to do: timing, hedging, the trigger to review.', 'Що робити: терміни, хеджування, тригер для перегляду.')],
+      [t('Key judgements', 'Ключові судження'), t('The four judgements the assessment rests on.', 'Чотири судження, на яких тримається оцінка.')],
+      [t('Risk scorecard', 'Шкала ризиків'), t('Every area on a 1–5 scale, with its trend and why.', 'Кожна сфера за шкалою 1–5 — з напрямком і поясненням.')],
+      [t('Key data and ratings', 'Ключові дані й рейтинги'), t('The indicators for three years and every sovereign rating with its last action.', 'Показники за три роки й кожен суверенний рейтинг з останньою дією.')],
+      [t('Security context', 'Безпековий контекст'), t('What a company on the ground should know — open-source context, not a threat assessment.', 'Що варто знати компанії на місці, — контекст із відкритих джерел, не оцінка загроз.')],
+      [t('Scenarios in detail', 'Сценарії докладно'), t('What happens, why this probability, what it means for you — for each scenario.', 'Що відбувається, чому така ймовірність, що це означає для вас — для кожного сценарію.')],
+      [t('Outside the scenarios', 'Поза сценаріями'), t('What would override all three — tracked, not given a probability.', 'Що перекреслило б усі три, — відстежується, без імовірності.')],
+      [t('Signal panel', 'Сигнальна панель'), t('Each signal: where it is now, its threshold, the scenario it points to.', 'Кожен сигнал: де він зараз, його поріг і сценарій, на який він вказує.')],
+      [t('Calendar', 'Календар'), t('The dates in the year ahead that can move the picture.', 'Дати наступного року, що можуть змінити картину.')],
+      [t('Sources', 'Джерела'), t('Every source with its date and grade.', 'Кожне джерело — з датою й оцінкою.')],
+    ],
+    marks: {
+      en: [[0, 0.071, 0.099], [0, 0.087, 0.19], [0, 0.089, 0.287], [0, 0.089, 0.415], [0, 0.567, 0.415], [0, 0.089, 0.61], [1, 0.071, 0.079], [1, 0.071, 0.36], [1, 0.089, 0.588], [2, 0.071, 0.079], [2, 0.089, 0.617], [3, 0.071, 0.079], [3, 0.071, 0.339], [3, 0.071, 0.456]],
+    },
+  },
 };

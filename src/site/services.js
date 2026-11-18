@@ -5,7 +5,7 @@ import './site.css';
 import './area.css';
 import './chrome.js';
 import { lang as siteLang } from './i18n.js';
-import { SERVICES, STANDARDS, WORDS } from './services-data.js';
+import { SERVICES, STANDARDS, SAMPLES, WORDS } from './services-data.js';
 
 const lang = siteLang === 'uk' ? 'uk' : 'en';
 const L = (v) => (v && typeof v === 'object' ? v[lang] || v.en : v || '');
@@ -33,8 +33,17 @@ function block(part, i) {
   return `<div class="sp-b" data-part="${i}">${n}<div class="sp-h"></div>${viz}<div class="sp-l">${lines(viz ? 2 : 3)}</div></div>`;
 }
 
+// A ready sample: its pages one under another, each part's number placed where that part begins on the page.
+function samplePages(sm) {
+  const pl = sm.pages[lang] ? lang : 'en';
+  const marks = sm.marks[pl];
+  return Array.from({ length: sm.pages[pl] }, (_, i) => `<div class="pg"><img src="${sm.dir}/${pl}-${i + 1}.png" alt="${esc(`${sm.code} · ${i + 1}/${sm.pages[pl]}`)}" width="1190" height="1684"${i ? ' loading="lazy"' : ''}>${marks.map((m, k) => (m[0] === i ? `<span class="pg-m sp-n" data-part="${k}" style="left:${Math.max(0.5, m[1] * 100 - 4.6).toFixed(1)}%;top:${(m[2] * 100 - 0.4).toFixed(1)}%">${k + 1}</span>` : '')).join('')}</div>`).join('');
+}
+
 function draw(id) {
   const p = svc.products.find((x) => x.id === id) || svc.products[0];
+  const sm = SAMPLES[p.id];
+  const parts = sm ? sm.parts : p.parts;
   const others = Object.entries(SERVICES).filter(([k]) => k !== key);
   root.innerHTML = `
 <section class="wrap area-hero svc-hero">
@@ -45,17 +54,17 @@ function draw(id) {
 </section>
 <section class="wrap svc-show" aria-label="${esc(W.products)}">
 <div class="svc-spec">
-<div class="svc-spec-h"><span class="meta">${esc(W.example)}${p.level ? ` · ${esc(L(p.level))}` : ''}</span><h2>${esc(p.name)}</h2><p>${esc(L(p.question))}</p></div>
-${p.sample ? '' : `<p class="svc-soon">${esc(W.soon)}</p>`}
-<div class="spec">
-<div class="sheet" aria-hidden="true"><div class="sh-top"><span class="sh-mark"></span><span class="sh-title">${esc(p.name)}</span></div>${p.parts.map(block).join('')}</div>
-<ol class="notes">${p.parts.map((x, i) => `<li data-part="${i}"><span class="sp-n">${i + 1}</span><div><b>${esc(L(x[0]))}</b><span>${esc(L(x[1]))}</span></div></li>`).join('')}</ol>
+<div class="svc-spec-h"><span class="meta">${sm ? `${esc(W.sample)} · ${esc(sm.code)}` : esc(W.example)}${p.level ? ` · ${esc(L(p.level))}` : ''}</span><h2>${esc(p.name)}</h2><p>${esc(L(p.question))}</p></div>
+${sm ? `<div class="svc-dl"><span class="meta">${esc(W.fromSample)}</span><span class="svc-dl-b">${Object.entries(sm.pdf).map(([k, u]) => `<a class="btn btn-line" href="${u}" download>${esc(W.pdf)} · ${esc(k === 'uk' ? W.pdfUk : W.pdfEn)}</a>`).join('')}</span></div>` : `<p class="svc-soon">${esc(W.soon)}</p>`}
+<div class="spec${sm ? ' spec--real' : ''}">
+${sm ? `<div class="pages">${samplePages(sm)}</div>` : `<div class="sheet" aria-hidden="true"><div class="sh-top"><span class="sh-mark"></span><span class="sh-title">${esc(p.name)}</span></div>${parts.map(block).join('')}</div>`}
+<ol class="notes">${parts.map((x, i) => `<li data-part="${i}"><span class="sp-n">${i + 1}</span><div><b>${esc(L(x[0]))}</b><span>${esc(L(x[1]))}</span></div></li>`).join('')}</ol>
 </div>
 <dl class="svc-meta">${['who', 'gets', 'size', 'sources', 'limits'].map((f) => `<div class="m-${f}"><dt>${esc(W[f])}</dt><dd>${esc(L(p[f]))}</dd></div>`).join('')}</dl>
 </div>
 <aside class="svc-list">
 <span class="meta">${esc(W.products)}</span>
-${svc.products.map((x) => `<a class="svc-p${x.id === p.id ? ' on' : ''}" href="#${x.id}" data-id="${x.id}"${x.id === p.id ? ' aria-current="true"' : ''}><b>${esc(x.name)}${x.level ? ` <em>${esc(L(x.level))}</em>` : ''}</b><span>${esc(L(x.question))}</span></a>`).join('')}
+${svc.products.map((x) => `<a class="svc-p${x.id === p.id ? ' on' : ''}" href="#${x.id}" data-id="${x.id}"${x.id === p.id ? ' aria-current="true"' : ''}><b>${esc(x.name)}${x.level ? ` <em>${esc(L(x.level))}</em>` : ''}${SAMPLES[x.id] ? ` <em class="has-sample">${esc(W.sample)}</em>` : ''}</b><span>${esc(L(x.question))}</span></a>`).join('')}
 <span class="meta svc-other">${esc(W.other)}</span>
 ${others.map(([, s]) => `<a class="lnk" href="${s.path}">${esc(L(s.k).charAt(0) + L(s.k).slice(1).toLowerCase())} <span class="ar">→</span></a>`).join('')}
 </aside>
@@ -78,6 +87,11 @@ if (svc) {
     const el = e.target.closest('[data-part]');
     const k = el?.dataset.part;
     root.querySelectorAll('[data-part]').forEach((x) => x.classList.toggle('hi', k != null && x.dataset.part === k));
+  });
+  root.addEventListener('click', (e) => {
+    const li = e.target.closest('.notes li[data-part]');
+    const m = li && root.querySelector(`.pg-m[data-part="${li.dataset.part}"]`);
+    if (m) m.scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
   root.addEventListener('mouseleave', () => root.querySelectorAll('[data-part].hi').forEach((x) => x.classList.remove('hi')));
 }
