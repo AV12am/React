@@ -497,13 +497,30 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 .svc-dl{display:flex;justify-content:space-between;align-items:center;gap:12px 20px;flex-wrap:wrap;margin-top:20px}
 .svc-dl-b{display:flex;gap:8px;flex-wrap:wrap}
 .spec--real{grid-template-columns:minmax(0,1.7fr) minmax(0,1fr)}
-.spec--real .notes{position:sticky;top:110px}
-.spec--real .notes li{cursor:pointer}
 .pages{display:grid;gap:18px}
 .pg{position:relative;background:#fff;border-radius:4px;box-shadow:0 30px 80px rgba(0,0,0,.5);overflow:hidden}
 .pg img{display:block;width:100%;height:auto;aspect-ratio:1190/1684}
-.pg-m{position:absolute;width:20px;height:20px;font-size:10px;background:#0a0a0a;color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.9);transition:transform 200ms,background 200ms}
-.pg-m.hi{transform:scale(1.45)}
-.notes li.hi .sp-n{box-shadow:0 0 0 3px rgba(255,255,255,.25)}
 .svc-p b em.has-sample{color:var(--ink);border:1px solid var(--line-2);border-radius:999px;padding:1px 6px}
-@media (max-width:1100px){.spec--real{grid-template-columns:1fr}.spec--real .notes{position:static}}
+
+/* A sample's sections and call-outs, highlighted together (src/site/services.js · liveSample) */
+.spec--real .notes{position:sticky;top:110px;max-height:calc(100vh - 130px);overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.notes--live li{cursor:pointer;outline:none;transition:background 180ms ease-out}
+.notes--live li .sp-n{background:transparent;color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line-2);transition:background 180ms ease-out,color 180ms ease-out,box-shadow 180ms ease-out}
+.notes--live li b{color:var(--ink-2);transition:color 180ms ease-out}
+.notes--live li span:not(.sp-n){color:var(--ink-3);transition:color 180ms ease-out}
+.notes--live li.on{background:rgba(255,255,255,.05)}
+.notes--live li.on .sp-n{background:var(--ink);color:#0a0a0a;box-shadow:none}
+.notes--live li.on b{color:var(--ink)}
+.notes--live li.on span:not(.sp-n){color:var(--ink-2)}
+.notes--live li:focus-visible{box-shadow:inset 0 0 0 1px var(--ink)}
+.pg .sec{position:absolute;border:1px solid transparent;border-radius:6px;pointer-events:none;transition:border-color 180ms ease-out}
+.pg .sec.on{border-color:#111}
+.pg .spot{position:absolute;border-radius:6px;pointer-events:none;opacity:0;box-shadow:0 0 0 200vmax rgba(10,10,10,.65);transition:opacity 180ms ease-out,left 180ms ease-out,top 180ms ease-out,width 180ms ease-out,height 180ms ease-out}
+.pg .spot.on{opacity:1}
+.pg::after{content:'';position:absolute;inset:0;background:rgba(10,10,10,.65);opacity:0;pointer-events:none;transition:opacity 180ms ease-out}
+.pg.pg-dim::after{opacity:1}
+.pg-m{position:absolute;z-index:2;width:20px;height:20px;padding:0;border:0;font-size:10px;line-height:20px;text-align:center;background:#0a0a0a;color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.9);cursor:pointer;transition:box-shadow 180ms ease-out}
+.pg-m.on{box-shadow:0 0 0 3px #fff,0 0 0 4px #111}
+.pg-m:focus-visible{outline:2px solid #111;outline-offset:3px}
+@media (max-width:1100px){.spec--real{grid-template-columns:1fr}.spec--real .notes{position:static;max-height:none;overflow:visible}}
+@media (prefers-reduced-motion: reduce){.notes--live li,.notes--live li .sp-n,.notes--live li b,.notes--live li span,.pg .sec,.pg .spot,.pg::after,.pg-m{transition:none !important}}

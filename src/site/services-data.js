@@ -205,9 +205,14 @@ export const WORDS = {
 
 // Ready samples: the real documents (their pages as pictures, the PDFs to download) with call-outs placed on them.
 // marks: [page, x, y] — where each part begins on its page (fractions of the page), one per part, per language.
+// ends: where the text of each page ends (above its running footer). A part's section on the page runs from its mark to
+// the next part's mark (or the page's end); two parts side by side split the width. boxes: [page, x0, y0, x1, y1] where
+// the layout is not that simple (a part beside another part's column).
 export const SAMPLES = {
   'verification-note': {
     code: 'VN-001', dir: '/products/vn-001', pages: { en: 2, uk: 2 },
+    ends: { en: [0.801, 0.749], uk: [0.855, 0.781] },
+    boxes: { en: { 5: [1, 0.045, 0.212, 0.955, 0.462], 6: [1, 0.504, 0.301, 0.955, 0.462] }, uk: { 5: [1, 0.045, 0.212, 0.955, 0.478], 6: [1, 0.504, 0.317, 0.955, 0.478] } },
     title: t('Did North Korea steal $6.3 billion from Binance?', 'Чи вкрала Північна Корея $6,3 млрд у Binance?'),
     pdf: { en: '/products/Reaction_VN-001_Binance.pdf', uk: '/products/Reaction_VN-001_Binance_UA.pdf' },
     parts: [
@@ -228,6 +233,7 @@ export const SAMPLES = {
   },
   'counterparty-screening': {
     code: 'CS-001', dir: '/products/cs-001', pages: { en: 2, uk: 2 },
+    ends: { en: [0.811, 0.695], uk: [0.904, 0.721] },
     title: t('Jaguar Land Rover Limited', 'Jaguar Land Rover Limited'),
     pdf: { en: '/products/Reaction_CS-001_Jaguar_Land_Rover.pdf', uk: '/products/Reaction_CS-001_Jaguar_Land_Rover_UA.pdf' },
     parts: [
@@ -246,6 +252,7 @@ export const SAMPLES = {
   },
   'country-market-risk-brief': {
     code: 'CR-001', dir: '/products/cr-001', pages: { en: 4, uk: 4 },
+    ends: { en: [0.79, 0.686, 0.667, 0.709], uk: [0.833, 0.768, 0.704, 0.748] },
     title: t('Poland 2027: strong economy, weak public finances, an election in the autumn', 'Польща 2027: сильна економіка, слабкі публічні фінанси, вибори восени'),
     pdf: { en: '/products/Reaction_CR-001_Poland_2027.pdf', uk: '/products/Reaction_CR-001_Poland_2027_UA.pdf' },
     parts: [
