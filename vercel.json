@@ -225,6 +225,18 @@
     {
       "source": "/careers",
       "destination": "/careers.html"
+    },
+    {
+      "source": "/osint",
+      "destination": "/osint.html"
+    },
+    {
+      "source": "/risk",
+      "destination": "/risk.html"
+    },
+    {
+      "source": "/due-diligence",
+      "destination": "/due-diligence.html"
     }
   ],
   "redirects": [
