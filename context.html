@@ -13,9 +13,13 @@
 <!-- @header -->
 <div class="wrap" id="gate" hidden></div>
 <main id="area" hidden>
-<nav class="seg" aria-label="Sections"><div class="wrap"><a href="#digest" class="on" data-s="digest">Digest</a><a href="#articles" data-s="articles">Articles</a><span class="sp"></span><span class="meta seg-meta" id="issue-meta">Loading the latest issue…</span><a href="/news">Full issue <span class="ar">→</span></a></div></nav>
+<nav class="seg" aria-label="Sections"><div class="wrap"><a href="#digest" class="on" data-s="digest">Digest</a><a href="#articles" data-s="articles">Articles</a><span class="sp"></span><span class="meta seg-meta" id="issue-meta">Loading the latest issue…</span><a href="/news">Full issue <span class="ar">→</span></a><a href="#archive" data-go="archive">Archive</a></div></nav>
 <section class="wrap blk ctx-first" id="digest" aria-label="Digest">
 <div id="digest-body" data-no-i18n></div>
+</section>
+<section class="wrap blk" id="archive" aria-labelledby="arch-h" hidden>
+<div class="blk-h"><h2 id="arch-h">Archive</h2><span class="meta">Every day's issue as a PDF. Pick a day in the calendar.</span></div>
+<div id="arch-body" data-no-i18n></div>
 </section>
 <section class="wrap blk" id="articles" aria-labelledby="ar-h">
 <div class="blk-h"><h2 id="ar-h">Articles</h2><span class="meta">Analysis grounded in research: a topic taken apart, a review of studies, how a mechanism works.</span></div>

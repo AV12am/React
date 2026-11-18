@@ -5,6 +5,7 @@ import './area.css';
 import './chrome.js';
 import { lang as siteLang } from './i18n.js';
 import { guard } from './auth.js';
+import { newsPdf, thumb, localize, issueFileName } from '../lib/newsExport.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const day = (d) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Kyiv' });
@@ -14,21 +15,25 @@ const safeUrl = (u) => (/^https:\/\//i.test(u || '') || /^\/[^/]/.test(u || '') 
 const tabs = [...document.querySelectorAll('.seg a[data-s]')];
 function showTab(id) {
   tabs.forEach((t) => t.classList.toggle('on', t.dataset.s === id));
-  ['digest', 'articles'].forEach((k) => { const el = document.getElementById(k); if (el) el.hidden = k !== id; });
+  document.querySelectorAll('[data-go]').forEach((g) => g.classList.toggle('on', g.dataset.go === id));
+  ['digest', 'articles', 'archive'].forEach((k) => { const el = document.getElementById(k); if (el) el.hidden = k !== id; });
   const meta = document.getElementById('issue-meta');
   if (meta) meta.style.visibility = id === 'digest' ? '' : 'hidden';
 }
-tabs.forEach((t) => t.addEventListener('click', (e) => { e.preventDefault(); showTab(t.dataset.s); history.replaceState(null, '', t.dataset.s === 'digest' ? location.pathname + location.search : `#${t.dataset.s}`); }));
-showTab(location.hash === '#articles' ? 'articles' : 'digest');
+const open = (id) => { showTab(id); history.replaceState(null, '', id === 'digest' ? location.pathname + location.search : `#${id}`); if (id === 'archive') archive(); };
+tabs.forEach((t) => t.addEventListener('click', (e) => { e.preventDefault(); open(t.dataset.s); }));
+document.addEventListener('click', (e) => { const g = e.target.closest('[data-go]'); if (!g) return; e.preventDefault(); open(g.dataset.go); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+const firstTab = ['articles', 'archive'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'digest';
+showTab(firstTab);
 
 // ── the digest ──
 // The issue follows the site's language (src/site/i18n.js): Ukrainian in Ukrainian, English otherwise — the issue
 // itself is written in those two; the words around it are in the site's language.
 const W = {
-  uk: { loading: 'Завантажую останній випуск…', day: 'uk-UA', issue: 'Випуск за', at: '17:00 за Києвом', source: 'Джерело', making: 'Збираю сьогоднішній випуск…', full: 'Відкрити повний випуск', down: 'Випуск зараз недоступний. Він виходить щодня о 17:00 за Києвом —', open: 'відкрити CONTEXT News' },
-  en: { loading: 'Loading the latest issue…', day: 'en-GB', issue: 'Issue of', at: '17:00 Kyiv', source: 'Source', making: 'Today’s issue is being put together…', full: 'Open the full issue', down: 'The issue is not available right now. It is published every day at 17:00 Kyiv time —', open: 'open CONTEXT News' },
-  de: { loading: 'Die neueste Ausgabe wird geladen…', day: 'de-DE', issue: 'Ausgabe vom', at: '17:00 Uhr Kyjiw', source: 'Quelle', making: 'Die heutige Ausgabe wird zusammengestellt…', full: 'Vollständige Ausgabe öffnen', down: 'Die Ausgabe ist gerade nicht verfügbar. Sie erscheint täglich um 17:00 Uhr Kyjiwer Zeit —', open: 'CONTEXT News öffnen' },
-  fr: { loading: 'Chargement de la dernière édition…', day: 'fr-FR', issue: 'Édition du', at: '17 h, heure de Kyiv', source: 'Source', making: 'L’édition du jour est en préparation…', full: 'Ouvrir l’édition complète', down: 'L’édition n’est pas disponible pour le moment. Elle paraît chaque jour à 17 h, heure de Kyiv —', open: 'ouvrir CONTEXT News' },
+  uk: { arch: 'Архів', archHint: 'Випуск кожного дня — у PDF. Оберіть день у календарі.', none: 'Цього дня випуску немає', making2: 'Готую PDF…', saveFail: 'Не вдалося зробити PDF', empty2: 'Архів ще порожній: випуски потрапляють сюди щодня з 17:00.', prev: 'Попередній місяць', next: 'Наступний місяць', issuesIn: 'випусків', wk: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'], loading: 'Завантажую останній випуск…', day: 'uk-UA', issue: 'Випуск за', at: '17:00 за Києвом', source: 'Джерело', making: 'Збираю сьогоднішній випуск…', full: 'Відкрити повний випуск', down: 'Випуск зараз недоступний. Він виходить щодня о 17:00 за Києвом —', open: 'відкрити CONTEXT News' },
+  en: { arch: 'Archive', archHint: 'Every day’s issue as a PDF. Pick a day in the calendar.', none: 'No issue that day', making2: 'Making the PDF…', saveFail: 'Could not make the PDF', empty2: 'The archive is still empty: issues are added every day from 17:00.', prev: 'Previous month', next: 'Next month', issuesIn: 'issues', wk: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'], loading: 'Loading the latest issue…', day: 'en-GB', issue: 'Issue of', at: '17:00 Kyiv', source: 'Source', making: 'Today’s issue is being put together…', full: 'Open the full issue', down: 'The issue is not available right now. It is published every day at 17:00 Kyiv time —', open: 'open CONTEXT News' },
+  de: { arch: 'Archiv', archHint: 'Die Ausgabe jedes Tages als PDF. Wählen Sie einen Tag im Kalender.', none: 'An diesem Tag keine Ausgabe', making2: 'PDF wird erstellt…', saveFail: 'PDF konnte nicht erstellt werden', empty2: 'Das Archiv ist noch leer: Ausgaben kommen täglich ab 17:00 hinzu.', prev: 'Vorheriger Monat', next: 'Nächster Monat', issuesIn: 'Ausgaben', wk: ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'], loading: 'Die neueste Ausgabe wird geladen…', day: 'de-DE', issue: 'Ausgabe vom', at: '17:00 Uhr Kyjiw', source: 'Quelle', making: 'Die heutige Ausgabe wird zusammengestellt…', full: 'Vollständige Ausgabe öffnen', down: 'Die Ausgabe ist gerade nicht verfügbar. Sie erscheint täglich um 17:00 Uhr Kyjiwer Zeit —', open: 'CONTEXT News öffnen' },
+  fr: { arch: 'Archives', archHint: 'L’édition de chaque jour en PDF. Choisissez un jour dans le calendrier.', none: 'Pas d’édition ce jour-là', making2: 'Préparation du PDF…', saveFail: 'Impossible de créer le PDF', empty2: 'Les archives sont encore vides : une édition s’ajoute chaque jour à 17 h.', prev: 'Mois précédent', next: 'Mois suivant', issuesIn: 'éditions', wk: ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'], loading: 'Chargement de la dernière édition…', day: 'fr-FR', issue: 'Édition du', at: '17 h, heure de Kyiv', source: 'Source', making: 'L’édition du jour est en préparation…', full: 'Ouvrir l’édition complète', down: 'L’édition n’est pas disponible pour le moment. Elle paraît chaque jour à 17 h, heure de Kyiv —', open: 'ouvrir CONTEXT News' },
 };
 const lang = siteLang === 'uk' ? 'uk' : 'en'; // the issue's own language
 const say = W[siteLang] || W.en; // the words around it
@@ -63,7 +68,7 @@ function drawIssue() {
     // Each section folded: its name and how many items; a click opens it.
     return `<details class="sec"><summary class="sec-t"><span>${esc(part.replace(/^(SECTION|РОЗДІЛ)\s*\d+\s*\|\s*/i, ''))}${title ? ` · ${esc(title)}` : ''}</span><span class="sec-n">${s.items.length}</span></summary>
 <div class="items${s.id === 'key' ? ' key' : ''}">${s.items.map(itemHtml).join('')}</div></details>`;
-  }).join('') + `<p><a class="lnk" href="/news">${t.full} <span class="ar">→</span></a></p>`;
+  }).join('') + `<p class="dg-links"><a class="lnk" href="/news">${t.full} <span class="ar">→</span></a><a class="lnk" href="#archive" data-go="archive">${t.arch} <span class="ar">→</span></a></p>`;
 }
 document.getElementById('digest-body')?.addEventListener('error', (e) => {
   const img = e.target;
@@ -96,6 +101,84 @@ async function digest() {
 }
 
 
+// ── the archive: a calendar of the days there are issues for; a day gives its issue as a PDF ──
+const ARCH = { days: null, month: null, busy: '' };
+const ymd = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+function drawArchive() {
+  const box = document.getElementById('arch-body');
+  const t = say;
+  if (!ARCH.days.length) { box.innerHTML = `<p class="meta">${esc(t.empty2)}</p>`; return; }
+  const have = new Set(ARCH.days);
+  const [y, m] = ARCH.month;
+  const first = new Date(Date.UTC(y, m, 1));
+  const lead = (first.getUTCDay() + 6) % 7; // Monday first
+  const count = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  const title0 = first.toLocaleDateString(t.day, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const title = title0.charAt(0).toUpperCase() + title0.slice(1);
+  const inMonth = ARCH.days.filter((d) => d.startsWith(ymd(y, m, 1).slice(0, 8))).length;
+  const oldest = ARCH.days[ARCH.days.length - 1]; const newest = ARCH.days[0];
+  const canPrev = ymd(y, m, 1) > oldest.slice(0, 8) + '01' || oldest.slice(0, 7) < ymd(y, m, 1).slice(0, 7);
+  const canNext = newest.slice(0, 7) > ymd(y, m, 1).slice(0, 7);
+  let cells = '';
+  for (let i = 0; i < lead; i++) cells += '<span class="cal-d cal-d--pad"></span>';
+  for (let d = 1; d <= count; d++) {
+    const key = ymd(y, m, d);
+    cells += have.has(key)
+      ? `<button type="button" class="cal-d cal-d--on${ARCH.busy === key ? ' is-busy' : ''}" data-day="${key}" title="${esc(issueFileName({ for: `${key}T14:00:00Z` }, 'pdf', lang))}">${d}<span class="cal-pdf">PDF</span></button>`
+      : `<span class="cal-d" title="${esc(t.none)}">${d}</span>`;
+  }
+  box.innerHTML = `<div class="cal">
+<div class="cal-h"><button type="button" class="cal-nav" data-nav="-1" aria-label="${esc(t.prev)}" ${canPrev ? '' : 'disabled'}>←</button><span class="cal-t">${esc(title)}</span><span class="meta">${inMonth} ${esc(t.issuesIn)}</span><button type="button" class="cal-nav" data-nav="1" aria-label="${esc(t.next)}" ${canNext ? '' : 'disabled'}>→</button></div>
+<div class="cal-g">${t.wk.map((w) => `<span class="cal-w">${w}</span>`).join('')}${cells}</div>
+<p class="meta cal-msg" id="arch-msg" aria-live="polite">${ARCH.busy ? esc(t.making2) : ''}</p></div>`;
+}
+async function dayPdf(key) {
+  if (ARCH.busy) return;
+  ARCH.busy = key; drawArchive();
+  try {
+    const res = await fetch(`/api/pulse?news=1&archive=${key}`);
+    const issue = await res.json();
+    if (!res.ok || !issue.sections) throw new Error(issue.message || `HTTP ${res.status}`);
+    // The pictures through the server, as the full issue does (sources do not let a browser read them).
+    const urls = [...new Set(issue.sections.flatMap((s) => s.items.map((x) => x.image)).filter(Boolean))];
+    const pics = new Map();
+    await Promise.all(urls.map(async (u) => {
+      try {
+        const r = await fetch(u.startsWith('/') ? u : `/api/pulse?news=1&day=${key}&img=${encodeURIComponent(u)}`);
+        if (r.ok) { const p = await thumb(await r.blob()); if (p) pics.set(u, p); }
+      } catch { /* that row goes without its picture */ }
+    }));
+    const blob = await newsPdf(localize(issue, lang), pics, lang);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = issueFileName(issue, 'pdf', lang);
+    document.body.appendChild(a); a.click(); a.remove();
+    window.open(a.href, '_blank', 'noopener');
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    ARCH.busy = ''; drawArchive();
+  } catch (e) {
+    ARCH.busy = ''; drawArchive();
+    const msg = document.getElementById('arch-msg'); if (msg) msg.textContent = `${say.saveFail}: ${e.message}`;
+  }
+}
+document.getElementById('arch-body')?.addEventListener('click', (e) => {
+  const day = e.target.closest('[data-day]');
+  if (day) { dayPdf(day.dataset.day); return; }
+  const nav = e.target.closest('[data-nav]');
+  if (nav && !nav.disabled) { const [y, m] = ARCH.month; const d = new Date(Date.UTC(y, m + +nav.dataset.nav, 1)); ARCH.month = [d.getUTCFullYear(), d.getUTCMonth()]; drawArchive(); }
+});
+async function archive() {
+  if (ARCH.days) return drawArchive();
+  const box = document.getElementById('arch-body');
+  box.innerHTML = `<p class="meta">${esc(say.loading)}</p>`;
+  try {
+    const j = await (await fetch('/api/pulse?news=1&archive=list')).json();
+    ARCH.days = Array.isArray(j.days) ? j.days : [];
+  } catch { ARCH.days = []; }
+  const last = ARCH.days[0] || new Date().toISOString().slice(0, 10);
+  ARCH.month = [+last.slice(0, 4), +last.slice(5, 7) - 1];
+  drawArchive();
+}
+
 // Articles: analytical texts grounded in research (public/data/articles.json) — newest first.
 async function articles() {
   const box = document.getElementById('ar-list');
@@ -111,4 +194,5 @@ guard(document.getElementById('gate'), 'CONTEXT', () => {
   document.getElementById('area').hidden = false;
   digest();
   articles();
+  if (firstTab === 'archive') archive();
 });

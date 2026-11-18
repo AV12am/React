@@ -750,3 +750,13 @@ test('alert hours: overlapping alerts of one oblast are merged, never more than 
   assert.equal(hoursUnder([a(0, 5), a(1, 3), a(4, 8), a(10, 12), a(10, 12), a(10, 12)], t, t + 24 * H), 10);
   assert.equal(hoursUnder(Array.from({ length: 40 }, () => a(-5, 30)), t, t + 24 * H), 24);
 });
+
+test('archive: a good issue is kept under its Kyiv day; a stand-in, a degraded or an empty one is not', async () => {
+  const { archiveDay } = await import('../../api/_news.js');
+  const sec = [{ id: 'key', items: [{ title: 'x' }] }];
+  assert.equal(archiveDay({ for: '2026-11-18T15:00:00.000Z', sections: sec }), '2026-11-18'); // 17:00 Kyiv
+  assert.equal(archiveDay({ for: '2026-11-18T22:30:00.000Z', sections: sec }), '2026-11-19'); // already the next day in Kyiv
+  assert.equal(archiveDay({ for: '2026-11-18T15:00:00.000Z', sections: sec, degraded: true }), '');
+  assert.equal(archiveDay({ for: '2026-11-18T15:00:00.000Z', sections: sec, standIn: true }), '');
+  assert.equal(archiveDay({ for: '2026-11-18T15:00:00.000Z', sections: [{ id: 'key', items: [] }] }), '');
+});

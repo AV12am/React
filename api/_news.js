@@ -31,7 +31,19 @@ const VISIONS = env.CF_AI_VISION_MODEL ? [env.CF_AI_VISION_MODEL] : ['@cf/meta/l
 const UA = 'ReactionCore/1.0 (+https://reactioncore.uk/news; news digest)'; // who asks, with a page to find out more (Wikimedia's policy)
 
 const read = async (id = 'issue') => (await db(`core_docs?kind=eq.news&id=eq.${id}&select=doc`).catch(() => []))[0]?.doc || null;
-const keep = (doc, id = 'issue') => db('core_docs?on_conflict=kind,id', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: { kind: 'news', id, doc: { ...doc, id, clearance: 0 } } }).catch(() => {});
+const put = (doc, id) => db('core_docs?on_conflict=kind,id', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: { kind: 'news', id, doc: { ...doc, id, clearance: 0 } } }).catch(() => {});
+// The archive: every good issue that goes on show is also kept under its day (Kyiv), «day-2026-11-18» — one per day,
+// the last one of that day standing. Made without the model, a stand-in or a test issue never goes in.
+export const archiveDay = (doc) => {
+  if (!doc?.sections?.some((x) => x.items?.length) || doc.degraded || doc.standIn || doc.stale || !doc.for) return '';
+  const d = kyivDay(Date.parse(doc.for));
+  return `${d.year}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}`;
+};
+const keep = async (doc, id = 'issue') => {
+  await put(doc, id);
+  const day = id === 'issue' && doc.v === VERSION ? archiveDay(doc) : '';
+  if (day) await put({ ...doc, archivedAt: new Date().toISOString() }, `day-${day}`);
+};
 
 // Insert-if-absent, then read back: the request whose mark is in the row made the claim.
 async function claim(now) {
@@ -775,6 +787,22 @@ export async function newsGet(req) {
     }
     const cached = await read();
 
+    // The archive (a calendar on /context): ?archive=list → the days there are; ?archive=2026-11-18 → that day's issue.
+    const arch = q.get('archive');
+    if (arch === 'list') {
+      // The issue on show goes in too, if it was kept before the archive existed.
+      const today = cached && cached.v === VERSION ? archiveDay(cached) : '';
+      const rows = await db('core_docs?kind=eq.news&id=like.day-*&select=id&order=id.desc&limit=2000').catch(() => []);
+      const days = (rows || []).map((r) => String(r.id).slice(4));
+      if (today && !days.includes(today)) { await put({ ...cached, archivedAt: new Date().toISOString() }, `day-${today}`); days.unshift(today); }
+      return json(200, { days: [...new Set(days)].sort().reverse() });
+    }
+    if (arch) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(arch)) return json(400, { error: 'day', message: 'Потрібна дата РРРР-ММ-ДД' });
+      const doc = await read(`day-${arch}`);
+      return doc?.sections ? json(200, doc) : json(404, { error: 'day', message: 'За цей день випуску в архіві немає' });
+    }
+
     // How the last making went (no model asked): when, for which 17:00, whether it was cut short and why.
     if (q.has('status')) {
       const items = (cached?.sections || []).flatMap((s) => s.items);
@@ -793,12 +821,13 @@ export async function newsGet(req) {
     // A thumbnail for the documents: only one the current issue holds — never an arbitrary address.
     const img = q.get('img');
     if (img) {
-      const known = [...(cached?.sections || []), ...sample.sections].some((s) => s.items.some((x) => x.image === img)); // the issue's own, or the hand-made test issue's
+      const day = /^\d{4}-\d{2}-\d{2}$/.test(q.get('day') || '') ? await read(`day-${q.get('day')}`) : null; // an archived issue's own pictures too
+      const known = [...(cached?.sections || []), ...(day?.sections || []), ...sample.sections].some((s) => s.items.some((x) => x.image === img)); // the issue's own, or the hand-made test issue's
       if (!known) return json(404, { error: 'img', message: 'Немає такого зображення у випуску' });
       const send = ({ type, buf }) => new Response(buf, { status: 200, headers: { 'Content-Type': type, 'Cache-Control': 'private, max-age=3600' } });
       try { return send(await fetchImage(img)); } catch { /* the source would not give it: an open picture instead */ }
       // When the source turns the picture away, a picture on the same subject from Wikimedia Commons stands in.
-      const item = [...(cached?.sections || []), ...sample.sections].flatMap((s) => s.items).find((x) => x.image === img);
+      const item = [...(cached?.sections || []), ...(day?.sections || []), ...sample.sections].flatMap((s) => s.items).find((x) => x.image === img);
       try {
         // The names together first, then fewer of them: Commons finds only what matches every word.
         const words = commonsQuery(item).split(' ');
