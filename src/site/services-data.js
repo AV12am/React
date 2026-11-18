@@ -245,9 +245,9 @@ export const SAMPLES = {
     },
   },
   'country-market-risk-brief': {
-    code: 'CR-001', dir: '/products/cr-001', pages: { en: 4 },
+    code: 'CR-001', dir: '/products/cr-001', pages: { en: 4, uk: 4 },
     title: t('Poland 2027: strong economy, weak public finances, an election in the autumn', 'Польща 2027: сильна економіка, слабкі публічні фінанси, вибори восени'),
-    pdf: { en: '/products/Reaction_CR-001_Poland_2027.pdf' },
+    pdf: { en: '/products/Reaction_CR-001_Poland_2027.pdf', uk: '/products/Reaction_CR-001_Poland_2027_UA.pdf' },
     parts: [
       [t('The question and the client', 'Питання й клієнт'), t('The market, the horizon and who the brief is prepared for.', 'Ринок, горизонт і для кого підготовлено огляд.')],
       [t('Key figures', 'Ключові цифри'), t('Four numbers that set the scene, each with its source.', 'Чотири цифри, що задають картину, — кожна з джерелом.')],
@@ -266,6 +266,7 @@ export const SAMPLES = {
     ],
     marks: {
       en: [[0, 0.071, 0.099], [0, 0.087, 0.19], [0, 0.089, 0.287], [0, 0.089, 0.415], [0, 0.567, 0.415], [0, 0.089, 0.61], [1, 0.071, 0.079], [1, 0.071, 0.36], [1, 0.089, 0.588], [2, 0.071, 0.079], [2, 0.089, 0.617], [3, 0.071, 0.079], [3, 0.071, 0.339], [3, 0.071, 0.456]],
+      uk: [[0, 0.071, 0.099], [0, 0.087, 0.19], [0, 0.089, 0.298], [0, 0.089, 0.427], [0, 0.567, 0.427], [0, 0.089, 0.654], [1, 0.071, 0.079], [1, 0.071, 0.377], [1, 0.089, 0.654], [2, 0.071, 0.079], [2, 0.089, 0.654], [3, 0.071, 0.079], [3, 0.071, 0.351], [3, 0.071, 0.483]],
     },
   },
 };
