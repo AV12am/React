@@ -760,3 +760,13 @@ test('archive: a good issue is kept under its Kyiv day; a stand-in, a degraded o
   assert.equal(archiveDay({ for: '2026-11-18T15:00:00.000Z', sections: sec, standIn: true }), '');
   assert.equal(archiveDay({ for: '2026-11-18T15:00:00.000Z', sections: [{ id: 'key', items: [] }] }), '');
 });
+
+test('archive: an older issue kept on show while the day\'s one failed is not archived as that day', async () => {
+  const { archiveDay } = await import('../../api/_news.js');
+  const sec = [{ id: 'key', items: [{ title: 'x' }] }];
+  // made 16 Nov for 16 Nov 17:00; kept again with «for» moved to 17 Nov 16:59:59 — stays the 16th's, not the 17th's
+  assert.equal(archiveDay({ at: '2026-11-16T14:20:00.000Z', for: '2026-11-17T14:59:59.999Z', sections: sec }), '');
+  // prepared an hour ahead of its 17:00, or remade after midnight for it: that day
+  assert.equal(archiveDay({ at: '2026-11-17T14:05:00.000Z', for: '2026-11-17T15:00:00.000Z', sections: sec }), '2026-11-17');
+  assert.equal(archiveDay({ at: '2026-11-18T00:10:00.000Z', for: '2026-11-17T15:00:00.000Z', sections: sec }), '2026-11-17');
+});

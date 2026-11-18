@@ -34,8 +34,12 @@ const read = async (id = 'issue') => (await db(`core_docs?kind=eq.news&id=eq.${i
 const put = (doc, id) => db('core_docs?on_conflict=kind,id', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: { kind: 'news', id, doc: { ...doc, id, clearance: 0 } } }).catch(() => {});
 // The archive: every good issue that goes on show is also kept under its day (Kyiv), «day-2026-11-18» — one per day,
 // the last one of that day standing. Made without the model, a stand-in or a test issue never goes in.
+// An issue goes under the day of its 17:00 only if it was made for it: in the hours before (prep) or after (retries).
+// A good older issue kept on show while the day's one failed (its «for» moved to just before today's 17:00) is
+// yesterday's news — it must not stand as today's in the archive.
+export const madeFor = (doc) => !doc?.at || !doc?.for || Date.parse(doc.at) >= Date.parse(doc.for) - 3 * 3600 * 1000;
 export const archiveDay = (doc) => {
-  if (!doc?.sections?.some((x) => x.items?.length) || doc.degraded || doc.standIn || doc.stale || !doc.for) return '';
+  if (!doc?.sections?.some((x) => x.items?.length) || doc.degraded || doc.standIn || doc.stale || !doc.for || !madeFor(doc)) return '';
   const d = kyivDay(Date.parse(doc.for));
   return `${d.year}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}`;
 };
@@ -792,15 +796,18 @@ export async function newsGet(req) {
     if (arch === 'list') {
       // The issue on show goes in too, if it was kept before the archive existed.
       const today = cached && cached.v === VERSION ? archiveDay(cached) : '';
-      const rows = await db('core_docs?kind=eq.news&id=like.day-*&select=id&order=id.desc&limit=2000').catch(() => []);
-      const days = (rows || []).map((r) => String(r.id).slice(4));
+      const rows = await db('core_docs?kind=eq.news&id=like.day-*&select=id,at:doc->>at,for:doc->>for&order=id.desc&limit=2000').catch(() => []);
+      // Kept before the rule above: a day holding an older issue is taken out of the archive.
+      const wrong = (rows || []).filter((r) => !madeFor(r));
+      for (const r of wrong) await db(`core_docs?kind=eq.news&id=eq.${encodeURIComponent(r.id)}`, { method: 'DELETE' }).catch(() => {});
+      const days = (rows || []).filter((r) => madeFor(r)).map((r) => String(r.id).slice(4));
       if (today && !days.includes(today)) { await put({ ...cached, archivedAt: new Date().toISOString() }, `day-${today}`); days.unshift(today); }
       return json(200, { days: [...new Set(days)].sort().reverse() });
     }
     if (arch) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(arch)) return json(400, { error: 'day', message: 'Потрібна дата РРРР-ММ-ДД' });
       const doc = await read(`day-${arch}`);
-      return doc?.sections ? json(200, doc) : json(404, { error: 'day', message: 'За цей день випуску в архіві немає' });
+      return doc?.sections && madeFor(doc) ? json(200, doc) : json(404, { error: 'day', message: 'За цей день випуску в архіві немає' });
     }
 
     // How the last making went (no model asked): when, for which 17:00, whether it was cut short and why.
