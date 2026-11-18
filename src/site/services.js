@@ -5,7 +5,7 @@ import './site.css';
 import './area.css';
 import './chrome.js';
 import { lang as siteLang } from './i18n.js';
-import { SERVICES, WORDS } from './services-data.js';
+import { SERVICES, STANDARDS, WORDS } from './services-data.js';
 
 const lang = siteLang === 'uk' ? 'uk' : 'en';
 const L = (v) => (v && typeof v === 'object' ? v[lang] || v.en : v || '');
@@ -22,11 +22,14 @@ function block(part, i) {
   const n = `<span class="sp-n">${i + 1}</span>`;
   const lines = (k) => Array.from({ length: k }, (_, j) => `<i style="width:${[96, 88, 92, 70, 84][(i + j) % 5]}%"></i>`).join('');
   let viz = '';
-  if (/map\b/.test(t) && !/links/.test(t)) viz = '<div class="sp-map"><span></span><span></span><span></span><b></b></div>';
-  else if (/\blinks\b|\bactors\b|structure/.test(t)) viz = '<svg class="sp-net" viewBox="0 0 200 70" aria-hidden="true"><g><line x1="100" y1="35" x2="30" y2="15"/><line x1="100" y1="35" x2="40" y2="58"/><line x1="100" y1="35" x2="165" y2="14"/><line x1="100" y1="35" x2="170" y2="56"/><line x1="165" y1="14" x2="170" y2="56"/></g><circle cx="100" cy="35" r="6"/><circle cx="30" cy="15" r="4"/><circle cx="40" cy="58" r="4"/><circle cx="165" cy="14" r="4"/><circle cx="170" cy="56" r="4"/></svg>';
-  else if (/matrix/.test(t)) viz = `<div class="sp-mx">${Array.from({ length: 9 }, (_, j) => `<span style="opacity:${[0.15, 0.3, 0.6, 0.3, 0.5, 0.8, 0.5, 0.8, 1][j]}"></span>`).join('')}</div>`;
-  else if (/timeline|developments|week/.test(t)) viz = '<div class="sp-tl"><span></span><span></span><span></span><span></span><span></span></div>';
-  else if (/rating|scenarios|verdict|level|watched/.test(t)) viz = '<div class="sp-bars"><span style="width:82%"></span><span style="width:56%"></span><span style="width:34%"></span></div>';
+  const net = '<svg class="sp-net" viewBox="0 0 200 70" aria-hidden="true"><g><line x1="100" y1="35" x2="30" y2="15"/><line x1="100" y1="35" x2="40" y2="58"/><line x1="100" y1="35" x2="165" y2="14"/><line x1="100" y1="35" x2="170" y2="56"/><line x1="165" y1="14" x2="170" y2="56"/></g><circle cx="100" cy="35" r="6"/><circle cx="30" cy="15" r="4"/><circle cx="40" cy="58" r="4"/><circle cx="165" cy="14" r="4"/><circle cx="170" cy="56" r="4"/></svg>';
+  const grid = (k, cols) => `<div class="sp-mx" style="grid-template-columns:repeat(${cols},1fr)">${Array.from({ length: k }, (_, j) => `<span style="opacity:${[0.2, 0.9, 0.45, 0.2, 0.7, 0.2, 1, 0.45, 0.2][j % 9]}"></span>`).join('')}</div>`;
+  if (/\bactors\b|links & networks|ownership/.test(t)) viz = net;
+  else if (/red-flag|watchlist table/.test(t)) viz = grid(t.includes('red') ? 7 : 9, t.includes('red') ? 7 : 3);
+  else if (/timeline|developments/.test(t)) viz = '<div class="sp-tl"><span></span><span></span><span></span><span></span><span></span></div>';
+  else if (/known \/ unknown/.test(t)) viz = '<div class="sp-two"><span></span><span></span></div>';
+  else if (/scorecard|scenarios|verdict|assessment|signal panel|bottom line/.test(t)) viz = '<div class="sp-bars"><span style="width:82%"></span><span style="width:56%"></span><span style="width:34%"></span></div>';
+  else if (/full picture/.test(t)) viz = '<div class="sp-map"><span></span><span></span><span></span><b></b></div>';
   return `<div class="sp-b" data-part="${i}">${n}<div class="sp-h"></div>${viz}<div class="sp-l">${lines(viz ? 2 : 3)}</div></div>`;
 }
 
@@ -42,20 +45,24 @@ function draw(id) {
 </section>
 <section class="wrap svc-show" aria-label="${esc(W.products)}">
 <div class="svc-spec">
-<div class="svc-spec-h"><span class="meta">${esc(W.example)}</span><h2>${esc(p.name)}</h2><p>${esc(L(p.line))}</p></div>
+<div class="svc-spec-h"><span class="meta">${esc(W.example)}${p.level ? ` · ${esc(L(p.level))}` : ''}</span><h2>${esc(p.name)}</h2><p>${esc(L(p.question))}</p></div>
 ${p.sample ? '' : `<p class="svc-soon">${esc(W.soon)}</p>`}
 <div class="spec">
 <div class="sheet" aria-hidden="true"><div class="sh-top"><span class="sh-mark"></span><span class="sh-title">${esc(p.name)}</span></div>${p.parts.map(block).join('')}</div>
 <ol class="notes">${p.parts.map((x, i) => `<li data-part="${i}"><span class="sp-n">${i + 1}</span><div><b>${esc(L(x[0]))}</b><span>${esc(L(x[1]))}</span></div></li>`).join('')}</ol>
 </div>
-<dl class="svc-meta"><div><dt>${esc(W.when)}</dt><dd>${esc(L(p.when))}</dd></div><div><dt>${esc(W.format)}</dt><dd>${esc(L(p.format))}</dd></div></dl>
+<dl class="svc-meta">${['who', 'gets', 'size', 'sources', 'limits'].map((f) => `<div class="m-${f}"><dt>${esc(W[f])}</dt><dd>${esc(L(p[f]))}</dd></div>`).join('')}</dl>
 </div>
 <aside class="svc-list">
 <span class="meta">${esc(W.products)}</span>
-${svc.products.map((x) => `<a class="svc-p${x.id === p.id ? ' on' : ''}" href="#${x.id}" data-id="${x.id}"${x.id === p.id ? ' aria-current="true"' : ''}><b>${esc(x.name)}</b><span>${esc(L(x.line))}</span></a>`).join('')}
+${svc.products.map((x) => `<a class="svc-p${x.id === p.id ? ' on' : ''}" href="#${x.id}" data-id="${x.id}"${x.id === p.id ? ' aria-current="true"' : ''}><b>${esc(x.name)}${x.level ? ` <em>${esc(L(x.level))}</em>` : ''}</b><span>${esc(L(x.question))}</span></a>`).join('')}
 <span class="meta svc-other">${esc(W.other)}</span>
 ${others.map(([, s]) => `<a class="lnk" href="${s.path}">${esc(L(s.k).charAt(0) + L(s.k).slice(1).toLowerCase())} <span class="ar">→</span></a>`).join('')}
 </aside>
+</section>
+<section class="wrap svc-std" aria-labelledby="std-h">
+<div class="blk-h"><h2 id="std-h">${esc(W.standards)}</h2><span class="meta">${esc(W.standardsLead)}</span></div>
+<div class="std-g">${STANDARDS.map(([h, d], i) => `<div class="std"><span class="n">${String(i + 1).padStart(2, '0')}</span><b>${esc(L(h))}</b><p>${esc(L(d))}</p></div>`).join('')}</div>
 </section>`;
 }
 
