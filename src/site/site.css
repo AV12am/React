@@ -40,7 +40,7 @@ html{scroll-behavior:smooth}
 .ni:hover .pcard,.ni:focus-within .pcard{opacity:1;transform:none}
 .pcard .tag{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;letter-spacing:0.12em;color:var(--ink-3)}
 .pcard .sweep{height:1px;background:linear-gradient(90deg,transparent,var(--ink-3),transparent);background-size:40% 100%;background-repeat:no-repeat;animation:sweep 2.8s var(--ease) infinite}
-.veil{position:fixed;inset:72px 0 0 0;background:rgba(0,0,0,0.5);opacity:0;pointer-events:none;transition:opacity 400ms var(--ease)}
+.hdr .veil{display:block;position:fixed;inset:72px 0 0 0;z-index:auto;background:rgba(0,0,0,0.5);color:inherit;opacity:0;pointer-events:none;transition:opacity 400ms var(--ease)}
 .hdr:has(.ni:hover .panel) .veil,.hdr:has(.ni:focus-within .panel) .veil{opacity:1}
 .right{display:flex;align-items:center;gap:8px}
 /* the language switcher: EN ▾, the list unrolls from the top like the menus */
