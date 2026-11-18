@@ -75,7 +75,7 @@ function FieldValue({ field, value, look, go, compact = false }) {
     }
     case 'links': {
       if (!Array.isArray(value) || !value.length) return <span className="vx-hint">—</span>;
-      if (compact) return <span className="vx-num">{value.length} підст.</span>;
+      if (compact) return <span className="vx-num">{value.length} {field.unit || 'підст.'}</span>;
       return (
         <span className="ws-links">
           {value.map((id) => {
@@ -116,7 +116,7 @@ function LinksInput({ field, value, set, look }) {
   const toggle = (id) => set(chosen.includes(id) ? chosen.filter((x) => x !== id) : [...chosen, id]);
   return (
     <div className="ws-picker">
-      <input id={`f-${field.id}`} className="vx-input" placeholder="Пошук надходжень і джерел" value={q} onChange={(e) => setQ(e.target.value)} />
+      <input id={`f-${field.id}`} className="vx-input" placeholder={field.placeholder || 'Пошук надходжень і джерел'} value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="ws-picker__list">
         {shown.map(({ r, reg }) => (
           <label key={r.id} className="check">
@@ -388,6 +388,29 @@ function EntryForm({ onAdd, label }) {
   );
 }
 
+/** On an expert's page: the products, studies and projects the expert is engaged in (their «Залучені експерти»). */
+function EngagedIn({ expert, go }) {
+  const { state, me } = useStore();
+  const used = (state.records || []).filter((r) => Array.isArray(r.experts) && r.experts.includes(expert.id));
+  return (
+    <div className="stack">
+      <div className="vx-eyebrow">Залучено до аналізу · {used.length}</div>
+      {!used.length && <div className="vx-hint">Ще ніде. Щоб залучити, у продукті, дослідженні чи проєкті натисніть «Редагувати опис» → «Залучені експерти».</div>}
+      {used.length > 0 && (
+        <span className="ws-links">
+          {used.map((r) => {
+            const reg = registerOf(r.div, r.col);
+            const dv = DIVISIONS.find((x) => x.id === r.div);
+            return r.clearance > me.clearance
+              ? <span key={r.id} className="vx-tag"><span className="vx-redacted">{'█'.repeat(6)}</span></span>
+              : <button type="button" key={r.id} className="vx-tag ws-chip" onClick={() => go('divisions', r.div, `${r.col}:${r.id}`)}>{dv?.name} · {titleOf(reg, r)}</button>;
+          })}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function RecordPage({ d, reg, record, access, go }) {
   const { state, me, dispatch, toast } = useStore();
   const look = { ...useLookups(d.id), users: state.users };
@@ -427,6 +450,7 @@ function RecordPage({ d, reg, record, access, go }) {
             </dl>
           )}
           <div className="vx-hint">Створив {look.user(record.owner)?.name || '—'} · {fmtDate(record.at)} · змінено {fmtAgo(record.updated)}</div>
+          {reg.id === 'experts' && <EngagedIn expert={record} go={go} />}
           <RecordExtras reg={reg} record={record} canEdit={access.canEdit} go={go} />
           <ReportButtons reg={reg} record={record} facts={facts} look={look} />
         </div>
@@ -615,7 +639,7 @@ function Overview({ d, go, setTab }) {
 /* ---------- workspace ---------- */
 
 // Main tabs per division (others go under «Ще»); a division not listed shows its first three.
-const PRIMARY_TABS = { int: ['companies', 'sources'] };
+const PRIMARY_TABS = { int: ['companies', 'sources', 'orgs', 'experts'] };
 
 const VIEWS = { review: ReviewView, forecasts: ForecastsView, companies: CompaniesView };
 
@@ -639,7 +663,7 @@ export function Workspace({ divId, tab, go }) {
   const tabs = [...regs, ...views];
   const keep = PRIMARY_TABS[divId];
   // Up to four tabs all show (nothing collapses into «Ще»); with more, the listed main ones, else the first three.
-  const main = tabs.length <= 4 ? (keep ? [...tabs].sort((a, b) => (keep.includes(a.id) ? keep.indexOf(a.id) : 99) - (keep.includes(b.id) ? keep.indexOf(b.id) : 99)) : tabs)
+  const main = tabs.length <= (keep ? keep.length : 4) ? (keep ? [...tabs].sort((a, b) => (keep.includes(a.id) ? keep.indexOf(a.id) : 99) - (keep.includes(b.id) ? keep.indexOf(b.id) : 99)) : tabs)
     : keep ? tabs.filter((t) => keep.includes(t.id)).sort((a, b) => keep.indexOf(a.id) - keep.indexOf(b.id)) : tabs.slice(0, 3);
   const more = tabs.filter((t) => !main.includes(t));
   const moreCurrent = more.find((t) => t.id === current);

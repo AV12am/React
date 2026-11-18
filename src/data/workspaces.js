@@ -29,6 +29,11 @@ import { ORG_SECTORS } from './orgs-ua.js';
 export const ORG_STATUS = ['Діє', 'У стані припинення', 'Банкрутство', 'Ліквідовано', 'Невідомо'];
 export const OUTCOMES = ['Відкрито', 'Сталося', 'Не сталося', 'Скасовано'];
 export const WATCH_KINDS = ['Медіа', 'Контрагенти й санкції'];
+export const EXPERT_AREAS = [
+  'Безпека й оборона', 'Міжнародні відносини', 'Внутрішня політика', 'Економіка й фінанси', 'Енергетика',
+  'Право й регулювання', 'Кібербезпека й IT', 'Інформаційні операції й медіа', 'Логістика й транспорт',
+  'Промисловість', 'Агро й продовольство', 'Медицина й біобезпека', 'Довкілля й клімат', 'Суспільство й соціологія', 'Регіони',
+];
 export const SOURCE_CLASSES = ['OSINT', 'SOCMINT', 'HUMINT', 'SIGINT', 'GEOINT', 'IMINT', 'FININT', 'TECHINT'];
 
 export const WORKSPACES = {
@@ -67,7 +72,7 @@ export const WORKSPACES = {
   },
 
   int: {
-    tagline: 'Джерела, організації й картки компаній',
+    tagline: 'Джерела, організації, картки компаній і експерти',
     registers: [
       {
         id: 'sources', name: 'Джерела', one: 'джерело', icon: 'compass', title: 'name', level: 1,
@@ -110,6 +115,30 @@ export const WORKSPACES = {
         ],
       },
       {
+        // Experts the team can call in to analyse a field: who they are, what they know, how to reach them, and
+        // where they have already been engaged (the «Залучені експерти» field of products, studies and projects).
+        // Contacts identify a person: UMBRA by default.
+        id: 'experts', name: 'Експерти', one: 'експерта', icon: 'users', title: 'name', level: 1, about: 'about', entryLabel: 'Співпраця з експертом',
+        fields: [
+          { id: 'name', label: 'Ім’я', type: 'text', required: true, create: true },
+          { id: 'area', label: 'Сфера експертизи', type: 'select', list: true, required: true, create: true, options: EXPERT_AREAS },
+          { id: 'topics', label: 'Теми й спеціалізація', type: 'text', list: true, create: true, hint: 'Через кому: «ППО, логістика ЗСУ, ринок газу ЄС»' },
+          { id: 'about', label: 'Хто це', type: 'longtext', create: true, hint: 'Досвід, посади, публікації — коротко' },
+          { id: 'org', label: 'Організація', type: 'ref', ref: 'orgs', list: true },
+          { id: 'position', label: 'Посада', type: 'text' },
+          { id: 'country', label: 'Країна', type: 'text', list: true },
+          { id: 'languages', label: 'Мови', type: 'text' },
+          { id: 'status', label: 'Стан', type: 'select', list: true, options: ['Доступний', 'Зайнятий', 'Лише консультації', 'Не залучати'] },
+          { id: 'trust', label: 'Оцінка експертизи', type: 'select', list: true, options: ['Перевірена', 'Добра', 'Ще не оцінена', 'Сумнівна'] },
+          { id: 'email', label: 'Пошта', type: 'text' },
+          { id: 'phone', label: 'Телефон', type: 'text' },
+          { id: 'link', label: 'Профіль або сайт', type: 'url' },
+          { id: 'terms', label: 'Умови співпраці', type: 'text', hint: 'Безоплатно, гонорар, NDA…' },
+          { id: 'curator', label: 'Хто веде контакт', type: 'user', list: true },
+          { id: 'files', label: 'Файли', type: 'files' },
+        ],
+      },
+      {
         id: 'methods', name: 'Методики', one: 'методику', icon: 'book', title: 'name', level: 0, hidden: true,
         fields: [
           { id: 'name', label: 'Назва', type: 'text', required: true },
@@ -141,6 +170,7 @@ export const WORKSPACES = {
           { id: 'due', label: 'Термін', type: 'date', list: true },
           { id: 'questions', label: 'Ключові питання', type: 'longtext' },
           { id: 'basis', label: 'Підстави — звідки ми це знаємо', type: 'links', refs: [['int', 'sources'], ['int', 'orgs']] },
+          { id: 'experts', label: 'Залучені експерти', type: 'links', refs: [['int', 'experts']], unit: 'експ.', placeholder: 'Пошук експертів' },
           { id: 'file', label: 'Документ', type: 'file', hidden: true }, // earlier single document from the Vault
         ],
       },
@@ -317,6 +347,7 @@ export const WORKSPACES = {
           { id: 'hypothesis', label: 'Гіпотеза чи питання', type: 'longtext' },
           { id: 'method', label: 'Метод', type: 'text' },
           { id: 'results', label: 'Результати', type: 'longtext' },
+          { id: 'experts', label: 'Залучені експерти', type: 'links', refs: [['int', 'experts']], unit: 'експ.', placeholder: 'Пошук експертів' },
           { id: 'files', label: 'Файли', type: 'files' },
           { id: 'entries', type: 'hidden', hidden: true }, // [{ id, at, author, title, text, files }] — added on the study's page
           { id: 'file', label: 'Звіт', type: 'file', hidden: true }, // earlier single report from the Vault
@@ -340,6 +371,7 @@ export const WORKSPACES = {
           { id: 'start', label: 'Початок', type: 'date' },
           { id: 'deadline', label: 'Термін', type: 'date' },
           { id: 'goals', label: 'Цілі й результати', type: 'longtext' },
+          { id: 'experts', label: 'Залучені експерти', type: 'links', refs: [['int', 'experts']], unit: 'експ.', placeholder: 'Пошук експертів' },
           { id: 'files', label: 'Файли', type: 'files' },
         ],
       },
