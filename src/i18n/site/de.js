@@ -79,7 +79,7 @@ export const FROM_EN = {
   'No connection. Please try again or write to info@reactioncore.uk.': 'Keine Verbindung. Bitte versuchen Sie es erneut oder schreiben Sie an info@reactioncore.uk.',
   // CONTEXT page
   'The day, and what comes next.': 'Der Tag und was als Nächstes kommt.', 'A daily digest of verified news.': 'Ein täglicher Überblick über geprüfte Nachrichten.',
-  'Archive': 'Archiv', "Every day's issue as a PDF. Pick a day in the calendar.": 'Die Ausgabe jedes Tages als PDF. Wählen Sie einen Tag im Kalender.', 
+  'Archive': 'Archiv', "Every day's issue: read it here or download it as a PDF.": 'Die Ausgabe jedes Tages: hier lesen oder als PDF herunterladen.', 
   'Sections': 'Bereiche', 'Digest': 'Überblick', 'Forecasts': 'Prognosen', 'Full issue': 'Vollständige Ausgabe', 'Loading the latest issue…': 'Die neueste Ausgabe wird geladen…',
   'Building': 'Wird erstellt', 'CONTEXT News — loading': 'CONTEXT News — wird geladen', 'Forecast': 'Prognose', 'Draft': 'Entwurf', 'published': 'veröffentlicht', 'open': 'offen', 'checked': 'geprüft',
   'Issue language': 'Sprache der Ausgabe', 'Building the issue — the first opening may take up to a minute.': 'Die Ausgabe wird erstellt — das erste Öffnen kann bis zu einer Minute dauern.',

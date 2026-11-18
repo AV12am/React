@@ -266,6 +266,49 @@ export function repeatsPrompt(items) {
     { role: 'user', content: items.map((x, i) => `${i + 1}. ${String(x.summary || x.title).slice(0, 320)}`).join('\n') },
   ];
 }
+/** The day's big story told over and over (a strike, its damage, reactions, memes, experts' views, the other side's
+ * claims): the editor groups the news of one story, so it can stand at most once a section and a few times in the issue. */
+export function storiesPrompt(items) {
+  return [
+    {
+      role: 'system',
+      content: 'Ти — випусковий редактор. Нижче короткі новини одного випуску. Знайди сюжети, про які розповідає більше ніж одна новина: '
+        + 'одна подія разом з усім, що з неї випливає, — наслідки, пошкодження, реакції політиків і експертів, меми, оцінки, заяви сторін, '
+        + 'подробиці підготовки (удар по Кримському мосту, оцінка генерала, реакція соцмереж і заява росії про відбудову — один сюжет). '
+        + 'Різні події на одну тему (удари по різних об’єктах, різні рішення) — різні сюжети. Новину, що стоїть окремо, не включай. '
+        + 'Відповідай лише JSON без пояснень: {"stories": [[1, 4, 9], [2, 7]]}',
+    },
+    { role: 'user', content: items.map((x, i) => `${i + 1}. ${String(x.summary || x.title).slice(0, 320)}`).join('\n') },
+  ];
+}
+/** → [[indices]] (0-based) — groups of 2 to 15 news; anything unreadable gives []. */
+export function readStories(raw, n) {
+  let j;
+  try { j = parseJson(raw); } catch { return []; }
+  const seen = new Set(); const out = [];
+  for (const raw of Array.isArray(j?.stories) ? j.stories : []) {
+    const g = [...new Set((Array.isArray(raw) ? raw : []).map((v) => Number(v) - 1))].filter((v) => Number.isInteger(v) && v >= 0 && v < n && !seen.has(v));
+    if (g.length < 2 || g.length > 15) continue;
+    g.forEach((v) => seen.add(v));
+    out.push(g);
+  }
+  return out;
+}
+/** Which news of one story stay: at most one a section and `max` in the issue — the key news and the leads first,
+ * then by the order of the sections; the aggressor's own account (2.1) does not count towards `max`.
+ * @param list [{ x, k, sec, key, lead }] in the order the page shows them → the set of `x` to drop. */
+export function storyCap(list, max = 3) {
+  const order = [...list].sort((a, b) => Number(b.lead) - Number(a.lead) || Number(b.key) - Number(a.key) || a.k - b.k);
+  const secs = new Set(); let n = 0; const drop = new Set();
+  for (const r of order) {
+    const ruView = r.sec === 'infospace';
+    if (r.lead) { secs.add(r.k); if (!ruView) n++; continue; }
+    if (secs.has(r.k) || (!ruView && n >= max)) { drop.add(r.x); continue; }
+    secs.add(r.k); if (!ruView) n++;
+  }
+  return drop;
+}
+
 /** → [[a, b]] index pairs the summaries themselves bear out (two telling words in common), or []. */
 export function readRepeats(raw, items) {
   let j;

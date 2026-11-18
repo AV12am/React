@@ -17,11 +17,11 @@ import { json, db, env } from './_core.js';
 import Anthropic from '@anthropic-ai/sdk';
 import sample from '../src/news/sample.js';
 import { refreshAlerts } from './_alerts.js';
-import { SECTIONS, PER_SECTION, POOL, FRESH, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, keyPrompt, eventsPrompt, repeatsPrompt, readRepeats, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, needsFix, fixPrompt, nameSource, nameSourceEn, emptyNews, speakerOf, brokenSummary, roundUp, talksNews, offSection, talksVenue, LEAD_IMAGE, ruPicture, nightReport, airTally } from '../src/lib/news.js';
+import { SECTIONS, PER_SECTION, POOL, FRESH, offTopic, KEY_COUNT, parseNewsFeed, pickItems, pageImage, summaryPrompt, readSummaries, translatePrompt, readTranslations, outlets, host, keepPrompt, readKeep, keyPrompt, eventsPrompt, repeatsPrompt, readRepeats, storiesPrompt, readStories, storyCap, readEvents, sameEvents, dropRepeats, checkGroups, readPick, fitItems, issueTime, kyivDay, findReport, reportPrompt, composeReport, sharedWords, needsFix, fixPrompt, nameSource, nameSourceEn, emptyNews, speakerOf, brokenSummary, roundUp, talksNews, offSection, talksVenue, LEAD_IMAGE, ruPicture, nightReport, airTally } from '../src/lib/news.js';
 
 
 const MIN = 60000;
-const VERSION = 35; // 35: a section takes up to twelve candidates, a second look under ten; «1.» off every retelling; a speaker named first in a headline counted; 34: 34: the last 24 hours only, never the day before; a section short of news looks at a bigger pool of the day; what a section never takes is barred before the editor, so it holds no place; 32: 32: one news per talks across the issue, list numbers off the summaries; 31: 31: names as the source gives them (no first names or posts from memory), shelling and foreign politicians out of 4.1, explainers and other armies' purchases out of 4.2, partners' aid out of 2.1, one news per talks in a section; 30: 30: a summary cut off («…», «[лише заголовок]») or about someone else than the headline's speaker out, round-ups of the day out of the sections, peace talks out of 4.2; 29: 29: one speaker once in a section, a news with no details out, «російське ЗМІ / видання» named, consumer prices, rents and PR out of 4.1, trifles out of 3 and of the key news; 28: sport kept out (trampoline, gymnastics, football…), Russian outlets named at a sentence's end and in English, Latin place names and G7 / G20 set right, aid decisions not in section 3, civil industry not in 4.2, consequences of one event counted as a repeat; 27: Russian outlets named, English words and mixed letters set right, «ВСУ» told as Ukraine's army; 26: 26: no news about russia among the key news; section 3 repeating another section gives way; // 23: 4.2 reads the big newsrooms and takes the supply news first; 22: photos: only real photographs from the archive, text only when it covers the picture, Russian sites' own pictures kept; 21: a repeat is kept in the thinnest section; 5.2 judged by headline; 20: the editor scores 2 / 1 / 0, a short section takes the partly-on-topic ones; 19: a quiet day reaches back to 48 hours; 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
+const VERSION = 35; // (one big story capped per section and per issue — a rule of the making, not a new version) 35: 35: a section takes up to twelve candidates, a second look under ten; «1.» off every retelling; a speaker named first in a headline counted; 34: 34: the last 24 hours only, never the day before; a section short of news looks at a bigger pool of the day; what a section never takes is barred before the editor, so it holds no place; 32: 32: one news per talks across the issue, list numbers off the summaries; 31: 31: names as the source gives them (no first names or posts from memory), shelling and foreign politicians out of 4.1, explainers and other armies' purchases out of 4.2, partners' aid out of 2.1, one news per talks in a section; 30: 30: a summary cut off («…», «[лише заголовок]») or about someone else than the headline's speaker out, round-ups of the day out of the sections, peace talks out of 4.2; 29: 29: one speaker once in a section, a news with no details out, «російське ЗМІ / видання» named, consumer prices, rents and PR out of 4.1, trifles out of 3 and of the key news; 28: sport kept out (trampoline, gymnastics, football…), Russian outlets named at a sentence's end and in English, Latin place names and G7 / G20 set right, aid decisions not in section 3, civil industry not in 4.2, consequences of one event counted as a repeat; 27: Russian outlets named, English words and mixed letters set right, «ВСУ» told as Ukraine's army; 26: 26: no news about russia among the key news; section 3 repeating another section gives way; // 23: 4.2 reads the big newsrooms and takes the supply news first; 22: photos: only real photographs from the archive, text only when it covers the picture, Russian sites' own pictures kept; 21: a repeat is kept in the thinnest section; 5.2 judged by headline; 20: the editor scores 2 / 1 / 0, a short section takes the partly-on-topic ones; 19: a quiet day reaches back to 48 hours; 18: news of the last 24 hours only, no analysis; fewer false repeats; the key news picked after repeats; archive photos checked to fit the news, else the plain picture
 const ACCOUNT = env.CF_ACCOUNT_ID || env.R2_ACCOUNT_ID || '';
 const TOKEN = env.CF_AI_TOKEN || '';
 const MODEL = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -43,10 +43,23 @@ export const archiveDay = (doc) => {
   const d = kyivDay(Date.parse(doc.for));
   return `${d.year}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}`;
 };
+// The day's issue goes into the archive at 21:00 Kyiv (four hours after its 17:00) — as it stands then; the next
+// morning's figures added to the issue on show do not reach the archived copy. A remake for that day made later
+// (a retry after a failed 17:00) replaces it.
+export const ARCHIVE_AFTER = 4 * 3600 * 1000;
+async function archiveIfDue(doc, now = Date.now()) {
+  const day = doc?.v === VERSION ? archiveDay(doc) : '';
+  if (!day || now < Date.parse(doc.for) + ARCHIVE_AFTER) return '';
+  const had = await read(`day-${day}`);
+  if (had?.at === doc.at) return day; // this very issue is there already
+  const clean = { ...doc };
+  delete clean.leadsAt;
+  await put({ ...clean, archivedAt: new Date(now).toISOString() }, `day-${day}`);
+  return day;
+}
 const keep = async (doc, id = 'issue') => {
   await put(doc, id);
-  const day = id === 'issue' && doc.v === VERSION ? archiveDay(doc) : '';
-  if (day) await put({ ...doc, archivedAt: new Date().toISOString() }, `day-${day}`);
+  if (id === 'issue') await archiveIfDue(doc);
 };
 
 // Insert-if-absent, then read back: the request whose mark is in the row made the claim.
@@ -572,6 +585,25 @@ export async function makeIssue(now = Date.now()) {
       note.twice = gone.size;
     } catch (e) { note.twiceErr = String(e.message || e).slice(0, 120); }
   }
+  // One big story told many times over (the bridge, its damage, the memes, a general's view, Moscow's claim): at most
+  // once a section and three times in the issue — the key news first; Moscow's own account in 2.1 does not count.
+  if (any()) {
+    try {
+      const now0 = shown();
+      const groups = readStories(await ask(storiesPrompt(now0.map((r) => r.x)), 300), now0.length);
+      const gone = new Set();
+      for (const g of groups) {
+        const list = g.map((i) => ({ x: now0[i].x, k: now0[i].k, sec: SECTIONS[now0[i].k].id, key: Boolean(SECTIONS[now0[i].k].key), lead: Boolean(now0[i].x.lead) }));
+        for (const x of storyCap(list)) {
+          const k = now0.find((r) => r.x === x).k;
+          if (full[k].filter((y) => !gone.has(y)).length <= 4) continue; // never below four in a section
+          gone.add(x);
+        }
+      }
+      if (gone.size) full.forEach((l, k) => { full[k] = l.filter((x) => !gone.has(x)); });
+      if (gone.size) note.story = gone.size;
+    } catch (e) { note.storyErr = String(e.message || e).slice(0, 120); }
+  }
   // Rules no editor round catches every time: a news with nothing in it («the source gives no details») goes, and
   // one speaker speaks once in a section — four headlines from one speech are one news. A spare takes the place.
   const venues = new Set(); // one news per talks across the issue (the Russian side's view in 2.1 and 3 aside)
@@ -793,15 +825,16 @@ export async function newsGet(req) {
 
     // The archive (a calendar on /context): ?archive=list → the days there are; ?archive=2026-11-18 → that day's issue.
     const arch = q.get('archive');
+    if (arch === 'save') return json(200, { saved: (await archiveIfDue(cached)) || null }); // the 21:00 cron
     if (arch === 'list') {
-      // The issue on show goes in too, if it was kept before the archive existed.
-      const today = cached && cached.v === VERSION ? archiveDay(cached) : '';
+      // The issue on show goes in too once its 21:00 has passed (a cron that did not fire).
+      const today = await archiveIfDue(cached);
       const rows = await db('core_docs?kind=eq.news&id=like.day-*&select=id,at:doc->>at,for:doc->>for&order=id.desc&limit=2000').catch(() => []);
       // Kept before the rule above: a day holding an older issue is taken out of the archive.
       const wrong = (rows || []).filter((r) => !madeFor(r));
       for (const r of wrong) await db(`core_docs?kind=eq.news&id=eq.${encodeURIComponent(r.id)}`, { method: 'DELETE' }).catch(() => {});
       const days = (rows || []).filter((r) => madeFor(r)).map((r) => String(r.id).slice(4));
-      if (today && !days.includes(today)) { await put({ ...cached, archivedAt: new Date().toISOString() }, `day-${today}`); days.unshift(today); }
+      if (today && !days.includes(today)) days.unshift(today);
       return json(200, { days: [...new Set(days)].sort().reverse() });
     }
     if (arch) {

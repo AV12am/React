@@ -165,7 +165,7 @@ test('server: an issue of eight sections with summaries, kept until 17:00; only 
     // No news twice: the key ones leave their sections, and a feed shared by two sections feeds only one.
     const urls = j.sections.flatMap((s) => s.items.map((x) => x.url));
     assert.equal(new Set(urls).size, urls.length);
-    const editor = sortCalls + 3; // the batches sorted into sections + one look over all headlines + the key news + the repeats
+    const editor = sortCalls + 4; // the batches sorted into sections + one look over all headlines + the key news + the repeats + the stories
     assert.equal(ai, editor + 18); // + 8 sections in Ukrainian and in English + the two night reports
     // every picture but the two leads' own is looked at for words on it
     assert.equal(vision, j.sections.flatMap((s) => s.items).filter((x) => x.image && !x.lead).length);
@@ -769,4 +769,17 @@ test('archive: an older issue kept on show while the day\'s one failed is not ar
   // prepared an hour ahead of its 17:00, or remade after midnight for it: that day
   assert.equal(archiveDay({ at: '2026-11-17T14:05:00.000Z', for: '2026-11-17T15:00:00.000Z', sections: sec }), '2026-11-17');
   assert.equal(archiveDay({ at: '2026-11-18T00:10:00.000Z', for: '2026-11-17T15:00:00.000Z', sections: sec }), '2026-11-17');
+});
+
+test('one big story: at most once a section and three times in the issue; the key news first, Moscow’s view aside', async () => {
+  const { storyCap, readStories } = await import('../../src/lib/news.js');
+  const row = (k, sec, key = false) => ({ x: { sec, k }, k, sec, key, lead: false });
+  // the 17 November issue: the Crimean bridge in the key news twice, in 2.1, three times in 2.2, twice in 4.2, four times in 5.1
+  const list = [row(0, 'key', true), row(0, 'key', true), row(1, 'infospace'), row(2, 'media'), row(2, 'media'), row(2, 'media'),
+    row(5, 'defence'), row(5, 'defence'), row(6, 'abroad-war'), row(6, 'abroad-war'), row(6, 'abroad-war'), row(6, 'abroad-war')];
+  const drop = storyCap(list);
+  const kept = list.filter((r) => !drop.has(r.x));
+  assert.deepEqual(kept.map((r) => r.sec), ['key', 'infospace', 'media', 'defence']);
+  assert.deepEqual(readStories('{"stories": [[1, 4, 9], [2, 2, 7], [4, 5], [99]]}', 10), [[0, 3, 8], [1, 6]]);
+  assert.deepEqual(readStories('nonsense', 10), []);
 });

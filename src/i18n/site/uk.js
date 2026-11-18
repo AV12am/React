@@ -69,7 +69,7 @@ export const FROM_EN = {
   'Something went wrong. Please write to info@reactioncore.uk.': 'Щось пішло не так. Напишіть на info@reactioncore.uk.',
   'No connection. Please try again or write to info@reactioncore.uk.': 'Немає з’єднання. Спробуйте ще раз або напишіть на info@reactioncore.uk.',
   'The day, and what comes next.': 'День і що буде далі.', 'A daily digest of verified news.': 'Щоденний огляд перевірених новин.',
-  'Archive': 'Архів', "Every day's issue as a PDF. Pick a day in the calendar.": 'Випуск кожного дня — у PDF. Оберіть день у календарі.', 
+  'Archive': 'Архів', "Every day's issue: read it here or download it as a PDF.": 'Випуск кожного дня: переглядайте тут або завантажуйте в PDF.', 
   'Sections': 'Розділи', 'Digest': 'Огляд', 'Forecasts': 'Прогнози', 'Full issue': 'Повний випуск', 'Loading the latest issue…': 'Завантажую останній випуск…',
   'Building': 'Збираю', 'CONTEXT News — loading': 'CONTEXT News — завантаження', 'Forecast': 'Прогноз', 'Draft': 'Чернетка', 'published': 'опубліковано', 'open': 'відкритий', 'checked': 'перевірено',
 };

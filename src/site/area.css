@@ -408,7 +408,16 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 .tl .now line{stroke:var(--ink-2);stroke-dasharray:7 5}
 
 /* CONTEXT · archive calendar */
-.cal{max-width:560px}
+.arch{display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:40px;align-items:start}
+.arch .cal{position:sticky;top:150px}
+.arch-view{min-width:0;border-left:1px solid var(--line);padding-left:40px;min-height:420px}
+.av-h{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.av-t{font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:30px;margin:2px 0 0;color:var(--ink)}
+.av-dl{display:inline-flex;align-items:center;min-height:40px;padding:0 18px;border-radius:999px;border:1px solid var(--line-2);background:var(--ink);color:#0a0a0a;font:inherit;font-size:14px;font-weight:500;cursor:pointer}
+.av-dl:disabled{opacity:.5;cursor:default}
+.arch-view .sec{margin-bottom:8px}
+@media (max-width:900px){.arch{grid-template-columns:1fr;gap:28px}.arch .cal{position:static;max-width:520px}.arch-view{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:24px}}
+.cal-d--on.is-open{background:var(--ink);color:#0a0a0a;border-color:var(--ink)}
 .cal-h{display:flex;align-items:center;gap:12px;margin-bottom:14px}
 .cal-t{font-family:"Cormorant Garamond",Georgia,serif;font-size:24px;color:var(--ink);flex:1}
 .cal-nav{width:36px;height:36px;border-radius:999px;border:1px solid var(--line-2);background:none;color:var(--ink);font:inherit;cursor:pointer}
@@ -419,8 +428,5 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 .cal-d--pad{border:0}
 .cal-d--on{color:var(--ink);border-color:var(--line-2);background:rgba(255,255,255,.04);cursor:pointer;transition:background 200ms,border-color 200ms}
 .cal-d--on:hover{background:rgba(255,255,255,.1);border-color:var(--ink-2)}
-.cal-d--on.is-busy{opacity:.5}
-.cal-pdf{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:9px;letter-spacing:.08em;color:var(--ink-3)}
-.cal-msg{min-height:20px;margin-top:12px}
-@media (max-width:560px){.cal-g{gap:4px}.cal-d{font-size:13px;border-radius:8px}.cal-pdf{display:none}}
+@media (max-width:560px){.cal-g{gap:4px}.cal-d{font-size:13px;border-radius:8px}}
 .dg-links{display:flex;flex-wrap:wrap;gap:24px}
