@@ -199,8 +199,8 @@ export const STANDARDS = [
 ];
 
 export const WORDS = {
-  en: { sample: 'Sample', pdf: 'Download PDF', pdfEn: 'English', pdfUk: 'Українська', fromSample: 'Call-outs on the real document. The sample is built on public information only.', products: 'Products', example: 'Example', soon: 'A sample of this product is being prepared. For now — its structure: what each part of the document gives you.', who: 'Who it is for', question: 'The question', gets: 'You get', size: 'Length · turnaround', sources: 'Sources', limits: 'Limits', discuss: 'Discuss a task', other: 'Other services', standards: 'Every product', standardsLead: 'Built to one format: the answer on the first page, then the decision, the reasoning and the sources.' },
-  uk: { sample: 'Зразок', pdf: 'Завантажити PDF', pdfEn: 'English', pdfUk: 'Українська', fromSample: 'Виноски — на справжньому документі. Зразок зроблено лише з публічної інформації.', products: 'Продукти', example: 'Приклад', soon: 'Зразок цього продукту готується. Поки що — його структура: що дає кожна частина документа.', who: 'Для кого', question: 'Питання', gets: 'Ви отримуєте', size: 'Обсяг · строк', sources: 'Джерела', limits: 'Межі', discuss: 'Обговорити задачу', other: 'Інші послуги', standards: 'Кожен продукт', standardsLead: 'Один формат: відповідь на першій сторінці, далі рішення, обґрунтування й джерела.' },
+  en: { sample: 'Sample', fromSample: 'Call-outs on the real document. The sample is built on public information only.', products: 'Products', example: 'Example', soon: 'A sample of this product is being prepared. For now — its structure: what each part of the document gives you.', who: 'Who it is for', question: 'The question', gets: 'You get', size: 'Length · turnaround', sources: 'Sources', limits: 'Limits', discuss: 'Discuss a task', other: 'Other services', standards: 'Every product', standardsLead: 'Built to one format: the answer on the first page, then the decision, the reasoning and the sources.' },
+  uk: { sample: 'Зразок', fromSample: 'Виноски — на справжньому документі. Зразок зроблено лише з публічної інформації.', products: 'Продукти', example: 'Приклад', soon: 'Зразок цього продукту готується. Поки що — його структура: що дає кожна частина документа.', who: 'Для кого', question: 'Питання', gets: 'Ви отримуєте', size: 'Обсяг · строк', sources: 'Джерела', limits: 'Межі', discuss: 'Обговорити задачу', other: 'Інші послуги', standards: 'Кожен продукт', standardsLead: 'Один формат: відповідь на першій сторінці, далі рішення, обґрунтування й джерела.' },
 };
 
 // Ready samples: the real documents (their pages as pictures, the PDFs to download) with call-outs placed on them.
@@ -214,7 +214,6 @@ export const SAMPLES = {
     ends: { en: [0.801, 0.749], uk: [0.855, 0.781] },
     boxes: { en: { 5: [1, 0.045, 0.212, 0.955, 0.462], 6: [1, 0.504, 0.301, 0.955, 0.462] }, uk: { 5: [1, 0.045, 0.212, 0.955, 0.478], 6: [1, 0.504, 0.317, 0.955, 0.478] } },
     title: t('Did North Korea steal $6.3 billion from Binance?', 'Чи вкрала Північна Корея $6,3 млрд у Binance?'),
-    pdf: { en: '/products/Reaction_VN-001_Binance.pdf', uk: '/products/Reaction_VN-001_Binance_UA.pdf' },
     parts: [
       [t('The claim', 'Твердження'), t('The question, and the claim word for word as it spread — with its variants.', 'Питання й саме твердження дослівно, як воно поширювалося, — разом із варіантами.')],
       [t('Verdict and probability', 'Вердикт і ймовірність'), t('One of four verdicts on the core claim, the probability and the confidence — and why it is not 100%.', 'Один із чотирьох вердиктів щодо основного твердження, ймовірність і рівень довіри — і чому не 100%.')],
@@ -235,7 +234,6 @@ export const SAMPLES = {
     code: 'CS-001', dir: '/products/cs-001', pages: { en: 2, uk: 2 },
     ends: { en: [0.811, 0.695], uk: [0.904, 0.721] },
     title: t('Jaguar Land Rover Limited', 'Jaguar Land Rover Limited'),
-    pdf: { en: '/products/Reaction_CS-001_Jaguar_Land_Rover.pdf', uk: '/products/Reaction_CS-001_Jaguar_Land_Rover_UA.pdf' },
     parts: [
       [t('The company and the purpose', 'Компанія й мета перевірки'), t('Who is checked, by the register — and why: the deal the check is for.', 'Кого перевіряємо за реєстром — і навіщо: угода, для якої перевірка.')],
       [t('Bottom line', 'Головне'), t('Proceed, Proceed with conditions or Do not proceed — with the grid in one line.', '«Працювати», «Працювати з умовами» або «Не працювати» — і підсумок таблиці одним рядком.')],
@@ -254,7 +252,6 @@ export const SAMPLES = {
     code: 'CR-001', dir: '/products/cr-001', pages: { en: 4, uk: 4 },
     ends: { en: [0.79, 0.686, 0.667, 0.709], uk: [0.833, 0.768, 0.704, 0.748] },
     title: t('Poland 2027: strong economy, weak public finances, an election in the autumn', 'Польща 2027: сильна економіка, слабкі публічні фінанси, вибори восени'),
-    pdf: { en: '/products/Reaction_CR-001_Poland_2027.pdf', uk: '/products/Reaction_CR-001_Poland_2027_UA.pdf' },
     parts: [
       [t('The question and the client', 'Питання й клієнт'), t('The market, the horizon and who the brief is prepared for.', 'Ринок, горизонт і для кого підготовлено огляд.')],
       [t('Key figures', 'Ключові цифри'), t('Four numbers that set the scene, each with its source.', 'Чотири цифри, що задають картину, — кожна з джерелом.')],

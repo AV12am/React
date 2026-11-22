@@ -62,8 +62,8 @@ function draw(id) {
 </section>
 <section class="wrap svc-show" aria-label="${esc(W.products)}">
 <div class="svc-spec">
-<div class="svc-spec-h"><span class="meta">${sm ? `${esc(W.sample)} · ${esc(sm.code)}` : esc(W.example)}${p.level ? ` · ${esc(L(p.level))}` : ''}</span><h2>${esc(p.name)}</h2><p>${esc(L(p.question))}</p></div>
-${sm ? `<div class="svc-dl"><span class="meta">${esc(W.fromSample)}</span><span class="svc-dl-b">${Object.entries(sm.pdf).map(([k, u]) => `<a class="btn btn-line" href="${u}" download>${esc(W.pdf)} · ${esc(k === 'uk' ? W.pdfUk : W.pdfEn)}</a>`).join('')}</span></div>` : `<p class="svc-soon">${esc(W.soon)}</p>`}
+<div class="svc-spec-h">${sm ? (p.level ? `<span class="meta">${esc(L(p.level))}</span>` : '') : `<span class="meta">${esc(W.example)}${p.level ? ` · ${esc(L(p.level))}` : ''}</span>`}<h2>${esc(p.name)}</h2><p>${esc(L(p.question))}</p></div>
+${sm ? `<div class="svc-dl"><span class="meta">${esc(W.fromSample)}</span></div>` : `<p class="svc-soon">${esc(W.soon)}</p>`}
 <div class="spec${sm ? ' spec--real' : ''}">
 ${sm ? `<div class="pages">${samplePages(sm, p.id, parts)}</div>` : `<div class="sheet" aria-hidden="true"><div class="sh-top"><span class="sh-mark"></span><span class="sh-title">${esc(p.name)}</span></div>${parts.map(block).join('')}</div>`}
 ${sm
