@@ -9,6 +9,8 @@ import { SITE_OPEN } from '../lib/site-open.js';
 export const PROVIDERS = [
   { id: 'google', name: 'Google', ready: true },
   { id: 'linkedin_oidc', name: 'LinkedIn', ready: true },
+  // Microsoft (work Microsoft 365 and personal accounts): Supabase's «azure» provider; it gives the e-mail only when asked.
+  { id: 'azure', name: 'Microsoft', scopes: 'email', ready: false },
 ].filter((p) => p.ready);
 const KEY = 'reaction-site/session';
 const VERIFIER = 'reaction-site/pkce';
@@ -33,7 +35,8 @@ export async function signInWith(provider) {
   const challenge = b64u(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
   sessionStorage.setItem(VERIFIER, verifier);
   const back = `${location.origin}${location.pathname}`;
-  location.assign(`${SB_URL}/auth/v1/authorize?provider=${encodeURIComponent(provider)}&redirect_to=${encodeURIComponent(back)}&code_challenge=${challenge}&code_challenge_method=s256`);
+  const scopes = PROVIDERS.find((p) => p.id === provider)?.scopes;
+  location.assign(`${SB_URL}/auth/v1/authorize?provider=${encodeURIComponent(provider)}&redirect_to=${encodeURIComponent(back)}${scopes ? `&scopes=${encodeURIComponent(scopes)}` : ''}&code_challenge=${challenge}&code_challenge_method=s256`);
 }
 
 export function signOut() {
@@ -107,7 +110,7 @@ export async function guard(box, area, open) {
   let me = null;
   try { me = await whoAmI(); } catch { me = null; }
   if (!me) {
-    show(`<div class="gate"><span class="k">${area}</span><h2>Sign in to continue.</h2><p>Sign in with your ${PROVIDERS.map((p) => p.name).join(' or ')} account to open ${area}.</p>
+    show(`<div class="gate"><span class="k">${area}</span><h2>Sign in to continue.</h2><p>Sign in with your ${PROVIDERS.map((p) => p.name).join(', ').replace(/, ([^,]*)$/, ' or $1')} account to open ${area}.</p>
       <div class="gate-btns">${PROVIDERS.map((p) => `<button class="btn btn-line" type="button" data-p="${p.id}">Continue with ${p.name}</button>`).join('')}</div></div>`);
     box.querySelectorAll('[data-p]').forEach((b) => b.addEventListener('click', () => signInWith(b.dataset.p)));
     return;
