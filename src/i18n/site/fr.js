@@ -1,6 +1,13 @@
 // Français for the public site: its English texts and the English that SITUATION and CONTEXT are first put into (./en.js).
 /* eslint-disable */
 export const FROM_EN = {
+  "Sign in": "Se connecter",
+  "Continue with Google": "Continuer avec Google",
+  "Continue with LinkedIn": "Continuer avec LinkedIn",
+  "Sign out": "Se déconnecter",
+  "Account": "Compte",
+  "Sign in to continue.": "Connectez-vous pour continuer.",
+  "Access is closed.": "L’accès est fermé.",
   "SITUATION did not load.": "SITUATION ne s’est pas chargé.", 'Reload the page': "Recharger la page",
   "Loading SITUATION…": "Chargement de SITUATION…",
   "Download PDF": "Télécharger le PDF",

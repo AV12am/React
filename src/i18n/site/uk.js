@@ -1,6 +1,13 @@
 // Українська for the public site's English texts (the pages, header, footer). SITUATION and CONTEXT are Ukrainian already.
 /* eslint-disable */
 export const FROM_EN = {
+  "Sign in": "Увійти",
+  "Continue with Google": "Увійти через Google",
+  "Continue with LinkedIn": "Увійти через LinkedIn",
+  "Sign out": "Вийти",
+  "Account": "Обліковий запис",
+  "Sign in to continue.": "Увійдіть, щоб продовжити.",
+  "Access is closed.": "Доступ закрито.",
   "SITUATION did not load.": "SITUATION не завантажився.", 'Reload the page': "Оновити сторінку",
   "Loading SITUATION…": "Завантаження SITUATION…",
   "Download PDF": "Завантажити PDF",

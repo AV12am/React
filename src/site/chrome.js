@@ -1,6 +1,7 @@
 import { mountSwitcher } from './i18n.js';
 import { inject } from '@vercel/analytics';
 import { startGlows } from './glow.js';
+import { mountAccount } from './account.js';
 
 // A tab opened before the site was updated asks for script files that no longer exist (each update renames them):
 // the page reloads once and takes the new version, instead of hanging. Once per 30 s, so it never loops.
@@ -27,6 +28,7 @@ mob?.addEventListener('click', (e) => { if (e.target.closest('a')) { mob.hidden 
 
 mountSwitcher();
 startGlows();
+mountAccount();
 
 // One visit per page view (api/_visits.js): no cookies, no IP kept. «Do Not Track» is respected.
 try {

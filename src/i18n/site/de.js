@@ -2,6 +2,13 @@
 // and CONTEXT are first put into (./en.js). Names (REACTIONcore, CONTEXT, SITUATION, GDELT…) stay as they are.
 /* eslint-disable */
 export const FROM_EN = {
+  "Sign in": "Anmelden",
+  "Continue with Google": "Mit Google anmelden",
+  "Continue with LinkedIn": "Mit LinkedIn anmelden",
+  "Sign out": "Abmelden",
+  "Account": "Konto",
+  "Sign in to continue.": "Melden Sie sich an, um fortzufahren.",
+  "Access is closed.": "Der Zugang ist gesperrt.",
   "SITUATION did not load.": "SITUATION wurde nicht geladen.", 'Reload the page': "Seite neu laden",
   "Loading SITUATION…": "SITUATION wird geladen…",
   "Download PDF": "PDF herunterladen",

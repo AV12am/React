@@ -12,6 +12,7 @@ export const PROVIDERS = [
 const KEY = 'reaction-site/session';
 const VERIFIER = 'reaction-site/pkce';
 const on = Boolean(SB_URL && SB_KEY);
+export const enabled = on;
 
 const b64u = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { return null; } };
@@ -40,8 +41,14 @@ export function signOut() {
   if (s?.access_token) fetch(`${SB_URL}/auth/v1/logout`, { method: 'POST', headers: { apikey: SB_KEY, Authorization: `Bearer ${s.access_token}` } }).catch(() => {});
 }
 
-/** The session: finishing a return from the provider, refreshing an old one — or null. */
-export async function session() {
+/** The session: finishing a return from the provider, refreshing an old one — or null. Calls made at the same time
+ * (the account mark in the header and the page's own gate) share one answer: the provider's code is spent once. */
+let inflight = null;
+export function session() {
+  if (!inflight) { inflight = loadSession(); inflight.finally(() => { inflight = null; }).catch(() => {}); }
+  return inflight;
+}
+async function loadSession() {
   if (!on) return null;
   const url = new URL(location.href);
   const code = url.searchParams.get('code');
