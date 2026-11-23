@@ -1,6 +1,7 @@
 // Français for the public site: its English texts and the English that SITUATION and CONTEXT are first put into (./en.js).
 /* eslint-disable */
 export const FROM_EN = {
+  "REACTIONcore on LinkedIn": "REACTIONcore sur LinkedIn",
   "Sign in with your Google, LinkedIn or Microsoft account to open SITUATION.": "Connectez-vous avec Google, LinkedIn ou Microsoft pour ouvrir SITUATION.",
   "Continue with Microsoft": "Continuer avec Microsoft",
   "Sign in with your Google account to open SITUATION.": "Connectez-vous avec Google pour ouvrir SITUATION.",
