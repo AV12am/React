@@ -183,6 +183,8 @@ html{scroll-behavior:smooth}
 .cols,.prods{grid-template-columns:minmax(0,1fr)}
 .prods{padding:80px 0}
 }
+/* A phone: the wordmark gives way so the menu button always fits; the mark alone is a full-size tap target. */
+@media (max-width: 420px){.logo .wm{display:none}.logo{min-width:44px;min-height:44px}}
 @media (max-width: 560px){.wrap{padding:0 16px}.hero{height:480px}.statement h1{font-size:32px;line-height:36px}}
 .mob{border-top:1px solid var(--line);padding:8px 0 20px;animation:mob 420ms var(--ease-out)}
 .mob a{display:flex;align-items:center;min-height:48px;border-bottom:1px solid var(--line);color:var(--ink-2)}
@@ -219,7 +221,7 @@ html{scroll-behavior:smooth}
 .err:empty{display:none}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 .chk{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:20px;color:var(--ink-3);cursor:pointer}
-.chk input{margin-top:3px;width:16px;height:16px;accent-color:#ededed}
+.chk input{margin-top:1px;width:18px;height:18px;flex:none;accent-color:#ededed}
 .chk a{color:var(--ink-2);text-decoration:underline}
 .car-foot{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:6px}
 .car-msg{margin:0;font-size:14px;color:var(--ink-2)}

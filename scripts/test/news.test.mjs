@@ -783,3 +783,19 @@ test('one big story: at most once a section and three times in the issue; the ke
   assert.deepEqual(readStories('{"stories": [[1, 4, 9], [2, 2, 7], [4, 5], [99]]}', 10), [[0, 3, 8], [1, 6]]);
   assert.deepEqual(readStories('nonsense', 10), []);
 });
+
+test('news: the service actions are closed to strangers once CRON_SECRET is set', async () => {
+  Object.assign(process.env, { SUPABASE_URL: 'https://sb.test', SUPABASE_SERVICE_ROLE_KEY: 'svc', CRON_SECRET: 'cron-s' });
+  const real = globalThis.fetch;
+  globalThis.fetch = async () => new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
+  try {
+    const { newsGet } = await import(`../../api/_news.js?s=${Date.now()}`);
+    const go = (q, auth) => newsGet(new Request(`https://app.test/api/pulse?news=1${q}`, auth ? { headers: { authorization: auth } } : {}));
+    for (const q of ['&capture=1', '&prep=1', '&publish=1', '&status=1', '&imgcheck=x', '&archive=save']) {
+      assert.equal((await go(q)).status, 403, q);
+      assert.equal((await go(q, 'Bearer wrong')).status, 403, q);
+    }
+    assert.notEqual((await go('&status=1', 'Bearer cron-s')).status, 403);
+    assert.notEqual((await go('&archive=list')).status, 403); // the readers' archive stays open
+  } finally { globalThis.fetch = real; delete process.env.CRON_SECRET; }
+});

@@ -13,7 +13,7 @@
 // Each item: { title, url, domain, at, image, summary, ai } — summary is a 2–3 sentence Ukrainian retelling by
 // Cloudflare Workers AI from the item's own feed text (src/lib/news.js), or that text shortened when the model
 // is not available. Section 1 is the day's key news, chosen by the model from the headlines of all the others.
-import { json, db, env } from './_core.js';
+import { json, db, env, caller } from './_core.js';
 import Anthropic from '@anthropic-ai/sdk';
 import sample from '../src/news/sample.js';
 import { refreshAlerts } from './_alerts.js';
@@ -814,9 +814,23 @@ async function prepare(now) {
   return { prep: 'made', due: new Date(due).toISOString() };
 }
 
+// The service actions — the morning capture, making the next issue ahead, publishing it early, the 21:00 archive
+// save, the status and the picture check (the last two ask nothing of readers and the check costs a model call) — are
+// for the crons (Vercel sends «Bearer CRON_SECRET») and the workspace's administrator only, never an open address.
+// Without a CRON_SECRET set they stay open, as the crons would otherwise stop.
+const SERVICE_ONLY = ['capture', 'prep', 'publish', 'status', 'imgcheck'];
+export async function staff(req) {
+  const secret = env.CRON_SECRET;
+  if (!secret) return true;
+  if ((req.headers.get('authorization') || '') === `Bearer ${secret}`) return true;
+  const m = await caller(req).catch(() => null);
+  return m?.doc?.role === 'admin';
+}
+
 export async function newsGet(req) {
   try {
     const q = new URL(req.url).searchParams;
+    if ((SERVICE_ONLY.some((k) => q.has(k)) || q.get('archive') === 'save') && !(await staff(req))) return json(403, { error: 'service', message: 'Лише для розкладу й адміністратора' });
     if (q.has('capture')) {
       const [r] = await Promise.all([captureReports(), refreshAlerts(25000).catch(() => null)]); // the brief's alerts map too
       return json(200, { day: dayKey(Date.now()), ru: r.ru ? r.ru.title : null, ua: r.ua ? r.ua.title : null });
