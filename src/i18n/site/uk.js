@@ -1,6 +1,8 @@
 // Українська for the public site's English texts (the pages, header, footer). SITUATION and CONTEXT are Ukrainian already.
 /* eslint-disable */
 export const FROM_EN = {
+  "Sign in with your Google account to open SITUATION.": "Увійдіть через Google, щоб відкрити SITUATION.",
+  "Sign in with your Google or LinkedIn account to open SITUATION.": "Увійдіть через Google або LinkedIn, щоб відкрити SITUATION.",
   "Sign in": "Увійти",
   "Continue with Google": "Увійти через Google",
   "Continue with LinkedIn": "Увійти через LinkedIn",

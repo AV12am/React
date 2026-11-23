@@ -4,7 +4,6 @@ import './site.css';
 import './area.css';
 import './chrome.js';
 import { lang as siteLang } from './i18n.js';
-import { guard } from './auth.js';
 import { newsPdf, thumb, localize, issueFileName } from '../lib/newsExport.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -227,10 +226,8 @@ async function articles() {
     : '<p class="meta">No articles published yet.</p>';
 }
 
-// CONTEXT opens to approved users only (src/site/auth.js).
-guard(document.getElementById('gate'), 'CONTEXT', () => {
-  document.getElementById('area').hidden = false;
-  digest();
-  articles();
-  if (firstTab === 'archive') archive();
-});
+// CONTEXT is open to everyone (the digest, the articles, the archive); only SITUATION asks to sign in (src/site/auth.js).
+document.getElementById('area').hidden = false;
+digest();
+articles();
+if (firstTab === 'archive') archive();
