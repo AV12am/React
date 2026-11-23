@@ -8,7 +8,7 @@ import { SITE_OPEN } from '../lib/site-open.js';
 // LinkedIn's button appears once its app is set up in LinkedIn and in Supabase (Authentication → Providers): ready: true.
 export const PROVIDERS = [
   { id: 'google', name: 'Google', ready: true },
-  { id: 'linkedin_oidc', name: 'LinkedIn', ready: false },
+  { id: 'linkedin_oidc', name: 'LinkedIn', ready: true },
 ].filter((p) => p.ready);
 const KEY = 'reaction-site/session';
 const VERIFIER = 'reaction-site/pkce';
