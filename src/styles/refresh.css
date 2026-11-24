@@ -200,7 +200,10 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
   .vx-btn--sm { height: 30px; min-height: 30px; padding: 0 10px; font-size: 12.5px; }
   .vx-btn--icon { width: 36px; padding: 0; }
   .vx-btn--sm.vx-btn--icon { width: 30px; }
-  .segmented button { height: 28px; font-size: 12.5px; }
+  .segmented button { height: 28px; font-size: 12.5px; flex: none; }
+  /* a long switch (the journal's eight event types) scrolls sideways inside itself instead of widening the page */
+  .segmented { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .segmented::-webkit-scrollbar { display: none; }
   .vx-panel__head { padding: 14px 0 10px; }
   .vx-panel__body { padding: 4px 0 14px; }
   .vx-panel__title { font-size: 15px; line-height: 22px; }
