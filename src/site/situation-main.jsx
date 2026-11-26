@@ -24,6 +24,7 @@ import { DialogHost } from '../components/Dialog.jsx';
 import { setTokenSource } from '../lib/supabase.js';
 import { Situation } from '../views/Situation.jsx';
 import { guard, rest, session } from './auth.js';
+import { bringLocal } from './boards-move.js';
 
 setTokenSource(async () => (local ? '' : (await session())?.access_token || ''));
 
@@ -33,7 +34,8 @@ const LOCAL = 'reaction-site/boards';
 const localRows = () => { try { return JSON.parse(localStorage.getItem(LOCAL) || '{}'); } catch { return {}; } };
 const localKeep = (rows) => { try { localStorage.setItem(LOCAL, JSON.stringify(rows)); } catch { /* private mode */ } };
 let local = false;
-const load = async () => {
+const load = async (uid) => {
+  if (!local && uid) await bringLocal(uid, put, localRows(), localStorage).catch(() => 0);
   if (local) {
     const rows = Object.entries(localRows()).map(([id, doc]) => ({ id, doc }));
     return { boards: rows.filter((r) => r.id.startsWith('b:')).map((r) => r.doc), datasets: rows.filter((r) => r.id.startsWith('d:')).map((r) => r.doc) };
@@ -65,7 +67,7 @@ function App({ me }) {
   const [state, base] = useReducer(reduce, { boards: [], datasets: [], records: [], tasks: [], audit: [], users: [me], settings: { theme: 'matte', lang: 'uk' } });
   const [toasts, setToasts] = useState([]);
   const [focus, setFocus] = useState(() => new URLSearchParams(location.search).get('b') || null);
-  useEffect(() => { load().then((data) => base({ type: 'loaded', data })); }, []);
+  useEffect(() => { load(me.id).then((data) => base({ type: 'loaded', data })); }, [me.id]);
   // Every change is saved as it is made: the person's row in site_boards (row-level security keeps it theirs).
   const dispatch = useCallback((a) => {
     base(a);
