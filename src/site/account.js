@@ -15,7 +15,9 @@ export function whoOf(s) {
   const name = String(m.full_name || m.name || '').trim();
   const email = String(u.email || m.email || '').trim();
   const letter = (name || email).trim().charAt(0).toUpperCase();
-  return { name, email, letter };
+  const first = name.split(/\s+/)[0] || email.split('@')[0] || '';
+  const pic = String(m.avatar_url || m.picture || '');
+  return { name, email, letter, first, picture: /^https:\/\//.test(pic) ? pic : '' };
 }
 
 export async function mountAccount(open = SITE_OPEN, on = enabled) {
@@ -27,8 +29,14 @@ export async function mountAccount(open = SITE_OPEN, on = enabled) {
   const s = await session().catch(() => null);
   if (s) {
     const me = whoOf(s);
-    btn.innerHTML = `<span class="acct-in" aria-hidden="true">${esc(me.letter || '•')}</span>`;
+    // Signed in, as on most sites: the person's picture (or initial) and first name; the name gives way on a phone.
+    const face = me.picture ? `<img class="acct-pic" src="${esc(me.picture)}" alt="" referrerpolicy="no-referrer">` : esc(me.letter || '•');
+    btn.innerHTML = `<span class="acct-in" aria-hidden="true">${face}</span><span class="acct-name" data-no-i18n>${esc(me.first)}</span>`;
+    btn.classList.add('is-in');
     btn.setAttribute('aria-label', 'Account');
+    btn.title = me.name || me.email;
+    const img = btn.querySelector('.acct-pic');
+    if (img) img.addEventListener('error', () => { img.replaceWith(document.createTextNode(me.letter || '•')); });
     menu.innerHTML = `<div class="acct-who">${me.name ? `<b data-no-i18n>${esc(me.name)}</b>` : ''}<span data-no-i18n>${esc(me.email)}</span></div><button type="button" data-out>Sign out</button>`;
   } else {
     btn.innerHTML = PERSON;
