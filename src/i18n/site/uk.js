@@ -1,6 +1,15 @@
 // Українська for the public site's English texts (the pages, header, footer). SITUATION and CONTEXT are Ukrainian already.
 /* eslint-disable */
 export const FROM_EN = {
+  "Index": "Зміст",
+  "3 products": "3 продукти",
+  "2 products": "2 продукти",
+  "Request": "Запит",
+  "The question": "Питання",
+  "A country, a company, a market — and what you need to decide.": "Країна, компанія, ринок — і що вам треба вирішити.",
+  "Send by email": "Надіслати поштою",
+  "or open the Workspace": "або відкрити Workspace",
+  "Your mail app opens with this text, addressed to info@reactioncore.uk.": "Відкриється ваша пошта з цим текстом на адресу info@reactioncore.uk.",
   "Triangulation": "Тріангуляція",
   "The record": "Реєстр прогнозів",
   "The seal": "Печатка",

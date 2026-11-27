@@ -2,6 +2,15 @@
 // and CONTEXT are first put into (./en.js). Names (REACTIONcore, CONTEXT, SITUATION, GDELT…) stay as they are.
 /* eslint-disable */
 export const FROM_EN = {
+  "Index": "Inhalt",
+  "3 products": "3 Produkte",
+  "2 products": "2 Produkte",
+  "Request": "Anfrage",
+  "The question": "Die Frage",
+  "A country, a company, a market — and what you need to decide.": "Ein Land, ein Unternehmen, ein Markt — und was Sie entscheiden müssen.",
+  "Send by email": "Per E-Mail senden",
+  "or open the Workspace": "oder den Workspace öffnen",
+  "Your mail app opens with this text, addressed to info@reactioncore.uk.": "Ihr Mailprogramm öffnet sich mit diesem Text an info@reactioncore.uk.",
   "Triangulation": "Triangulation",
   "The record": "Das Register",
   "The seal": "Das Siegel",

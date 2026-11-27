@@ -1,6 +1,15 @@
 // Français for the public site: its English texts and the English that SITUATION and CONTEXT are first put into (./en.js).
 /* eslint-disable */
 export const FROM_EN = {
+  "Index": "Sommaire",
+  "3 products": "3 produits",
+  "2 products": "2 produits",
+  "Request": "Demande",
+  "The question": "La question",
+  "A country, a company, a market — and what you need to decide.": "Un pays, une entreprise, un marché — et ce que vous devez décider.",
+  "Send by email": "Envoyer par e-mail",
+  "or open the Workspace": "ou ouvrir le Workspace",
+  "Your mail app opens with this text, addressed to info@reactioncore.uk.": "Votre messagerie s’ouvre avec ce texte, adressé à info@reactioncore.uk.",
   "Triangulation": "Triangulation",
   "The record": "Le registre",
   "The seal": "Le sceau",

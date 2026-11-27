@@ -175,3 +175,12 @@ function start(canvas) {
 
 const cv = document.getElementById('mark3d');
 if (cv && cv.getContext) start(cv);
+
+// The request slip (#ask): the mail app opens with the question written in, addressed to info@ — nothing is sent from
+// here and nothing is kept. (The site's CSP lets a form go only to itself, so the mailto: link is made by hand.)
+document.getElementById('ask')?.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const q = (document.getElementById('ask-q')?.value || '').trim();
+  const subject = q ? `Request: ${q.replace(/\s+/g, ' ').slice(0, 70)}` : 'Request';
+  location.href = `mailto:info@reactioncore.uk?subject=${encodeURIComponent(subject)}${q ? `&body=${encodeURIComponent(q)}` : ''}`;
+});
