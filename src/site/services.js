@@ -42,7 +42,7 @@ function samplePages(sm, pid, parts) {
   const pl = sm.pages[lang] ? lang : 'en';
   const marks = sm.marks[pl];
   const boxes = sectionBoxes(sm, pl);
-  return Array.from({ length: sm.pages[pl] }, (_, i) => `<div class="pg" data-page="${i}"><img src="${sm.dir}/${pl}-${i + 1}.png" alt="${esc(`${sm.code} · ${i + 1}/${sm.pages[pl]}`)}" width="1190" height="1684"${i ? ' loading="lazy"' : ''}>
+  return Array.from({ length: sm.pages[pl] }, (_, i) => `<div class="pg" data-page="${i}"><picture><source type="image/avif" srcset="${sm.dir}/${pl}-${i + 1}.avif"><img src="${sm.dir}/${pl}-${i + 1}.webp" alt="${esc(`${sm.code} · ${i + 1}/${sm.pages[pl]}`)}" width="1190" height="1684"${i ? ' loading="lazy"' : ''}></picture>
 ${boxes.map((b, k) => (b[0] === i ? `<div class="sec" id="sec-${pid}-${k + 1}" data-section="${k + 1}" role="region" aria-label="${esc(`${k + 1}. ${L(parts[k][0])}`)}" style="left:${pct(b[1])};top:${pct(b[2])};width:${pct(b[3] - b[1])};height:${pct(b[4] - b[2])}"></div>` : '')).join('')}
 <span class="spot" aria-hidden="true"></span>
 ${marks.map((m, k) => (m[0] === i ? `<button type="button" class="pg-m sp-n" data-section="${k + 1}" aria-controls="sec-${pid}-${k + 1}" aria-label="${esc(`${k + 1}. ${L(parts[k][0])}`)}" style="left:${Math.max(0.5, m[1] * 100 - 4.6).toFixed(1)}%;top:${(m[2] * 100 - 0.4).toFixed(1)}%">${k + 1}</button>` : '')).join('')}</div>`).join('');

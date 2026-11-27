@@ -499,6 +499,7 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 .spec--real{grid-template-columns:minmax(0,1.7fr) minmax(0,1fr)}
 .pages{display:grid;gap:18px}
 .pg{position:relative;background:#fff;border-radius:4px;box-shadow:0 30px 80px rgba(0,0,0,.5);overflow:hidden}
+.pg picture{display:block}
 .pg img{display:block;width:100%;height:auto;aspect-ratio:1190/1684}
 .svc-p b em.has-sample{color:var(--ink);border:1px solid var(--line-2);border-radius:999px;padding:1px 6px}
 

@@ -6,14 +6,37 @@ import tailwindcss from '@tailwindcss/vite';
 
 // The public site's pages share one header and one footer: <!-- @header --> and <!-- @footer --> in a page are
 // replaced at build (and in dev) with src/site/partials/*.html.
+// The link preview of a site page (LinkedIn, Telegram, X, mail): its card public/og/<page>.png (scripts/og-images.cjs),
+// and its title and description for og: and twitter: unless the page sets them itself.
+const OG = new Set(['site', 'osint', 'risk', 'due-diligence', 'context', 'situation', 'time', 'about', 'careers', 'contact', 'methodology', 'privacy', 'terms', 'cookies', 'news']);
+const attr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+export function shareMeta(html, name) {
+  if (!OG.has(name)) return '';
+  const title = (html.match(/<meta property="og:title" content="([^"]*)"/) || html.match(/<title>([^<]*)<\/title>/) || [])[1] || 'Reaction Core';
+  const desc = (html.match(/<meta property="og:description" content="([^"]*)"/) || html.match(/<meta name="description" content="([^"]*)"/) || [])[1] || '';
+  const img = `https://reactioncore.uk/og/${name}.png`;
+  const tags = [
+    !/property="og:title"/.test(html) && `<meta property="og:title" content="${attr(title)}" />`,
+    !/property="og:description"/.test(html) && desc && `<meta property="og:description" content="${attr(desc)}" />`,
+    !/property="og:type"/.test(html) && '<meta property="og:type" content="website" />',
+    `<meta property="og:image" content="${img}" />`, '<meta property="og:image:width" content="1200" />', '<meta property="og:image:height" content="630" />',
+    `<meta property="og:image:alt" content="${attr(title)}" />`,
+    '<meta name="twitter:card" content="summary_large_image" />', `<meta name="twitter:title" content="${attr(title)}" />`,
+    desc && `<meta name="twitter:description" content="${attr(desc)}" />`, `<meta name="twitter:image" content="${img}" />`,
+  ].filter(Boolean);
+  return tags.map((t) => `    ${t}\n`).join('');
+}
+
 const sitePartials = () => ({
   name: 'site-partials',
   transformIndexHtml: { order: 'pre', handler(html, ctx) {
     // Each site page names its own address (canonical) for search engines: /site.html is «/», /about.html is «/about».
+    const name = String(ctx?.filename || ctx?.path || '').split('/').pop().replace(/\.html$/, '');
+    // CONTEXT News is its own app (no site header) but is shared as much as any page: its preview too.
+    if (name === 'news' && !html.includes('og:image')) html = html.replace('</head>', `${shareMeta(html, name)}  </head>`);
     if (html.includes('<!-- @header -->')) {
-      const name = String(ctx?.filename || ctx?.path || '').split('/').pop().replace(/\.html$/, '');
       const href = `https://reactioncore.uk/${name === 'site' ? '' : name}`;
-      html = html.replace('</head>', `    <link rel="canonical" href="${href}" />\n    <meta property="og:site_name" content="Reaction Core" />\n    <meta property="og:url" content="${href}" />\n  </head>`);
+      html = html.replace('</head>', `    <link rel="canonical" href="${href}" />\n    <meta property="og:site_name" content="Reaction Core" />\n    <meta property="og:url" content="${href}" />\n${shareMeta(html, name)}  </head>`);
     }
     // A site page also gets the language boot (public/lang-boot.js): no flash of English before the translation.
     // …and the icons search engines and phones read (a white SVG mark is invisible on a white results page).
