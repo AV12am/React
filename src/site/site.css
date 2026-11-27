@@ -8,7 +8,7 @@ body{margin:0;background:#0a0a0a}
 html{scroll-behavior:smooth}
 .mx{--bg:#0a0a0a;--panel:#0e0e0e;--line:#1f1f1f;--line-2:#2c2c2c;--ink:#ededed;--ink-2:#a3a3a3;--ink-3:#8c8c8c;--brass:#c05a69;--ease:cubic-bezier(0.22,0.61,0.36,1);--ease-out:cubic-bezier(0.16,1,0.3,1);background:var(--bg);color:var(--ink);font-family:"Inter Variable","Inter",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:15px;line-height:24px;-webkit-font-smoothing:antialiased;overflow-x:clip}
 .mx a{color:inherit;text-decoration:none}
-.mx a:focus-visible,.mx button:focus-visible{outline:2px solid var(--brass);outline-offset:3px;border-radius:4px}
+.mx a:focus-visible,.mx button:focus-visible{outline:2px solid rgba(237,237,237,0.55);outline-offset:3px;border-radius:4px}
 .wrap{max-width:1360px;margin:0 auto;padding:0 40px;box-sizing:border-box}
 
 /* ── header: items unroll a full-width panel from the top ── */
@@ -226,7 +226,7 @@ html{scroll-behavior:smooth}
 .opt small{display:block;margin-top:2px;font-size:13px;color:var(--ink-3)}
 .opt:hover span{border-color:#555}
 .opt input:checked+span{border-color:#ededed;background:#111}
-.opt input:focus-visible+span{outline:2px solid var(--brass);outline-offset:3px}
+.opt input:focus-visible+span{outline:2px solid rgba(237,237,237,0.55);outline-offset:3px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 .fld{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--ink-2)}
 .opt-l{color:var(--ink-3);font-size:12px;margin-left:4px}

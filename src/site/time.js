@@ -64,7 +64,7 @@ function timeline(list) {
   const field = (W, now) => {
     const from = now - 6 * DAY;
     const to = Math.max(now + 21 * DAY, ...list.map((f) => t(f.check))) + 8 * DAY;
-    const padL = 48; const padR = 16; const top = 26; const bot = 300; const H = bot + 34;
+    const padL = 48; const padR = 16; const top = 26; const bot = 300; const H = bot + 50; // room for «Today» a line lower
     const x = (ms) => padL + ((ms - from) / (to - from)) * (W - padL - padR);
     const y = (p) => bot - p * (bot - top);
     let g = '';
@@ -77,7 +77,7 @@ function timeline(list) {
       g += `<line class="grid" x1="${x(d).toFixed(1)}" x2="${x(d).toFixed(1)}" y1="${top}" y2="${bot}"/><text class="mo" x="${(x(d) + 6).toFixed(1)}" y="${bot + 18}">${esc(dt.toLocaleDateString(ui.loc, { month: 'long', timeZone: 'UTC' }).toUpperCase())}${dt.getUTCMonth() === 0 ? ` ${dt.getUTCFullYear()}` : ''}</text>`;
     }
     const nx = x(now);
-    g += `<g class="now"><line x1="${nx}" x2="${nx}" y1="${top}" y2="${bot}"/><circle class="halo" cx="${nx}" cy="${bot}" r="14" fill="url(#tl-glow)"/><circle cx="${nx}" cy="${bot}" r="3.5"/><text x="${nx + 9}" y="${bot + 18}">${esc(ui.today.toUpperCase())} · ${esc(short(now))}</text></g>`;
+    g += `<g class="now"><line x1="${nx}" x2="${nx}" y1="${top}" y2="${bot}"/><circle class="halo" cx="${nx}" cy="${bot}" r="14" fill="url(#tl-glow)"/><circle cx="${nx}" cy="${bot}" r="3.5"/><text data-nx="${nx}" x="${nx + 9}" y="${bot + 18}">${esc(ui.today.toUpperCase())} · ${esc(short(now))}</text></g>`;
     const rows = list.map((f, i) => {
       const px = x(t(f.check)); const py = y(f.p); const n = leftOf(f, now);
       return `<g class="row" style="--d:${i * 90}ms"><title>${esc(f.question)}</title><line class="drop" x1="${px}" x2="${px}" y1="${py + 8}" y2="${bot}"/><circle class="foot" cx="${px}" cy="${bot}" r="2.5"/><circle class="dot" cx="${px}" cy="${py}" r="8"/>
@@ -89,9 +89,24 @@ function timeline(list) {
   // Each label beside its point where it fits: to the right, else to the left, else above or below — never over
   // another label, a point or the edge.
   const place = (W) => {
+    // «Today · 27 Nov» and the month names share the line under the axis: today's label goes right of its line, else
+    // left of it; when a month's name is in the way on both sides, today's label goes a line lower — both stay legible.
+    const today = box.querySelector('.now text');
+    const months = [...box.querySelectorAll('svg > text.mo')].filter((m) => +m.getAttribute('y') > 300);
+    if (today) {
+      const nx = +today.dataset.nx;
+      const near = (a, b) => a.x < b.x + b.width + 10 && b.x < a.x + a.width + 10;
+      const clash = () => { const t = today.getBBox(); return months.some((m) => near(t, m.getBBox())); };
+      const set = (anchor, x, y) => { today.setAttribute('text-anchor', anchor); today.setAttribute('x', x); today.setAttribute('y', y); };
+      set('start', nx + 9, 318);
+      if (clash() || today.getBBox().x + today.getBBox().width > W - 4) {
+        set('end', nx - 9, 318);
+        if (clash() || today.getBBox().x < 50) set('start', nx + 9, 336);
+      }
+    }
     const taken = [...box.querySelectorAll('.dot')].map((c) => { const b = c.getBBox(); return { x: b.x - 4, y: b.y - 4, w: b.width + 8, h: b.height + 8 }; });
     const hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-    box.querySelectorAll('svg > .mo, .now text').forEach((el) => { const b = el.getBBox(); taken.push({ x: b.x, y: b.y, w: b.width, h: b.height }); });
+    box.querySelectorAll('svg > .mo, .now text').forEach((el) => { if (el.style.display === 'none') return; const b = el.getBBox(); taken.push({ x: b.x, y: b.y, w: b.width, h: b.height }); });
     // from the latest date back: the one nearest the right edge has the fewest places to go
     [...box.querySelectorAll('.tag')].reverse().forEach((tag) => {
       const px = +tag.dataset.x; const py = +tag.dataset.y; const texts = [...tag.querySelectorAll('text')];

@@ -4,6 +4,7 @@
 // open to everyone there is nothing to sign in to, so it stays hidden.
 import { PROVIDERS, session, signInWith, signOut, enabled } from './auth.js';
 import { SITE_OPEN } from '../lib/site-open.js';
+import { closeOthers } from './menus.js';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const PERSON = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="6.2" r="3.2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M2.8 16c.6-3.3 3.1-5.1 6.2-5.1s5.6 1.8 6.2 5.1" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
@@ -44,7 +45,7 @@ export async function mountAccount(open = SITE_OPEN, on = enabled) {
     menu.innerHTML = `<div class="acct-who"><span>Sign in</span></div>${PROVIDERS.map((p) => `<button type="button" data-p="${p.id}">Continue with ${p.name}</button>`).join('')}`;
   }
   const close = () => { box.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); };
-  btn.addEventListener('click', (e) => { e.stopPropagation(); const o = !box.classList.contains('open'); box.classList.toggle('open', o); btn.setAttribute('aria-expanded', String(o)); });
+  btn.addEventListener('click', (e) => { e.stopPropagation(); const o = !box.classList.contains('open'); if (o) closeOthers(box); box.classList.toggle('open', o); btn.setAttribute('aria-expanded', String(o)); });
   menu.addEventListener('click', (e) => {
     const p = e.target.closest('[data-p]');
     if (p) return signInWith(p.dataset.p);

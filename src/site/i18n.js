@@ -5,6 +5,7 @@
 // English also takes the workspace's dictionary (src/i18n/en.js). What people type and the data (company names,
 // news) are left as they are. The choice is remembered in this browser; switching reloads the page.
 import { createTranslator, startTranslator } from '../i18n/dom.js';
+import { closeOthers } from './menus.js';
 
 export const LANGS = [['en', 'English'], ['de', 'Deutsch'], ['fr', 'Français'], ['uk', 'Українська']];
 const KEY = 'reaction-site/lang';
@@ -55,7 +56,7 @@ export function mountSwitcher() {
     btn.firstChild.nodeValue = lang === 'uk' ? 'UA' : lang.toUpperCase(); // Ukrainian shows as UA
     list.innerHTML = LANGS.map(([id, name]) => `<li><button type="button" lang="${id}" data-l="${id}" aria-current="${id === lang}">${name}</button></li>`).join('');
     const close = () => { box.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); };
-    btn.addEventListener('click', (e) => { e.stopPropagation(); const o = !box.classList.contains('open'); box.classList.toggle('open', o); btn.setAttribute('aria-expanded', String(o)); });
+    btn.addEventListener('click', (e) => { e.stopPropagation(); const o = !box.classList.contains('open'); if (o) closeOthers(box); box.classList.toggle('open', o); btn.setAttribute('aria-expanded', String(o)); });
     list.addEventListener('click', (e) => { const b = e.target.closest('[data-l]'); if (b && b.dataset.l !== lang) setLang(b.dataset.l); else close(); });
     document.addEventListener('click', (e) => { if (!box.contains(e.target)) close(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
