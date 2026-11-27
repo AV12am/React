@@ -39,7 +39,6 @@ html{scroll-behavior:smooth}
 .pcard{border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;justify-content:space-between;min-height:132px;background:linear-gradient(180deg,#111 0%,#0c0c0c 100%);opacity:0;transform:translateY(-10px);transition:opacity 420ms var(--ease-out) 140ms,transform 520ms var(--ease-out) 140ms}
 .ni:hover .pcard,.ni:focus-within .pcard{opacity:1;transform:none}
 .pcard .tag{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;letter-spacing:0.12em;color:var(--ink-3)}
-.pcard .sweep{height:1px;background:linear-gradient(90deg,transparent,var(--ink-3),transparent);background-size:40% 100%;background-repeat:no-repeat;animation:sweep 2.8s var(--ease) infinite}
 .hdr .veil{display:block;position:fixed;inset:72px 0 0 0;z-index:auto;background:rgba(0,0,0,0.5);color:inherit;opacity:0;pointer-events:none;transition:opacity 400ms var(--ease)}
 .hdr:has(.ni:hover .panel) .veil,.hdr:has(.ni:focus-within .panel) .veil{opacity:1}
 .right{display:flex;align-items:center;gap:8px}
@@ -98,8 +97,6 @@ html{scroll-behavior:smooth}
 .prods{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding:120px 0}
 .prod{position:relative;display:block;border:1px solid var(--line);border-radius:14px;padding:32px;min-height:260px;box-sizing:border-box;overflow:hidden;background:#0c0c0c;transition:border-color 300ms var(--ease),transform 400ms var(--ease-out)}
 .prod:hover{border-color:var(--line-2);transform:translateY(-3px)}
-.prod::before{content:"";position:absolute;inset:-40% -10% auto -10%;height:70%;background:var(--glow,radial-gradient(closest-side,rgba(237,237,237,0.07) 0%,rgba(237,237,237,0.049) 15%,rgba(237,237,237,0.032) 30%,rgba(237,237,237,0.0188) 45%,rgba(237,237,237,0.0093) 60%,rgba(237,237,237,0.0033) 75%,rgba(237,237,237,0.0004) 90%,rgba(237,237,237,0) 100%)) center/100% 100% no-repeat;opacity:0;transition:opacity 500ms var(--ease)}
-.prod:hover::before{opacity:1}
 .prod .k{font-family:"Cinzel",Georgia,serif;font-size:15px;letter-spacing:0.24em;color:var(--ink)}
 .prod p{margin:16px 0 0;max-width:420px;color:var(--ink-2);font-size:15px;line-height:24px}
 .prod .go{position:absolute;left:32px;bottom:28px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--ink)}
@@ -114,30 +111,6 @@ html{scroll-behavior:smooth}
 /* the panels' small windows: live pictures, no words */
 .pcard{gap:10px}
 .pcard .cap{font-size:12px;color:var(--ink-3)}
-.viz{width:100%;height:92px;display:block;overflow:visible}
-.viz .axis{stroke:var(--line-2);stroke-width:1}
-.viz .trend{fill:none;stroke:#ededed;stroke-width:1.5;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset 1400ms var(--ease-out) 150ms}
-.viz .area{opacity:0;transition:opacity 900ms var(--ease) 700ms}
-.viz .tip{fill:#ededed;opacity:0;transition:opacity 300ms 1400ms}
-.ni:hover .viz .trend,.ni:focus-within .viz .trend{stroke-dashoffset:0}
-.ni:hover .viz .area,.ni:hover .viz .tip,.ni:focus-within .viz .area,.ni:focus-within .viz .tip{opacity:1}
-.viz .tip{animation:blink 2s var(--ease) infinite}
-.hz .guide{stroke:var(--line-2);stroke-width:1;opacity:0;transition:opacity 150ms}
-.hz .hdot{fill:var(--bg);stroke:#ededed;stroke-width:1.5;opacity:0;transition:opacity 150ms}
-.hz:hover .guide,.hz:hover .hdot{opacity:1}
-.gn line{stroke:#3a3a3a;stroke-width:1;stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset 900ms var(--ease-out),stroke 200ms}
-.gn .side{stroke:#262626}
-.ni:hover .gn line,.ni:focus-within .gn line{stroke-dashoffset:0}
-.gn circle{fill:#6b6b6b;transition:fill 200ms,r 200ms}
-.gn .hit{fill:transparent}
-.gn:hover line{stroke:#ededed}
-.gn:hover circle:not(.hit){fill:#ededed}
-.gn:nth-child(2) line{transition-delay:60ms}.gn:nth-child(3) line{transition-delay:120ms}.gn:nth-child(4) line{transition-delay:180ms}.gn:nth-child(5) line{transition-delay:240ms}.gn:nth-child(6) line{transition-delay:300ms}.gn:nth-child(7) line{transition-delay:360ms}.gn:nth-child(8) line{transition-delay:420ms}
-.viz .hub{fill:#ededed}
-.radar{position:relative;height:92px;border-radius:8px;overflow:hidden;background:repeating-radial-gradient(circle at 50% 50%,transparent 0 17px,#1f1f1f 17px 18px)}
-.sweepr{position:absolute;left:50%;top:50%;width:240px;height:240px;margin:-120px 0 0 -120px;background:conic-gradient(from 0deg,rgba(237,237,237,0.16),transparent 70deg);border-radius:50%;animation:spin 4s linear infinite}
-.radar:hover .sweepr{animation-duration:1.6s}
-.radar i{position:absolute;width:5px;height:5px;border-radius:50%;background:#ededed;opacity:0.15;animation:blip 4s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes blip{0%,8%{opacity:0.9}40%,100%{opacity:0.12}}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0.35}}
@@ -271,3 +244,50 @@ a.col{display:block;color:inherit}
 .col .go{display:inline-flex;gap:6px;margin-top:18px;font-size:14px;color:var(--ink-2);transition:color 200ms}
 a.col:hover .go{color:var(--ink)}
 @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+
+/* ── «plates»: engraved line drawings in one stroke weight, hatching for tone, the REACTION mark where it belongs
+   (generated once, set into the HTML: the menus' three and the product cards' three) ── */
+.plate{display:block;width:100%;height:auto;overflow:visible}
+.plate line,.plate path,.plate rect,.plate circle{vector-effect:non-scaling-stroke}
+.plate .pl-r{fill:none;stroke:#5a5a5a;stroke-width:1}
+.plate .pl-fine{stroke:#2e2e2e}
+.plate .pl-fine-l{stroke:#262626;stroke-width:1}
+.plate .pl-tick{stroke:#5a5a5a;stroke-width:1}
+.plate .pl-grid{stroke:#191919;stroke-width:1}
+.plate .pl-line{stroke:#333;stroke-width:1}
+.plate .pl-head{fill:#5a5a5a}
+.plate .ht{stroke:#454545;stroke-width:0.7}
+.plate .pl-s{fill:none;stroke:#8c8c8c;stroke-width:1}
+.plate .pl-m{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:6px;letter-spacing:0.14em;fill:#6b6b6b}
+.plate .pl-ring{font-size:5.6px;letter-spacing:0.22em;fill:#8c8c8c}
+.plate .pm{fill:#ededed}
+.plate .pl-d{fill:none;stroke:#8c8c8c;stroke-width:1;stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset 1100ms var(--ease-out),stroke 300ms var(--ease)}
+.plate .pl-out{transition-delay:500ms}
+.plate .pl-today{stroke:#ededed;stroke-width:1;stroke-dasharray:2 3}
+.plate .pl-bar{transform-box:fill-box;transform-origin:50% 100%;transform:scaleY(0);transition:transform 900ms var(--ease-out) calc(var(--k) * 90ms + 200ms)}
+.plate .pl-dia,.plate .pl-hit{fill:#ededed}
+.plate .pl-contour{fill:none;stroke:#3a3a3a;stroke-width:1}
+.plate .pl-stamp{fill:#0c0c0c}
+.plate .pl-pin{fill:#0a0a0a;stroke:#ededed;stroke-width:1}
+.plate .pl-turn{transform-box:view-box;transform-origin:110px 46px;transition:transform 2400ms var(--ease-out)}
+/* the menus: drawn in as the panel opens */
+.ni:hover .plate .pl-d,.ni:focus-within .plate .pl-d{stroke-dashoffset:0}
+.ni:hover .plate .pl-bar,.ni:focus-within .plate .pl-bar{transform:scaleY(1)}
+.ni:hover .plate .pl-turn,.ni:focus-within .plate .pl-turn{transform:rotate(-40deg)}
+.pcard .cap{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;letter-spacing:0.12em;color:var(--ink-3)}
+.pcard .cap i,.prod-pl figcaption i{font-family:"Cormorant Garamond",Georgia,serif;font-style:italic;font-size:15px;letter-spacing:0.02em;color:var(--ink-2)}
+/* the product cards: the words on the left, the plate on the right, drawn; the hover only brightens it */
+.prod{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,240px);gap:24px;align-items:center}
+.prod-txt{align-self:stretch;position:relative;min-height:196px}
+.prod .prod-txt p{max-width:300px}
+.prod .prod-txt .go{left:0;bottom:0}
+.prod-pl{margin:0;display:flex;flex-direction:column;gap:8px}
+.prod-pl figcaption{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;letter-spacing:0.12em;color:var(--ink-3);text-align:right}
+.prod-pl .pl-d{stroke-dashoffset:0}
+.prod-pl .pl-bar{transform:scaleY(1)}
+.prod-pl .plate{transition:filter 400ms var(--ease)}
+.prod:hover .prod-pl .plate{filter:brightness(1.45)}
+/* three cards in two columns: the third spans both, a wide plate beside its words */
+@media (min-width: 901px){.prods .prod:nth-child(3){grid-column:1/-1;grid-template-columns:minmax(0,1fr) minmax(0,320px)}}
+@media (max-width: 900px){.prod{grid-template-columns:minmax(0,1fr)}.prod-txt{min-height:150px}.prod-pl{max-width:300px}.prod-pl figcaption{text-align:left}}
+@media (prefers-reduced-motion: reduce){.plate .pl-d,.plate .pl-bar,.plate .pl-turn{transition:none}}

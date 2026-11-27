@@ -8,7 +8,6 @@
 // Where each glow sits, as the CSS pseudo-element is drawn: its box (from the element's size), the ellipse inside it
 // (centre and radii, in that box) and the light at the centre (0..1 of white).
 const GLOWS = [
-  { sel: '.prod', box: (w, h) => [w * 1.2, h * 0.7], shape: (bw, bh) => [bw / 2, bh / 2, bw / 2, bh / 2], peak: 0.07 },
   { sel: '.foot', box: (w) => [w * 0.8, 140], shape: (bw, bh) => [bw / 2, 0, bw * 0.6 * 0.7, bh * 0.7], peak: 0.06 },
 ];
 

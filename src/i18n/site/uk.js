@@ -1,6 +1,12 @@
 // Українська for the public site's English texts (the pages, header, footer). SITUATION and CONTEXT are Ukrainian already.
 /* eslint-disable */
 export const FROM_EN = {
+  "Triangulation": "Тріангуляція",
+  "The record": "Реєстр прогнозів",
+  "The seal": "Печатка",
+  "The broadsheet": "Шпальта",
+  "The survey": "Мапа місцевості",
+  "The ledger": "Журнал прогнозів",
   "REACTIONcore on LinkedIn": "REACTIONcore у LinkedIn",
   "Sign in with your Google, LinkedIn or Microsoft account to open SITUATION.": "Увійдіть через Google, LinkedIn або Microsoft, щоб відкрити SITUATION.",
   "Continue with Microsoft": "Увійти через Microsoft",
