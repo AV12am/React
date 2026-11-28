@@ -1,6 +1,11 @@
 // Français for the public site: its English texts and the English that SITUATION and CONTEXT are first put into (./en.js).
 /* eslint-disable */
 export const FROM_EN = {
+  "The products in full are available to corporate clients only.": "Les produits complets sont réservés aux clients entreprises.",
+  "Discuss access": "Discuter de l’accès",
+  "Access": "Accès",
+  "Sign-in opens CONTEXT and SITUATION in a basic scope. The products in full are available to corporate clients only.": "La connexion ouvre CONTEXT et SITUATION dans une version de base. Les produits complets sont réservés aux clients entreprises.",
+  "The products in full — for corporate clients only.": "Les produits complets — réservés aux clients entreprises.",
   "Each forecast carries a probability and a date to check it against. When the date comes, it is marked as held or missed — the record stays public.": "Chaque prévision porte une probabilité et une date de vérification. À l’échéance, elle est marquée tenue ou manquée — le bilan reste public.",
   "Open forecasts: what will happen, and when": "Prévisions ouvertes : ce qui arrivera, et quand",
   "Open to all": "Ouvert à tous",

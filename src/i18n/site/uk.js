@@ -1,6 +1,11 @@
 // Українська for the public site's English texts (the pages, header, footer). SITUATION and CONTEXT are Ukrainian already.
 /* eslint-disable */
 export const FROM_EN = {
+  "The products in full are available to corporate clients only.": "У повному обсязі продукти доступні лише корпоративним клієнтам.",
+  "Discuss access": "Обговорити доступ",
+  "Access": "Доступ",
+  "Sign-in opens CONTEXT and SITUATION in a basic scope. The products in full are available to corporate clients only.": "Після входу CONTEXT і SITUATION відкриваються в базовому обсязі. У повному обсязі продукти доступні лише корпоративним клієнтам.",
+  "The products in full — for corporate clients only.": "Продукти в повному обсязі — лише для корпоративних клієнтів.",
   "Each forecast carries a probability and a date to check it against. When the date comes, it is marked as held or missed — the record stays public.": "Кожен прогноз має ймовірність і дату перевірки. Коли дата настає, ми позначаємо, справдився він чи ні, — і цей запис лишається публічним.",
   "Open forecasts: what will happen, and when": "Відкриті прогнози: що станеться і коли",
   "Open to all": "Відкрито для всіх",

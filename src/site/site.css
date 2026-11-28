@@ -324,3 +324,12 @@ a.col:hover .go{color:var(--ink)}
 @media (max-width: 900px){.cta-grid{grid-template-columns:minmax(0,1fr);gap:32px}}
 /* a product card's access: «After sign-in» or «Open to all», a small stamp beside the name */
 .prod-tag{display:inline-block;margin-left:14px;padding:3px 8px;border:1px solid var(--line-2);border-radius:3px;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-3);vertical-align:3px}
+/* «the products in full are for corporate clients»: under the cards, in the menu, on the sign-in card */
+.prods-note{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin:-80px 0 0;padding:18px 0 120px;color:var(--ink-2);font-size:14px;line-height:22px}
+.prods-note-k{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--ink-3)}
+.prods-note .lnk{color:var(--ink);font-size:14px;white-space:nowrap}
+@media (max-width: 900px){.prods-note{margin-top:-56px;padding-bottom:80px;gap:8px 14px}}
+.pin .pcard{grid-column:-2/-1;grid-row:1/span 2}
+.pnote{grid-column:1/-2;grid-row:2;align-self:start;margin:4px 0 0 16px;font-size:12px;color:var(--ink-3)}
+.pnote a{color:var(--ink-2);text-decoration:underline}
+.pnote a:hover{color:var(--ink)}

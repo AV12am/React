@@ -529,3 +529,4 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 @media (prefers-reduced-motion: reduce){.notes--live li,.notes--live li .sp-n,.notes--live li b,.notes--live li span,.pg .sec,.pg .spot,.pg::after,.pg-m{transition:none !important}}
 /* the open Forecasts page: its heading sits close above the timeline */
 .fc-hero{padding-bottom:8px}
+.gate-corp{margin-top:28px !important;padding-top:18px;border-top:1px solid var(--line);font-size:14px !important;color:var(--ink-3) !important}

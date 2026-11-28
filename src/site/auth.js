@@ -111,7 +111,8 @@ export async function guard(box, area, open) {
   try { me = await whoAmI(); } catch { me = null; }
   if (!me) {
     show(`<div class="gate"><span class="k">${area}</span><h2>Sign in to continue.</h2><p>Sign in with your ${PROVIDERS.map((p) => p.name).join(', ').replace(/, ([^,]*)$/, ' or $1')} account to open ${area}.</p>
-      <div class="gate-btns">${PROVIDERS.map((p) => `<button class="btn btn-line" type="button" data-p="${p.id}">Continue with ${p.name}</button>`).join('')}</div></div>`);
+      <div class="gate-btns">${PROVIDERS.map((p) => `<button class="btn btn-line" type="button" data-p="${p.id}">Continue with ${p.name}</button>`).join('')}</div>
+      <p class="gate-corp"><span>The products in full are available to corporate clients only.</span> <a href="/contact">Discuss access</a></p></div>`);
     box.querySelectorAll('[data-p]').forEach((b) => b.addEventListener('click', () => signInWith(b.dataset.p)));
     return;
   }

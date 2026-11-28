@@ -2,6 +2,11 @@
 // and CONTEXT are first put into (./en.js). Names (REACTIONcore, CONTEXT, SITUATION, GDELT…) stay as they are.
 /* eslint-disable */
 export const FROM_EN = {
+  "The products in full are available to corporate clients only.": "Im vollen Umfang stehen die Produkte nur Firmenkunden zur Verfügung.",
+  "Discuss access": "Zugang besprechen",
+  "Access": "Zugang",
+  "Sign-in opens CONTEXT and SITUATION in a basic scope. The products in full are available to corporate clients only.": "Nach der Anmeldung öffnen sich CONTEXT und SITUATION im Grundumfang. Im vollen Umfang stehen die Produkte nur Firmenkunden zur Verfügung.",
+  "The products in full — for corporate clients only.": "Die Produkte im vollen Umfang — nur für Firmenkunden.",
   "Each forecast carries a probability and a date to check it against. When the date comes, it is marked as held or missed — the record stays public.": "Jede Prognose hat eine Wahrscheinlichkeit und ein Prüfdatum. Ist es erreicht, wird sie als eingetroffen oder verfehlt markiert — die Bilanz bleibt öffentlich.",
   "Open forecasts: what will happen, and when": "Offene Prognosen: was geschieht und wann",
   "Open to all": "Für alle offen",
