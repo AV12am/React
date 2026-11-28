@@ -1,0 +1,4 @@
+{
+  "_doc": "Open foresight studies for /foresight. Each study: id, title, lang (en|uk), published (YYYY-MM-DD), revised (optional), horizon (e.g. \"2030\"), question, drivers [{name, note, certain: true|false}], scenarios [{name, summary, signposts: [string]}], implications (optional). An empty list shows the 'in preparation' state.",
+  "studies": []
+}

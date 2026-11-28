@@ -25,6 +25,7 @@ const CARDS = {
   news: ['Product', 'CONTEXT News', 'The day’s issue in full: the key news, the aggressor’s information space, the world’s media.', 'broadsheet'],
   situation: ['Product', 'SITUATION', 'Dashboards on countries, companies and sectors — indicators, trends, a map, a link graph.', 'survey'],
   forecasts: ['Open to all', 'Forecasts', 'What will happen, and when — with a probability, a date to check it against and a public record.', 'ledger'],
+  foresight: ['Open to all', 'Foresight', 'What could happen over the years ahead — the drivers, several futures and the signposts to watch.', 'fan'],
   about: ['Company', 'About', 'An independent analytical project working with open sources.', 'seal'],
   careers: ['Company', 'Careers', 'A permanent role or expert collaboration.', 'seal'],
   contact: ['Company', 'Contact', 'Tell us what you need to find out.', 'seal'],
@@ -62,7 +63,7 @@ p{position:absolute;left:72px;bottom:118px;width:600px;font-size:24px;line-heigh
 .pm{fill:#ededed}.pl-d{fill:none;stroke:#a3a3a3;stroke-width:1.4}.pl-today{stroke:#ededed;stroke-width:1.3;stroke-dasharray:3 4}
 .pl-dia,.pl-hit{fill:#ededed}.pl-contour{fill:none;stroke:#444;stroke-width:1.3}.pl-pin{fill:#0a0a0a;stroke:#ededed;stroke-width:1.4}.pl-stamp{fill:#0a0a0a}
 `;
-const NAMES = { seal: ['III', 'The seal'], triangulation: ['I', 'Triangulation'], record: ['II', 'The record'], broadsheet: ['I', 'The broadsheet'], survey: ['II', 'The survey'], ledger: ['III', 'The ledger'] };
+const NAMES = { seal: ['III', 'The seal'], triangulation: ['I', 'Triangulation'], record: ['II', 'The record'], broadsheet: ['I', 'The broadsheet'], survey: ['II', 'The survey'], ledger: ['III', 'The ledger'], fan: ['IV', 'The fan'] };
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
 (async () => {

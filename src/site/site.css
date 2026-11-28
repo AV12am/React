@@ -124,7 +124,7 @@ html{scroll-behavior:smooth}
 .bigwm:hover span{color:#1b1b1b}
 .foot::after{content:"";position:absolute;left:10%;right:10%;top:clamp(52px,9.2vw,148px);height:140px;background:var(--glow,radial-gradient(ellipse 60% 100% at 50% 0%,rgba(237,237,237,0.06) 0%,rgba(237,237,237,0.042) 10.5%,rgba(237,237,237,0.0274) 21%,rgba(237,237,237,0.0161) 31.5%,rgba(237,237,237,0.008) 42%,rgba(237,237,237,0.0028) 52.5%,rgba(237,237,237,0.0004) 63%,rgba(237,237,237,0) 70%)) center/100% 100% no-repeat;pointer-events:none}
 .foot-in{padding-top:72px;padding-bottom:40px}
-.foot-grid{display:grid;grid-template-columns:minmax(0,1.6fr) repeat(4,minmax(0,1fr));gap:32px}
+.foot-grid{display:grid;grid-template-columns:minmax(0,1.5fr) repeat(5,minmax(0,1fr));gap:28px}
 .legal{color:var(--ink-3);font-size:13px;line-height:20px}
 .legal p{margin:0 0 10px}
 .legal b{color:var(--ink-2);font-weight:500}
@@ -333,3 +333,22 @@ a.col:hover .go{color:var(--ink)}
 .pnote{grid-column:1/-2;grid-row:2;align-self:start;margin:4px 0 0 16px;font-size:12px;color:var(--ink-3)}
 .pnote a{color:var(--ink-2);text-decoration:underline}
 .pnote a:hover{color:var(--ink)}
+/* ── forecasts and foresight: the main work, free and in full — first in the menu, first on the home page ── */
+.ni-free .nl{color:var(--ink);text-decoration:none}
+.ni-free .nl:hover{color:#fff}
+.nsep{align-self:center;width:1px;height:18px;margin:0 10px;background:var(--line-2)}
+.mx .open{padding-top:72px;padding-bottom:16px}
+.open-t{margin:28px 0 32px;max-width:760px;font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:44px;line-height:48px;letter-spacing:0.01em;color:var(--ink)}
+.open-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.open-card{border-color:var(--line-2);background:#0e0e0e}
+.open-card:hover{border-color:#4a4a4a}
+.prod-tag--free{color:var(--ink);border-color:#5a5a5a}
+.mob .mob-free{justify-content:space-between;color:var(--ink)}
+.mob .mob-free span{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-3)}
+@media (max-width: 1080px) and (min-width: 901px){.mx .nl{padding:0 10px}.nsep{margin:0 6px}}
+@media (max-width: 900px){.open-grid{grid-template-columns:minmax(0,1fr)}.open-t{font-size:34px;line-height:38px}.mx .open{padding-top:56px}}
+@media (max-width: 560px){.open-t{font-size:28px;line-height:32px}}
+.open-card .prod-tag{display:table;margin:12px 0 0}
+.open .idx-h{gap:16px}
+@media (max-width: 900px){.open-card .prod-txt{min-height:0;padding-bottom:40px}}
+@media (max-width: 560px){.open .idx-h span+span{display:none}}

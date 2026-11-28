@@ -191,6 +191,10 @@
       "destination": "/forecasts.html"
     },
     {
+      "source": "/foresight",
+      "destination": "/foresight.html"
+    },
+    {
       "source": "/contact",
       "destination": "/contact.html"
     },
