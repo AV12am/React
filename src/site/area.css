@@ -527,3 +527,5 @@ dialog.ed::backdrop{background:rgba(0,0,0,0.6)}
 /* a finger needs more than the 20 px mark: an invisible ring around it takes the tap */
 @media (pointer: coarse){.pg-m::before{content:"";position:absolute;inset:-10px}}
 @media (prefers-reduced-motion: reduce){.notes--live li,.notes--live li .sp-n,.notes--live li b,.notes--live li span,.pg .sec,.pg .spot,.pg::after,.pg-m{transition:none !important}}
+/* the open Forecasts page: its heading sits close above the timeline */
+.fc-hero{padding-bottom:8px}

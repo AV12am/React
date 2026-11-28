@@ -24,7 +24,7 @@ const CARDS = {
   context: ['Product', 'CONTEXT', 'The daily digest of key events and analytical articles, at 17:00 Kyiv.', 'broadsheet'],
   news: ['Product', 'CONTEXT News', 'The day’s issue in full: the key news, the aggressor’s information space, the world’s media.', 'broadsheet'],
   situation: ['Product', 'SITUATION', 'Dashboards on countries, companies and sectors — indicators, trends, a map, a link graph.', 'survey'],
-  time: ['Product', 'TIME', 'Forecasts with a probability, a date to check them against and a public record.', 'ledger'],
+  forecasts: ['Open to all', 'Forecasts', 'What will happen, and when — with a probability, a date to check it against and a public record.', 'ledger'],
   about: ['Company', 'About', 'An independent analytical project working with open sources.', 'seal'],
   careers: ['Company', 'Careers', 'A permanent role or expert collaboration.', 'seal'],
   contact: ['Company', 'Contact', 'Tell us what you need to find out.', 'seal'],

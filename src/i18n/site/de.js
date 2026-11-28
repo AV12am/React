@@ -2,6 +2,15 @@
 // and CONTEXT are first put into (./en.js). Names (REACTIONcore, CONTEXT, SITUATION, GDELT…) stay as they are.
 /* eslint-disable */
 export const FROM_EN = {
+  "Each forecast carries a probability and a date to check it against. When the date comes, it is marked as held or missed — the record stays public.": "Jede Prognose hat eine Wahrscheinlichkeit und ein Prüfdatum. Ist es erreicht, wird sie als eingetroffen oder verfehlt markiert — die Bilanz bleibt öffentlich.",
+  "Open forecasts: what will happen, and when": "Offene Prognosen: was geschieht und wann",
+  "Open to all": "Für alle offen",
+  "After sign-in": "Nach Anmeldung",
+  "FORECASTS": "PROGNOSEN",
+  "What will happen, and when — probabilities, scenarios and a date to check every forecast against.": "Was geschieht und wann — Wahrscheinlichkeiten, Szenarien und ein Datum, an dem jede Prognose geprüft wird.",
+  "Open the forecasts": "Prognosen öffnen",
+  "← Forecasts": "← Prognosen",
+  "Sign in with your Google or LinkedIn account to open CONTEXT.": "Melden Sie sich mit Google oder LinkedIn an, um CONTEXT zu öffnen.",
   "Index": "Inhalt",
   "3 products": "3 Produkte",
   "2 products": "2 Produkte",

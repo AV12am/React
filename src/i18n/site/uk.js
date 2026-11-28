@@ -1,6 +1,15 @@
 // Українська for the public site's English texts (the pages, header, footer). SITUATION and CONTEXT are Ukrainian already.
 /* eslint-disable */
 export const FROM_EN = {
+  "Each forecast carries a probability and a date to check it against. When the date comes, it is marked as held or missed — the record stays public.": "Кожен прогноз має ймовірність і дату перевірки. Коли дата настає, ми позначаємо, справдився він чи ні, — і цей запис лишається публічним.",
+  "Open forecasts: what will happen, and when": "Відкриті прогнози: що станеться і коли",
+  "Open to all": "Відкрито для всіх",
+  "After sign-in": "Після входу",
+  "FORECASTS": "ПРОГНОЗИ",
+  "What will happen, and when — probabilities, scenarios and a date to check every forecast against.": "Що станеться і коли — ймовірності, сценарії й дата, коли кожен прогноз перевірити.",
+  "Open the forecasts": "Відкрити прогнози",
+  "← Forecasts": "← Прогнози",
+  "Sign in with your Google or LinkedIn account to open CONTEXT.": "Увійдіть через Google або LinkedIn, щоб відкрити CONTEXT.",
   "Index": "Зміст",
   "3 products": "3 продукти",
   "2 products": "2 продукти",

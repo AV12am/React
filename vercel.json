@@ -187,8 +187,8 @@
       "destination": "/context.html"
     },
     {
-      "source": "/time",
-      "destination": "/time.html"
+      "source": "/forecasts",
+      "destination": "/forecasts.html"
     },
     {
       "source": "/contact",
@@ -250,6 +250,11 @@
       ],
       "destination": "https://workspace.reactioncore.uk/",
       "permanent": false
+    },
+    {
+      "source": "/time",
+      "destination": "/forecasts",
+      "permanent": true
     }
   ]
 }

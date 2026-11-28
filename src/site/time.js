@@ -1,4 +1,4 @@
-// TIME on the public site: forecasts — what will happen, and when (public/data/time.json, one entry per brief).
+// The open Forecasts page (/forecasts, once TIME): forecasts — what will happen, and when (public/data/time.json, one entry per brief).
 // The first page is interactive: a timeline from today to each check date; per forecast the probability, the
 // scenarios (pick one — its flows, paths and «what changes the estimate» light up), the scenario flows H → N,
 // signs to watch, the position, and the method (coefficients, research, sources, every path). The brief's own PDF
@@ -47,7 +47,7 @@ function timeline(list) {
   const box = document.getElementById('timeline');
   const short = (ms) => new Date(ms).toLocaleDateString(ui.loc, { day: 'numeric', month: 'short', timeZone: 'UTC' });
   const leftOf = (f, now) => Math.max(0, Math.ceil((t(f.check) - now) / DAY));
-  const href = (f) => `/time?f=${encodeURIComponent(f.id)}`;
+  const href = (f) => `/forecasts?f=${encodeURIComponent(f.id)}`;
 
   // The agenda (a phone): a list by check date.
   const agenda = (now) => `<div class="ag">${list.map((f) => {
@@ -234,7 +234,7 @@ function interact(el) {
 // One row per forecast: what, the probability, the check date, the PDF; the row opens the forecast.
 function row(f) {
   const l = lab(f);
-  return `<div class="tm-row" lang="${esc(f.lang || 'en')}" data-no-i18n><a class="tm-open" href="/time?f=${encodeURIComponent(f.id)}">
+  return `<div class="tm-row" lang="${esc(f.lang || 'en')}" data-no-i18n><a class="tm-open" href="/forecasts?f=${encodeURIComponent(f.id)}">
 <span class="tm-rk">${esc(f.topic)}</span>
 <span class="tm-rt">${esc(f.short || f.question)}</span>
 <span class="tm-rq">${esc(f.question)}</span></a>
@@ -253,8 +253,8 @@ function row(f) {
   if (one) {
     // The forecast's own page: its first page, edge to edge.
     document.body.classList.add('tm-single');
-    document.title = `${one.short || one.question} · TIME · Reaction Core`;
-    box.innerHTML = `<a class="tm-back" href="/time">← TIME</a>${card(one)}`;
+    document.title = `${one.short || one.question} · Forecasts · Reaction Core`;
+    box.innerHTML = `<a class="tm-back" href="/forecasts">← Forecasts</a>${card(one)}`;
     box.querySelectorAll('.tm').forEach(interact);
     return;
   }

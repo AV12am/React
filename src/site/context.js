@@ -1,9 +1,10 @@
 // CONTEXT on the public site — what is happening, and why: the latest daily issue (the same source as /news) and the
-// analytical articles (public/data/articles.json). Forecasts live in TIME (/time). No framework, like the rest of the site.
+// analytical articles (public/data/articles.json). Forecasts are on their own open page (/forecasts). No framework, like the rest of the site.
 import './site.css';
 import './area.css';
 import './chrome.js';
 import { lang as siteLang } from './i18n.js';
+import { guard } from './auth.js';
 import { newsPdf, thumb, localize, issueFileName } from '../lib/newsExport.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -226,8 +227,11 @@ async function articles() {
     : '<p class="meta">No articles published yet.</p>';
 }
 
-// CONTEXT is open to everyone (the digest, the articles, the archive); only SITUATION asks to sign in (src/site/auth.js).
-document.getElementById('area').hidden = false;
-digest();
-articles();
-if (firstTab === 'archive') archive();
+// CONTEXT (the digest, the articles, the archive) opens after sign-in, like SITUATION (src/site/auth.js); the day's
+// full issue on /news stays open to everyone.
+guard(document.getElementById('gate'), 'CONTEXT', () => {
+  document.getElementById('area').hidden = false;
+  digest();
+  articles();
+  if (firstTab === 'archive') archive();
+});

@@ -1,6 +1,15 @@
 // Français for the public site: its English texts and the English that SITUATION and CONTEXT are first put into (./en.js).
 /* eslint-disable */
 export const FROM_EN = {
+  "Each forecast carries a probability and a date to check it against. When the date comes, it is marked as held or missed — the record stays public.": "Chaque prévision porte une probabilité et une date de vérification. À l’échéance, elle est marquée tenue ou manquée — le bilan reste public.",
+  "Open forecasts: what will happen, and when": "Prévisions ouvertes : ce qui arrivera, et quand",
+  "Open to all": "Ouvert à tous",
+  "After sign-in": "Après connexion",
+  "FORECASTS": "PRÉVISIONS",
+  "What will happen, and when — probabilities, scenarios and a date to check every forecast against.": "Ce qui arrivera, et quand — probabilités, scénarios et une date pour vérifier chaque prévision.",
+  "Open the forecasts": "Ouvrir les prévisions",
+  "← Forecasts": "← Prévisions",
+  "Sign in with your Google or LinkedIn account to open CONTEXT.": "Connectez-vous avec Google ou LinkedIn pour ouvrir CONTEXT.",
   "Index": "Sommaire",
   "3 products": "3 produits",
   "2 products": "2 produits",
