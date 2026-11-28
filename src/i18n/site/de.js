@@ -2,6 +2,9 @@
 // and CONTEXT are first put into (./en.js). Names (REACTIONcore, CONTEXT, SITUATION, GDELT…) stay as they are.
 /* eslint-disable */
 export const FROM_EN = {
+  "What will happen — and what could.": "Was geschehen wird — und was geschehen könnte.",
+  "Forecasting": "Prognostik",
+  "They will be published here, each with its drivers, scenarios and signposts.": "Sie erscheinen hier, jede mit ihren Treibern, Szenarien und Signalen.",
   "Foresight": "Foresight",
   "FORESIGHT": "FORESIGHT",
   "Free": "Kostenlos",

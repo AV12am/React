@@ -15,11 +15,11 @@ const DAY = 86400000;
 const t = (d) => Date.parse(`${d}T12:00:00Z`);
 
 const L = {
-  uk: { loc: 'uk-UA', today: 'Сьогодні', check: 'Перевірка', conf: 'рівень довіри', conclusion: 'Висновок', scen: 'Сценарії · рівень 1', p: 'P', chance: 'Шанс події', signs: 'Ознаки перегляду',
+  uk: { loc: 'uk-UA', today: 'Сьогодні', check: 'Перевірка', conf: 'рівень довіри', conclusion: 'Висновок', update: 'Оновлення', scen: 'Сценарії · рівень 1', p: 'P', chance: 'Шанс події', signs: 'Ознаки перегляду',
     flows: 'Сценарні течії', variants: 'варіанти', paths: 'шляхи', position: 'Позиція аналізу', method: 'Метод: коефіцієнти, дослідження, джерела', coef: 'Коефіцієнтна частка', level: 'Рів.', variable: 'Змінна',
     values: 'Коефіцієнти', why: 'Чому такі · дослідження', research: 'Дослідження', sources: 'Джерела', all: 'Усі варіанти', changes: 'Що змінить оцінку', pdf: 'Завантажити PDF', status: { open: 'відкритий', happened: 'сталося', not: 'не сталося' },
     left: (n) => `${n} дн. до перевірки`, done: 'перевірено', pick: 'Оберіть сценарій — підсвітяться його течії та шляхи.', excl: 'викл.', reset: 'Усі сценарії' },
-  en: { loc: 'en-GB', today: 'Today', check: 'Check', conf: 'confidence', conclusion: 'Conclusion', scen: 'Scenarios · level 1', p: 'P', chance: 'Chance of the event', signs: 'Revision signals',
+  en: { loc: 'en-GB', today: 'Today', check: 'Check', conf: 'confidence', conclusion: 'Conclusion', update: 'Update', scen: 'Scenarios · level 1', p: 'P', chance: 'Chance of the event', signs: 'Revision signals',
     flows: 'Scenario flows', variants: 'variants', paths: 'paths', position: 'Analytical position', method: 'Method: coefficients, research, sources', coef: 'Coefficients', level: 'Lvl', variable: 'Variable',
     values: 'Coefficients', why: 'Why · research', research: 'Research', sources: 'Sources', all: 'All variants', changes: 'What changes the estimate', pdf: 'Download PDF', status: { open: 'open', happened: 'happened', not: 'did not happen' },
     left: (n) => `${n} days to the check`, done: 'checked', pick: 'Pick a scenario — its flows and paths light up.', excl: 'excl.', reset: 'All scenarios' },
@@ -199,6 +199,7 @@ ${f.resolves ? `<p class="tm-res">${esc(f.resolves)}</p>` : ''}
 <div class="tm-ends"><span>${l.today} · ${dmy(new Date(now).toISOString().slice(0, 10), f)}</span><span>${left > 0 ? l.left(left) : l.done}</span><span>${l.check} · ${dmy(f.check, f)}</span></div></div>
 <div class="tm-head"><div class="tm-g">${gaugeSvg(f.p, 132)}<div class="tm-pct">${pc(f.p, f)}</div></div>
 <div><span class="tm-k">${l.conclusion}</span><p class="tm-con">${esc(f.conclusion)}</p></div></div>
+${(f.updates || []).map((u) => `<p class="tm-upd"><span class="tm-k">${l.update} · ${dmy(u.date, f)}</span>${esc(u.text)}</p>`).join('')}
 <div class="tm-two">
 <div class="tm-box"><span class="tm-k">${esc(f.scenTitle || l.scen)}</span>
 <table class="tm-scn"><thead><tr><th></th><th>${l.p}</th><th>${esc(f.chanceLabel || l.chance)}</th></tr></thead><tbody>

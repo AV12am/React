@@ -572,3 +572,5 @@ a.fs-c:hover .fs-go{color:var(--ink)}
 .fs-sc ul{margin:0;padding-left:18px;color:var(--ink-2);font-size:13px;line-height:20px}
 @media (max-width: 900px){.fs-cmp,.fs-scs,.fs-drv{grid-template-columns:minmax(0,1fr)}.fs-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.fs-steps li:nth-child(3){padding-left:0;border-left:0}}
 @media (max-width: 560px){.fs-steps{grid-template-columns:minmax(0,1fr)}.fs-steps li+li{padding-left:0;border-left:0;border-top:1px solid var(--line)}.fs-study,.fs-empty{padding:22px}}
+.tm-upd{margin:16px 0 0;padding:14px 16px;border-left:2px solid var(--ink-3);background:#0f0f0f;color:var(--ink-2);font-size:14px;line-height:22px}
+.tm-upd .tm-k{display:block;margin-bottom:4px}

@@ -1,6 +1,9 @@
 // Українська for the public site's English texts (the pages, header, footer). SITUATION and CONTEXT are Ukrainian already.
 /* eslint-disable */
 export const FROM_EN = {
+  "What will happen — and what could.": "Що станеться — і що може статися.",
+  "Forecasting": "Прогнозування",
+  "They will be published here, each with its drivers, scenarios and signposts.": "Вони з’являться тут — кожне з рушійними силами, сценаріями та ознаками.",
   "Foresight": "Форсайт",
   "FORESIGHT": "ФОРСАЙТ",
   "Free": "Безкоштовно",

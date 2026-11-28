@@ -1,6 +1,9 @@
 // Français for the public site: its English texts and the English that SITUATION and CONTEXT are first put into (./en.js).
 /* eslint-disable */
 export const FROM_EN = {
+  "What will happen — and what could.": "Ce qui arrivera — et ce qui pourrait arriver.",
+  "Forecasting": "Prospective et prévision",
+  "They will be published here, each with its drivers, scenarios and signposts.": "Elles seront publiées ici, chacune avec ses moteurs, scénarios et signaux.",
   "Foresight": "Prospective",
   "FORESIGHT": "PROSPECTIVE",
   "Free": "Gratuit",

@@ -23,7 +23,11 @@ export function whoOf(s) {
 
 export async function mountAccount(open = SITE_OPEN, on = enabled) {
   const box = document.querySelector('[data-acct]');
-  if (!box || open || !on) return;
+  // «Sign in» offers beside the products (the menu note, the home page): they open this menu; hidden when there is
+  // nothing to sign in to or the person is already in.
+  const offers = [...document.querySelectorAll('[data-signin]')];
+  const hideOffers = () => offers.forEach((o) => { o.hidden = true; });
+  if (!box || open || !on) return hideOffers();
   const btn = box.querySelector('.acct-btn');
   const menu = box.querySelector('.acct-menu');
   box.hidden = false;
@@ -38,6 +42,7 @@ export async function mountAccount(open = SITE_OPEN, on = enabled) {
     btn.title = me.name || me.email;
     const img = btn.querySelector('.acct-pic');
     if (img) img.addEventListener('error', () => { img.replaceWith(document.createTextNode(me.letter || '•')); });
+    hideOffers();
     menu.innerHTML = `<div class="acct-who">${me.name ? `<b data-no-i18n>${esc(me.name)}</b>` : ''}<span data-no-i18n>${esc(me.email)}</span></div><button type="button" data-out>Sign out</button>`;
   } else {
     btn.innerHTML = PERSON;
@@ -51,6 +56,7 @@ export async function mountAccount(open = SITE_OPEN, on = enabled) {
     if (p) return signInWith(p.dataset.p);
     if (e.target.closest('[data-out]')) { signOut(); location.reload(); }
   });
+  offers.forEach((o) => o.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); closeOthers(box); box.classList.add('open'); btn.setAttribute('aria-expanded', 'true'); btn.focus({ preventScroll: true }); }));
   document.addEventListener('click', (e) => { if (!box.contains(e.target)) close(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
 }

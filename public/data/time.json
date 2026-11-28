@@ -1407,6 +1407,10 @@
         {
           "label": "Друге читання за планом · 23–26.11",
           "date": "2026-11-24"
+        },
+        {
+          "label": "Доопрацьований проєкт у Раді · 27.11",
+          "date": "2026-11-27"
         }
       ],
       "p": 0.6329,
@@ -1554,8 +1558,12 @@
         "resolves": "Resolves YES if the Verkhovna Rada votes for bill No. 16000 as a whole no later than 1 December, the deadline set by the Budget Code.",
         "milestones": [
           {
-            "label": "Second reading as planned · 23–26 Nov",
+            "label": "Second reading planned · 23–26.11",
             "date": "2026-11-24"
+          },
+          {
+            "label": "Revised draft in parliament · 27.11",
+            "date": "2026-11-27"
           }
         ],
         "conclusion": "Parliament is likely to adopt the 2027 budget on time — 63.29%, but the margin is thin. The first reading took place on 28 October, eight days after the deadline, and gathered 239 votes against the 226 required. The second reading and the final vote are planned for 23–26 November, which leaves less than a week of reserve before the legal limit of 1 December. Last year, on a similar schedule, the budget was adopted on 3 December. This year’s risks are higher: a record 5,236 amendments, part of revenue resting on tax changes that are not yet law, and $32.6 billion of external financing without a confirmed source. If the government returns the revised draft after 20 November, the chance falls to 43.40%.",
@@ -1616,8 +1624,20 @@
         },
         "position": "The analysis proceeds from N1 — “adopted on schedule, by 26 November” (38.22%), but the lead is minimal: N3 — adoption after 1 December stands at 36.71%. Two things decide between them: whether the government returns the revised draft by 20 November, and whether a majority forms without fresh bargaining over taxes. N2 (25.07%) — a vote in the last days before the deadline — is the intermediate outcome: the schedule slips, but the law is observed. The event counts as having occurred in nodes N1 and N2 together.",
         "limits": "Limitations: it is not known whether the government has already submitted the revised draft — the bill card does not show it. The adoption dates of the 2023–2025 budgets are cited without checking the law cards. Vote counts and amounts come from secondary accounts. Air-raid alerts and strikes can disrupt plenary sittings.",
-        "next": "Next review: 20 November, on the Budget Committee’s decision about the second reading."
-      }
+        "next": "Next review: 20 November, on the Budget Committee’s decision about the second reading.",
+        "updates": [
+          {
+            "date": "2026-11-28",
+            "text": "The second reading planned for 23–26 November did not take place. The government approved the revised draft and sent it to parliament only on 27 November — after the 20 November threshold, so branch G2 came true. The final vote is provisionally set for 9 December, after the 1 December deadline. Unless that date changes, the event will not happen. The published probability (63.29%) stays as it is: the forecast will be scored against it on 1 December."
+          }
+        ]
+      },
+      "updates": [
+        {
+          "date": "2026-11-28",
+          "text": "Друге читання 23–26 листопада не відбулося. Уряд схвалив доопрацьований проєкт і подав його до Ради лише 27 листопада — пізніше за поріг 20 листопада, тобто справдилася гілка G2. Голосування в цілому попередньо заплановане на 9 грудня, вже після строку 1 грудня. Якщо дату не змінять, подія не станеться. Опубліковану ймовірність (63,29%) не змінюємо: прогноз буде оцінено за нею 1 грудня."
+        }
+      ]
     },
     {
       "id": "brief-06",

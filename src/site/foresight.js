@@ -31,7 +31,7 @@ ${s.implications ? `<span class="fs-sk">${l.impl}</span><p>${esc(s.implications)
 }
 
 /** The honest state before the first study: what will be here, and where to go meanwhile. */
-const EMPTY = `<div class="fs-empty"><b>The first studies are in preparation.</b><p>They will be published here in full and free of charge, each with its drivers, scenarios and signposts.</p><div class="fs-empty-a"><a class="lnk" href="/forecasts">Meanwhile — the forecasts <span class="ar">→</span></a><a class="lnk" href="/contact">Suggest a topic <span class="ar">→</span></a></div></div>`;
+const EMPTY = `<div class="fs-empty"><b>The first studies are in preparation.</b><p>They will be published here, each with its drivers, scenarios and signposts.</p><div class="fs-empty-a"><a class="lnk" href="/forecasts">Meanwhile — the forecasts <span class="ar">→</span></a><a class="lnk" href="/contact">Suggest a topic <span class="ar">→</span></a></div></div>`;
 
 async function main() {
   const box = document.getElementById('fs-list');
